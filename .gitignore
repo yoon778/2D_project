@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+.env.*
+!.env.example
+*.log
+tmp/
+output/
+.presentation-build/
+.DS_Store
+Thumbs.db
+
+# Course-reference PDFs remain local unless their upload is requested.
+*.pdf
