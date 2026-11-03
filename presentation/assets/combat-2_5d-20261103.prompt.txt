@@ -1,0 +1,21 @@
+Generation date: 2026-11-03 (Asia/Seoul)
+Tool: built-in image_gen.imagegen, one call, transparent_background=false
+Purpose: PPT concept illustration only; not a game screenshot or a runtime sprite
+Reference: user-provided codex-clipboard-8fdac230-ec5b-46cf-acc6-b66569c489d6.png, camera/style reference
+Source image: exec-d5cfc1f5-3967-4379-b018-31b98ff45c15.png, copied without pixel edits
+Review: two hands correctly assigned to parcel/bat, chest lamp and four grounded feet visible; camera lower than cover reference and floor fan boundary soft, so not a precise camera/mask implementation specification
+
+Exact submitted prompt:
+
+Use case: stylized-concept
+Asset type: ONE 4:3 landscape PPT concept illustration for the 2D game "Shadow Delivery"; an illustration only, not a running game screenshot or a sprite sheet. No lettering anywhere.
+Input image 1: CAMERA, PALETTE AND ATMOSPHERE REFERENCE ONLY. Preserve its fixed elevated oblique three-quarter view, its standing human proportions, visible backs/sides/fronts of the bodies, visible legs and soles contacting the pavement. Create a NEW combat composition in that same view and art style.
+Camera: fixed high oblique 2.5D game camera looking down a dark street, like the reference, but low enough that the vertical fronts/sides of bodies and BOTH full legs are clear. The delivery courier is seen from back-left and the zombie from front-right. NOT a strict overhead view of hair crowns, NOT a front eye-level portrait, NOT a true diagonal/isometric 45-degree diamond tile grid. Do not rotate the world into isometric projection.
+Composition: 4:3 landscape, readable action in the middle. ONE delivery courier on the LEFT facing RIGHT toward ONE zombie on the RIGHT, separated by one short bat reach. Full bodies entirely inside frame, with room beneath all shoes to clearly see ground contact. A simple urban paving corridor with a recessed wall at the upper left and a wall corner lower right to suggest foreground/background depth. No other people.
+Courier: young adult, navy/dark-teal delivery work clothes, dark cap and shoes, small orange reflective accents. LEFT arm cradles a small brown cardboard parcel CLOSE AGAINST THE FRONT OF THE LOWER CHEST/ABDOMEN, firmly supported beneath by the LEFT hand. Parcel below shoulder level, never lifted overhead, never held out away from the body. RIGHT hand grips the HANDLE of ONE wooden baseball bat making a single short horizontal strike. Exactly TWO arms and TWO hands total, each visibly attached correctly, no extra hand and no hand-held flashlight. A small amber chest-mounted lamp provides illumination. A modest orange backpack may remain as a visual reference accessory only, do not emphasize it.
+Zombie: ONE standing humanoid on the RIGHT, facing the courier, front/side torso visible, knees and BOTH feet grounded. Brief upper-body flinch: shoulders/head twitch slightly away from the incoming bat, feet stay planted under hips with clear ground contact. NOT airborne, NOT thrown backward, no sliding trail or motion arrows, no knockback, no gore.
+Light and mood: warm amber CHEST LAMP casts a broad short fan of light onto the PAVEMENT between courier and zombie, like the reference. Illumination reveals the zombie while the surrounding street is nearly black with faint building outlines. Standing sprites are upright above the lit ground, not flattened into the floor. Keep enough light on courier's legs and the contact of all four feet that grounded poses can be evaluated. Subtle compact contact shadows only, not long dramatic floating shadows.
+Style: hand-painted 2D game concept illustration, clean readable contour shapes, soft painted stone and walls, warm light against deep blue-black darkness, consistent with reference. No photorealistic 3D render and no vertical overhead sprite appearance.
+Avoid: HUD, text, logos, letters, numbers, watermarks, arrows, charts, panels, split screen, UI overlays, health bars, instructions, duplicate characters, extra limbs, parcel raised above the chest, bat held by left hand, flashlight in a third hand, huge swoosh, long impact rays, flying enemy, extreme overhead camera, isometric diamond grid.
+Output: one finished 4:3 landscape concept image with opaque painted background.
+

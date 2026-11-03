@@ -1,0 +1,26 @@
+Generation date: 2026-11-03 (Asia/Seoul)
+Tool: built-in image_gen.imagegen, one edit call, transparent_background=false
+Purpose: revised PPT concept only; not an actual game screenshot, sprite, or exact visibility-mask specification
+Edit target: combat-2_5d-20261103.png (v1 preserved)
+Camera/light reference: user-provided codex-clipboard-8fdac230-ec5b-46cf-acc6-b66569c489d6.png
+Source: exec-4ca5c6d8-de48-4316-a4d4-3d0ce6cb20b8.png, copied without pixel edits
+Review: camera is higher/pulled back and forward fan more distinct than v1; parcel/bat hands, chest lamp and planted feet retained. Some pavement/wall bounce remains outside the forward fan, especially behind the courier; not a pixel-exact complete-blackness mask.
+
+Exact submitted prompt:
+
+Use case: precise-object-edit
+Asset type: ONE revised 4:3 landscape PPT concept illustration for a 2.5D delivery-and-zombie game, not a game screenshot or runtime sprite.
+INPUT ROLES:
+Image 1 is the EDIT TARGET. Keep this courier design, the two anatomically correct arms/hands and correctly assigned equipment, the one zombie, their grounded combat pose, painterly 2D art style and amber/blue-black palette.
+Image 2 is the STRICT CAMERA AND FLASHLIGHT REFERENCE. Its HIGH elevated oblique viewpoint and narrow visible cone surrounded by blackness take precedence over image 1.
+
+CHANGE ONLY TWO DESIGN ASPECTS: (1) raise and pull back the camera to match image 2; (2) replace the broad ambient lighting with one strongly bounded forward fan from the courier's chest lamp.
+
+CAMERA: match the high three-quarter FIXED GAME CAMERA in image 2, looking down from roughly 60–65 degrees above the ground horizon. Still see a little front/side/back of upright bodies and foreshortened but visible legs. NOT 90-degree vertical overhead; NOT eye-level action illustration; NOT true isometric diamond tile grid. Pull back substantially: each complete human should occupy approximately 22–28% of the full image HEIGHT, not the giant 70% height close-up of image 1. Show more dark pavement around the two people. Courier in lower-left/middle, zombie a SHORT BAT REACH ahead diagonally upper-right, each fully inside frame. Their separation is a close melee reach, not across a street. Both are upright against the ground, not flat top-down head circles. Include one dark wall edge so front/back occlusion depth is apparent.
+
+LIGHTING: image 2's triangle/fan is mandatory. ONE small chest-mounted flashlight is the apex of ONE warm amber FORWARD WEDGE on the GROUND between courier and zombie. Strong clear straight side boundaries converging at the lamp, a finite illuminated area ahead, a limited-distance curved outer edge if visible. The zombie stands inside this fan; paved ground inside it is lit. Everywhere OUTSIDE this wedge is SOLID NEAR-BLACK/BLACK, with only extremely faint blue-gray building outlines. No fill light across the street, no amber floodlight, no circular glow or vignette masquerading as a cone, no visible detailed pavement behind the courier or beyond the fan. The courier may remain dimly readable as a game character overlay even though standing at the apex. Do not paint a flashlight beam above/below the wrong hand; its source is physically attached to the chest. This is a visual concept of hidden world space, not a brightly lit action painting.
+
+PRESERVE EQUIPMENT/ANATOMMY: Courier has exactly two arms and two hands. LEFT forearm cradles a small cardboard parcel tightly against the FRONT of the waist/lower chest, LEFT hand underneath supporting it. Parcel never raised overhead or extended outward. RIGHT hand grips the handle of ONE wooden baseball bat and makes one short strike toward the zombie. Keep the small chest-mounted lamp and modest orange backpack as reference styling only. No extra hands, no held flashlight, no inventory icon.
+Zombie's shoulders/head flinch briefly, but both feet stay planted under its hips on the same spot. All four feet have stable pavement contact; no backward displacement, no airborne enemy, no sliding marks or knockback arrows. No gore. No enlarged swoosh or motion streaks.
+OUTPUT: one opaque painted 4:3 landscape illustration. No text, HUD, letters, labels, numbers, icons, arrows, split panels, charts, logos or watermarks.
+
