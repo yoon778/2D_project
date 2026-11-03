@@ -11,9 +11,6 @@
       ".presentation-build": true,
       "tmp": true,
       "output": true
-    },
-    "search.exclude": {
-      "archive": true
     }
   }
 }

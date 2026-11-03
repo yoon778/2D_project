@@ -17,9 +17,8 @@
 | [채팅 협업](plans/team-workflow.md) | 지휘·로직·UI/에셋 담당과 연결 |
 | [game/](game/README.md) | 새 구현을 시작할 개발 폴더 |
 | [presentation/](presentation/README.md) | 발표 자료 위치와 갱신 상태 |
-| [archive/](archive/README.md) | 기존 코드·에셋·기획·PPT 원본 |
 
-이전 시제품은 archive/이전_시제품_실행.bat로 실행합니다. 새 게임과 구분해서 사용합니다.
-2D_project.code-workspace로 작업 환경을 엽니다. 기존 .venv·로컬 PDF·비공개 빌드 자료는 보존합니다.
+2D_project.code-workspace로 작업 환경을 엽니다. 개발용 .venv와 로컬 수업 가이드는 유지합니다.
+미사용 이전 시제품·PPT·에셋·임시 출력은 삭제했습니다. 이전 코드가 필요하면 Git 커밋 7b46edd에서 참고할 수 있습니다.
 브랜치는 planning/first-presentation, 저장소는 <https://github.com/yoon778/2D_project>입니다.
 검증한 작업마다 `<type>: <한글 설명>`으로 커밋하며, 푸시는 업로드 요청 때 진행합니다.

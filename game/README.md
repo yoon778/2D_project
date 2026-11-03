@@ -11,6 +11,6 @@ main.py 등은 구현 단계에서 만들며 빈 모듈·가짜 시작 화면을
     .\.venv\Scripts\python.exe -m pip install -r game/requirements.txt
 
 새 실행 파일과 테스트 명령은 첫 구현 검증 후 기록합니다.
-이전 시제품 실행·검증은 [보관 안내](../archive/README.md)를 따릅니다.
+이전 시제품·실행 파일은 삭제했습니다. 과거 코드는 Git 커밋 7b46edd에서 필요한 부분만 참고합니다.
 리소스는 실제 사용할 때 assets/에 추가하고 출처·방향·프레임·발점 규격을 기록합니다.
-구 탑뷰 아틀라스·PPT 삽화는 새 방향별 스프라이트로 검증된 자료가 아닙니다.
+현재 유지한 [시점 참고 그림](../presentation/assets/2_5d-reference-20261103.png)은 게임용 방향별 스프라이트가 아닙니다.
