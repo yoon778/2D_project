@@ -1,0 +1,29 @@
+Generation date: 2026-11-03 (Asia/Seoul)
+Tool: built-in image_gen.imagegen, one generation call, transparent_background=false
+Purpose: Dead Route cover/visibility PPT concept only; not a game screenshot or runtime sprite
+References: 2_5d-reference-20261103.png for elevated camera/alley/visibility and dead-route-equipment-20261103.png for courier outfit, left parcel/right bat/chest-lamp equipment
+Source: exec-7c7c1d72-aa61-4eca-984c-348f90327d87.png; copied without pixel edits; native size 1672x941, approximately 16:9
+Review: left roughly 45 percent is dark title space, right-side elevated alley scene with left-arm parcel, right-hand bat, complete bodies and standing shoes. A chest lamp is visible, but the beam apex/additional bright spot appears near the face/front shoulder rather than converging precisely at the chest device. Residual pavement light outside the fan remains. This candidate needs director review for light-source clarity and must not be treated as an exact gameplay-visibility specification.
+
+Exact submitted prompt:
+
+Use case: stylized-concept
+Asset type: ONE wide 16:9 cover/background illustration for the Dead Route presentation, not an actual game screenshot or a runtime sprite.
+Input 1: strict HIGH FIXED OBLIQUE GAME CAMERA, dark alley composition, tile pavement and warm directional visibility reference. Correct its hand-held lamp error.
+Input 2: strict courier clothing, equipment and hand-assignment reference. Use this same courier in dark teal/navy workwear, dark cap and boots, small orange accents, compact orange/dark delivery backpack, wooden baseball bat, brown cardboard parcel and chest-mounted lamp.
+
+Canvas/composition: 16:9 LANDSCAPE WIDE. The LEFT approximately 45% must be nearly pure BLACK empty negative space for a title added later: no people, lamp glow, visible paving or distracting details there. Do not draw any text. The RIGHT approximately 55% contains one small nighttime alley scene. No panel border or visible split; the darkness naturally connects the two areas.
+Courier in the lower-right area (roughly x=67%, y=78%), one zombie farther up the alley at upper-right (roughly x=86%, y=28%). Full bodies wholly inside frame, visible legs and feet, ample margin below courier shoes. There is a believable stretch of pavement between the two. Exactly TWO people total.
+Camera: match the reference's high downward-looking fixed three-quarter view, about 60–65 degrees above ground, not a close-up cinematic low camera, not eye-level, not a pure vertical crown-only view, not a rotated isometric diamond grid. See top of cap and shoulders, side/back of courier, front/side of zombie, shortened but visible legs and the tops of all shoes. The two people occupy around 14–20% of canvas HEIGHT. Alley is an upright street corridor in the right side, with faint building silhouettes/corner edges, square paving stones and one drain if useful. Restrained hand-drawn 2D game art and modest clear shapes, not photorealistic 3D.
+
+ANATOMY/EQUIPMENT - exactly TWO arms and TWO hands on courier:
+LEFT forearm cradles ONE small brown parcel CLOSE AGAINST THE FRONT OF THE ABDOMEN, LEFT palm clearly supporting it from underneath, parcel below chest height. Left hand holds ONLY THE BOX; it never holds a flashlight.
+RIGHT hand holds ONLY ONE wooden baseball bat by the narrow handle, down beside right hip and pointed diagonally forward, not swinging yet. No extra hand, no equipment floating.
+Lamp is a small amber square device FASTENED TO THE CHEST/FRONT JACKET STRAP, not clipped to cap, parcel, wrist, shoulder or bat. Turn courier just enough into a side/back three-quarter profile that the chest-device/front edge and parcel can be distinguished from behind. All lamp glow must visibly originate at this attached chest device, never at the left hand. Match input 2's lamp and equipment.
+Courier and zombie stand on the pavement with natural planted shoes and no floating foot or sliding pose. Orange backpack is styling only, not a new mechanic.
+
+VISIBILITY/LIGHT:
+One LIMITED narrow warm amber/orange forward FAN extends from courier's CHEST LAMP toward the upper-right zombie on the GROUND. Two clear side boundaries converge toward the chest device; if needed a short visible connection from chest light to floor makes the source unmistakable. The zombie is INSIDE the illuminated fan. Clearly lit stone texture appears ONLY inside this directional sector. It is a GAME VISIBILITY shape, NOT physically realistic diffuse/global lighting.
+Outside the fan is pure black with only extremely faint dark-blue building outlines. No broad amber floodlight, no circular glow around courier, no pavement light behind his back, no reflected orange wall wash, no visible alley detail in the empty left 45%. Player remains dimly readable at fan apex without revealing hidden ground behind. Keep the beam and scene entirely in the right 55% so left title space remains black.
+
+Avoid: ANY text, title, caption, letter, number, HUD, labels, diagrams, arrows, panels, grids, split-screen, watermark, logos, third person, extra hands, torch held with box, lamp in hand, parcel overhead, raised package, large diffuse warm glow, giant characters, gore, low camera, hard layout divider.

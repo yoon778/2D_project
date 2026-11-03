@@ -16,7 +16,7 @@
 | [개발 순서](plans/development-roadmap.md) | 단계별 작업·완료 기준 |
 | [채팅 협업](plans/team-workflow.md) | 지휘·로직·UI/에셋 담당과 연결 |
 | [game/](game/README.md) | 새 구현을 시작할 개발 폴더 |
-| [presentation/](presentation/README.md) | 발표 자료 위치와 갱신 상태 |
+| [presentation/](presentation/README.md) | 발표용 6장·기획서 14장·90초 대본 |
 
 2D_project.code-workspace로 작업 환경을 엽니다. 개발용 .venv와 로컬 수업 가이드는 유지합니다.
 미사용 이전 시제품·PPT·에셋·임시 출력은 삭제했습니다. 이전 코드가 필요하면 Git 커밋 7b46edd에서 참고할 수 있습니다.
