@@ -1,4 +1,4 @@
-"""임시 도형으로 이동과 근접 전투를 확인하는 첫 프로토타입."""
+"""탑뷰 배달원과 도형 지도로 이동·근접 전투를 확인하는 프로토타입."""
 from __future__ import annotations
 
 import math
@@ -9,6 +9,7 @@ import pico2d.pico2d as p
 from core import Game, WIDTH, HEIGHT
 from spatial_audio import SpatialAudio
 from visibility import flashlight_polygon
+from player_visual import PlayerVisual
 
 BASE_DIR = Path(__file__).resolve().parent
 INK = (9, 18, 25)
@@ -54,6 +55,7 @@ class Renderer:
         self.title = p.load_font(str(font_path), 36)
         self.effects = []
         self.sounds = {}
+        self.player_visual = PlayerVisual(BASE_DIR)
         self.world_texture = p.SDL_CreateTexture(
             p.renderer, p.SDL_PIXELFORMAT_RGBA8888, p.SDL_TEXTUREACCESS_TARGET,
             WIDTH, HEIGHT,
@@ -82,20 +84,29 @@ class Renderer:
     def close(self):
         self.spatial_audio.close()
         self.sounds.clear()
+        self.player_visual.close()
         if self.world_texture:
             p.SDL_DestroyTexture(self.world_texture)
             self.world_texture = None
-        self.small = self.body = self.title = None
+        for name in ("small", "body", "title"):
+            font = getattr(self, name)
+            if font is not None and font.font:
+                p.TTF_CloseFont(font.font)
+                font.font = None
+            setattr(self, name, None)
 
     def actor(self, game, actor, player=False, moving=False):
+        if player:
+            self.player_visual.draw(game)
+            return
         x, y, angle = actor.x, actor.y, actor.angle
         if actor.hp <= 0:
             circle(x, y, 19, (45, 51, 49), filled=False)
             return
         bob = math.sin(game.time * (15 if moving else 0)) * 2
-        color = TEAL if player else (144, 158, 103)
+        color = (144, 158, 103)
         recoil = 0.0
-        if not player and actor.stun > 0:
+        if actor.stun > 0:
             progress = 1 - min(1.0, actor.stun / game.zombie_hit_stun)
             recoil = 1 - smooth(progress)
             if progress < 0.2:
@@ -110,49 +121,20 @@ class Renderer:
         angle += recoil * 0.18
         circle(x, y, 16, color)
         head = local_point(x, y, angle, 8 - recoil * 9, recoil * 2)
-        circle(*head, 9, (219, 191, 153) if player else (171, 167, 123))
+        circle(*head, 9, (171, 167, 123))
         nose = local_point(x, y, angle, 18 - recoil * 9, recoil * 2)
-        circle(*nose, 3, WHITE if player else (94, 102, 76))
-        if player:
-            # 왼손 택배와 오른손 방망이는 같은 몸 좌표를 기준으로 배치
-            left_hand = local_point(x, y, angle, 8, 19)
-            line((x, y), left_hand, color, 6)
-            if game.carrying:
-                rect(left_hand[0] - 10, left_hand[1] - 9, 20, 18, GOLD)
-                line((left_hand[0], left_hand[1] - 8), (left_hand[0], left_hand[1] + 8), (173, 127, 62), 2)
-            else:
-                circle(*left_hand, 5, (219, 191, 153))
-            shoulder = local_point(x, y, angle, 2, -15)
-            swing_angle = -0.24
-            if game.attack_elapsed is not None:
-                t = game.attack_elapsed
-                if t < game.attack_hit_time:
-                    swing_angle = -1.35 + smooth(t / game.attack_hit_time) * 1.35
-                elif t < game.attack_hit_time + 0.12:
-                    swing_angle = smooth((t - game.attack_hit_time) / 0.12) * 0.85
-                else:
-                    swing_angle = 0.85 - smooth((t - game.attack_hit_time - 0.12) / (game.attack_duration - game.attack_hit_time - 0.12)) * 1.09
-            bat_angle = angle + swing_angle
-            hand = (shoulder[0] + math.cos(bat_angle) * 14, shoulder[1] + math.sin(bat_angle) * 14)
-            tip = (hand[0] + math.cos(bat_angle) * 45, hand[1] + math.sin(bat_angle) * 45)
-            line(shoulder, hand, color, 7)
-            circle(*hand, 5, (219, 191, 153))
-            line(hand, tip, (164, 117, 63), 6)
-            circle(*tip, 4, (205, 156, 92))
-            lamp = local_point(x, y, angle, 14, 0)
-            circle(*lamp, 3, GOLD)
-        else:
-            for side in (-1, 1):
-                hand = local_point(x, y, angle, 23 - recoil * 12, side * (14 + recoil * 4))
-                arm = local_point(x, y, angle, 0, side * 12)
-                line(arm, hand, color, 5)
-                circle(*hand, 4, (171, 167, 123))
-            health_width = actor.max_hp * 10 - 2
-            for i in range(actor.max_hp):
-                rect(x - health_width / 2 + i * 10, y + 30, 8, 4, RED if i < actor.hp else (55, 63, 55))
-            marker = "!" if actor.state == "chase" else "?" if actor.state in ("investigate", "search") else ""
-            if marker:
-                self.body.draw(x - 6, y + 57, marker, RED if marker == "!" else GOLD)
+        circle(*nose, 3, (94, 102, 76))
+        for side in (-1, 1):
+            hand = local_point(x, y, angle, 23 - recoil * 12, side * (14 + recoil * 4))
+            arm = local_point(x, y, angle, 0, side * 12)
+            line(arm, hand, color, 5)
+            circle(*hand, 4, (171, 167, 123))
+        health_width = actor.max_hp * 10 - 2
+        for i in range(actor.max_hp):
+            rect(x - health_width / 2 + i * 10, y + 30, 8, 4, RED if i < actor.hp else (55, 63, 55))
+        marker = "!" if actor.state == "chase" else "?" if actor.state in ("investigate", "search") else ""
+        if marker:
+            self.body.draw(x - 6, y + 57, marker, RED if marker == "!" else GOLD)
 
     def world(self, game):
         rect(0, 0, WIDTH, HEIGHT, FLOOR)
