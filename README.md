@@ -20,6 +20,7 @@
 
 - 기획 및 발표 요구사항: [PRD.md](PRD.md)
 - 에셋·모션·맵·오브젝트 제작 순서와 완료 기준: [개발 계획](plans/development-roadmap.md)
+- 지휘·로직·UI/에셋의 담당과 연결 규칙: [채팅 협업](plans/team-workflow.md)
 - 게임 개발 폴더: game/ · 소스·맵·실행 리소스를 단계별로 추가
 - 실행과 조작: [게임 안내](game/README.md) · Windows에서 game/실행.bat 더블클릭
 - 발표 자료(새 전투·배달 기획, 6장·90초 시간 배분): [발표용 PPT](presentation/그림자_배달_1차발표_v2.pptx), [발표 대본](presentation/발표대본.md)
