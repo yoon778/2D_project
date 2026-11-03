@@ -15,6 +15,7 @@ output/
 .presentation-build/
 .DS_Store
 Thumbs.db
+~$*.pptx
 
 # Course-reference PDFs remain local unless their upload is requested.
 *.pdf
