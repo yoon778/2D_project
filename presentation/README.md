@@ -1,7 +1,8 @@
-# 발표 자료
+# Dead Route 발표 자료
 
 새 개발은 [현재 기획](../PRD.md)을 기준으로 시작합니다.
 기존 발표 자료는 제작 이력으로 보관했으며 파일명·바이트를 그대로 유지했습니다.
+보관된 PPT의 ‘그림자 배달’은 변경 전 명칭입니다. 새 발표 자료는 Dead Route로 작성합니다.
 
 - [직전 발표용 PPT — 6장·90초 시간 배분](../archive/2026-11-03-before-restart/presentation/그림자_배달_1차발표_v2.pptx)
 - [직전 기획서 PPT — 13장](../archive/2026-11-03-before-restart/presentation/그림자_배달_기획서.pptx)

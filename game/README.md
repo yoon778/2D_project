@@ -1,4 +1,4 @@
-# 새 게임 개발 폴더
+# Dead Route 게임 개발 폴더
 
 상태: 2026-11-03 재시작 준비, 새 실행 코드는 미착수입니다.
 기준은 [PRD](../PRD.md)와 [개발 순서](../plans/development-roadmap.md)입니다.

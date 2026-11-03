@@ -1,4 +1,4 @@
-# 지휘·개발 채팅 운영
+# Dead Route 채팅 운영
 
 기준일: 2026-11-03 재시작 준비
 현재 기준은 [PRD](../PRD.md), 순서는 [개발 계획](development-roadmap.md)입니다.
@@ -36,6 +36,6 @@
 
 | 채팅 | 로컬 식별자 |
 | --- | --- |
-| 그림자 배달 · 지휘 | 01a18a70-01de-7cc2-9862-9de99c6b5a82 |
-| 그림자 배달 · 로직 개발 | 01a19ece-e161-78c3-adb0-297eba70e204 |
-| 그림자 배달 · UI·에셋 | 01a19ece-e348-7db1-ba4e-4076a3f16a0f |
+| Dead Route · 지휘 | 01a18a70-01de-7cc2-9862-9de99c6b5a82 |
+| Dead Route · 로직 개발 | 01a19ece-e161-78c3-adb0-297eba70e204 |
+| Dead Route · UI·에셋 | 01a19ece-e348-7db1-ba4e-4076a3f16a0f |

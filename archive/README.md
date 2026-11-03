@@ -1,5 +1,7 @@
 # 이전 자료 보관
 
+현재 게임명은 Dead Route입니다. 보관본의 제목·파일명은 제작 당시 명칭을 유지합니다.
+
 [2026-11-03-before-restart/](2026-11-03-before-restart/)는 커밋 7b46edd502cf2cd39c66790573dde24d499266b7의 추적 파일 39개를 원본 바이트로 보관한 폴더입니다.
 game/·plans/·presentation/은 이동했고 루트 문서·작업 환경 파일은 당시 내용을 복사했습니다.
 [SNAPSHOT.json](2026-11-03-before-restart/SNAPSHOT.json)에 경로·크기·SHA256을 기록했습니다.
