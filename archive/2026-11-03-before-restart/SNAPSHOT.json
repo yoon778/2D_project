@@ -1,0 +1,202 @@
+{
+  "source_commit": "7b46edd502cf2cd39c66790573dde24d499266b7",
+  "date": "2026-11-03",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "4e8bb97ce8b05fd260348be86bba326d3d5d6459cd9378626aea93474dd2e8e4",
+      "bytes": 255
+    },
+    {
+      "path": "2D_project.code-workspace",
+      "sha256": "7fc12ac38fab619ca6587bd940e8384763eeb524919f035d30ab7c4a9688cdff",
+      "bytes": 43
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "d6c6a6467422722d9adfd956136b4a51fb3237fd49f5e5ff2d0e9f01dd156a16",
+      "bytes": 4969
+    },
+    {
+      "path": "GAME_CONCEPTS.md",
+      "sha256": "ca63ae89116fcc619e05259711c2804ddcadafa1e700450f0ba541b76e3ed4b6",
+      "bytes": 6679
+    },
+    {
+      "path": "PRD.md",
+      "sha256": "c33acd0014ce78bc347dd53673eb79b9ccfbe13475816b4a1e3abec3d8c2d924",
+      "bytes": 33874
+    },
+    {
+      "path": "README.md",
+      "sha256": "d65795a8b470ef92de1e842a0756de9b70d6f4838f9605591a06009303504ebd",
+      "bytes": 3494
+    },
+    {
+      "path": "game/README.md",
+      "sha256": "73c7a9256ba57fc55ed37d071bba93e4eb57564bd153a1b74f4d116e7c85cf25",
+      "bytes": 6191
+    },
+    {
+      "path": "game/assets/SOURCES.md",
+      "sha256": "e9e546eeff743753cfb8f1a809d7d0604e6ebaef882364185b2e7d5f8d448686",
+      "bytes": 5387
+    },
+    {
+      "path": "game/assets/audio/attack.wav",
+      "sha256": "781ac1ca01b3599f4b7e30c94c1baf8d8bc102de6fabfac40cf627559b18c23d",
+      "bytes": 5336
+    },
+    {
+      "path": "game/assets/audio/hit.wav",
+      "sha256": "802f7ded447bb7e71a507b79517080180424644cc75eacb00f0c7bc379880d3a",
+      "bytes": 4454
+    },
+    {
+      "path": "game/assets/audio/hurt.wav",
+      "sha256": "bda24e22661a94f009b97e19c50d0ee445dbe13ed94a04ff2f6f36cb07a1fc47",
+      "bytes": 8864
+    },
+    {
+      "path": "game/assets/audio/zombie_groan.wav",
+      "sha256": "441d6e52329f90f5eb7e9e3449daec12632153f1b593ba09f18191bf8fc8882a",
+      "bytes": 34442
+    },
+    {
+      "path": "game/assets/audio/zombie_step.wav",
+      "sha256": "d63765a2b6dedc565b67092be50974278bb47d45209991c65eca14db45a11aee",
+      "bytes": 5336
+    },
+    {
+      "path": "game/assets/player/courier-atlas-20261103-v1.png",
+      "sha256": "19433270b1dfc4a5ed2b4809224939d7fbac2d9013b8dc9b293fb7000950e9c5",
+      "bytes": 1129645
+    },
+    {
+      "path": "game/assets/player/courier-atlas-20261103-v1.prompt.txt",
+      "sha256": "0fd4e90a9fbf0ab9a937d5b4db2c859f35b88fb74f521f38e83c881d5d3fbb85",
+      "bytes": 3349
+    },
+    {
+      "path": "game/core.py",
+      "sha256": "be24a343d625c32ce13bec1e191cf94b4f3caa5751f34c39276ca641d3675d7f",
+      "bytes": 18392
+    },
+    {
+      "path": "game/main.py",
+      "sha256": "e8326df33d6236b9e953d05f1d5a849f7578ca0602e21649a23bfadea36614d6",
+      "bytes": 14753
+    },
+    {
+      "path": "game/player_visual.py",
+      "sha256": "d97fb744f95d0df5917783d6cb982b1356cb3c90ecd93cc3c6df51fc63e331d9",
+      "bytes": 4985
+    },
+    {
+      "path": "game/requirements.txt",
+      "sha256": "e74b092217f207d9c62289a753651b2b50dde8b11d8c180467ea82de2f3641eb",
+      "bytes": 49
+    },
+    {
+      "path": "game/spatial_audio.py",
+      "sha256": "46dbfa04ec642af95475ea6648441fcd22a2874efdfd6a809c842ced177f6890",
+      "bytes": 3010
+    },
+    {
+      "path": "game/tests/__init__.py",
+      "sha256": "bdc7a7c42b0a6d5238e5f9a43e01cb031677cf633a4b158a9026de1fe2f3318f",
+      "bytes": 52
+    },
+    {
+      "path": "game/tests/player_asset_smoke.py",
+      "sha256": "d27b995596172285b51688c243044978692c4eea4fac8a4a7d73d95e6da4dfe7",
+      "bytes": 12961
+    },
+    {
+      "path": "game/tests/test_core.py",
+      "sha256": "8c1d5abd5ce0ae094719b5b83556e95e1af942bc5f07ddc6bdb6e86956bd9eaf",
+      "bytes": 24031
+    },
+    {
+      "path": "game/tests/test_spatial_audio.py",
+      "sha256": "877074c839a6475ae03926e6984b80f1f1bb0b3aa13f4fbe32e3821f90062847",
+      "bytes": 5939
+    },
+    {
+      "path": "game/visibility.py",
+      "sha256": "3022e2b525ab11f02ecc67d2724d0f505514c8af92385b751ce478d354faa325",
+      "bytes": 2186
+    },
+    {
+      "path": "game/실행.bat",
+      "sha256": "48a9086405b9ad9a3a76716c510090295f3f514afb0e3043614d05f05c8c47b4",
+      "bytes": 224
+    },
+    {
+      "path": "plans/development-roadmap.md",
+      "sha256": "a72e00817fb79018cbbb69b38f27d5e892fb1a54990e0f386fec3f6f93ca83d5",
+      "bytes": 31457
+    },
+    {
+      "path": "plans/team-workflow.md",
+      "sha256": "19720ccd0b237561d2dacd85fb85f0cd35644b1b910537a4792ea70c2d8fa06d",
+      "bytes": 12531
+    },
+    {
+      "path": "presentation/assets/2_5d-reference-20261103.png",
+      "sha256": "6a50d1e768adb9db2fef5d973f4cefb5673d3e40b10df4d420f6982d6e8b7882",
+      "bytes": 608694
+    },
+    {
+      "path": "presentation/assets/SOURCES.md",
+      "sha256": "f48089362299ddbcd51b3614fe6b7a0c2f57577026ee569c36b947e2c357a128",
+      "bytes": 2656
+    },
+    {
+      "path": "presentation/assets/combat-2_5d-20261103-v2.png",
+      "sha256": "7f6ff5938e1940fecc7ec1819b9bfa0fa811f35ecc801fd6528961f8e340a6a3",
+      "bytes": 1131546
+    },
+    {
+      "path": "presentation/assets/combat-2_5d-20261103-v2.prompt.txt",
+      "sha256": "90369162d470bb47bd5483c1a2a7a5ca56c2ee96e89ccef86dac3d667c2755d4",
+      "bytes": 4255
+    },
+    {
+      "path": "presentation/assets/combat-2_5d-20261103.png",
+      "sha256": "60011b690b2c4b62d0c96127004871e541e72b80f9d478d6600b23318627ff48",
+      "bytes": 1935006
+    },
+    {
+      "path": "presentation/assets/combat-2_5d-20261103.prompt.txt",
+      "sha256": "a87fce24b99921ce925f91e23f3d78a8fed501431e2f23bf0f55c7b1ac9a7e04",
+      "bytes": 4254
+    },
+    {
+      "path": "presentation/assets/combat-character.png",
+      "sha256": "7c6a4afe211008869b3e318d659d3096e1a43aecb7c2e376de479695419694f4",
+      "bytes": 1335513
+    },
+    {
+      "path": "presentation/assets/combat-cover.png",
+      "sha256": "9145bedc110a499c270f3e10d257e14a78eebd7272d82cceae984de0134667a8",
+      "bytes": 888222
+    },
+    {
+      "path": "presentation/그림자_배달_1차발표_v2.pptx",
+      "sha256": "4d950b05c8609c47ee91136e19159521426da079bec0aae454a2580b28f8b72a",
+      "bytes": 3875457
+    },
+    {
+      "path": "presentation/그림자_배달_기획서.pptx",
+      "sha256": "ae15dbb7c756c029b5664d6bed7703fb164da77ceb809bc2f4b3a4faf6560b3f",
+      "bytes": 3926215
+    },
+    {
+      "path": "presentation/발표대본.md",
+      "sha256": "af801b7452d832e7e0eba41584fcad3416374f7d0b28a90b73e8b19ea7283caf",
+      "bytes": 4706
+    }
+  ],
+  "scope": "Tracked source, resources, planning and presentation files before restart; local environment, references, caches and private build outputs excluded"
+}

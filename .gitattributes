@@ -1,0 +1,2 @@
+# Keep the archived snapshot byte-identical, including original line endings.
+archive/2026-11-03-before-restart/** -text whitespace=cr-at-eol
