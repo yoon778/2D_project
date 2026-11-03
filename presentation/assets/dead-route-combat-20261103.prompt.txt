@@ -1,0 +1,26 @@
+Generation date: 2026-11-03 (Asia/Seoul)
+Tool: built-in image_gen.imagegen, one generation call, transparent_background=false
+Purpose: Dead Route combat concept for PPT only, not a game screenshot or runtime sprite
+References: 2_5d-reference-20261103.png for elevated fixed camera/visibility; dead-route-equipment-20261103.png for courier clothing/equipment
+Source: exec-ba6b7fb3-0f0c-4ef6-906c-83cd61dccc63.png, copied without pixel edits
+Review: elevated oblique camera, left arm parcel at front of abdomen, right hand on bat handle, chest lamp, planted feet and upper-body flinch; bounded warm forward floor fan with black exterior and faint wall outlines. Camera angle, beam apex and ground projection are illustrative rather than calibrated runtime geometry; the single still image does not verify animation or fixed foot positions over time.
+
+Exact submitted prompt:
+
+Use case: stylized-concept
+Asset type: ONE 4:3 landscape PPT combat concept for Dead Route, a 2D/2.5D delivery survival game. Concept illustration only, not an actual screenshot.
+Input 1: STRICT fixed HIGH oblique game-camera and flashlight visibility reference.
+Input 2: STRICT identity, equipment, anatomy, outfit and clean modest 2D drawing style reference for the courier. Same dark teal/navy work clothes, dark cap/boots, small orange reflective cuffs and shoulder marks, small orange/dark backpack, brown parcel, wood bat and amber chest lamp.
+
+Scene: a tiny dark paved alley with one dim building edge. EXACTLY TWO people: ONE courier on LEFT, ONE zombie on RIGHT, within a short baseball-bat reach. Both full bodies completely inside frame. Courier at lower-left facing diagonally upper-right; zombie at upper-right facing diagonally lower-left. This is close melee, not distant pursuit.
+Camera: fixed HIGH elevated three-quarter view like input 1 and the equipment view of input 2, roughly 60–65 degrees above ground, looking down so top of cap/shoulders and foreshortened but visible legs/shoe tops can be seen. Bodies upright with backs/sides/fronts visible, not flattened crown-only overhead blobs. NOT front eye-level, NOT a large close-up cinematic action shot. Pull back so each human is at most about 30% of image HEIGHT with ample dark ground around. Pavement not an isometric diamond grid.
+
+Courier equipment: exactly TWO arms and TWO hands. Anatomical LEFT elbow bent beside the body, LEFT forearm cradles a small brown cardboard parcel CLOSE AGAINST THE FRONT of abdomen/lower chest and LEFT hand supports it from below. Keep parcel low, never raised near head or extended into air. Anatomical RIGHT hand grasps the narrow handle of ONE wood baseball bat in a short strike toward zombie's near shoulder/torso. Bat attached correctly at grip, not floating or held in left hand. Amber flashlight is CLIPPED TO CHEST, never in a third hand. Keep silhouette and hand attachments readable.
+Zombie: one standing humanoid whose head and upper torso briefly flinch from impact while BOTH feet stay planted under its hips. Feet do not slide or lift; no airborne enemy, no backward knockback, no ground skid, no gore, no giant action swoosh or impact rays.
+
+MOST IMPORTANT - GAME VISIBILITY MASK, not realistic ambient lighting:
+The chest lamp at the courier's front is the apex of EXACTLY ONE limited-distance NARROW WARM ORANGE FAN/WEDGE on the GROUND, pointing forward to include the zombie. Clearly visible converging straight side boundaries and a curved far boundary. Detailed lit pavement exists ONLY INSIDE this forward sector. Match input 1's directional cone rather than a glowing whole scene.
+ALL PAVEMENT OUTSIDE the forward wedge is PURE BLACK, including directly BEHIND THE COURIER, beside the path, around the lower edge of the picture and on the far-left. Do not light a ground circle beneath/behind courier. No amber light leaking around edges, NO bounced light on adjacent walls, NO large soft vignette, NO broad diffuse floodlight, NO orange surroundings beyond the fan. Wall masses outside visibility are black with only extremely faint thin blue-gray outline hints, no lit vines/brick texture outside the wedge. This is intentionally a stylized hard visibility boundary, not physically realistic global illumination.
+The courier himself stays dimly readable as a character overlay at the fan apex, with grounded shoes and legs visible, without revealing hidden pavement around him. Zombie and his shoes fully inside lit fan. A small compact contact shadow may appear inside the fan only, no long cast shadows spilling into hidden space.
+
+Style: restrained illustrated 2D game concept, clear modest silhouettes and simple broad color blocks consistent with equipment reference, warm amber beam against blue-black world. No photorealistic 3D render. No HUD, text, labels, letters, numbers, health bars, arrows, panels, charts, logos, watermark or duplicate characters.

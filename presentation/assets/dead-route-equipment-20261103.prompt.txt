@@ -1,0 +1,18 @@
+Generation date: 2026-11-03 (Asia/Seoul)
+Tool: built-in image_gen.imagegen, one generation call, transparent_background=false
+Purpose: Dead Route equipment concept for PPT only, not a game screenshot or runtime sprite
+Reference: 2_5d-reference-20261103.png, user-provided fixed-camera/style reference
+Source: exec-78232841-8260-478c-a7a7-41f44976c762.png, copied without pixel edits
+Review: elevated oblique whole-body view, left hand under parcel at front of abdomen, right hand on wooden bat grip, chest lamp, two grounded shoes, ivory background. Camera angle is illustrative rather than a calibrated game projection.
+
+Exact submitted prompt:
+
+Use case: stylized-concept
+Asset type: ONE equipment concept illustration for the 2D/2.5D game Dead Route. Presentation concept only, not a screenshot, sprite sheet, portrait photograph, or final runtime sprite.
+Input image 1: fixed HIGH OBLIQUE CAMERA and restrained night-game clothing/style reference, not a background to reproduce.
+Canvas: landscape 4:3, plain bright ivory background. Exactly ONE complete courier centered with ample empty margins. Head, hands, parcel, entire bat, both legs and both shoes wholly inside the frame. No other objects or characters, no text or diagrams.
+Camera: SAME HIGH downward-looking three-quarter GAME VIEW as input image 1, elevated roughly 60 degrees above the ground, clearly above the head and shoulders. Show crown of cap, top planes of shoulders, shortened foreshortened thighs, tops of shoes, and contact of BOTH soles with an implied ground plane. This is a standing person seen from high above at an angle, not a vertical view of only a hair crown, not a front eye-level character portrait, not a rotated isometric diamond world. Rotate the CHARACTER toward lower-right so equipment at front is visible while keeping the elevated camera fixed.
+Courier: gender-neutral young adult, dark teal/navy work jacket and trousers, dark cap and boots, tiny muted-orange reflective cuff/shoulder accents. Modest simple cartoon game proportions, crisp contour, broad clean flat shaded forms, limited painterly detail consistent with reference. Small compact dark delivery pack may have a muted-orange panel, no logos. No elaborate costume or photorealistic surface rendering.
+Equipment and anatomy are the main subject: exactly TWO arms and TWO hands. Anatomical LEFT forearm is visibly bent around a small brown cardboard parcel CLOSE AGAINST THE FRONT OF THE ABDOMEN; LEFT hand supports the box from BELOW. Parcel remains below chest height and is not raised, thrown, worn as a bag, or held at arm's length. Anatomical RIGHT arm holds the HANDLE of ONE warm wooden baseball bat, lowered diagonally to the courier's right with barrel clearly separated from the shoes and parcel. RIGHT fingers visibly wrap around the grip; never attach the bat to the wrong hand. Small amber CHEST-MOUNTED flashlight clipped to the jacket near the sternum, not in either hand. No extra hand. Keep shoulder-to-elbow-to-wrist continuity easy to inspect.
+Pose: quiet relaxed standing stance, knees natural, feet planted beneath hips, no foot floating, no detached boot, no motion trails. Small compact soft contact shadow permitted solely beneath feet. No large beam or glow against the ivory background; the chest lamp itself can be a small warm yellow light.
+Avoid: text, HUD, letters, labels, logos, numbers, watermark, charts, lines, arrows, panels, duplicate views, insets, detached equipment icons, extra fingers or limbs, raised-overhead parcel, hand-held flashlight, frontal eye-level illustration, strict vertical overhead view, 3D render.
