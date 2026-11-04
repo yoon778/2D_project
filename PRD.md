@@ -78,7 +78,7 @@
 ## 준비 상태와 일정
 
 새 game/에 네 방향 모두 idle1+보행8장을 적용했습니다. 속도90px/s·32px 실제 거리 주기·기존idle을 유지합니다. 자동79개·Windows방향별 렌더·실제 표시창30초 성능·native 입력/재시작3회 검수를 통과했습니다.
-현재 [1주차 R1 검수 기록](plans/handoffs/r1-week1-review.md)에 따른 사용자2차 확인 대기입니다. 모션은 [S2 기록](plans/handoffs/r1b-smooth-s2-review.md), 이전 이력은 [S1](plans/handoffs/r1b-smooth-review.md)·[R1-B](plans/handoffs/r1b-review.md)·[R1-A](plans/handoffs/r1a-review.md)에 보존합니다. 물리 키보드·주관적 조작감은 별도 확인 대상입니다. 사용자 확인과 다음 진행 요청 전 R2 착수 금지. 전투·좀비·손전등·배달은 미구현입니다.
+추가 무게감 피드백으로 앞·오른쪽8장만 낮은 보행 시안으로 교체. 기존90px/s·32px 주기·다른3방향·idle·로직 보존과 전체79개·Windows렌더 통과. 현재 [R1-W1 비교 확인](plans/handoffs/r1-weight-review.md) 대기이며 하중/상체 변화는 미세해 무게감을 확정하지 않음. 앞 문단의 실제 표시창 성능/입력 수치는 이전 [1주차 baseline 검수](plans/handoffs/r1-week1-review.md)의 이력. 모션 과정은 [S2 기록](plans/handoffs/r1b-smooth-s2-review.md)에 보존. 물리 키보드·주관적 조작감은 별도 확인 대상. 사용자 확인과 다음 진행 요청 전 R2 착수 금지. 전투·좀비·손전등·배달은 미구현.
 미사용 이전 시제품·에셋·테스트·기획·PPT는 로컬 작업 폴더에서 삭제했습니다.
 이전 구현은 Git 이력으로 참고하며, 구형 테스트·렌더 결과를 새 2.5D의 성과로 보고하지 않습니다.
 첫 작업은 [개발 순서](plans/development-roadmap.md), 담당은 [채팅 협업](plans/team-workflow.md)을 따릅니다.
