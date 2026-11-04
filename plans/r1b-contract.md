@@ -100,6 +100,17 @@ display_height=128, sampling=nearest. frames[direction]에 idle·walk1·walk2 �
 각 방향 idle의 표시 높이는 128px를 기준으로 맞추고 프레임 간 접지점·head 크기·장비 손을 검토함
 PlayerVisual의 METADATA_PATH는 새 atlas JSON을 가리킴. 기존 sprite_rect 함수와 draw 호출 형태는 유지함
 
+### 앞 보행 자세 교정 예외 — 2026-11-04
+
+12셀 전체 편집 1회로 앞 방향의 반대 발 전진이 교정되지 않아, 문제 자세 2개만 별도 투명 PNG로 제작·연결할 수 있음
+기존의 올바른 10셀을 다시 생성하거나 프로그램으로 PNG를 합성하지 않음
+추가 파일은 r1b-front-step-corrections-20261104.png이며 두 자세를 나란히 배치함
+메타 sources[ID]에 image/canvas_size를 기록하고 교정 frame에 source ID를 지정함. 생략하면 기본 atlas를 사용함
+교정 frame의 scale_reference_height는 원래 방향의 idle과 머리·상체 크기를 맞춘 고정 배율 기준이며 clip 높이를 매번 128로 정규화하지 않음
+원본 atlas의 프레임은 기존 방향 idle 높이 기준 배율을 유지함. 모든 소스에 nearest 적용·캔버스 검사·종료 정리 수행
+각 frame의 cell_topleft를 해당 소스 캔버스 기준으로 기록하고 clip/발점이 그 셀 안에 있는지 검사함
+추가 소스도 정확한 입력·SHA256·출처와 실제 해상도·교정 결과를 기록함
+
 ## 완료 기준과 인계
 
 - 로직: 대표 방향·동률·각도 wrap·5도 여유, 조준/이동 독립, 실제 거리 위상, 정지·벽·방향 전환의 위상 유지 검사
