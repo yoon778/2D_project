@@ -54,3 +54,90 @@
 - 추가 상대 파일 변경 요청 없음. 전투·좀비·소음·스태미나·손전등·배달·R1-B는 구현하지 않음
 
 다음 상태: 지휘 1차 검수·수정 요청 대기. 사용자 2차 확인과 다음 지시 전 추가 묶음 착수 금지
+
+## 2026-11-04 재개 분석: 네이티브 자동 입력 미반응
+
+사용자 재개 요청 후 지휘의 읽기 분석 배정으로 수행. 게임 창·SDL·Windows 입력은 실행하지 않았고 core·UI 소스·Git은 변경하지 않음
+새 구현이나 지휘 1차 통과를 뜻하지 않으며, 분석 인계 후 후속 배정 대기
+
+### 코드에서 확인한 사실
+
+- [main.py](../../game/main.py)의 이벤트 루프는 KEYDOWN에서 pressed에 추가하고 KEYUP에서 제거한 뒤, 배치 전체 처리가 끝나면 축을 계산해 이동을 한 번 호출
+- 따라서 같은 프레임의 DOWN→UP는 이동 전에 상쇄됨. 짧은 탭을 놓칠 수 있는 상태 샘플 방식이며, 이것만으로 지속 입력이나 core 이동 오류를 뜻하지 않음
+- 설치된 `.venv/Lib/site-packages/pico2d/pico2d.py:213~238`은 SDL_PollEvent를 한 번의 호출에서 끝까지 비우며, 키 이벤트의 repeat가 0일 때만 keysym.sym을 반환
+- pico2d는 windowID·scancode·repeat·창 포커스 이벤트를 반환 목록에 보존하지 않음. 현재 지휘 observer처럼 p.get_events 반환만 기록하면 원시 이벤트 없음과 필터 제거를 구분할 수 없음
+- SDL keysym은 w=119, d=100. Windows VK 87/68 또는 scancode 26/7을 keysym.sym 대신 쓰면 서로 다른 값임
+- 이벤트 수신 후에도 focused=False이면 pressed를 지우고 dt=0으로 이동을 호출. 포커스 상태는 이벤트 수신과 같은 프레임에 기록해야 함
+- `--smoke-test`는 매 프레임 위치를 fixture로 덮어쓰므로 입력 검수용 실행이 아님. 지휘 observer는 인수 없는 main.run()을 호출하므로 해당 분기는 그 observer의 원인이 아님
+
+### 창 없는 코드 재현: 실제 관측 결과
+
+main.py의 키 이벤트 for 문을 AST로 읽어 메모리에서 실행하고, 순수 core의 move_player에 dt=0.05·시작 벽을 전달. main·pico2d 모듈과 SDL 창을 실행한 검사는 아님
+
+| 전달한 변환 후 이벤트 | 최종 발점 | 뜻 |
+| --- | --- | --- |
+| 같은 프레임 D DOWN→UP | (480,180) | pressed가 이동 전에 비워짐 |
+| 프레임을 나눈 D DOWN / UP | (484.5,180) | 한 프레임 4.5px 이동 |
+| 프레임을 나눈 W DOWN / UP | (480,184.5) | 한 프레임 4.5px 이동 |
+| 키 이벤트 없음 | (480,180) | 좌표만으로는 짧은 탭과 구분 불가 |
+
+실행 명령은 다음 here-string을 기존 .venv Python의 stdin으로 전달했으며 종료 코드 0
+
+```powershell
+@'
+import ast
+import json
+from pathlib import Path
+from types import SimpleNamespace as NS
+from game.core import Player, Wall, move_player
+source = ast.parse(Path('game/main.py').read_text(encoding='utf-8'))
+loop = next(n for n in ast.walk(source) if isinstance(n, ast.For)
+            and isinstance(n.iter, ast.Call) and isinstance(n.iter.func, ast.Attribute)
+            and n.iter.func.attr == 'get_events')
+handler = compile(ast.Module(body=[loop], type_ignores=[]), 'game/main.py:event-loop', 'exec')
+p = NS(SDL_QUIT=256, SDL_KEYDOWN=768, SDL_KEYUP=769, SDLK_ESCAPE=27)
+down = lambda key: NS(type=768, key=key)
+up = lambda key: NS(type=769, key=key)
+for name, batches in (
+    ('same_frame_D', ([down(100), up(100)],)),
+    ('separate_frames_D', ([down(100)], [up(100)])),
+    ('separate_frames_W', ([down(119)], [up(119)])),
+    ('no_events', ([],)),
+):
+    player = Player()
+    context = {'p': p, 'pressed': set(), 'running': True}
+    for batch in batches:
+        p.get_events = lambda batch=batch: batch
+        exec(handler, context)
+        keys = context['pressed']
+        move_player(player, int(100 in keys)-int(97 in keys),
+                    int(119 in keys)-int(115 in keys), 0.05, (Wall(400,330,220,60),))
+    print(json.dumps({'case': name, 'position': [player.x, player.y],
+                      'pressed': sorted(context['pressed'])}))
+'@ | & '.\.venv\Scripts\python.exe' -B -
+```
+
+### 지휘 증거와 다음 최소 검사 제안
+
+지휘 전달 증거: 실제 Windows SDL observer에서 CUA pressKey('w') 후 반환 키 이벤트 0개·좌표 불변. 같은 배치 DOWN→UP라면 반환 로그에는 두 이벤트가 있어야 하므로, 이 관측을 짧은 탭 상쇄로 확정하면 안 됨
+합성 키의 SDL 미도달이 유력한 가설이나 원시 PollEvent·repeat 필터·포커스를 확인하기 전에는 원인 확정 불가
+
+지휘가 기존 observer의 실제 SDL_PollEvent 반환 직후를 감싸 다음 정보를 추가 기록하는 방법을 제안. 로그를 위해 두 번째 PollEvent를 호출하거나 이벤트를 별도로 소비하지 않음
+
+- 원시 키: 프레임·순서·timestamp·type·windowID·repeat·keysym.sym·scancode
+- 같은 프레임: 게임 창 ID·SDL 키보드 포커스 창 ID·INPUT_FOCUS 플래그
+- 변환 후: p.get_events 이벤트 목록, 이동 직전 pressed·축·dt, 이동 전후 좌표·moved
+- 원시 창 포커스 이벤트와 TEXTINPUT도 확인하면 포커스 전환·텍스트 전송을 키 입력과 구분 가능
+- 이벤트가 없어도 주기적으로 프레임·포커스·좌표를 기록해 폴링이 진행 중인지 확인
+
+지휘 실행 명령 제안: `.\.venv\Scripts\python.exe -B output/review/R1-A/observe_native_input.py` — 이 분석 담당은 해당 명령을 실행하지 않음
+
+| 추가 추적 결과 | 판별 |
+| --- | --- |
+| 원시 키 없음 | 합성 입력 전달·대상 창·포커스 경로 조사 |
+| 원시 키 있음, pico2d 반환 없음 | repeat 필터·이벤트 유형 확인 |
+| 반환 DOWN/UP가 같은 프레임, 축 0 | 짧은 탭 상쇄 경로 |
+| 반환 DOWN 있음, focused=False | 포커스 정책에 따른 입력 초기화 |
+| 올바른 축·양의 dt·focused=True인데 초기 위치 불변 | 이후 core 호출/위치 덮어쓰기 경로 조사 |
+
+실제 Windows 키 전달·지속 입력·물리 키보드 검증은 지휘의 별도 확인 대상. 사용자 2차 확인은 아직 없음

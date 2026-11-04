@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 from pathlib import Path
 import time
 
@@ -134,6 +135,15 @@ def capture(path):
         p.SDL_FreeSurface(surface)
 
 
+def poll_events():
+    """Read raw events, retaining focus changes without FPS title updates."""
+    while True:
+        event = p.SDL_Event()
+        if not p.SDL_PollEvent(ctypes.byref(event)):
+            return
+        yield event
+
+
 def run(smoke_test=False):
     renderer = None
     try:
@@ -160,19 +170,21 @@ def run(smoke_test=False):
             now = time.perf_counter()
             dt = min(now - previous, 0.05)
             previous = now
-            for event in p.get_events():
+            for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
-                elif event.type == p.SDL_KEYDOWN:
-                    pressed.add(event.key)
-                    if event.key == p.SDLK_ESCAPE:
+                elif event.type == p.SDL_KEYDOWN and not event.key.repeat:
+                    key = event.key.keysym.sym
+                    pressed.add(key)
+                    if key == p.SDLK_ESCAPE:
                         running = False
-                elif event.type == p.SDL_KEYUP:
-                    pressed.discard(event.key)
+                elif event.type == p.SDL_KEYUP and not event.key.repeat:
+                    pressed.discard(event.key.keysym.sym)
                 elif event.type == p.SDL_MOUSEMOTION:
-                    target = sdl_to_world(event.x, event.y)
-            # pico2d.get_events() updates the title with FPS; restore our title.
-            p.SDL_SetWindowTitle(p.window, b"Dead Route - R1-A")
+                    target = sdl_to_world(event.motion.x, event.motion.y)
+                elif (event.type == p.SDL_WINDOWEVENT
+                      and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
+                    pressed.clear()
             if not running:
                 break
             focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
