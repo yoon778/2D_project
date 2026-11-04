@@ -1,0 +1,41 @@
+=== INITIAL ATLAS GENERATION INPUT — 2026-11-04 ===
+
+Use case: precise-object-edit
+Asset type: ONE transparent pixel-art animation atlas for Dead Route R1-B, using input 1 as identity/style reference. Redraw the courier in FOUR distinct 3/4 facing directions with THREE poses per direction. This is a production sprite atlas, not an illustration or chart.
+OUTPUT GRID: portrait 3:4 canvas, EXACTLY 3 equal columns by 4 equal rows, every cell square. Suggested native canvas 1536x2048 but preserve the exact 3:4 ratio. Exactly TWELVE complete courier cutouts, ONE per cell, no extras. NO visible grid lines, words, numbers, labels, arrows, framing or shadows. Entire unused canvas REAL transparent alpha.
+Within EVERY cell use the same camera, head/body scale and virtual foot-root reference: center horizontally at 50% cell width, ground root at about 84% cell height measured from cell top. Standing head about 12% from top; character about 72% cell height. Maintain generous transparent margins; no bat or shoe crosses cell borders. Keep head/torso position stable across the three columns, only true leg poses change.
+CAMERA stays fixed HIGH oblique three-quarter, like input 1: top of cap/shoulders visible, upright torso, foreshortened natural legs and planted shoes. Not vertical hair-crown view, not eye-level, not 3D or isometric diamond grid.
+STYLE: same chunky low-resolution PIXEL ART as input 1, about 64-logical-pixel character detail density enlarged as clear square clusters; limited purposeful palette, stepped dark contours, broad 2–3-value shaded regions. No smooth painting, fine outlines, antialiased soft edges, gradients, small noise or tiny textures. Do not claim native output is 64px.
+
+ROW DIRECTION ASSIGNMENTS, top to bottom:
+ROW 1 front_right: courier faces diagonally DOWN-RIGHT in image. Front/face and chest partly visible. Same facing as input 1. Parcel on anatomical LEFT at front-right/up side of silhouette; bat in anatomical RIGHT hand at lower-left side.
+ROW 2 back_right: courier faces diagonally UP-RIGHT. BACK of cap, shoulders and orange/dark BACKPACK dominate, do NOT show a front face. Anatomical LEFT/front parcel is on upper-left/far side and may be partially occluded by torso; anatomical RIGHT bat hand visible on lower-right/near side.
+ROW 3 back_left: courier faces diagonally UP-LEFT. BACK of cap, shoulders and BACKPACK dominate, do NOT show a front face. Anatomical LEFT/front parcel on lower-left/near side; anatomical RIGHT bat on upper-right/far side.
+ROW 4 front_left: courier faces diagonally DOWN-LEFT. Front/face and chest partly visible from the opposite side. Anatomical LEFT/front parcel toward lower-right/near side; anatomical RIGHT bat toward upper-left/far side.
+Create properly turned anatomy for each direction, not copies with the whole figure mirrored or rotated. Equipment MUST stay in the correct anatomical hand in every row.
+
+COLUMNS for EVERY ROW, left to right:
+COLUMN 1 IDLE: relaxed standing, both boots comfortably under hips.
+COLUMN 2 WALK pose A: LEFT FOOT clearly steps FORWARD along the row's facing direction and RIGHT FOOT steps BACK. Real alternating leg/knee/boot placement, clearly different from idle. Both soles remain near the ground, no high kick or exaggerated split.
+COLUMN 3 WALK pose B: RIGHT FOOT now steps FORWARD and LEFT FOOT steps BACK, reversing pose A. Visibly change both legs and the positions of the two boots. NOT a duplicate of A, not the same picture shifted up/down.
+Walk poses keep head and carried parcel steady near the same cell positions; do NOT stretch or shrink the character, bob the whole sprite, or move the entire cutout vertically to fake animation. Ground root is shared between the feet and stable for all columns. Same actual character size in each cell; never independently zoom a cell.
+
+IDENTITY/EQUIPMENT, all 12: young courier in the same navy/dark-teal cap, jacket/trousers and dark boots, small orange reflective cuffs/shoulders, compact orange/dark backpack. Exactly TWO arms/TWO hands/TWO legs/TWO boots per figure. Anatomical LEFT forearm cradles a small brown cardboard parcel CLOSE AGAINST FRONT OF ABDOMEN, LEFT palm supports from below; never overhead or outstretched. Anatomical RIGHT hand grips handle of ONE wooden baseball bat, lowered safely beside body, never attacking. Small amber chest-mounted lamp, only visible when appropriate to facing; no headlamp, beam or hand-held lamp. Back-facing rows naturally show back of equipment and can occlude chest/parcel partly. All held items must connect to correct wrist/hand.
+Transparent margins and background only. No ground, floor, cast/contact shadow, halo, beam, spark, labels, fake checkerboard, UI, animation trails, extra frames or panels.
+
+=== DIRECTOR-REQUESTED FRONT WALK2 CORRECTION INPUT — 2026-11-04 ===
+Result was reviewed but not selected: lead-foot alternation remained unclear. Canonical PNG retains the first atlas pending director review.
+
+Use case: precise-object-edit
+Edit target: the provided Dead Route 3-column by 4-row pixel-art courier atlas. Keep exact canvas size, 3x4 layout, all transparent backgrounds, character scales, positions, head/torso/arms/equipment and the complete pixel-art style unchanged.
+MAKE A TARGETED LEG-POSE CORRECTION IN ONLY TWO CELLS:
+A) TOP ROW, RIGHTMOST COLUMN (front_right WALK B, cell 3).
+B) BOTTOM ROW, RIGHTMOST COLUMN (front_left WALK B, cell 12).
+Do not alter the other TEN cells. Rows 2 and 3 are already accepted and must remain intact. Do not change any head, cap, backpack, chest lamp, sleeve, hand, parcel or bat. Change only trousers BELOW THE HIPS and boots inside those two cells.
+
+Problem: in row 1 and row 4, the middle and right walking figures currently have the SAME foot in front. They must become opposite phases of an actual two-step walk.
+For target A, compare TOP MIDDLE (WALK A). In the corrected TOP RIGHT figure the OTHER leg must clearly extend forward/down along the facing direction, with that leg's boot now lower/closer and the previously forward leg pulled back/up. The boot connected to the viewer-LEFT trouser leg must now be the forward/lower boot; the viewer-RIGHT boot must be farther back/up. Draw visible continuous knees and trouser legs connected to the correct boots. This must be an actual exchange of left/right foot support, not moving the whole sprite or drawing both boots in the same pose.
+For target B, compare BOTTOM MIDDLE (WALK A). In corrected BOTTOM RIGHT, reverse the two legs' support: the boot on the viewer-RIGHT trouser leg becomes the forward/lower boot and the viewer-LEFT boot withdraws up/back. Preserve the down-left facing of this row. Ensure the difference in the two boots can be seen clearly even when the character is displayed 128px tall.
+Keep both poses natural: compact stride, one leg forward and the other back, no giant split, no extra leg/boot, no airborne jump, no floating disconnected boot, no crossed impossible knees. The pelvis, upper body and cell-local ground-root reference must stay in their existing positions. Do not compensate by bobbing/translating the entire figure. Keep approximately the same overall leg reach and size as the corresponding middle walking cell.
+Preserve anatomical LEFT hand holding parcel against the front abdomen and RIGHT hand holding lowered bat; no new weapon action.
+Retain real alpha transparency, no floor or contact/cast shadow, no grid lines, labels, text, arrows, UI, new cells, enlarged borders, checkerboard or colored backdrop.

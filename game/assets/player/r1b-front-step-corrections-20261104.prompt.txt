@@ -1,0 +1,26 @@
+Actual generation date: 2026-11-05 (Asia/Seoul)
+Filename date 20261104 is the R1-B work identifier.
+Tool: built-in image_gen.imagegen; transparent_background=true
+References: actual SDL runtime clips of front_right/front_left walk2; not programmatically edited PNGs
+
+Exact submitted input:
+
+Use case: precise-object-edit
+Asset type: TWO corrected transparent walking sprites for Dead Route, in ONE 2:1 landscape PNG with TWO equal square cells side by side. This is not a full atlas. No grid line or labels.
+Input image 1: upper-body/style reference for LEFT CELL, front_right courier. Input image 2: upper-body/style reference for RIGHT CELL, front_left courier. Both reference leg poses are WRONG for this desired phase: DO NOT COPY THEIR LEGS.
+Preserve each corresponding reference's head, cap, face, high-oblique camera, jacket, orange backpack, chest lamp, both arms and carried equipment. Same scale and pixel-art density, same upper-body pose. COMPLETELY REDRAW ONLY THE TWO LEGS AND BOOTS as the OPPOSITE walking support phase.
+
+LEFT CELL — front_right, faces down-right:
+The leg on the VIEWER'S LEFT, directly underneath the lowered BASEBALL BAT ARM, is the FORWARD SUPPORT LEG. Extend THIS left-on-screen leg downward so its boot is the LOWEST, nearest boot, clearly in front. Large visible top/front of that boot near the lower-left part of the stance.
+The OTHER leg on the VIEWER'S RIGHT, underneath the PARCEL, bends back/up. Its boot is HIGHER and farther away, partly behind the forward leg.
+This is the exact opposite of input 1, which incorrectly has the right-on-screen boot lowest. In the finished LEFT CELL it is mandatory that the LEFT-ON-SCREEN BOOT is lower than the right boot. Do not merely alter a toe or shading.
+
+RIGHT CELL — front_left, faces down-left:
+The leg on the VIEWER'S RIGHT, directly underneath the PARCEL, is the FORWARD SUPPORT LEG. Extend THIS right-on-screen leg downward so its boot is the LOWEST, nearest boot, clearly in front. Large visible top/front of that boot near the lower-right part of the stance.
+The OTHER leg on the VIEWER'S LEFT, underneath the BAT ARM, bends back/up. Its boot is HIGHER and farther away.
+This is the exact opposite of input 2. In the finished RIGHT CELL the RIGHT-ON-SCREEN BOOT must be lower than the left boot. Do not leave the left boot forward.
+
+Make the lead-foot reversal unmistakable at 128px display height. Keep a compact natural walking step: continuous hips-to-thighs-to-knees-to-ankles, TWO legs and TWO boots only, no giant split, no jumping, no floating foot, no leg swap disconnected from its hip. Feet point along the correct body facing. Keep the same cap/torso dimensions in both cells and fixed camera, no whole-figure tilt or bob to fake the step.
+Both figures: dark teal/navy workwear, small orange details, brown box against front abdomen supported by anatomical LEFT hand, wooden bat gripped in anatomical RIGHT hand, small amber lamp attached to chest. Exactly two hands and arms. Preserve these from references.
+Same coarse PIXEL ART: large square clusters, stepped outline, simple limited palette, no smoothing/gradients/3D texture. Each whole figure inside its own cell with ample transparent margin and soles visible. Keep figure centered around 50% cell width, foot-root around 84% cell height, top of cap around 12%.
+Real transparent alpha background. No floor, shadow, beam, halo, fake checkerboard, text, labels, UI, arrows, panels, extra poses, weapons or people.

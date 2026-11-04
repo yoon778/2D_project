@@ -1,0 +1,405 @@
+{
+  "image": "r1b-courier-atlas-20261104.png",
+  "canvas_size": [
+    1086,
+    1448
+  ],
+  "clip_topleft": [
+    87,
+    30,
+    204,
+    312
+  ],
+  "foot_pivot_topleft": [
+    194,
+    332
+  ],
+  "display_height": 128,
+  "sampling": "nearest",
+  "grid": {
+    "columns": 3,
+    "rows": 4,
+    "cell_size": [
+      362,
+      362
+    ]
+  },
+  "frames": {
+    "front_right": [
+      {
+        "name": "idle",
+        "clip_topleft": [
+          87,
+          30,
+          204,
+          312
+        ],
+        "foot_pivot_topleft": [
+          194,
+          332
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk1",
+        "clip_topleft": [
+          449,
+          30,
+          202,
+          312
+        ],
+        "foot_pivot_topleft": [
+          556,
+          332
+        ],
+        "cell_topleft": [
+          362,
+          0,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk2",
+        "clip_topleft": [
+          213,
+          98,
+          449,
+          722
+        ],
+        "foot_pivot_topleft": [
+          452,
+          775
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          887,
+          887
+        ],
+        "pivot_basis": "Virtual body/ground root aligned by cap top and chest-lamp landmarks against facing idle; not a per-frame sole average",
+        "replaced_atlas_frame": {
+          "clip_topleft": [
+            811,
+            30,
+            202,
+            312
+          ],
+          "foot_pivot_topleft": [
+            918,
+            332
+          ],
+          "cell_topleft": [
+            724,
+            0,
+            362,
+            362
+          ]
+        },
+        "source": "front_steps",
+        "scale_reference_height": 702.472021
+      }
+    ],
+    "back_right": [
+      {
+        "name": "idle",
+        "clip_topleft": [
+          98,
+          389,
+          190,
+          313
+        ],
+        "foot_pivot_topleft": [
+          182,
+          694
+        ],
+        "cell_topleft": [
+          0,
+          362,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk1",
+        "clip_topleft": [
+          462,
+          389,
+          189,
+          303
+        ],
+        "foot_pivot_topleft": [
+          544,
+          694
+        ],
+        "cell_topleft": [
+          362,
+          362,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk2",
+        "clip_topleft": [
+          824,
+          389,
+          189,
+          314
+        ],
+        "foot_pivot_topleft": [
+          906,
+          694
+        ],
+        "cell_topleft": [
+          724,
+          362,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      }
+    ],
+    "back_left": [
+      {
+        "name": "idle",
+        "clip_topleft": [
+          95,
+          752,
+          188,
+          311
+        ],
+        "foot_pivot_topleft": [
+          189,
+          1054
+        ],
+        "cell_topleft": [
+          0,
+          724,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk1",
+        "clip_topleft": [
+          458,
+          752,
+          188,
+          312
+        ],
+        "foot_pivot_topleft": [
+          551,
+          1054
+        ],
+        "cell_topleft": [
+          362,
+          724,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk2",
+        "clip_topleft": [
+          821,
+          752,
+          186,
+          311
+        ],
+        "foot_pivot_topleft": [
+          913,
+          1054
+        ],
+        "cell_topleft": [
+          724,
+          724,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      }
+    ],
+    "front_left": [
+      {
+        "name": "idle",
+        "clip_topleft": [
+          83,
+          1114,
+          186,
+          306
+        ],
+        "foot_pivot_topleft": [
+          180,
+          1412
+        ],
+        "cell_topleft": [
+          0,
+          1086,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk1",
+        "clip_topleft": [
+          440,
+          1115,
+          191,
+          306
+        ],
+        "foot_pivot_topleft": [
+          542,
+          1412
+        ],
+        "cell_topleft": [
+          362,
+          1086,
+          362,
+          362
+        ],
+        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+      },
+      {
+        "name": "walk2",
+        "clip_topleft": [
+          1096,
+          104,
+          418,
+          716
+        ],
+        "foot_pivot_topleft": [
+          1312,
+          749
+        ],
+        "cell_topleft": [
+          887,
+          0,
+          887,
+          887
+        ],
+        "pivot_basis": "Virtual body/ground root aligned by cap top and chest-lamp landmarks against facing idle; not a per-frame sole average",
+        "replaced_atlas_frame": {
+          "clip_topleft": [
+            809,
+            1115,
+            184,
+            309
+          ],
+          "foot_pivot_topleft": [
+            904,
+            1412
+          ],
+          "cell_topleft": [
+            724,
+            1086,
+            362,
+            362
+          ]
+        },
+        "source": "front_steps",
+        "scale_reference_height": 665.127547
+      }
+    ]
+  },
+  "scale_basis": "Atlas frames:128/facing idle clip height. Correction frames:128/fixed scale_reference_height calibrated to head/chest landmarks",
+  "generated_on": "2026-11-04",
+  "source_reference": "r1a-courier-20261104.png",
+  "source_reference_sha256": "A928D8DF6FDAFAD919AF79E59B4AD805AFBBF07B2CC2A4E11C98C8BC23B83539",
+  "sha256": "CE8C0AC85DAA5B7F8AEBF44464B858DB0BC192D4A838A493F774799690D24981",
+  "prompt": "r1b-courier-atlas-20261104.prompt.txt",
+  "tool": "built-in image_gen.imagegen; transparent_background=true; original pixels unmodified",
+  "attempts": [
+    {
+      "kind": "initial atlas",
+      "output": "exec-ae99a438-137e-4a5c-b6f4-b7335d91ac27.png",
+      "selected": true
+    },
+    {
+      "kind": "director-requested front walk2 leg edit",
+      "output": "exec-5b8fb5e0-6065-430c-8f80-0daa144d1276.png",
+      "selected": false,
+      "reason": "No clear reversal of lead foot in front_right/front_left; no improvement accepted"
+    }
+  ],
+  "review_status": "Director adopted opposite lead-foot correction pair; two-source fixed-scale integration and common body-root alignment under self-render review",
+  "limits": "Generated pixels are not a strict native 64px grid. Low-alpha edge residue remains. Head/chest calibration does not guarantee identical cap/shoulder/parcel proportions; verify rendered poses.",
+  "alpha_review": "RGBA 0-255, 163307 low-alpha pixels (1-16) on initial atlas; runtime clips omit much of empty margins but within-clip edge fringe remains",
+  "root_alignment": "2026-11-05 director correction: shared idle cell-local body root for atlas frames; world collision footpoint unchanged",
+  "sources": {
+    "atlas": {
+      "image": "r1b-courier-atlas-20261104.png",
+      "canvas_size": [
+        1086,
+        1448
+      ],
+      "sha256": "CE8C0AC85DAA5B7F8AEBF44464B858DB0BC192D4A838A493F774799690D24981",
+      "generated_on": "2026-11-04"
+    },
+    "front_steps": {
+      "image": "r1b-front-step-corrections-20261104.png",
+      "canvas_size": [
+        1774,
+        887
+      ],
+      "sha256": "EE7EAAFEB48FDD435079D168D78D115EC20849E6350725A6214C5E95AB5ABB75",
+      "generated_on": "2026-11-05",
+      "prompt": "r1b-front-step-corrections-20261104.prompt.txt",
+      "tool": "built-in image_gen.imagegen; transparent_background=true; no programmatic pixel edits",
+      "edit_output": "exec-3ce23864-983b-4215-b50a-639a75d5be42.png",
+      "references": [
+        "../../../output/review/R1-B/front-step-references/front_right-walk2-runtime.png",
+        "../../../output/review/R1-B/front-step-references/front_left-walk2-runtime.png"
+      ],
+      "grid": {
+        "columns": 2,
+        "rows": 1,
+        "cell_size": [
+          887,
+          887
+        ]
+      },
+      "alpha_review": "RGBA; 32151 pixels with alpha1-16; outermost residuals alpha1; runtime clips keep 2px around alpha>16 bounds",
+      "scale_basis": "Fixed head-top to chest-lamp vertical span ratio against original facing idle, not per-frame clip height",
+      "landmarks": {
+        "front_right": {
+          "head_top": 100,
+          "chest_lamp": [
+            498.304,
+            368.252
+          ],
+          "idle_head_top": 32,
+          "idle_chest_lamp": [
+            214.619,
+            151.143
+          ]
+        },
+        "front_left": {
+          "head_top": 106,
+          "chest_lamp": [
+            1274.75,
+            374.442
+          ],
+          "idle_head_top": 1116,
+          "idle_chest_lamp": [
+            162.857,
+            1239.5
+          ]
+        }
+      }
+    }
+  },
+  "edited_on": "2026-11-05"
+}

@@ -1,4 +1,4 @@
-"""Dead Route R1-A: one fixed pose, ground aiming and depth ordering."""
+"""Dead Route R1-B: four facings, distance-based walking and ground aiming."""
 from __future__ import annotations
 
 import argparse
@@ -105,11 +105,11 @@ class Renderer:
             else:
                 self.player_visual.draw(*foot)
                 cross(*foot, TEAL, size=4)
-        # Development markers are separate from the fixed-pose sprite.
+        # Development markers are separate from facing/frame selection.
         target_screen = world_to_screen(*target)
         p.draw_line(*foot, *target_screen, 112, 93, 56)
         cross(*target_screen, ORANGE, size=7)
-        self.font.draw(24, 683, "Dead Route - R1-A  |  한 방향 샘플 고정 · 조준 표식만 변화", WHITE)
+        self.font.draw(24, 683, "Dead Route - R1-B  |  4방향 · 실제 이동 거리로 보행", WHITE)
         self.font.draw(24, 651, "WASD 이동 · 마우스 지면 조준 · 발점 청록 / 조준 주황 · Esc 종료", WHITE)
         self.font.draw(24, 54, "입력 활성" if focused else "포커스 없음 · 이동 입력 초기화", WHITE)
         self.font.draw(24, 24,
@@ -153,7 +153,7 @@ def run(smoke_test=False):
         if not p.renderer:
             raise RuntimeError(f"SDL renderer initialization failed: {p.SDL_GetError()!r}")
         p.hide_lattice()
-        p.SDL_SetWindowTitle(p.window, b"Dead Route - R1-A")
+        p.SDL_SetWindowTitle(p.window, b"Dead Route - R1-B")
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
@@ -192,15 +192,18 @@ def run(smoke_test=False):
                 pressed.clear()
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
+            before = (player.x, player.y)
             move_player(player, axis_x, axis_y, dt if focused else 0.0, walls)
+            dx, dy = player.x - before[0], player.y - before[1]
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
             aim_player(player, *target)
+            renderer.player_visual.update(player.aim_angle, dx, dy)
             renderer.draw(player, walls, target, focused)
             if smoke_test:
-                output = BASE_DIR.parent / "output/review/R1-A" / f"ui-{name}.png"
+                output = BASE_DIR.parent / "output/review/R1-B" / f"ui-{name}.png"
                 capture(output)
-                print(f"R1-A SDL capture: {output}", flush=True)
+                print(f"R1-B SDL capture: {output}", flush=True)
             p.update_canvas()
             frame += 1
             if smoke_test and frame >= len(smoke_poses):
@@ -212,7 +215,7 @@ def run(smoke_test=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Dead Route R1-A fixed-pose ground sample")
+    parser = argparse.ArgumentParser(description="Dead Route R1-B facing and walking sample")
     parser.add_argument("--smoke-test", action="store_true",
                         help="render three native SDL fixtures, save PNGs and exit")
     run(parser.parse_args().smoke_test)

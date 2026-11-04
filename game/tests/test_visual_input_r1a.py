@@ -101,7 +101,7 @@ class DummyInputTests(unittest.TestCase):
         ):
             main.run(smoke_test=False)
 
-        title_writes.assert_called_once_with(p.window, b"Dead Route - R1-A")
+        title_writes.assert_called_once_with(p.window, b"Dead Route - R1-B")
         fps_calls.assert_not_called()
         vendor_event_calls.assert_not_called()
         self.assertEqual(len(renderers), 1)
