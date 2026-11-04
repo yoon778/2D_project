@@ -77,8 +77,8 @@
 
 ## 준비 상태와 일정
 
-새 game/에 R1-B를 연결한 뒤 [R1-B-S1 계약](plans/r1b-smooth-contract.md)에 따라 앞·오른쪽만 8장 보행으로 개선했습니다. 기존 idle·다른 세 방향의 2장 보행을 유지하며 속도 90px/s·32px 주기도 유지합니다. 자동 74개·숨김 Windows 렌더 4장/거리 연동 60프레임을 지휘 검수했습니다.
-현재 [S1 검수 기록](plans/handoffs/r1b-smooth-review.md)에 따른 사용자 2차 확인 대기입니다. 이전 [R1-B](plans/handoffs/r1b-review.md)·[R1-A](plans/handoffs/r1a-review.md) 검수와 물리 키보드·실제 조작감 확인을 구분합니다. 사용자 확인과 다음 진행 요청 전 다른 방향 확장·R2 착수 금지. 전투·좀비·손전등·배달은 미구현입니다.
+새 game/에 네 방향 모두 idle1+보행8장을 적용했습니다. 속도90px/s·32px 실제 거리 주기·기존idle을 유지합니다. 자동79개·Windows방향별 렌더·실제 표시창30초 성능·native 입력/재시작3회 검수를 통과했습니다.
+현재 [1주차 R1 검수 기록](plans/handoffs/r1-week1-review.md)에 따른 사용자2차 확인 대기입니다. 모션은 [S2 기록](plans/handoffs/r1b-smooth-s2-review.md), 이전 이력은 [S1](plans/handoffs/r1b-smooth-review.md)·[R1-B](plans/handoffs/r1b-review.md)·[R1-A](plans/handoffs/r1a-review.md)에 보존합니다. 물리 키보드·주관적 조작감은 별도 확인 대상입니다. 사용자 확인과 다음 진행 요청 전 R2 착수 금지. 전투·좀비·손전등·배달은 미구현입니다.
 미사용 이전 시제품·에셋·테스트·기획·PPT는 로컬 작업 폴더에서 삭제했습니다.
 이전 구현은 Git 이력으로 참고하며, 구형 테스트·렌더 결과를 새 2.5D의 성과로 보고하지 않습니다.
 첫 작업은 [개발 순서](plans/development-roadmap.md), 담당은 [채팅 협업](plans/team-workflow.md)을 따릅니다.
