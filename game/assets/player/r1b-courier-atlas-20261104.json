@@ -47,64 +47,188 @@
         "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
       },
       {
-        "name": "walk1",
+        "name": "walk1_contact_a",
+        "source": "smooth_front_right",
         "clip_topleft": [
-          449,
-          30,
-          202,
-          312
+          89,
+          15,
+          243,
+          403
         ],
         "foot_pivot_topleft": [
-          556,
-          332
+          215.049613,
+          387.098747
         ],
         "cell_topleft": [
-          362,
           0,
-          362,
-          362
+          0,
+          443,
+          443
         ],
-        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+        "scale_reference_height": 384.902697,
+        "phase": 0.0,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
       },
       {
-        "name": "walk2",
+        "name": "walk2_down_a",
+        "source": "smooth_front_right",
         "clip_topleft": [
-          213,
-          98,
-          449,
-          722
+          534,
+          15,
+          241,
+          399
         ],
         "foot_pivot_topleft": [
-          452,
-          775
+          658.049613,
+          387.098747
+        ],
+        "cell_topleft": [
+          443,
+          0,
+          444,
+          443
+        ],
+        "scale_reference_height": 384.902697,
+        "phase": 0.125,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+      },
+      {
+        "name": "walk3_pass_a",
+        "source": "smooth_front_right",
+        "clip_topleft": [
+          978,
+          15,
+          241,
+          403
+        ],
+        "foot_pivot_topleft": [
+          1102.049613,
+          387.098747
+        ],
+        "cell_topleft": [
+          887,
+          0,
+          443,
+          443
+        ],
+        "scale_reference_height": 384.902697,
+        "phase": 0.25,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+      },
+      {
+        "name": "walk4_up_a",
+        "source": "smooth_front_right",
+        "clip_topleft": [
+          1421,
+          15,
+          242,
+          390
+        ],
+        "foot_pivot_topleft": [
+          1545.049613,
+          387.098747
+        ],
+        "cell_topleft": [
+          1330,
+          0,
+          444,
+          443
+        ],
+        "scale_reference_height": 384.902697,
+        "phase": 0.375,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+      },
+      {
+        "name": "walk5_contact_b",
+        "source": "smooth_front_right",
+        "clip_topleft": [
+          91,
+          458,
+          241,
+          403
+        ],
+        "foot_pivot_topleft": [
+          215.049613,
+          830.098747
         ],
         "cell_topleft": [
           0,
-          0,
-          887,
-          887
+          443,
+          443,
+          444
         ],
-        "pivot_basis": "Virtual body/ground root aligned by cap top and chest-lamp landmarks against facing idle; not a per-frame sole average",
-        "replaced_atlas_frame": {
-          "clip_topleft": [
-            811,
-            30,
-            202,
-            312
-          ],
-          "foot_pivot_topleft": [
-            918,
-            332
-          ],
-          "cell_topleft": [
-            724,
-            0,
-            362,
-            362
-          ]
-        },
-        "source": "front_steps",
-        "scale_reference_height": 702.472021
+        "scale_reference_height": 384.902697,
+        "phase": 0.5,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+      },
+      {
+        "name": "walk6_down_b",
+        "source": "smooth_front_right",
+        "clip_topleft": [
+          535,
+          458,
+          241,
+          402
+        ],
+        "foot_pivot_topleft": [
+          658.049613,
+          830.098747
+        ],
+        "cell_topleft": [
+          443,
+          443,
+          444,
+          444
+        ],
+        "scale_reference_height": 384.902697,
+        "phase": 0.625,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+      },
+      {
+        "name": "walk7_pass_b",
+        "source": "smooth_front_right",
+        "clip_topleft": [
+          978,
+          458,
+          241,
+          402
+        ],
+        "foot_pivot_topleft": [
+          1102.049613,
+          830.098747
+        ],
+        "cell_topleft": [
+          887,
+          443,
+          443,
+          444
+        ],
+        "scale_reference_height": 384.902697,
+        "phase": 0.75,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+      },
+      {
+        "name": "walk8_up_b",
+        "source": "smooth_front_right",
+        "clip_topleft": [
+          1422,
+          458,
+          240,
+          390
+        ],
+        "foot_pivot_topleft": [
+          1545.049613,
+          830.098747
+        ],
+        "cell_topleft": [
+          1330,
+          443,
+          444,
+          444
+        ],
+        "scale_reference_height": 384.902697,
+        "phase": 0.875,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
       }
     ],
     "back_right": [
@@ -399,6 +523,94 @@
           ]
         }
       }
+    },
+    "smooth_front_right": {
+      "image": "r1b-smooth-front-right-20261105.png",
+      "canvas_size": [
+        1774,
+        887
+      ],
+      "sha256": "B788C200FFC000D225CF228769CEA01FE5F5BBA2AB79EF52FF77CF0012B3D667",
+      "generated_on": "2026-11-05",
+      "prompt": "r1b-smooth-front-right-20261105.prompt.txt",
+      "tool": "built-in image_gen.imagegen; transparent_background=true; original pixels unmodified",
+      "selected_output": "exec-6b8dd425-efad-424b-b479-716b6d076e47.png",
+      "initial_output_not_selected": "exec-6e2b9f38-bfb4-483e-9577-794bae88952f.png",
+      "references": [
+        "r1b-courier-atlas-20261104.png",
+        "r1b-front-step-corrections-20261104.png"
+      ],
+      "grid": {
+        "columns": 4,
+        "rows": 2,
+        "cell_boundaries_x": [
+          0,
+          443,
+          887,
+          1330,
+          1774
+        ],
+        "cell_boundaries_y": [
+          0,
+          443,
+          887
+        ]
+      },
+      "scale_basis": "One fixed 128/scale_reference_height for all 8 poses; mean cap-to-chest span calibrated to original idle, not each clip box height",
+      "scale_reference_height": 384.902697,
+      "cell_local_body_root": [
+        215.049613,
+        387.098747
+      ],
+      "landmarks": {
+        "head_top_cell_local": 17,
+        "chest_lamp_mean_cell_local": [
+          240.4865,
+          163.98225
+        ],
+        "chest_lamp_source_coordinates": [
+          [
+            240.275,
+            163.05
+          ],
+          [
+            684.093,
+            163.558
+          ],
+          [
+            1127.822,
+            163.422
+          ],
+          [
+            1570.514,
+            163.27
+          ],
+          [
+            240.464,
+            607.071
+          ],
+          [
+            683.703,
+            608.27
+          ],
+          [
+            1126.724,
+            607.379
+          ],
+          [
+            1570.297,
+            607.838
+          ]
+        ],
+        "idle_head_top": 32,
+        "idle_chest_lamp": [
+          214.619,
+          151.143
+        ]
+      },
+      "alpha_review": "RGBA, alpha1-16 pixels:58788; clips add 2px around alpha>16 bounds; in-clip low-alpha fringe retained",
+      "review_status": "Director selected opposite leading legs in frames1/5 after one targeted correction. SDL dummy 8-pose selection/render and 74-test regression passed; commander native temporal review pending.",
+      "limits": "Not a strict native64px grid. Occluded hip/knee in frames3/7 and similar raised-boot silhouettes in frames4/8 limit anatomical tracking; full-cycle smoothness/seam/contact require commander temporal native review."
     }
   },
   "edited_on": "2026-11-05"

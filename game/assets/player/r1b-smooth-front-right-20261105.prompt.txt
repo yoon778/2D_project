@@ -1,0 +1,47 @@
+R1-B-S1 front_right 8-pose walk cycle
+Tool: built-in image_gen.imagegen; transparent_background=true
+Generated on: 2026-11-05
+Initial output (not selected): exec-6e2b9f38-bfb4-483e-9577-794bae88952f.png
+Initial references: r1b-courier-atlas-20261104.png; r1b-front-step-corrections-20261104.png
+
+INITIAL EXACT PROMPT
+Use case: stylized-concept
+Asset type: production transparent pixel-art walk-cycle sprite sheet for the existing Dead Route game
+Primary request: Create ONE 4-column by 2-row sprite sheet containing exactly EIGHT sequential walking poses of the SAME courier, all facing FRONT RIGHT, viewed from the fixed elevated three-quarter camera of the references. This is one smooth complete gait cycle, not eight unrelated poses.
+Input images: Image 1 (12-pose atlas) is the exact character/style/proportion/equipment reference; use its TOP LEFT front-right idle for upper-body design and scale. Image 2 (two large front poses) is supporting evidence of the opposite-leading bat-side leg; use ONLY its LEFT front-right character, never its right-facing-left character.
+Scene/backdrop: Real alpha transparency. No floor, no cast shadow, no checkerboard, no text, numbers, captions, borders, guides, extra objects or environment.
+Layout: 2:1 landscape sheet, ideally 2048x1024, four equal square cells across and two down, all eight fully inside their cells, ample transparent gutters. Reading order left-to-right across the top then bottom row. Camera and character never rotate. In every cell the cap top, head center, chest lamp, belt/hips and body root have the SAME local coordinates; one uniform scale throughout, with no camera zoom. Match original cap/head, torso, legs and boot proportions. The upper body holds the equipment almost steady; only anatomically necessary subtle gait motion, with head-top movement at most about 2% of body height.
+Character/style: Match the reference's crisp deliberately chunky pixel clusters, dark outline, slate/navy cap with bill to screen right and shaded eyes, navy jacket/trousers, orange shoulder accents and brown backpack, amber chest lamp. Character's LEFT arm cradles a brown taped parcel IN FRONT OF TORSO at screen right. Character's RIGHT hand at screen left grips a wooden baseball bat angled downward to screen right; never swap hands or equipment, no mirrored character. Limited flat shaded pixel palette, no smooth vector contours, painted blur or realistic rendering. No new costume details.
+Walk poses, crucial anatomy: Eight different leg configurations, a continuous in-place gait aimed diagonally toward lower right. Feet follow the same two ground tracks. Trace each thigh, bent knee, shin, ankle and boot so changing support leg is unmistakable; feet must not just stretch or teleport.
+TOP ROW:
+1 phase0/8 CONTACT A: parcel-side leg reaches forward with heel contacting, bat-side leg extends back with toe contact; full stride
+2 phase1/8 DOWN A: weight settles onto parcel-side supporting leg, that knee slightly bent; bat-side rear heel lifts/toe pushes off, knee begins flexion
+3 phase2/8 PASS A: parcel-side leg supports under hip, bat-side leg bent and airborne passing alongside/behind supporting leg, feet nearer together
+4 phase3/8 UP A: parcel-side heel lifts in late support, bat-side knee swings forward with raised boot, approaching the next heel contact
+BOTTOM ROW:
+5 phase4/8 CONTACT B: opposite of pose1, BAT-SIDE leg reaches forward with heel contacting, parcel-side leg extends back with toe contact; clearly reverse the leading boot
+6 phase5/8 DOWN B: weight onto bat-side supporting leg with slight knee bend, parcel-side rear foot pushes off
+7 phase6/8 PASS B: bat-side leg supports under hip, parcel-side knee flexed and airborne passing beside it
+8 phase7/8 UP B: bat-side heel lifts, parcel-side knee swings forward/boot raised, naturally leading back to pose1
+Constraints: Exactly eight genuine intermediate gait drawings. Two half-cycles must have OPPOSITE support legs. Preserve box, bat, hat, hand placement, body volume, palette and fixed front-right perspective across all cells. Slight overlaps of legs are allowed in passing poses; do not force every pose into a wide stride. Frame8 must flow into frame1. The movement must come from redrawn thigh/knee/shin/boot poses, never duplicated poses, whole-body vertical translations, crossfades, ghost limbs, motion blur, or extra feet. Keep the original character intact; do not add an idle or other directions.
+
+Selected targeted correction: exec-6b8dd425-efad-424b-b479-716b6d076e47.png
+Correction references: initial output; r1b-front-step-corrections-20261104.png
+Director selected correction after visually confirming frame1/frame5 opposite leading legs
+Original generated pixels copied unchanged; no programmatic image edits
+
+TARGETED CORRECTION EXACT PROMPT
+Edit target: Image 1 is the 4x2 eight-frame walking sheet. Supporting reference: ONLY the LEFT character in Image 2 is an APPROVED opposite leading-leg pose. Never use the right character in Image 2.
+Targeted correction: FIX ONLY THE GAIT ANATOMY BELOW THE WAIST in the eight cells of Image 1. The original eight poses repeat the same forward screen-right boot in both rows, so they do not alternate the supporting leg. Preserve Image 1's exact 4x2 canvas layout, cap/head, chest lamp, arms, parcel, bat, backpack, colors, body size and upper-body local registration. Preserve transparent alpha. Same front-right camera in all eight cells. Do NOT mirror or swap equipment.
+Essential anchor: In BOTTOM LEFT cell (pose5), REDRAW the lower body to match the distinct leg arrangement in the LEFT character of Image2: the BAT-SIDE leg (leg starting at the screen-left hip, on the same side as the bat hand) extends down almost straight with its LARGE FORWARD BOOT BELOW THE CENTER/LEFT of the pelvis, while the PARCEL-SIDE leg is behind, visibly bent up with its boot higher at screen right. This must visibly reverse the front leg from pose1. In pose1 the parcel-side leg remains forward at screen right and the bat-side leg behind at screen left.
+Frame order left-to-right top then bottom:
+1 CONTACT A: parcel-side leg straight forward, heel down at screen right; bat-side leg behind, toe down screen left
+2 DOWN A: parcel-side supporting knee absorbs weight; bat-side heel rising behind
+3 PASS A: parcel-side leg vertical supporting under screen-right hip, BAT-SIDE knee flexed and its boot airborne beside it to screen left, two feet close together
+4 UP A: parcel-side heel rising, BAT-SIDE knee swings FORWARD to the screen-left/center with its boot raised above the contact point, preparing pose5
+5 CONTACT B: use precisely the distinct opposite-leg arrangement from LEFT reference2 as described above; bat-side forward straight leg/large low boot screen center-left, parcel-side knee behind and bent/higher boot screen right
+6 DOWN B: bat-side supports screen-left/center with slightly bent knee; parcel-side back heel/toe pushes off screen right
+7 PASS B: bat-side leg vertical supporting under screen-left hip; PARCEL-SIDE knee flexed, its boot airborne on screen right beside the support leg
+8 UP B: bat-side heel rises behind screen left, PARCEL-SIDE knee swings forward on screen right with a raised boot, approaching pose1
+Keep each thigh attached to its same anatomical hip through all poses; trace thigh to knee to ankle to boot. Only two legs and two boots in every pose. Show actual opposing support legs and genuine contact/down/passing/up drawings, no duplicated or merely translated poses. Match character volumes/leg lengths and original pixel clusters, no changes to equipment or character identity. Clear complete eight-pose cycle with frame8 naturally connecting to frame1. No labels or extra art.
+

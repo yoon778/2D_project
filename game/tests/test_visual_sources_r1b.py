@@ -38,7 +38,7 @@ def dummy_canvas():
                 p.renderer = p.SDL_CreateRenderer(p.window, -1, p.SDL_RENDERER_SOFTWARE)
             if not p.renderer or p.SDL_GetCurrentVideoDriver() != b"dummy":
                 raise AssertionError(f"Dummy renderer initialization failed: {p.SDL_GetError()!r}")
-            # Both loaded textures must override a deliberately linear default.
+            # Every loaded texture must override a deliberately linear default.
             if not p.SDL_SetHint(hint, b"1"):
                 raise AssertionError("Unable to select linear default for sampling check")
             yield
@@ -69,15 +69,15 @@ def track_texture_destruction():
 
 
 class MultiSourceTextureTests(unittest.TestCase):
-    def test_both_real_sources_match_canvas_and_override_linear_sampling(self):
+    def test_all_three_real_sources_match_canvas_and_override_linear_sampling(self):
         visual = None
         image = None
         with dummy_canvas():
             try:
                 visual = player_visual.PlayerVisual()
-                self.assertEqual(set(visual.images), {"atlas", "front_steps"})
+                self.assertEqual(set(visual.images), {"atlas", "front_steps", "smooth_front_right"})
                 self.assertIs(visual.image, visual.images["atlas"])
-                for key in ("atlas", "front_steps"):
+                for key in ("atlas", "front_steps", "smooth_front_right"):
                     with self.subTest(source=key):
                         image = visual.images[key]
                         self.assertEqual(
@@ -99,7 +99,7 @@ class MultiSourceTextureTests(unittest.TestCase):
                 try:
                     visual = player_visual.PlayerVisual()
                     handles = {address(image.texture) for image in visual.images.values()}
-                    self.assertEqual(len(handles), 2)
+                    self.assertEqual(len(handles), 3)
                     visual.close()
                     gc.collect()
                     self.assertIsNone(visual.image)
@@ -114,12 +114,14 @@ class MultiSourceTextureTests(unittest.TestCase):
                     if visual is not None:
                         visual.close()
 
-    def test_bad_second_canvas_releases_already_loaded_first_source(self):
+    def test_bad_middle_canvas_releases_already_loaded_sources(self):
         original_metadata = Path(player_visual.METADATA_PATH)
         metadata = json.loads(original_metadata.read_text(encoding="utf-8"))
         for source in metadata["sources"].values():
             source["image"] = str((original_metadata.parent / source["image"]).resolve())
         metadata["image"] = str((original_metadata.parent / metadata["image"]).resolve())
+        metadata["sources"] = {key: metadata["sources"][key]
+                               for key in ("atlas", "front_steps", "smooth_front_right")}
         metadata["sources"]["front_steps"]["canvas_size"] = [1, 1]
         loaded = []
         original_load = p.load_image
@@ -143,6 +145,30 @@ class MultiSourceTextureTests(unittest.TestCase):
                     self.assertEqual(len(set(loaded)), 2)
                     self.assertEqual(set(destroyed), set(loaded))
                     self.assertTrue(all(destroyed[handle] == 1 for handle in loaded))
+
+    def test_middle_load_failure_releases_first_source(self):
+        original_load = p.load_image
+        loaded, attempts = [], []
+        failure = RuntimeError("middle source load failure sentinel")
+
+        def load_image(path):
+            attempts.append(path)
+            if len(attempts) == 2:
+                raise failure
+            image = original_load(path)
+            loaded.append(address(image.texture))
+            return image
+
+        with dummy_canvas(), track_texture_destruction() as destroyed:
+            with patch.object(p, "load_image", side_effect=load_image):
+                with self.assertRaises(RuntimeError) as raised:
+                    player_visual.PlayerVisual()
+                self.assertIs(raised.exception, failure)
+                gc.collect()
+                self.assertEqual(len(attempts), 2)
+                self.assertEqual(len(loaded), 1)
+                self.assertEqual(set(destroyed), set(loaded))
+                self.assertEqual(destroyed[loaded[0]], 1)
 
 
 if __name__ == "__main__":

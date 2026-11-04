@@ -1,6 +1,7 @@
 """R1-B atlas geometry contracts; not a visual animation-quality verdict."""
 from copy import deepcopy
 from dataclasses import asdict
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -13,7 +14,7 @@ from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from locomotion import Locomotion
+from locomotion import Locomotion, STRIDE_DISTANCE
 from player_visual import METADATA_PATH, PlayerVisual
 
 
@@ -23,6 +24,28 @@ FACINGS = (
     ("back_left", 3 * math.pi / 4),
     ("front_left", -3 * math.pi / 4),
 )
+
+LEGACY_SOURCE_HASHES = {
+    "atlas": "ce8c0ac85daa5b7f8aebf44464b858db0bc192d4a838a493f774799690d24981",
+    "front_steps": "ee7eaafeb48fdd435079d168d78d115ec20849e6350725a6214c5e95ab5abb75",
+}
+LEGACY_FRAMES = {
+    "back_right": [
+        ("atlas", [98, 389, 190, 313], [182, 694], None),
+        ("atlas", [462, 389, 189, 303], [544, 694], None),
+        ("atlas", [824, 389, 189, 314], [906, 694], None),
+    ],
+    "back_left": [
+        ("atlas", [95, 752, 188, 311], [189, 1054], None),
+        ("atlas", [458, 752, 188, 312], [551, 1054], None),
+        ("atlas", [821, 752, 186, 311], [913, 1054], None),
+    ],
+    "front_left": [
+        ("atlas", [83, 1114, 186, 306], [180, 1412], None),
+        ("atlas", [440, 1115, 191, 306], [542, 1412], None),
+        ("front_steps", [1096, 104, 418, 716], [1312, 749], 665.127547),
+    ],
+}
 
 
 class AtlasGeometryTests(unittest.TestCase):
@@ -55,13 +78,17 @@ class AtlasGeometryTests(unittest.TestCase):
                 image.clip_draw.assert_not_called()
         return visual.images[selected].clip_draw.call_args.args
 
-    def test_twelve_frames_fit_their_cells_and_base_matches_front_right_idle(self):
+    def frame_steps(self, facing):
+        count = len(self.metadata["frames"][facing]) - 1
+        return [0.0, STRIDE_DISTANCE / (2 * count)] + [STRIDE_DISTANCE / count] * (count - 1)
+
+    def test_eighteen_frames_fit_sources_and_preserve_other_three_facings(self):
         metadata = self.metadata
         self.assertEqual(set(metadata["frames"]), {name for name, _ in FACINGS})
         self.assertEqual(metadata["display_height"], 128)
         self.assertEqual(metadata["sampling"], "nearest")
         sources = metadata["sources"]
-        self.assertEqual(set(sources), {"atlas", "front_steps"})
+        self.assertEqual(set(sources), {"atlas", "front_steps", "smooth_front_right"})
         self.assertEqual(metadata["image"], sources["atlas"]["image"])
         self.assertEqual(metadata["canvas_size"], sources["atlas"]["canvas_size"])
         for source, entry in sources.items():
@@ -70,16 +97,26 @@ class AtlasGeometryTests(unittest.TestCase):
                     header = image.read(24)
                 self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
                 self.assertEqual(tuple(entry["canvas_size"]), struct.unpack(">II", header[16:24]))
-        atlas_count = 0
-        corrected_cells = []
+                if source in LEGACY_SOURCE_HASHES:
+                    self.assertEqual(hashlib.sha256(
+                        (METADATA_PATH.parent / entry["image"]).read_bytes()).hexdigest(),
+                        LEGACY_SOURCE_HASHES[source])
+        counts = {source: 0 for source in sources}
+        smooth_references = []
 
         for row, (facing, _) in enumerate(FACINGS):
             frames = metadata["frames"][facing]
-            self.assertEqual(len(frames), 3, facing)
+            self.assertEqual(len(frames), 9 if facing == "front_right" else 3, facing)
+            if facing in LEGACY_FRAMES:
+                self.assertEqual([
+                    (frame.get("source", "atlas"), frame["clip_topleft"],
+                     frame["foot_pivot_topleft"], frame.get("scale_reference_height"))
+                    for frame in frames], LEGACY_FRAMES[facing])
             for column, frame in enumerate(frames):
                 with self.subTest(facing=facing, frame=column):
                     source = frame.get("source", "atlas")
                     self.assertIn(source, sources)
+                    counts[source] += 1
                     canvas_width, canvas_height = sources[source]["canvas_size"]
                     left, top, width, height = frame["clip_topleft"]
                     self.assertTrue(all(isinstance(value, int)
@@ -96,19 +133,34 @@ class AtlasGeometryTests(unittest.TestCase):
                     self.assertLessEqual(cell_right, canvas_width)
                     self.assertLessEqual(cell_bottom, canvas_height)
                     if source == "atlas":
-                        atlas_count += 1
                         self.assertEqual((cell_left, cell_top, cell_right, cell_bottom),
                                          (column * canvas_width // 3, row * canvas_height // 4,
                                           (column + 1) * canvas_width // 3,
                                           (row + 1) * canvas_height // 4))
-                    else:
-                        self.assertEqual(source, "front_steps")
-                        self.assertIn(facing, ("front_right", "front_left"))
-                        self.assertIn(column, (1, 2))
+                    elif source == "front_steps":
+                        self.assertEqual((facing, column), ("front_left", 2))
                         reference = frame["scale_reference_height"]
                         self.assertTrue(math.isfinite(reference))
                         self.assertGreater(reference, 0)
-                        corrected_cells.append((cell_left, cell_right))
+                        self.assertEqual((cell_left, cell_top, cell_width, cell_height),
+                                         (887, 0, 887, 887))
+                    else:
+                        self.assertEqual(source, "smooth_front_right")
+                        self.assertEqual(facing, "front_right")
+                        self.assertIn(column, range(1, 9))
+                        smooth_column, smooth_row = (column - 1) % 4, (column - 1) // 4
+                        grid = sources[source]["grid"]
+                        self.assertEqual((grid["columns"], grid["rows"]), (4, 2))
+                        boundaries_x, boundaries_y = grid["cell_boundaries_x"], grid["cell_boundaries_y"]
+                        self.assertEqual(boundaries_x, [index * canvas_width // 4 for index in range(5)])
+                        self.assertEqual(boundaries_y, [index * canvas_height // 2 for index in range(3)])
+                        self.assertEqual((cell_left, cell_top, cell_right, cell_bottom),
+                                         (boundaries_x[smooth_column], boundaries_y[smooth_row],
+                                          boundaries_x[smooth_column + 1], boundaries_y[smooth_row + 1]))
+                        reference = frame["scale_reference_height"]
+                        self.assertTrue(math.isfinite(reference))
+                        self.assertGreater(reference, 0)
+                        smooth_references.append(reference)
                     self.assertGreaterEqual(left, cell_left)
                     self.assertLessEqual(left + width, cell_right)
                     self.assertGreaterEqual(top, cell_top)
@@ -119,10 +171,9 @@ class AtlasGeometryTests(unittest.TestCase):
                     self.assertGreaterEqual(pivot_y, cell_top)
                     self.assertLessEqual(pivot_y, cell_bottom)
 
-        self.assertEqual(atlas_count, 10)
-        self.assertEqual(len(corrected_cells), 2)
-        corrected_cells.sort()
-        self.assertLessEqual(corrected_cells[0][1], corrected_cells[1][0])
+        self.assertEqual(counts, {"atlas": 9, "front_steps": 1, "smooth_front_right": 8})
+        self.assertEqual(len(smooth_references), 8)
+        self.assertTrue(all(reference == smooth_references[0] for reference in smooth_references))
         idle = metadata["frames"]["front_right"][0]
         self.assertEqual(metadata["clip_topleft"], idle["clip_topleft"])
         self.assertEqual(metadata["foot_pivot_topleft"], idle["foot_pivot_topleft"])
@@ -131,11 +182,11 @@ class AtlasGeometryTests(unittest.TestCase):
         foot = (640.125, 271.5)
         for facing, angle in FACINGS:
             visual = self.make_visual()
-            for index, displacement in enumerate((0.0, 8.0, 16.0)):
+            for index, displacement in enumerate(self.frame_steps(facing)):
                 with self.subTest(facing=facing, frame=index):
                     visual.update(angle, displacement, 0.0)
                     self.assertEqual(visual.locomotion.facing, facing)
-                    self.assertEqual(visual.locomotion.frame_index, index)
+                    self.assertEqual(visual.frame_index, index)
                     frame = self.metadata["frames"][facing][index]
                     source_x, source_bottom, source_width, source_height, x, y, width, height = (
                         self.draw_arguments(visual, frame, foot))
@@ -152,11 +203,11 @@ class AtlasGeometryTests(unittest.TestCase):
                     self.assertAlmostEqual(anchor_y, foot[1], places=9)
 
     def test_idle_is_128px_and_frames_keep_their_fixed_scale_reference(self):
-        atlas_walks, corrected = [], []
+        atlas_walks, overrides = [], []
         for facing, angle in FACINGS:
             visual = self.make_visual()
             idle_scale = None
-            for index, displacement in enumerate((0.0, 8.0, 16.0)):
+            for index, displacement in enumerate(self.frame_steps(facing)):
                 with self.subTest(facing=facing, frame=index):
                     visual.update(angle, displacement, 0.0)
                     frame = self.metadata["frames"][facing][index]
@@ -175,17 +226,18 @@ class AtlasGeometryTests(unittest.TestCase):
                         reference_scale = 128.0 / frame["scale_reference_height"]
                         self.assertAlmostEqual(height / source_height, reference_scale, places=9)
                         self.assertAlmostEqual(width / source_width, reference_scale, places=9)
-                        corrected.append((facing, angle, index))
+                        overrides.append((facing, angle, index))
 
         self.assertTrue(atlas_walks)
-        self.assertEqual(len(corrected), 2)
+        self.assertEqual(len(overrides), 9)
         # Changing a frame's box must preserve its fixed reference, not normalize
         # that frame's height to 128. Exercise both the original and added source.
-        for facing, angle, index in atlas_walks[:1] + corrected:
+        for facing, angle, index in atlas_walks[:1] + overrides:
             varied = deepcopy(self.metadata)
             frame = varied["frames"][facing][index]
             visual = self.make_visual(varied)
-            visual.update(angle, 8.0 if index == 1 else 24.0, 0.0)
+            count = len(varied["frames"][facing]) - 1
+            visual.update(angle, (index - 0.5) * STRIDE_DISTANCE / count, 0.0)
             original_height = self.draw_arguments(visual, frame, (500.0, 300.0))[7]
             source_height = frame["clip_topleft"][3]
             frame["clip_topleft"][3] = max(1, source_height // 2)
@@ -194,19 +246,24 @@ class AtlasGeometryTests(unittest.TestCase):
                                    original_height / source_height, places=9)
 
     def test_draw_translation_preserves_size_state_and_metadata(self):
-        metadata = deepcopy(self.metadata)
-        visual = self.make_visual(metadata)
-        visual.update(3 * math.pi / 4, 8.0, 0.0)
-        before_state, before_metadata = asdict(visual.locomotion), deepcopy(metadata)
-        frame = metadata["frames"]["back_left"][1]
-        first = self.draw_arguments(visual, frame, (400.0, 250.0))
-        second = self.draw_arguments(visual, frame, (511.25, 219.5))
-        self.assertEqual(first[:4], second[:4])
-        self.assertAlmostEqual(second[4] - first[4], 111.25, places=9)
-        self.assertAlmostEqual(second[5] - first[5], -30.5, places=9)
-        self.assertEqual(first[6:], second[6:])
-        self.assertEqual(asdict(visual.locomotion), before_state)
-        self.assertEqual(metadata, before_metadata)
+        for facing, angle, index in (("front_right", -math.pi / 4, 4),
+                                     ("back_left", 3 * math.pi / 4, 1),
+                                     ("front_left", -3 * math.pi / 4, 2)):
+            with self.subTest(facing=facing, frame=index):
+                metadata = deepcopy(self.metadata)
+                visual = self.make_visual(metadata)
+                count = len(metadata["frames"][facing]) - 1
+                visual.update(angle, (index - 0.5) * STRIDE_DISTANCE / count, 0.0)
+                before_state, before_metadata = asdict(visual.locomotion), deepcopy(metadata)
+                frame = metadata["frames"][facing][index]
+                first = self.draw_arguments(visual, frame, (400.0, 250.0))
+                second = self.draw_arguments(visual, frame, (511.25, 219.5))
+                self.assertEqual(first[:4], second[:4])
+                self.assertAlmostEqual(second[4] - first[4], 111.25, places=9)
+                self.assertAlmostEqual(second[5] - first[5], -30.5, places=9)
+                self.assertEqual(first[6:], second[6:])
+                self.assertEqual(asdict(visual.locomotion), before_state)
+                self.assertEqual(metadata, before_metadata)
 
 
 if __name__ == "__main__":

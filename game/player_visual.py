@@ -47,9 +47,14 @@ class PlayerVisual:
     def update(self, aim_angle, dx, dy):
         self.locomotion.update(aim_angle, dx, dy)
 
+    @property
+    def frame_index(self):
+        frames = self.metadata["frames"][self.locomotion.facing]
+        return self.locomotion.walk_frame_index(len(frames) - 1)
+
     def draw(self, foot_x, foot_y):
         frames = self.metadata["frames"][self.locomotion.facing]
-        frame = frames[self.locomotion.frame_index]
+        frame = frames[self.frame_index]
         image = self.images[frame.get("source", "atlas")]
         clip = frame["clip_topleft"]
         # Keep the idle-based scale for all poses of this facing.

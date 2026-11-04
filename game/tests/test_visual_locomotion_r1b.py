@@ -31,7 +31,8 @@ class LocomotionLoopTests(unittest.TestCase):
             updates.append({
                 "aim_angle": aim_angle, "dx": dx, "dy": dy,
                 "facing": locomotion.facing, "moving": locomotion.moving,
-                "frame_index": locomotion.frame_index,
+                "frame_index": visual.frame_index,
+                "frame_count": len(visual.metadata["frames"][locomotion.facing]) - 1,
             })
 
         def run(*args, **kwargs):
@@ -58,6 +59,11 @@ class LocomotionLoopTests(unittest.TestCase):
             capture.assert_not_called()
         for state, frame in zip(updates, frames):
             self.assertAlmostEqual(state["aim_angle"], frame["aim_angle"], places=9)
+            if state["moving"]:
+                self.assertLessEqual(1, state["frame_index"])
+                self.assertLessEqual(state["frame_index"], state["frame_count"])
+            else:
+                self.assertEqual(state["frame_index"], 0)
         return frames, updates
 
     def _assert_actual_displacements(self, frames, updates, start=(480.0, 180.0)):
@@ -139,6 +145,22 @@ class LocomotionLoopTests(unittest.TestCase):
             self.assertEqual((state["dx"], state["dy"]), (0.0, 0.0))
             self.assertFalse(state["moving"])
             self.assertEqual(state["frame_index"], 0)
+
+    def test_front_right_loop_selects_all_eight_walk_frames_then_idle(self):
+        frames, updates = self._run_observed(
+            initial=[("motion", 1120, 521), ("down", p.SDLK_w)],
+            after_draw={22: [("up", p.SDLK_w)], 23: [("quit",)]},
+            maximum_draws=24,
+        )
+        self._assert_actual_displacements(frames, updates)
+        moving = updates[:22]
+        self.assertEqual(len(updates), 23)
+        self.assertTrue(all(state["facing"] == "front_right" for state in updates))
+        self.assertTrue(all(state["frame_count"] == 8 for state in updates))
+        self.assertTrue(all(state["moving"] for state in moving))
+        self.assertEqual({state["frame_index"] for state in moving}, set(range(1, 9)))
+        self.assertEqual(updates[-1]["frame_index"], 0)
+        self.assertFalse(updates[-1]["moving"])
 
 
 if __name__ == "__main__":
