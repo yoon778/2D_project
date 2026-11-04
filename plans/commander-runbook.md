@@ -21,7 +21,7 @@ R1-A 이후 작업은 아래 사용자 확인 절차를 따름
 | 역할 | 맡을 일 | 변경 가능한 범위 |
 | --- | --- | --- |
 | 지휘 | 범위·연결 규격 확정, 지시, 통합 검수, 수정 요청, 사용자 인계, Git | AGENTS.md, PRD.md, README.md, plans/, 검수에 필요한 연결 수정 |
-| 로직 채팅 | 지면 이동·충돌·전투·AI·소음·거리 음향·판정 테스트 | game/core.py, game/spatial_audio.py, game/requirements.txt, game/tests/test_core*.py |
+| 로직 채팅 | 지면 이동·충돌·보행 위상·전투·AI·소음·거리 음향·판정 테스트 | game/core.py, game/locomotion.py, game/spatial_audio.py, game/requirements.txt, game/tests/test_core*.py, game/tests/test_locomotion*.py |
 | UI·에셋 채팅 | 실행 창·입력 연결·화면 변환·캐릭터·모션·맵 표현·시야 | game/main.py, game/player_visual.py, game/visibility.py, game/assets/, game/tests/test_visual*.py |
 | 사용자 | 2차 실제 조작·외형·재미 확인, 수정 요청, 다음 작업 허용 | 지휘에게 피드백 |
 
@@ -233,8 +233,9 @@ API 변경은 지휘가 문서에 반영하고 두 채팅 모두에게 알린 �
 | 작업 | 상태 | 지휘 1차 | 사용자 2차 | 다음 행동 |
 | --- | --- | --- | --- | --- |
 | 절차 문서화 | 사용자 확인 대기 | 독립 검토의 보고서 소유권 지적 수정, 문서 비교·링크 확인 통과 | 첫 실행본과 함께 확인 요청 예정 | 문서 커밋 `fd02a0b` 완료 |
-| R1-A | 사용자 확인 대기 | 도트풍 수정본 자동 38개·Windows 렌더 3장 재검수, 기존 입력 검수 이력 별도 보존 | 도트풍 외형·실제 키보드·체감 미확인 | [지휘 검수 기록](handoffs/r1a-review.md)의 체크리스트로 수정본 확인, R1-B 정지 |
-| R1-B~R6 | 대기 | 미실행 | 미실행 | R1-A 사용자 확인 전 착수 금지 |
+| R1-A | 다음 단계 착수 허용 | 도트풍 수정본 자동 38개·Windows 렌더 3장 재검수, 기존 입력 이력 별도 보존 | 계속 개발 지시 수신, 물리 키보드 확인 결과는 별도 미수신 | R1-B 진행 |
+| R1-B | 진행 | [방향·보행 규격](r1b-contract.md) 검토·배정 | 미실행 | 담당 구현→지휘 검수·수정·커밋→사용자 2차 확인에서 정지 |
+| R2~R6 | 대기 | 미실행 | 미실행 | R1-B 사용자 확인과 다음 진행 요청 전 착수 금지 |
 
 기록에는 실제 수행한 검사·수정·사용자 피드백·커밋만 추가함
 사용자 2차 확인은 지휘가 대신 체크하지 않음

@@ -7,7 +7,7 @@
 | 역할 | 담당 |
 | --- | --- |
 | 지휘 | 사용자 요구·범위·작업 배분·연결 규격·검수·수정 요청·문서·Git |
-| 로직 개발 | game/core.py, game/spatial_audio.py, game/requirements.txt, 논리 테스트 |
+| 로직 개발 | game/core.py, game/locomotion.py, game/spatial_audio.py, game/requirements.txt, 논리 테스트 |
 | UI·에셋 | game/main.py, game/player_visual.py, game/visibility.py, game/assets/, 렌더 검증 |
 
 위 경로는 담당 범위이며 아직 없는 모듈은 해당 기능 작업 때만 만듭니다. 현재 R1-A의 core.py·main.py·player_visual.py·한 방향 에셋·검사 코드를 작성했습니다.
@@ -33,7 +33,7 @@
 ## 현재 인계
 
 R1-A 기존 그림체에서 UI-02/03 수정·입력·창 검수를 수행했고 이후 도트풍 캐릭터를 적용·지휘 재검수했습니다. 전체 자동 검사 38개·Windows 렌더 3장을 확인했으며 로직 판정은 유지했습니다.
-현재 두 담당은 대기하고 실제 물리 키보드·도트풍 외형을 사용자 2차에서 확인합니다. [지휘 검수 기록](handoffs/r1a-review.md)의 사용자 확인과 다음 진행 요청 전에는 R1-B를 배정하지 않습니다.
+사용자의 계속 개발 요청으로 [R1-B 규격](r1b-contract.md)을 확정하고 4방향·짧은 보행에 착수합니다. 실제 물리 키보드 확인 결과는 별도로 받지 않았으므로 확인 완료로 기록하지 않습니다. R1-B 지휘 검수 뒤 사용자 2차 확인에서 정지합니다.
 구형 검증 결과를 새 2.5D의 통과 근거로 보고하지 않습니다.
 
 | 채팅 | 로컬 식별자 |
