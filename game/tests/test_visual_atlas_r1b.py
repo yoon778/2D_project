@@ -30,10 +30,9 @@ LEGACY_SOURCE_HASHES = {
     "front_steps": "ee7eaafeb48fdd435079d168d78d115ec20849e6350725a6214c5e95ab5abb75",
     "smooth_front_right": "b788c200ffc000d225cf228769cea01fe5f5bba2ab79ef52ff77cf0012b3d667",
 }
-# Canonical JSON hashes from git show 358978f, not from the changing live JSON.
-BASELINE_FRONT_RIGHT = "fffd766f9f9ae6dbb22caa6457ec32b9ae39c0aed8de6a53a47d96cf4edae711"
+# Canonical JSON hashes verified against git show a9723bc.
 BASELINE_IDLES = "56584c6445ae8a552a90aa67c20133578909816e7ba78566094232bf7eee0a16"
-BASELINE_SOURCES = "da1f838de0f2f309fc083e8b1e2d499c472590a0112079044f0dac4e783f93b6"
+BASELINE_SOURCES = "0146fc78c3abc5fb9782f35efeb96d834702978e83673ca75f0eb1c31a8be0a4"
 # Preserve the approved BR stage exactly from git show 9b6bb29.
 BASELINE_BACK_RIGHT_FRAMES = "388e9b486e1cb9f50a620ad2c91a4187db409f749cab0faeab2311b51eed6997"
 BASELINE_BACK_RIGHT_SOURCE = "534a1fc147b2a62cd97d8446d53c2a25e8aca42e5ba2631dbaf148d891d0ddf3"
@@ -42,12 +41,20 @@ BASELINE_BACK_RIGHT_PNG = "201fce1a74c302b0b180d52ab168ed84e6b04bfd5192a6063a00c
 BASELINE_BACK_LEFT_FRAMES = "48212a15d87b9fb824c258a924c768ebc9f2d44654d5c1adf7ba6b2234ff16df"
 BASELINE_BACK_LEFT_SOURCE = "6cfa416def46062d156eef04482edfee035efc10e921038b5ecf2a674767d074"
 BASELINE_BACK_LEFT_PNG = "1b6fb22c7b8e5da37eef6ee89bd0168378aad8653b554bb09a8f43f455728558"
+BASELINE_FRONT_LEFT_FRAMES = "05a38bb5887820fc386e7400ed532a88dcb6c88010f68b66784680759f03ffda"
+PRESERVED_SOURCE_HASHES = {
+    **LEGACY_SOURCE_HASHES,
+    "smooth_back_right": BASELINE_BACK_RIGHT_PNG,
+    "smooth_back_left": BASELINE_BACK_LEFT_PNG,
+    "smooth_front_left": "d3dcd3d3ff13be1eb03c3c07d27087ace3824535ec592dacb7bfbf625958b5f1",
+}
 BASELINE_WAITING_FRAMES = {
     "back_right": "c82dc04a7caaf54061a04524d31249efd45f03ec47276ff7965295ddd26b12c3",
     "back_left": "955ec71b95f265b40439d066b35e026a322be88a6ae966a0788f1b1374072a8d",
     "front_left": "bd48db6087261dfff86233107bbd0d292a6acfcaf5314b70458e2cfaee183693",
 }
 SMOOTH_SOURCES = {facing: "smooth_" + facing for facing, _ in FACINGS}
+ACTIVE_SOURCES = {**SMOOTH_SOURCES, "front_right": "weight_front_right"}
 S2_ORDER = ("back_right", "back_left", "front_left")
 
 
@@ -110,7 +117,7 @@ class AtlasGeometryTests(unittest.TestCase):
         return [0.0, STRIDE_DISTANCE / (2 * count)] + [STRIDE_DISTANCE / count] * (count - 1)
 
     def expanded_facings(self):
-        return {facing for facing, source in SMOOTH_SOURCES.items()
+        return {facing for facing, source in ACTIVE_SOURCES.items()
                 if source in self.metadata["sources"]}
 
     def test_staged_frames_fit_sources_and_preserve_baseline(self):
@@ -124,21 +131,19 @@ class AtlasGeometryTests(unittest.TestCase):
         self.assertEqual(sum(len(frames) for frames in metadata["frames"].values()), 36)
         progress = [facing for facing in S2_ORDER if facing in expanded]
         self.assertEqual(progress, list(S2_ORDER[:len(progress)]))
-        self.assertEqual(set(sources), {"atlas", "front_steps"} | set(SMOOTH_SOURCES.values()))
-        self.assertEqual(canonical_hash(metadata["frames"]["front_right"]), BASELINE_FRONT_RIGHT)
+        self.assertEqual(set(sources), set(PRESERVED_SOURCE_HASHES) | {"weight_front_right"})
         self.assertEqual(canonical_hash({name: frames[0] for name, frames in metadata["frames"].items()}),
                          BASELINE_IDLES)
-        self.assertEqual(canonical_hash({name: sources[name] for name in LEGACY_SOURCE_HASHES}),
+        self.assertEqual(canonical_hash({name: sources[name] for name in PRESERVED_SOURCE_HASHES}),
                          BASELINE_SOURCES)
         self.assertEqual(canonical_hash(metadata["frames"]["back_right"]), BASELINE_BACK_RIGHT_FRAMES)
         self.assertEqual(canonical_hash(sources["smooth_back_right"]), BASELINE_BACK_RIGHT_SOURCE)
         self.assertEqual(canonical_hash(metadata["frames"]["back_left"]), BASELINE_BACK_LEFT_FRAMES)
         self.assertEqual(canonical_hash(sources["smooth_back_left"]), BASELINE_BACK_LEFT_SOURCE)
+        self.assertEqual(canonical_hash(metadata["frames"]["front_left"]), BASELINE_FRONT_LEFT_FRAMES)
         self.assertEqual(metadata["image"], sources["atlas"]["image"])
         self.assertEqual(metadata["canvas_size"], sources["atlas"]["canvas_size"])
-        pinned_source_hashes = {**LEGACY_SOURCE_HASHES,
-                                "smooth_back_right": BASELINE_BACK_RIGHT_PNG,
-                                "smooth_back_left": BASELINE_BACK_LEFT_PNG}
+        pinned_source_hashes = PRESERVED_SOURCE_HASHES
         for source, entry in sources.items():
             with self.subTest(source=source):
                 with (METADATA_PATH.parent / entry["image"]).open("rb") as image:
@@ -199,7 +204,7 @@ class AtlasGeometryTests(unittest.TestCase):
                                          (887, 0, 887, 887))
                     else:
                         self.assertIn(facing, expanded)
-                        self.assertEqual(source, SMOOTH_SOURCES[facing])
+                        self.assertEqual(source, ACTIVE_SOURCES[facing])
                         self.assertIn(column, range(1, 9))
                         smooth_column, smooth_row = (column - 1) % 4, (column - 1) // 4
                         grid = sources[source]["grid"]
@@ -233,7 +238,7 @@ class AtlasGeometryTests(unittest.TestCase):
         for facing, _ in FACINGS:
             expected_counts["atlas"] += 1
             if facing in expanded:
-                expected_counts[SMOOTH_SOURCES[facing]] += 8
+                expected_counts[ACTIVE_SOURCES[facing]] += 8
             else:
                 for source, _, _, _ in LEGACY_FRAMES[facing][1:]:
                     expected_counts[source] += 1

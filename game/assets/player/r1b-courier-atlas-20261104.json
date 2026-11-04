@@ -48,16 +48,16 @@
       },
       {
         "name": "walk1_contact_a",
-        "source": "smooth_front_right",
+        "source": "weight_front_right",
         "clip_topleft": [
-          89,
-          15,
+          88,
+          14,
           243,
-          403
+          411
         ],
         "foot_pivot_topleft": [
-          215.049613,
-          387.098747
+          214.581222,
+          389.254427
         ],
         "cell_topleft": [
           0,
@@ -65,22 +65,22 @@
           443,
           443
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.0,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
-        "name": "walk2_down_a",
-        "source": "smooth_front_right",
+        "name": "walk2_load_a",
+        "source": "weight_front_right",
         "clip_topleft": [
-          534,
-          15,
-          241,
-          399
+          538,
+          14,
+          237,
+          411
         ],
         "foot_pivot_topleft": [
-          658.049613,
-          387.098747
+          657.581222,
+          389.254427
         ],
         "cell_topleft": [
           443,
@@ -88,22 +88,22 @@
           444,
           443
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.125,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
-        "name": "walk3_pass_a",
-        "source": "smooth_front_right",
+        "name": "walk3_low_pass_a",
+        "source": "weight_front_right",
         "clip_topleft": [
-          978,
-          15,
-          241,
-          403
+          983,
+          14,
+          235,
+          401
         ],
         "foot_pivot_topleft": [
-          1102.049613,
-          387.098747
+          1101.581222,
+          389.254427
         ],
         "cell_topleft": [
           887,
@@ -111,22 +111,22 @@
           443,
           443
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.25,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
-        "name": "walk4_up_a",
-        "source": "smooth_front_right",
+        "name": "walk4_low_advance_a",
+        "source": "weight_front_right",
         "clip_topleft": [
-          1421,
-          15,
-          242,
-          390
+          1430,
+          14,
+          232,
+          398
         ],
         "foot_pivot_topleft": [
-          1545.049613,
-          387.098747
+          1544.581222,
+          389.254427
         ],
         "cell_topleft": [
           1330,
@@ -134,22 +134,22 @@
           444,
           443
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.375,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
         "name": "walk5_contact_b",
-        "source": "smooth_front_right",
+        "source": "weight_front_right",
         "clip_topleft": [
-          91,
-          458,
-          241,
-          403
+          95,
+          457,
+          236,
+          408
         ],
         "foot_pivot_topleft": [
-          215.049613,
-          830.098747
+          214.581222,
+          832.254427
         ],
         "cell_topleft": [
           0,
@@ -157,22 +157,22 @@
           443,
           444
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.5,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
-        "name": "walk6_down_b",
-        "source": "smooth_front_right",
+        "name": "walk6_load_b",
+        "source": "weight_front_right",
         "clip_topleft": [
-          535,
-          458,
-          241,
-          402
+          539,
+          456,
+          236,
+          409
         ],
         "foot_pivot_topleft": [
-          658.049613,
-          830.098747
+          657.581222,
+          832.254427
         ],
         "cell_topleft": [
           443,
@@ -180,22 +180,22 @@
           444,
           444
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.625,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
-        "name": "walk7_pass_b",
-        "source": "smooth_front_right",
+        "name": "walk7_low_pass_b",
+        "source": "weight_front_right",
         "clip_topleft": [
-          978,
-          458,
-          241,
-          402
+          982,
+          457,
+          236,
+          408
         ],
         "foot_pivot_topleft": [
-          1102.049613,
-          830.098747
+          1101.581222,
+          832.254427
         ],
         "cell_topleft": [
           887,
@@ -203,22 +203,22 @@
           443,
           444
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.75,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
-        "name": "walk8_up_b",
-        "source": "smooth_front_right",
+        "name": "walk8_low_advance_b",
+        "source": "weight_front_right",
         "clip_topleft": [
-          1422,
-          458,
-          240,
-          390
+          1425,
+          457,
+          237,
+          404
         ],
         "foot_pivot_topleft": [
-          1545.049613,
-          830.098747
+          1544.581222,
+          832.254427
         ],
         "cell_topleft": [
           1330,
@@ -226,9 +226,9 @@
           444,
           444
         ],
-        "scale_reference_height": 384.902697,
+        "scale_reference_height": 388.314604,
         "phase": 0.875,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest landmarks against preserved front_right idle; never per-frame sole midpoint"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       }
     ],
     "back_right": [
@@ -1321,6 +1321,104 @@
       "alpha_review": "RGBA; alpha1-16 pixels:52208; clips add2px around alpha>16 bounds; in-clip fringe preserved",
       "review_status": "Director and independent review selected first generation; opposite legs in1/5,3/7 and4/8 confirmed; dummy/native integration review pending",
       "limits": "Not a strict native64px grid. Single-pose anatomical inspection does not prove runtime seam/grounding/smoothness; verify temporal native render and physical play separately. Small per-frame color/shape variation remains."
+    },
+    "weight_front_right": {
+      "image": "r1-weight-front-right-20261105.png",
+      "canvas_size": [
+        1774,
+        887
+      ],
+      "sha256": "D0330535D62B4586315AA373DF9F12538A7E125B6E534EB61B16F5A171AF57C6",
+      "generated_on": "2026-11-05",
+      "prompt": "r1-weight-front-right-20261105.prompt.txt",
+      "tool": "built-in image_gen.imagegen; transparent_background=true; original pixels unmodified",
+      "selected_output": "exec-46c16e90-f137-4517-ae1b-46a46826104d.png",
+      "initial_output_not_selected": "exec-21837ddf-1a14-434f-99d5-209f1f0652e4.png",
+      "references": [
+        "r1b-smooth-front-right-20261105.png"
+      ],
+      "grid": {
+        "columns": 4,
+        "rows": 2,
+        "cell_boundaries_x": [
+          0,
+          443,
+          887,
+          1330,
+          1774
+        ],
+        "cell_boundaries_y": [
+          0,
+          443,
+          887
+        ]
+      },
+      "scale_basis": "One fixed scale from mean cap-to-chest-lamp span against original front_right idle; no per-frame bbox normalization",
+      "scale_reference_height": 388.314604,
+      "cell_local_body_root": [
+        214.581222,
+        389.254427
+      ],
+      "landmarks": {
+        "head_top_mean_cell_local": 15.875,
+        "chest_lamp_mean_cell_local": [
+          240.24358959011337,
+          164.1601502595925
+        ],
+        "chest_lamp_rule": "8-connected alpha>128,R>=220,G>=140,B<=130,R>=1.1G, nearest>=4px component to cell(240,164) in ROI[222,146,260,183]",
+        "cap_top_source": [
+          16,
+          16,
+          16,
+          16,
+          459,
+          458,
+          459,
+          459
+        ],
+        "chest_lamp_source_coordinates": [
+          [
+            241.70754716981133,
+            162.85849056603774
+          ],
+          [
+            682.0608108108108,
+            161.18243243243242
+          ],
+          [
+            1128.25,
+            164.24
+          ],
+          [
+            1570.1496598639455,
+            161.69387755102042
+          ],
+          [
+            240.34653465346534,
+            608.6633663366337
+          ],
+          [
+            683.8387096774194,
+            607.9225806451612
+          ],
+          [
+            1126.8454545454545,
+            608.7454545454545
+          ],
+          [
+            1568.75,
+            609.975
+          ]
+        ],
+        "idle_head_top": 32,
+        "idle_chest_lamp": [
+          214.619,
+          151.143
+        ]
+      },
+      "alpha_review": "RGBA; alpha1-16 pixels:52096; clips2px around alpha>16 bounds; in-clip fringe preserved",
+      "review_status": "Candidate after one lower-row opposite-support correction;1/5 support reversal confirmed and lower knees/boots visible; load-acceptance/weight/seam/grounding pending commander comparison",
+      "limits": "Not strict native64px grid.2/6 support-knee/pelvis load change remains small;4/8 advance/weight-transfer distinction weak. No physical ground-track annotation, so2-4px clearance is a prompt target, not a measured result. Perceived weight and slipping require temporal native/user comparison."
     }
   },
   "edited_on": "2026-11-05"

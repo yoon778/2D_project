@@ -1,0 +1,36 @@
+R1-W1 weighted front_right8-pose candidate
+Tool: built-in image_gen.imagegen; transparent_background=true
+Generated on: 2026-11-05
+Initial output not selected: exec-21837ddf-1a14-434f-99d5-209f1f0652e4.png
+Reference: original r1b-smooth-front-right-20261105.png
+
+INITIAL EXACT PROMPT
+Use case: identity-preserve. Production replacement pose sheet: weighted, grounded FRONT RIGHT WALK, exactly8poses in4columns×2rows, transparent background.
+Input Image1 is the existing eight-frame front_right courier. Preserve this EXACT character, facing/camera, proportions, clothes/palette, equipment hands and pixel-art style. Redraw his gait, not the image orientation. The current sheet lifts boots/knees too high, reads like marching/jogging. Replace it with a low, deliberate load-carrying WALK.
+Layout: one landscape2:1 sheet ideally2048x1024, eight equal square cells, sequential1-4top then5-8bottom. Same elevated three-quarter front-right view, cap bill screen-right, no extra views/idle. Same cap/head/chest/body root cell-local position and one scale across8, very small natural posture variation, no whole-character bob. Full character within each cell and transparent gutters.
+Identity locked: slate/navy cap and clothes, dark outlines/chunky crisp pixel clusters, brown boots/backpack, orange shoulders/backpack flap, amber CHEST lamp. Anatomical LEFT forearm supports the taped brown PARCEL CLOSE TO LOWER ABDOMEN on SCREEN-RIGHT. Anatomical RIGHT hand holds wooden BAT down at SCREEN-LEFT, as reference; no hand swaps, no mirror, no redesign. Slight forward load through torso/pelvis and softly unlocked supporting knee, parcel tucked close and braced by forearm, arms holding weight rather than swinging. Keep equipment/body dimensions consistent.
+Most important change: BOOTS STAY CLOSE TO THE GROUND. At final128px character display, the airborne sole should clear its ground track by about2–4px, not20px. Small low foot swing and modest leg separation, normal limb lengths. Do NOT tuck a boot up near opposite knee or lift thigh toward the parcel. No high knees, raised sole facing viewer, toe-point kicks, running heels, hopping, deep crouch, dragging, floating or both feet flying. Show boot SIDE/TOP, planted heel+toe broad/flat on support phases. Perspective ground tracks may differ slightly but each foot follows its own consistent track. Body above planted leg conveys weight.
+1 CONTACT A: PARCEL-SIDE leg (screen-right hip) forward a modest amount; heel and near-flat sole meet ground. Bat-side rear toe still down. Double support, no giant stride.
+2 LOAD A: parcel-side sole FLAT/fully planted, supporting knee yields slightly as pelvis/body settles over it. Rear foot toe-off subtle.
+3 LOW PASS A: parcel-side supports near under hip; bat-side foot passes beside it at very low clearance, knee bends only enough to clear ground, no high tuck.
+4 LOW ADVANCE A: parcel-side late support, bat-side boot advances close above its ground track toward next heel strike, toes level/slightly up, not thrust at viewer.
+5 CONTACT B: OPPOSITE of1. BAT-SIDE leg (screen-left hip) now forward, near-flat heel/sole down; parcel-side rear toe down. Clearly reverse lead/support leg, same modest stance.
+6 LOAD B: bat-side sole FLAT/fully planted, supporting knee softens under torso/pelvis; parcel-side rear foot subtle toe-off.
+7 LOW PASS B: bat-side supports under hip; parcel-side foot passes low beside it, opposite swinging leg from3.
+8 LOW ADVANCE B: bat-side late support, parcel-side boot advances LOW toward pose1; opposite swinging leg from4.8→1 seamless.
+Draw anatomically distinct contact/load/pass/advance with left hip→left knee→left boot/right hip→right knee→right boot consistently attached. Two opposite half-cycles, eight genuine intermediate drawings. Grounded support is visible through sole orientation and knee/pelvis relation, not a drawn shadow. Keep knees and boots LOW even if pose differences are subtle. Do not solve by duplicating poses, whole-body offsets, image rotation/mirror, crossfade/ghosts/motion blur or shortening legs. No labels/numbers/grid/floor/shadow/environment/checkerboard. Real transparent alpha.
+
+Targeted correction output: exec-46c16e90-f137-4517-ae1b-46a46826104d.png
+Correction references: initial candidate; original front_right8-pose reference
+Correction requested only opposite-support lower-row legs; pixels copied unchanged
+
+CORRECTION EXACT PROMPT
+Edit target: Image1, new low/grounded 4x2 walk sheet. Supporting Image2 is the old8-frame same-character sheet, where LOWER LEFT frame5 has the opposite BAT-SIDE long leg relative upper-left1. Use ONLY that leg-attachment identity, NOT its high knees or raised boots.
+Targeted correction: in Image1 correct ONLY the LOWER FOUR LEG DRAWINGS BELOW THE WAIST (poses5-8). Keep the TOP FOUR poses unchanged and preserve ALL cap/torso/arms/parcel/bat/backpack in every cell, scale, pixel style, camera, cell positions and transparency. Maintain Image1's low knees/flat grounded boots; DO NOT bring back Image2 high stepping.
+Error: new1/5 still look like same front leg. Make lower row5-8 the clearly opposite-support half-cycle. Follow each anatomical hip consistently. BAT-SIDE leg starts at SCREEN-LEFT hip under bat arm; PARCEL-SIDE leg starts at SCREEN-RIGHT hip. Do not cross thighs over each other or attach opposite boot to same hip. Two parallel foot tracks, modest stance width.
+5 CONTACT B: BAT-SIDE SCREEN-LEFT leg is now the long FORWARD leg, visually stays to LEFT of other leg, near-flat heel/sole PLANTED at low screen-left/center. Put its low large front boot clearly left of pelvis. PARCEL-SIDE SCREEN-RIGHT leg stays visibly BEHIND to right, knee softly bent and rear toe contacting, its boot slightly higher. This must reverse newpose1's long low SCREEN-RIGHT parcel-side leg. Do not leave frame5 front boot on screen-right.
+6 LOAD B: same SCREEN-LEFT bat-side leg takes body weight, sole FLAT and supporting knee visibly softens a little under pelvis. SCREEN-RIGHT rear foot subtle heel lift/toe-off. Keep left support/right back attachment obvious, do not cross.
+7 LOW PASS B: bat-side SCREEN-LEFT leg supports under LEFT hip, sole flat. Parcel-side SCREEN-RIGHT knee bends minimally, boot passes very LOW beside it on RIGHT track, sole only a few pixels above ground at final128px. Opposite supporting/swinging leg from top3.
+8 LOW ADVANCE B: bat-side SCREEN-LEFT finishes support/heel lifts slightly. Parcel-side SCREEN-RIGHT leg advances modestly on RIGHT track with LOW near-level sole preparing originalpose1. Clearly opposite to the bat-side advancement in top4; no knee-high lift, kicking or raised sole facing viewer.
+In all lower poses preserve normal leg lengths, low2-4px display foot clearance, distinct hip→knee→ankle→boot anatomy. Both feet never airborne, support foot broad/flat, small knee load. Exact opposite half-cycle and8→1 continuation, not duplicated poses/global body motion/mirror/crossfade. No other changes, labels, floor/groundshadow or extra limbs. True alpha.
+
