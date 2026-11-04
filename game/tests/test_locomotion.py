@@ -172,5 +172,68 @@ class LocomotionTests(unittest.TestCase):
         self.assertEqual((pose.facing, pose.phase, pose.frame_index), ("back_right", 0.25, 1))
 
 
+class WalkFrameIndexTests(unittest.TestCase):
+    def test_idle_and_two_eight_frame_selection(self):
+        pose = Locomotion(phase=0.25)
+        self.assertEqual(pose.walk_frame_index(2), 0)
+        self.assertEqual(pose.walk_frame_index(8), 0)
+        pose.moving = True
+        self.assertEqual(pose.walk_frame_index(2), 1)
+        self.assertEqual(pose.walk_frame_index(8), 3)
+
+    def test_exact_boundaries_and_adjacent_intervals(self):
+        for count in (2, 8):
+            for index in range(count):
+                boundary = index / count
+                with self.subTest(count=count, boundary=boundary):
+                    pose = Locomotion(phase=boundary, moving=True)
+                    self.assertEqual(pose.walk_frame_index(count), index + 1)
+                    if index:
+                        pose.phase = boundary - 1e-8
+                        self.assertEqual(pose.walk_frame_index(count), index)
+                    pose.phase = boundary + 1e-8
+                    self.assertEqual(pose.walk_frame_index(count), index + 1)
+            pose = Locomotion(phase=1.0 - 1e-13, moving=True)
+            self.assertEqual(pose.walk_frame_index(count), count)
+
+    def test_two_frames_match_the_legacy_property(self):
+        for moving in (False, True):
+            for phase in (0.0, 0.125, 0.5 - 1e-13, 0.5, 0.5 + 1e-13, 0.875, 1.0 - 1e-13):
+                with self.subTest(moving=moving, phase=phase):
+                    pose = Locomotion(phase=phase, moving=moving)
+                    self.assertEqual(pose.walk_frame_index(2), pose.frame_index)
+
+    def test_invalid_count_raises_even_when_idle_and_keeps_state(self):
+        for moving in (False, True):
+            for count in (0, -1, True, False, 2.0, 8.0, None, "8", math.nan, math.inf):
+                with self.subTest(moving=moving, count=count):
+                    pose = Locomotion(facing="back_left", phase=0.25, moving=moving)
+                    with self.assertRaises(ValueError):
+                        pose.walk_frame_index(count)
+                    self.assertEqual((pose.facing, pose.phase, pose.moving), ("back_left", 0.25, moving))
+
+    def test_queries_keep_phase_facing_moving_and_initial_selection(self):
+        pose = Locomotion(phase=0.3125, moving=True)
+        before = (pose.facing, pose.phase, pose.moving, pose.frame_index)
+        for count in (2, 8, 8, 2, 1, 3):
+            pose.walk_frame_index(count)
+            self.assertEqual((pose.facing, pose.phase, pose.moving, pose.frame_index), before)
+        pose.update(math.radians(2), 0, 0)
+        self.assertEqual((pose.facing, pose.phase, pose.moving), ("back_right", 0.3125, False))
+        self.assertEqual(pose.walk_frame_index(8), 0)
+
+    def test_eight_frame_distance_partition_is_fps_independent(self):
+        for distance, expected in ((4, 2), (8, 3), (12, 4), (16, 5), (20, 6),
+                                   (24, 7), (28, 8), (32, 1), (36, 2), (48, 5)):
+            for frames in (1, 10, 30, 60, 100, 144):
+                with self.subTest(distance=distance, frames=frames):
+                    pose = Locomotion()
+                    for _ in range(frames):
+                        pose.update(-math.pi / 4, distance / frames, 0)
+                    before = (pose.facing, pose.phase, pose.moving)
+                    self.assertEqual(pose.walk_frame_index(8), expected)
+                    self.assertEqual((pose.facing, pose.phase, pose.moving), before)
+
+
 if __name__ == "__main__":
     unittest.main()

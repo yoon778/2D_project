@@ -65,6 +65,21 @@ class Locomotion:
                     self.phase = boundary % 1.0
                     break
 
+    def walk_frame_index(self, frame_count: int) -> int:
+        """Read an idle/walk frame without advancing the locomotion state."""
+        if isinstance(frame_count, bool) or not isinstance(frame_count, int) or frame_count <= 0:
+            raise ValueError("frame_count must be a positive integer")
+        if not self.moving:
+            return 0
+        if frame_count == 2:
+            return self.frame_index
+        scaled = self.phase * frame_count
+        boundary = round(scaled)
+        # Correct split-distance roundoff locally; never alter the stored phase.
+        if 0 < boundary < frame_count and abs(scaled - boundary) <= _PHASE_TOLERANCE * frame_count:
+            scaled = boundary
+        return min(frame_count, int(scaled) + 1)
+
     @property
     def frame_index(self) -> int:
         if not self.moving:
