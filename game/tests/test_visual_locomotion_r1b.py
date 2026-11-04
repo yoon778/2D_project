@@ -151,6 +151,8 @@ class LocomotionLoopTests(unittest.TestCase):
         cases = (
             ("front_right", [("motion", 1120, 521)]),
             ("back_right", []),  # Default target keeps the +pi/4 representative.
+            ("back_left", [("motion", 460, 413)]),  # Ground target (300, 360).
+            ("front_left", [("motion", 460, 629)]),  # Ground target (300, 0).
         )
         for facing, aim_events in cases:
             with self.subTest(facing=facing):

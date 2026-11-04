@@ -38,6 +38,10 @@ BASELINE_SOURCES = "da1f838de0f2f309fc083e8b1e2d499c472590a0112079044f0dac4e783f
 BASELINE_BACK_RIGHT_FRAMES = "388e9b486e1cb9f50a620ad2c91a4187db409f749cab0faeab2311b51eed6997"
 BASELINE_BACK_RIGHT_SOURCE = "534a1fc147b2a62cd97d8446d53c2a25e8aca42e5ba2631dbaf148d891d0ddf3"
 BASELINE_BACK_RIGHT_PNG = "201fce1a74c302b0b180d52ab168ed84e6b04bfd5192a6063a00c19041f790af"
+# Preserve the approved BL stage exactly from git show 2e44658.
+BASELINE_BACK_LEFT_FRAMES = "48212a15d87b9fb824c258a924c768ebc9f2d44654d5c1adf7ba6b2234ff16df"
+BASELINE_BACK_LEFT_SOURCE = "6cfa416def46062d156eef04482edfee035efc10e921038b5ecf2a674767d074"
+BASELINE_BACK_LEFT_PNG = "1b6fb22c7b8e5da37eef6ee89bd0168378aad8653b554bb09a8f43f455728558"
 BASELINE_WAITING_FRAMES = {
     "back_right": "c82dc04a7caaf54061a04524d31249efd45f03ec47276ff7965295ddd26b12c3",
     "back_left": "955ec71b95f265b40439d066b35e026a322be88a6ae966a0788f1b1374072a8d",
@@ -116,11 +120,11 @@ class AtlasGeometryTests(unittest.TestCase):
         self.assertEqual(metadata["sampling"], "nearest")
         sources = metadata["sources"]
         expanded = self.expanded_facings()
-        self.assertEqual(expanded, {"front_right", "back_right", "back_left"})
+        self.assertEqual(expanded, {name for name, _ in FACINGS})
+        self.assertEqual(sum(len(frames) for frames in metadata["frames"].values()), 36)
         progress = [facing for facing in S2_ORDER if facing in expanded]
         self.assertEqual(progress, list(S2_ORDER[:len(progress)]))
-        self.assertEqual(set(sources), set(LEGACY_SOURCE_HASHES) |
-                         {SMOOTH_SOURCES[facing] for facing in progress})
+        self.assertEqual(set(sources), {"atlas", "front_steps"} | set(SMOOTH_SOURCES.values()))
         self.assertEqual(canonical_hash(metadata["frames"]["front_right"]), BASELINE_FRONT_RIGHT)
         self.assertEqual(canonical_hash({name: frames[0] for name, frames in metadata["frames"].items()}),
                          BASELINE_IDLES)
@@ -128,9 +132,13 @@ class AtlasGeometryTests(unittest.TestCase):
                          BASELINE_SOURCES)
         self.assertEqual(canonical_hash(metadata["frames"]["back_right"]), BASELINE_BACK_RIGHT_FRAMES)
         self.assertEqual(canonical_hash(sources["smooth_back_right"]), BASELINE_BACK_RIGHT_SOURCE)
+        self.assertEqual(canonical_hash(metadata["frames"]["back_left"]), BASELINE_BACK_LEFT_FRAMES)
+        self.assertEqual(canonical_hash(sources["smooth_back_left"]), BASELINE_BACK_LEFT_SOURCE)
         self.assertEqual(metadata["image"], sources["atlas"]["image"])
         self.assertEqual(metadata["canvas_size"], sources["atlas"]["canvas_size"])
-        pinned_source_hashes = {**LEGACY_SOURCE_HASHES, "smooth_back_right": BASELINE_BACK_RIGHT_PNG}
+        pinned_source_hashes = {**LEGACY_SOURCE_HASHES,
+                                "smooth_back_right": BASELINE_BACK_RIGHT_PNG,
+                                "smooth_back_left": BASELINE_BACK_LEFT_PNG}
         for source, entry in sources.items():
             with self.subTest(source=source):
                 with (METADATA_PATH.parent / entry["image"]).open("rb") as image:

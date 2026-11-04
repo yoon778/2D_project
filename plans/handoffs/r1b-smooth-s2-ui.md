@@ -32,7 +32,7 @@ output/review/R1-B-S2/back_right/의 dummy-contact-sheet.png, dummy-runtime-01.p
 
 이후 지휘가 전체79개·숨김 native4시트/60프레임/8→1캡처·기존 그림/메타 보존을 확인하고 중간 커밋을 완료했다고 전달했다. 지휘의 back_left 착수 지시로 아래 두 번째 방향을 진행했다. 이 네이티브 결과는 지휘 실행이며 UI는 더미만 실행했다.
 
-## back_left: UI 연결 완료·지휘 검수 대기
+## back_left: 지휘 검수·중간 커밋 완료 이력
 
 착수 기준9b6bb29에서 back_left만 idle+walk8로 연결했다. 현재 FR9/BR9/BL9/FL3, 총30자세·5소스다. FR/BR 전체 frames/source/PNG, 모든 idle, 미진행 FL 전체 frames와 그 밖의 메타를 기준 커밋과 정확 비교해 보존했다. 기존 N장 연결을 재사용했으며 helper/main/core/logic은 변경하지 않았다.
 
@@ -56,4 +56,24 @@ output/review/R1-B-S2/back_right/의 dummy-contact-sheet.png, dummy-runtime-01.p
 
 근거는 output/review/R1-B-S2/back_left/의 dummy-contact-sheet.png, dummy-runtime-01.png부터08.png, dummy-review.json, alpha-review.json이다. UI가 더미 시트를 직접 확인했으며 git diff --check도 통과했다. 네이티브/GUI/물리 키보드/Git 조작은 하지 않았다.
 
-back_left 방향의 모든 편집을 정지한다. 지휘 검수·중간 커밋 뒤 front_left 지시를 기다린다. front_left는 아직 제작하지 않았으며 자동 착수하지 않는다. 세 방향 전체 완료 뒤 사용자2차 확인이며 R2는 진행하지 않는다.
+이후 지휘가 전체79개·숨김 native4시트/60프레임/8→1캡처와 기존 메타 보존을 확인하고 중간 커밋을 완료했다고 전달했다. 지휘의 최종 front_left 지시로 아래 마지막 방향을 진행했다.
+
+## front_left: 최종36자세 연결·편집 정지
+
+착수 기준2e44658에서 front_left만 idle+walk8로 연결했다. 최종 네 방향 모두9프레임으로 총36자세·정확6소스다. 사용되지 않게 된 front_steps도 기존 메타/PNG 그대로 보존했다. FR/BR/BL 전체 frames/source/PNG와 모든 idle을 고정했으며 기존 N장 API를 재사용했다. helper/main/core/logic 변경은 없다.
+
+첫 생성 exec-242b4146-825a-407c-a94d-813ae35b608f.png를 UI·독립 검토·지휘가 채택했다. 1/5 선행 다리·3/7 지지/굽힘·4/8 상승 부츠의 반대 교대와 중간 자세를 확인했다. 앞왼쪽 사선·일부 얼굴/가슴·왼팔 몸 앞 상자(screen right)·오른손 방망이(screen left)·가슴등 정체성을 유지했다. 생성1회이며 교정이나 추가 생성은 하지 않았다.
+
+- 내장 image_gen.imagegen·transparent_background=true, 생성일2026-11-05
+- game/assets/player/r1b-smooth-front-left-20261105.png와 정확 프롬프트 .prompt.txt
+- 실제1774×887 RGBA, SHA256 D3DCD3D3FF13BE1EB03C3C07D27087ACE3824535EC592DACB7BFBF625958B5F1
+- source smooth_front_left, 실제4×2 경계 x=[0,443,887,1330,1774]/y=[0,443,887]
+- 8장 공통 reference height380.295367·배율≈0.336580487·cell-local 몸 root=[219.869849,385.992414]
+- 평균 cap top18.125/가슴등=[198.564608528,171.610221546]을 기존 idle cap1116/가슴등=[162.857,1239.5]·높이306/root=[180,1412]에 맞춤
+- alpha1–16 잔여52,208px·alpha>16 bbox2px여백·원본 픽셀 그대로 복사·정확한 native64px 격자 아님
+
+자체 집중 검사 atlas4/source4/실제 main 루프7개가 통과했다. 최종4방향×9·36자세·정확6소스, 이전 BL 전체 사전/PNG 동결과 FR/BR/모든 idle 보존을 검사했다. 실제 SDL dummy main 루프에서 네 방향 모두8장 선택→KEYUP idle을 확인했다. FL 더미8장 렌더·정지idle·렌더 전후 원본SHA 동일·clip 상단 차이0.336580487px를 기록하고 시트를 직접 확인했다. 실행은 기존 dummy_review.py의 --facing front_left다. 근거는 output/review/R1-B-S2/front_left/의 dummy-contact-sheet.png, dummy-runtime-01.png부터08.png, dummy-review.json, alpha-review.json이다.
+
+지휘 후속 통보로 전체79개·이전2e44658 대비 보존 검사·숨김 Windows native4시트/60프레임을 통과했다. 지휘가 원본8장·게임 크기 시트·8→1캡처를 직접 검토했다. 이는 지휘 실행 결과이며 UI는 네이티브/GUI·물리 키보드·Git 조작을 하지 않았다. 정렬 수치/정지 그림/자동 검사는 세밀한 해부학과 실제 조작 체감을 대신하지 않는다. 저알파 가장자리와 프레임별 미세 색/형태 차이가 남는다.
+
+S2 세 방향 UI 작업을 모두 마무리했으며 이 인계 갱신을 끝으로 모든 편집을 정지한다. 지휘가 전체 native/실제 main 성능QA·문서·커밋을 이어간다. 재현 문제의 후속 수정 요청 전에는 추가 변경하지 않는다. 전체 S2 뒤 사용자2차 확인이며 R2는 진행하지 않았다.
