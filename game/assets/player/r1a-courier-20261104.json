@@ -1,0 +1,27 @@
+{
+  "image": "r1a-courier-20261104.png",
+  "canvas_size": [
+    1254,
+    1254
+  ],
+  "clip_topleft": [
+    313,
+    130,
+    633,
+    1055
+  ],
+  "foot_pivot_topleft": [
+    656,
+    1129
+  ],
+  "display_height": 120,
+  "facing": "fixed lower-right three-quarter; never rotate or mirror",
+  "pivot_basis": "Midpoint of estimated sole contacts near=(516,1178), far=(796,1080), original PNG top-left px; single-pose visual estimate",
+  "generated_on": "2026-11-04",
+  "sha256": "A695BC32E8CC223433584C0A3C29AC2FA9C5FC4451D98B8F83A055D8B0CC3189",
+  "tool": "built-in image_gen.imagegen; transparent_background=true",
+  "reference": "../../../presentation/assets/dead-route-equipment-20261103.png (identity/camera only)",
+  "prompt": "r1a-courier-20261104.prompt.txt",
+  "alpha_review": "RGBA alpha 0-255; alpha>16 bbox (315,132)-(943,1182). Runtime clip adds 2px margin; faint alpha=1 outside clip omitted at draw time. Original pixels unmodified.",
+  "scope": "R1-A one fixed pose only; no walking, directional switching, combat or flashlight beam"
+}
