@@ -1,5 +1,56 @@
 # R1-A UI·에셋 인계
 
+## 현재 인계 — 1주차 R1-A 도트풍 수정
+
+기준일: 2026-11-04. 사용자 도트풍 요청에 따른 R1-A 내 아트 수정이며 R1-B는 미착수다. 자체 확인 완료 후 편집을 정지하고 지휘의 actual Windows 재검수·주차 표기 커밋·사용자 2차 확인을 기다린다.
+
+### 이번 변경
+
+- game/assets/player/r1a-courier-20261104.png: 내장 imagegen 편집 1회 결과로 canonical 원본 교체. 이전 원본은 Git fa14b88에 있으며 미사용 복사본을 game/assets에 추가하지 않았다.
+- game/assets/player/r1a-courier-20261104.prompt.txt: 원생성 입력과 이번 정확한 편집 입력을 별도 제목으로 구분해 모두 보존. 두 입력의 보존 여부를 직접 비교했다.
+- game/assets/player/r1a-courier-20261104.json: 새 SHA256·실제 canvas·runtime clip·발점·128px 표시 높이·nearest·출처·한계 기록.
+- game/player_visual.py: 해당 이미지 텍스처에 SDL_ScaleModeNearest를 명시하고 실패 반환값을 검사한다.
+- game/tests/test_visual_r1a.py: 현재 표시 높이 128px와 종횡비 계약에 맞춰 이전 120/72 고정 기대값 정리.
+- game/tests/test_visual_pixel_r1a.py: SDL 기본 필터 힌트를 linear로 둔 상태에서 실제 로드 텍스처가 Nearest인지 확인하는 dummy 검사 1개.
+- plans/handoffs/r1a-ui.md: 본 인계 기록.
+
+main.py·core.py·다른 문서·PPT·Git은 수정하지 않았다. 원본 PNG의 프로그램 후처리·재그리기·리사이즈를 하지 않았으며 게임 표시 때의 clip·배율·샘플링만 사용한다.
+
+### 원본과 표시 규격
+
+- 실제 생성 원본: **1254×1254, 8bit RGBA**, 알파 0–255. 네이티브 64px 원본이 아니다.
+- 스타일: 64px 높이 정도의 정보 밀도를 목표로 한 큰 도트 클러스터·계단 윤곽. 블록 내부 미세 색 변화는 남아 있어 엄밀한 64px 격자·정확한 24~32색 팔레트를 보증하지 않는다.
+- PNG 좌상단 기준 alpha>16 bbox: (313,111)–(936,1198), 624×1088px.
+- runtime clip: (311,109,628,1092), 2px 여백. 원본 경계 밖 저알파 잔여는 clip으로 제외한다. 원본 알파를 편집한 것은 아니다.
+- 발점: PNG 좌상단 기준 (652,1159). 가까운 발 (514,1196), 먼 발 (789,1121)의 접지 후보 중간점을 반올림한 육안 메타다.
+- 표시 높이 **128px**, 표시 폭 약 73.61px, 종횡비 유지·nearest 샘플링. 전체 회전·좌우 반전은 하지 않는다.
+- SHA256: A928D8DF6FDAFAD919AF79E59B4AD805AFBBF07B2CC2A4E11C98C8BC23B83539. canonical PNG와 메타 해시 일치 확인.
+- 높은 고정 사선·왼손 몸 앞 택배·오른손 방망이·가슴등·두 팔/두 다리·발 접지 형태를 원본과 실제 축소 렌더에서 확인했다.
+
+### 자체 확인
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s game/tests -q
+```
+
+**38/38 통과**. 기존 37개 회귀에 실제 Nearest 샘플링 확인 1개를 추가했다. 입력·좌표·충돌·포커스·제목·종료 경로 회귀가 유지된다.
+
+SDL_VIDEODRIVER=dummy, SDL_AUDIODRIVER=dummy, SDL_RENDER_DRIVER=software 환경에서 main.run(smoke_test=True)를 실행했다. capture 저장 경로만 pixel-art 하위 폴더로 바꾼 관찰 훅을 사용했으며 실제 SDL back buffer를 저장했다.
+
+- output/review/R1-A/pixel-art/ui-initial.png — 도트풍 한 방향 샘플·발점·조준 표식
+- output/review/R1-A/pixel-art/ui-wall-behind.png — 벽 뒤 몸 가림
+- output/review/R1-A/pixel-art/ui-wall-front.png — 벽 앞 표시
+
+세 PNG를 직접 검토했다. 이는 dummy 렌더 결과이며 이번 수정에서 네이티브 창·GUI·실제 입력 도구를 사용하지 않았다. 이전 그림체의 Windows 검수 결과를 이번 도트풍 수정본의 시각 검수로 대체하지 않는다.
+
+### 지휘·사용자 확인 필요
+
+지휘가 실제 Windows에서 128px 도트풍 크기·발점·벽 앞뒤 가림을 다시 확인한다. 사용자는 도트 밀도·얼굴/장비 가독성·발 모양·택배 앞 배치가 원하는 방향인지 확인한다. 물리 키보드 조작은 기존 미확인 항목을 유지한다.
+
+현재 프로젝트 1주차이며 커밋·주차 기록은 지휘만 진행한다. 추가 이미지 생성·방향·보행·맵 아트·전투·R1-B는 진행하지 않는다.
+
+## 이전 R1-A 구현·검수 이력 — 도트풍 교체 전
+
 기준일: 2026-11-04
 상태: 2026-11-04 사용자 재개 후 지휘 확정 범위 UI-02/03만 수행했다. UI는 네이티브 창·화면·입력 도구를 사용하지 않고 dummy/모의 검사만 수행했다. core의 이동 알고리즘·API·에셋은 유지하고, 앱의 이벤트 폴링과 포커스 상실 시 누름 상태 초기화만 수정했다. 지휘 native 재검수 요청 후 정지하며 R1-B는 미착수다.
 

@@ -30,6 +30,9 @@ class PlayerVisual:
         if [self.image.w, self.image.h] != self.metadata["canvas_size"]:
             self.close()
             raise ValueError(f"R1-A sprite canvas differs from metadata: {path}")
+        if p.SDL_SetTextureScaleMode(self.image.texture, p.SDL_ScaleModeNearest) != 0:
+            self.close()
+            raise RuntimeError(f"R1-A nearest sampling failed: {p.SDL_GetError()!r}")
 
     def draw(self, foot_x, foot_y):
         clip = self.metadata["clip_topleft"]

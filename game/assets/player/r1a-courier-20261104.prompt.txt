@@ -1,3 +1,5 @@
+=== ORIGINAL GENERATION INPUT — 2026-11-04 (pre-pixel sprite; Git fa14b88) ===
+
 Use case: stylized-concept
 Asset type: ONE actual single-pose transparent full-body game sprite for Dead Route R1-A, not a PPT illustration or an equipment chart.
 Input image 1 is a CHARACTER IDENTITY, CLOTHING, EQUIPMENT and HIGH OBLIQUE CAMERA reference only. Redraw it as a simpler clean runtime sprite, do not include its ivory backdrop, floor or shadow.
@@ -8,3 +10,15 @@ Exactly TWO arms, TWO hands, TWO legs, TWO shoes. Anatomical LEFT forearm cradle
 Pose: relaxed quiet standing, knees natural and feet planted comfortably beneath hips, slight three-quarter stance, no exaggerated lunge or walking step, no floating or detached boot. Make soles and ankle-to-leg continuity clear. No extra hand or fingers floating beside package.
 BACKGROUND MUST BE REAL TRANSPARENT ALPHA. Do not draw any background color, fake checkerboard, floor, ground plane, contact shadow, oval shadow, vignette, glow, atmospheric rim or decorative shape. Only the courier's own opaque painted pixels with clean antialiased cutout edges.
 No text, HUD, logos, numbers, arrows, frames, grids, labels, panels, weapon trail, motion blur or multiple character copies.
+
+=== PIXEL STYLE EDIT INPUT — 2026-11-04 (built-in imagegen edit) ===
+
+Use case: style-transfer
+Asset type: ONE edited transparent single-pose game sprite for Dead Route R1-A.
+Edit target image 1: the current courier sprite. PRESERVE the character identity, fixed HIGH OBLIQUE three-quarter camera toward lower-right, standing pose, complete head/arms/legs/shoes, and exact assignment of carried equipment. Change its smooth illustration style into COARSE READABLE PIXEL ART.
+PIXEL STYLE IS THE MAIN CHANGE:
+Redesign as a sprite with the VISUAL DETAIL DENSITY OF A CHARACTER ABOUT 64 LOGICAL PIXELS TALL, shown enlarged as chunky square pixel blocks on the generated native-size transparent canvas. This is not a request to claim the native file is exactly 64px. Make every facial detail, garment fold and contour from obvious large aligned square pixel CLUSTERS, as if a low-resolution sprite were enlarged using nearest-neighbor. About 24–32 purposeful colors total, 2–3 shade values per material, strong stepped dark outline, broad readable silhouette. No tiny texture, no smooth gradients, no soft brush, no rounded vector strokes, no anti-aliased contour, no photorealistic or 3D material. Do not merely pixelate the outline while leaving a smooth painted interior. Avoid high-detail faux-pixel illustration. The sprite should read clearly when its visible height is displayed around 128 screen pixels.
+Camera/proportions: same high fixed oblique 3/4 game view as target, cap crown and shoulder tops visible, torso upright, naturally foreshortened thighs and visible tops of boots. Full standing human, no vertical crown-only overhead blob, no frontal eye-level portrait, no isometric diamond tile grid.
+Character/equipment: same dark teal/navy cap, work jacket and trousers, dark boots, modest orange cuff/shoulder accents and compact orange/dark backpack. Exactly TWO arms, TWO hands, TWO legs, TWO shoes. LEFT forearm cradles the small brown cardboard parcel TIGHT AGAINST THE FRONT OF THE ABDOMEN and LEFT palm supports it from BELOW. RIGHT hand grips the narrow HANDLE of ONE wooden baseball bat, lowered beside the body. Preserve visible continuous elbow/wrist/hand attachments. Small amber CHEST-MOUNTED lamp attached to front strap. Neither hand holds a flashlight. No extra fingers or arms, no detached boots or floating box. Keep natural planted feet beneath hips, with both whole shoe soles inside the image and generous transparent margin.
+Single pose only. NO animation, extra directions, variants, panels, arrows, text, UI, logos, numbers or background.
+TRUE TRANSPARENT ALPHA. Only the courier cutout. NO floor, contact shadow, fake checkerboard, colored backdrop, halo, beam, light spill, vignette or ambient effects. The chest lamp has a tiny bright pixel lens only, no emitted glow. Keep all visible pixel clusters opaque and unused canvas fully transparent.

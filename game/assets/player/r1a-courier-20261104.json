@@ -5,23 +5,28 @@
     1254
   ],
   "clip_topleft": [
-    313,
-    130,
-    633,
-    1055
+    311,
+    109,
+    628,
+    1092
   ],
   "foot_pivot_topleft": [
-    656,
-    1129
+    652,
+    1159
   ],
-  "display_height": 120,
+  "display_height": 128,
+  "sampling": "nearest",
+  "style": "coarse fixed-oblique pixel art; approximately 64px-detail feel, not a native 64px file",
   "facing": "fixed lower-right three-quarter; never rotate or mirror",
-  "pivot_basis": "Midpoint of estimated sole contacts near=(516,1178), far=(796,1080), original PNG top-left px; single-pose visual estimate",
+  "pivot_basis": "Rounded midpoint of estimated sole contacts near=(514,1196), far=(789,1121), PNG top-left px; single-pose visual estimate",
   "generated_on": "2026-11-04",
-  "sha256": "A695BC32E8CC223433584C0A3C29AC2FA9C5FC4451D98B8F83A055D8B0CC3189",
-  "tool": "built-in image_gen.imagegen; transparent_background=true",
-  "reference": "../../../presentation/assets/dead-route-equipment-20261103.png (identity/camera only)",
+  "previous_asset_commit": "fa14b88",
+  "sha256": "A928D8DF6FDAFAD919AF79E59B4AD805AFBBF07B2CC2A4E11C98C8BC23B83539",
+  "tool": "built-in image_gen.imagegen; one pixel-art edit; transparent_background=true",
+  "edit_output": "exec-2ed5202e-22b0-44c4-ac45-0b3ffbd31690.png",
+  "edited_on": "2026-11-04",
+  "reference": "Previous canonical r1a-courier-20261104.png at fa14b88, originally based on ../../../presentation/assets/dead-route-equipment-20261103.png",
   "prompt": "r1a-courier-20261104.prompt.txt",
-  "alpha_review": "RGBA alpha 0-255; alpha>16 bbox (315,132)-(943,1182). Runtime clip adds 2px margin; faint alpha=1 outside clip omitted at draw time. Original pixels unmodified.",
+  "alpha_review": "RGBA alpha 0-255; alpha>16 bbox (313,111)-(936,1198). Outside bbox low-alpha residual 3838px, maximum alpha7; runtime clip adds 2px margin. Generated pixels unmodified. Some within-block color variation remains; no strict 64px grid claim.",
   "scope": "R1-A one fixed pose only; no walking, directional switching, combat or flashlight beam"
 }

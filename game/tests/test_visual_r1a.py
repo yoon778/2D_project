@@ -168,17 +168,17 @@ class SpriteGeometryTests(unittest.TestCase):
             640.0, 198.0, clip, self.metadata["foot_pivot_topleft"],
             self.metadata["display_height"],
         )
-        self.assertEqual(self.metadata["display_height"], 120)
-        self.assertAlmostEqual(rectangle[3], 120.0, places=9)
-        self.assertAlmostEqual(rectangle[2], 72.0, places=9)
+        self.assertEqual(self.metadata["display_height"], 128)
+        self.assertEqual(self.metadata["sampling"], "nearest")
+        self.assertAlmostEqual(rectangle[3], 128.0, places=9)
         self.assertAlmostEqual(rectangle[2] / rectangle[3], clip[2] / clip[3], places=9)
 
     def test_ground_translation_moves_sprite_without_changing_size_or_metadata(self):
         clip = self.metadata["clip_topleft"].copy()
         pivot = self.metadata["foot_pivot_topleft"].copy()
         arguments_before = (clip.copy(), pivot.copy())
-        first = sprite_rect(640.0, 198.0, clip, pivot, 120)
-        second = sprite_rect(517.75, 289.5, clip, pivot, 120)
+        first = sprite_rect(640.0, 198.0, clip, pivot, 128)
+        second = sprite_rect(517.75, 289.5, clip, pivot, 128)
         self.assertAlmostEqual(second[0] - first[0], -122.25, places=9)
         self.assertAlmostEqual(second[1] - first[1], 91.5, places=9)
         self.assertEqual(first[2:], second[2:])
