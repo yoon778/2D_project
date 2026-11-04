@@ -1,0 +1,33 @@
+R1-B-S2 back_left eight-pose walk sheet
+Tool: built-in image_gen.imagegen; transparent_background=true
+Generated on: 2026-11-05
+Initial output not selected: exec-5a03ecfd-d344-4ebe-88c9-e97be7a87610.png
+Initial references: original12-pose atlas; approved back_right8-pose sheet
+
+INITIAL EXACT PROMPT
+Use case: stylized-concept. Asset: ONE transparent eight-pose BACK LEFT walking sheet for the same Dead Route courier.
+Reference1 is the original12-pose atlas. Use ONLY THIRD ROW (back-left), especially its LEFT IDLE, for the exact character, proportions, equipment and elevated three-quarter camera. Reference2 is the accepted back-right eight-pose sheet for matching crisp pixel clusters/quality and actual opposite-leg half-cycles ONLY. DRAW the back-left view anew; do not mirror/rotate the reference.
+Layout: landscape2:1, ideally2048x1024, 4 equal square columns x2 rows, transparent gutters, exactly8 full-body walking poses, temporal reading order1-4 top then5-8 bottom. All face AWAY diagonally toward UPPER LEFT. Show back of cap with brim to screen-left, brown backpack/orange flap and back of trousers. Never show front torso or turn toward viewer. Same cap/head/backpack/belt/root cell-local coordinates and same body proportions/scale across8, cap movement minimal.
+Identity: navy cap/jacket/trousers, orange shoulders/backpack flap, brown backpack/boots, dark outline, limited shaded palette, deliberately chunky crisp pixel clusters, no smooth rendering. Anatomical LEFT arm cradles brown taped PARCEL IN FRONT OF BODY at screen-LEFT, far side partly hidden naturally as original third-row reference. Anatomical RIGHT hand carries wooden BAT down beside screen-RIGHT hip, angled downward; never swap hands or put box on back. Chest lamp stays on front, naturally hidden from rear, no glow on backpack. Upper body/arms/equipment almost steady through gait.
+Critical: Eight genuine intermediate leg poses, two OPPOSITE SUPPORT HALF-CYCLES. At pose1 a LONG SCREEN-RIGHT LEG trails down toward viewer and screen-left leg reaches forward/away. At pose5 this reverses unmistakably: LONG SCREEN-LEFT LEG trails down toward viewer, screen-right leg reaches away, the lower large boot changes side. Never repeat pose1 lead/support arrangement in5.
+Top1 CONTACT A, left leg forward-away/heel contacting, right leg backward-near/toe contacting (right boot low).
+Top2 DOWN A, weight onto left leg/knee slightly bent, right rear foot starts toe-off/heel rises.
+Top3 PASS A, left leg straight supporting under pelvis, right leg flexed at knee and boot airborne passing beside it, feet closer together.
+Top4 UP A, left support heel lifts; right knee/raised boot swings forward-away toward upper-left, approaching opposite contact.
+Bottom5 CONTACT B, RIGHT leg forward-away/heel down, LEFT leg backward-near/toe down (left boot now low); thighs/knees clearly attached to opposite hip from top1.
+Bottom6 DOWN B, weight onto right leg; left back foot toe-off/heel rises.
+Bottom7 PASS B, right leg straight supporting under pelvis, LEFT leg knee flexed/boot airborne alongside. Must be opposite top3.
+Bottom8 UP B, right support heel lifts; left knee/raised boot swings forward-away, approaching pose1. Must be opposite top4.
+Maintain actual thigh→knee→shin→ankle→boot anatomy and one boot per leg. Passing poses narrow, contact poses stride, no8wide poses. Make8→1 continuous. Do not create intermediate frames by duplicating/whole-body shifts/crossfade/ghost limbs/blur. No idle/extra directions, labels/numbers/grid/environment/floor/cast shadow/checkerboard. Real alpha transparency.
+
+Targeted correction output: exec-7288527d-cd2e-44c9-9dba-857c28b92132.png
+Correction references: initial sheet; original12-pose atlas back_left opposite-leg pose
+Requested edits only below waist in frame5 and8; generated source pixels copied unchanged
+
+TARGETED CORRECTION EXACT PROMPT
+Edit target Image1: back-left8-frame walk sheet. Supporting original Image2: original courier atlas. THIRD ROW SECOND COLUMN back_left walk1 has the opposite-leg arrangement, screen-left leg long/down with the other leg folded. Use that lower-body anatomy.
+Correct ONLY LOWER LEGS/THIGHS BELOW THE WAIST in TWO CELLS: bottom row FIRST cell (frame5) and bottom row FOURTH cell (frame8). Keep all other six poses as they are. Preserve all upper bodies, cap/backpack, arms, parcel in anatomical left/front at screen-left, right-hand bat at screen-right, colors/pixel clusters, scale, cell registration, exact4x2layout, fixed back-left rear camera and transparent alpha. Never mirror the character.
+Frame5 error: repeats frame1 with a long low SCREEN-RIGHT leg. REDRAW frame5 to the OPPOSITE CONTACT: SCREEN-LEFT leg extends LONG DOWN from left hip to its LARGE LOW BOOT BELOW THE LEFT OF PELVIS. Screen-RIGHT knee bends and right boot sits CLEARLY HIGHER at screen-right behind/away. This MUST swap which side has the long low leg compared with frame1. Follow the reference atlas THIRD ROW SECOND COLUMN leg arrangement; do not leave screen-right big low boot in5.
+Frame8 error: repeats frame4's raised/right-boot silhouette. REDRAW frame8 with the OPPOSITE RAISED LEG: RIGHT leg supports/finishes toe-off under right hip, LEFT knee bends and its LEFT boot lifts and swings toward upper-left travel direction. Make the raised knee clearly attach to the screen-left hip, distinguish from frame4's right-leg swing, and naturally lead back into frame1.
+Keep biological thighs/knees/shins/ankles, two legs/two boots, consistent limb lengths. The sole should turn with knee/ankle rather than attach to wrong leg. Use genuine opposite-support cycle, not translation/duplicated silhouette/ghost limbs/motion blur/crossfade. No other art changes, text, grid, floor or shadow. Real transparent background.
+

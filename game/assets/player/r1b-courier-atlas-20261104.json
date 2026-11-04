@@ -459,44 +459,188 @@
         "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
       },
       {
-        "name": "walk1",
+        "name": "walk1_contact_a",
+        "source": "smooth_back_left",
         "clip_topleft": [
-          458,
-          752,
-          188,
-          312
+          96,
+          10,
+          249,
+          427
         ],
         "foot_pivot_topleft": [
-          551,
-          1054
+          223.813893,
+          404.934783
         ],
         "cell_topleft": [
-          362,
-          724,
-          362,
-          362
+          0,
+          0,
+          443,
+          443
         ],
-        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+        "scale_reference_height": 406.824058,
+        "phase": 0.0,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
       },
       {
-        "name": "walk2",
+        "name": "walk2_down_a",
+        "source": "smooth_back_left",
         "clip_topleft": [
-          821,
-          752,
-          186,
-          311
+          540,
+          10,
+          249,
+          410
         ],
         "foot_pivot_topleft": [
-          913,
-          1054
+          666.813893,
+          404.934783
         ],
         "cell_topleft": [
-          724,
-          724,
-          362,
-          362
+          443,
+          0,
+          444,
+          443
         ],
-        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+        "scale_reference_height": 406.824058,
+        "phase": 0.125,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+      },
+      {
+        "name": "walk3_pass_a",
+        "source": "smooth_back_left",
+        "clip_topleft": [
+          983,
+          10,
+          249,
+          423
+        ],
+        "foot_pivot_topleft": [
+          1110.813893,
+          404.934783
+        ],
+        "cell_topleft": [
+          887,
+          0,
+          443,
+          443
+        ],
+        "scale_reference_height": 406.824058,
+        "phase": 0.25,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+      },
+      {
+        "name": "walk4_up_a",
+        "source": "smooth_back_left",
+        "clip_topleft": [
+          1427,
+          10,
+          249,
+          423
+        ],
+        "foot_pivot_topleft": [
+          1553.813893,
+          404.934783
+        ],
+        "cell_topleft": [
+          1330,
+          0,
+          444,
+          443
+        ],
+        "scale_reference_height": 406.824058,
+        "phase": 0.375,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+      },
+      {
+        "name": "walk5_contact_b",
+        "source": "smooth_back_left",
+        "clip_topleft": [
+          96,
+          454,
+          249,
+          419
+        ],
+        "foot_pivot_topleft": [
+          223.813893,
+          847.934783
+        ],
+        "cell_topleft": [
+          0,
+          443,
+          443,
+          444
+        ],
+        "scale_reference_height": 406.824058,
+        "phase": 0.5,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+      },
+      {
+        "name": "walk6_down_b",
+        "source": "smooth_back_left",
+        "clip_topleft": [
+          540,
+          454,
+          249,
+          408
+        ],
+        "foot_pivot_topleft": [
+          666.813893,
+          847.934783
+        ],
+        "cell_topleft": [
+          443,
+          443,
+          444,
+          444
+        ],
+        "scale_reference_height": 406.824058,
+        "phase": 0.625,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+      },
+      {
+        "name": "walk7_pass_b",
+        "source": "smooth_back_left",
+        "clip_topleft": [
+          983,
+          454,
+          248,
+          419
+        ],
+        "foot_pivot_topleft": [
+          1110.813893,
+          847.934783
+        ],
+        "cell_topleft": [
+          887,
+          443,
+          443,
+          444
+        ],
+        "scale_reference_height": 406.824058,
+        "phase": 0.75,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+      },
+      {
+        "name": "walk8_up_b",
+        "source": "smooth_back_left",
+        "clip_topleft": [
+          1427,
+          454,
+          249,
+          419
+        ],
+        "foot_pivot_topleft": [
+          1553.813893,
+          847.934783
+        ],
+        "cell_topleft": [
+          1330,
+          443,
+          444,
+          444
+        ],
+        "scale_reference_height": 406.824058,
+        "phase": 0.875,
+        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
       }
     ],
     "front_left": [
@@ -854,6 +998,105 @@
       "alpha_review": "RGBA; alpha1-16 pixels:68773; clips have 2px padding around alpha>16 bounds, in-clip fringe preserved",
       "review_status": "Director adopted opposite support legs in1/5 and3/7 after one targeted lower-row correction; UI SDL dummy selection/render and79-test regression passed; commander native temporal review pending",
       "limits": "Not a strict native64px grid. Frames4/8 raised-boot silhouettes remain similar and hip/knee occlusion limits anatomical tracing; final loop/grounding/smoothness require temporal native review. Front parcel and chest lamp naturally occluded from rear."
+    },
+    "smooth_back_left": {
+      "image": "r1b-smooth-back-left-20261105.png",
+      "canvas_size": [
+        1774,
+        887
+      ],
+      "sha256": "1B6FB22C7B8E5DA37EEF6EE89BD0168378AAD8653B554BB09A8F43F455728558",
+      "generated_on": "2026-11-05",
+      "prompt": "r1b-smooth-back-left-20261105.prompt.txt",
+      "tool": "built-in image_gen.imagegen; transparent_background=true; original pixels unmodified",
+      "selected_output": "exec-7288527d-cd2e-44c9-9dba-857c28b92132.png",
+      "initial_output_not_selected": "exec-5a03ecfd-d344-4ebe-88c9-e97be7a87610.png",
+      "references": [
+        "r1b-courier-atlas-20261104.png",
+        "r1b-smooth-back-right-20261105.png"
+      ],
+      "grid": {
+        "columns": 4,
+        "rows": 2,
+        "cell_boundaries_x": [
+          0,
+          443,
+          887,
+          1330,
+          1774
+        ],
+        "cell_boundaries_y": [
+          0,
+          443,
+          887
+        ]
+      },
+      "scale_basis": "One fixed scale from mean cap-to-orange-backpack-flap span against original back_left idle, never per-frame bbox normalization",
+      "scale_reference_height": 406.824058,
+      "cell_local_body_root": [
+        223.813893,
+        404.934783
+      ],
+      "landmarks": {
+        "cap_top_mean_cell_local": 12.5,
+        "orange_backpack_flap_mean_cell_local": [
+          262.9929283386759,
+          146.51670063544387
+        ],
+        "orange_component_rule": "Largest 8-connected component: alpha>128,R>=190,70<=G<=215,B<=115,R>1.25G,G>1.3B; body y20%-62%",
+        "cap_top_source": [
+          12,
+          12,
+          12,
+          12,
+          456,
+          456,
+          456,
+          456
+        ],
+        "orange_backpack_flap_source": [
+          [
+            262.6252302025783,
+            146.3207489257213
+          ],
+          [
+            706.1769662921348,
+            146.04931335830213
+          ],
+          [
+            1149.926913425345,
+            146.16969887076536
+          ],
+          [
+            1593.3077889447236,
+            146.18341708542712
+          ],
+          [
+            262.54748774509807,
+            589.9234068627451
+          ],
+          [
+            706.0438432835821,
+            589.8401741293533
+          ],
+          [
+            1149.9392901618928,
+            589.8256537982566
+          ],
+          [
+            1593.3759066540524,
+            589.8211920529801
+          ]
+        ],
+        "idle_head_top": 754,
+        "idle_orange_backpack_flap": [
+          218.95073612684033,
+          856.4501698754246
+        ]
+      },
+      "alpha_review": "RGBA; alpha1-16 pixels:59820; clips have2px padding around alpha>16 bounds, in-clip fringe preserved",
+      "review_status": "UI and independent review confirmed opposite support legs in1/5 and3/7 after one targeted correction of frames5/8; dummy8-pose render and79-test regression passed; commander native temporal review pending",
+      "limits": "Not a strict native64px grid. Frames4/8 raised-boot silhouettes remain similar and hip/knee occlusion limits anatomical tracing; final seam/grounding/smoothness require temporal review. Front parcel partly visible and chest lamp occluded from rear."
     }
   },
   "edited_on": "2026-11-05"
