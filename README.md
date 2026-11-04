@@ -15,6 +15,7 @@
 | [PRD.md](PRD.md) | 현재 게임의 단일 기획 기준 |
 | [개발 순서](plans/development-roadmap.md) | 단계별 작업·완료 기준 |
 | [채팅 협업](plans/team-workflow.md) | 지휘·로직·UI/에셋 담당과 연결 |
+| [지휘 실행 절차](plans/commander-runbook.md) | 작업 지시·1차 검수·수정·중간 커밋·사용자 2차 확인 |
 | [game/](game/README.md) | 새 구현을 시작할 개발 폴더 |
 | [presentation/](presentation/README.md) | 발표용 6장·기획서 14장·90초 대본 |
 
