@@ -28,7 +28,26 @@ FACINGS = (
 LEGACY_SOURCE_HASHES = {
     "atlas": "ce8c0ac85daa5b7f8aebf44464b858db0bc192d4a838a493f774799690d24981",
     "front_steps": "ee7eaafeb48fdd435079d168d78d115ec20849e6350725a6214c5e95ab5abb75",
+    "smooth_front_right": "b788c200ffc000d225cf228769cea01fe5f5bba2ab79ef52ff77cf0012b3d667",
 }
+# Canonical JSON hashes from git show 358978f, not from the changing live JSON.
+BASELINE_FRONT_RIGHT = "fffd766f9f9ae6dbb22caa6457ec32b9ae39c0aed8de6a53a47d96cf4edae711"
+BASELINE_IDLES = "56584c6445ae8a552a90aa67c20133578909816e7ba78566094232bf7eee0a16"
+BASELINE_SOURCES = "da1f838de0f2f309fc083e8b1e2d499c472590a0112079044f0dac4e783f93b6"
+BASELINE_WAITING_FRAMES = {
+    "back_right": "c82dc04a7caaf54061a04524d31249efd45f03ec47276ff7965295ddd26b12c3",
+    "back_left": "955ec71b95f265b40439d066b35e026a322be88a6ae966a0788f1b1374072a8d",
+    "front_left": "bd48db6087261dfff86233107bbd0d292a6acfcaf5314b70458e2cfaee183693",
+}
+SMOOTH_SOURCES = {facing: "smooth_" + facing for facing, _ in FACINGS}
+S2_ORDER = ("back_right", "back_left", "front_left")
+
+
+def canonical_hash(value):
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 LEGACY_FRAMES = {
     "back_right": [
         ("atlas", [98, 389, 190, 313], [182, 694], None),
@@ -82,13 +101,27 @@ class AtlasGeometryTests(unittest.TestCase):
         count = len(self.metadata["frames"][facing]) - 1
         return [0.0, STRIDE_DISTANCE / (2 * count)] + [STRIDE_DISTANCE / count] * (count - 1)
 
-    def test_eighteen_frames_fit_sources_and_preserve_other_three_facings(self):
+    def expanded_facings(self):
+        return {facing for facing, source in SMOOTH_SOURCES.items()
+                if source in self.metadata["sources"]}
+
+    def test_staged_frames_fit_sources_and_preserve_baseline(self):
         metadata = self.metadata
         self.assertEqual(set(metadata["frames"]), {name for name, _ in FACINGS})
         self.assertEqual(metadata["display_height"], 128)
         self.assertEqual(metadata["sampling"], "nearest")
         sources = metadata["sources"]
-        self.assertEqual(set(sources), {"atlas", "front_steps", "smooth_front_right"})
+        expanded = self.expanded_facings()
+        self.assertIn("back_right", expanded, "S2 must connect its first approved direction")
+        progress = [facing for facing in S2_ORDER if facing in expanded]
+        self.assertEqual(progress, list(S2_ORDER[:len(progress)]))
+        self.assertEqual(set(sources), set(LEGACY_SOURCE_HASHES) |
+                         {SMOOTH_SOURCES[facing] for facing in progress})
+        self.assertEqual(canonical_hash(metadata["frames"]["front_right"]), BASELINE_FRONT_RIGHT)
+        self.assertEqual(canonical_hash({name: frames[0] for name, frames in metadata["frames"].items()}),
+                         BASELINE_IDLES)
+        self.assertEqual(canonical_hash({name: sources[name] for name in LEGACY_SOURCE_HASHES}),
+                         BASELINE_SOURCES)
         self.assertEqual(metadata["image"], sources["atlas"]["image"])
         self.assertEqual(metadata["canvas_size"], sources["atlas"]["canvas_size"])
         for source, entry in sources.items():
@@ -101,13 +134,18 @@ class AtlasGeometryTests(unittest.TestCase):
                     self.assertEqual(hashlib.sha256(
                         (METADATA_PATH.parent / entry["image"]).read_bytes()).hexdigest(),
                         LEGACY_SOURCE_HASHES[source])
+                else:
+                    self.assertEqual(hashlib.sha256(
+                        (METADATA_PATH.parent / entry["image"]).read_bytes()).hexdigest(),
+                        entry["sha256"].lower())
         counts = {source: 0 for source in sources}
-        smooth_references = []
+        smooth_references = {facing: [] for facing in expanded}
 
         for row, (facing, _) in enumerate(FACINGS):
             frames = metadata["frames"][facing]
-            self.assertEqual(len(frames), 9 if facing == "front_right" else 3, facing)
-            if facing in LEGACY_FRAMES:
+            self.assertEqual(len(frames), 9 if facing in expanded else 3, facing)
+            if facing not in expanded:
+                self.assertEqual(canonical_hash(frames), BASELINE_WAITING_FRAMES[facing])
                 self.assertEqual([
                     (frame.get("source", "atlas"), frame["clip_topleft"],
                      frame["foot_pivot_topleft"], frame.get("scale_reference_height"))
@@ -145,8 +183,8 @@ class AtlasGeometryTests(unittest.TestCase):
                         self.assertEqual((cell_left, cell_top, cell_width, cell_height),
                                          (887, 0, 887, 887))
                     else:
-                        self.assertEqual(source, "smooth_front_right")
-                        self.assertEqual(facing, "front_right")
+                        self.assertIn(facing, expanded)
+                        self.assertEqual(source, SMOOTH_SOURCES[facing])
                         self.assertIn(column, range(1, 9))
                         smooth_column, smooth_row = (column - 1) % 4, (column - 1) // 4
                         grid = sources[source]["grid"]
@@ -160,7 +198,12 @@ class AtlasGeometryTests(unittest.TestCase):
                         reference = frame["scale_reference_height"]
                         self.assertTrue(math.isfinite(reference))
                         self.assertGreater(reference, 0)
-                        smooth_references.append(reference)
+                        self.assertEqual(reference, sources[source]["scale_reference_height"])
+                        root_x, root_y = sources[source]["cell_local_body_root"]
+                        pivot_x, pivot_y = frame["foot_pivot_topleft"]
+                        self.assertAlmostEqual(pivot_x - cell_left, root_x, places=6)
+                        self.assertAlmostEqual(pivot_y - cell_top, root_y, places=6)
+                        smooth_references[facing].append(reference)
                     self.assertGreaterEqual(left, cell_left)
                     self.assertLessEqual(left + width, cell_right)
                     self.assertGreaterEqual(top, cell_top)
@@ -171,9 +214,19 @@ class AtlasGeometryTests(unittest.TestCase):
                     self.assertGreaterEqual(pivot_y, cell_top)
                     self.assertLessEqual(pivot_y, cell_bottom)
 
-        self.assertEqual(counts, {"atlas": 9, "front_steps": 1, "smooth_front_right": 8})
-        self.assertEqual(len(smooth_references), 8)
-        self.assertTrue(all(reference == smooth_references[0] for reference in smooth_references))
+        expected_counts = {source: 0 for source in sources}
+        for facing, _ in FACINGS:
+            expected_counts["atlas"] += 1
+            if facing in expanded:
+                expected_counts[SMOOTH_SOURCES[facing]] += 8
+            else:
+                for source, _, _, _ in LEGACY_FRAMES[facing][1:]:
+                    expected_counts[source] += 1
+        self.assertEqual(counts, expected_counts)
+        for facing, references in smooth_references.items():
+            with self.subTest(common_scale=facing):
+                self.assertEqual(len(references), 8)
+                self.assertTrue(all(reference == references[0] for reference in references))
         idle = metadata["frames"]["front_right"][0]
         self.assertEqual(metadata["clip_topleft"], idle["clip_topleft"])
         self.assertEqual(metadata["foot_pivot_topleft"], idle["foot_pivot_topleft"])
@@ -228,8 +281,9 @@ class AtlasGeometryTests(unittest.TestCase):
                         self.assertAlmostEqual(width / source_width, reference_scale, places=9)
                         overrides.append((facing, angle, index))
 
-        self.assertTrue(atlas_walks)
-        self.assertEqual(len(overrides), 9)
+        self.assertTrue(overrides)
+        expected_overrides = 8 * len(self.expanded_facings()) + ("front_left" not in self.expanded_facings())
+        self.assertEqual(len(overrides), expected_overrides)
         # Changing a frame's box must preserve its fixed reference, not normalize
         # that frame's height to 128. Exercise both the original and added source.
         for facing, angle, index in atlas_walks[:1] + overrides:
@@ -247,6 +301,7 @@ class AtlasGeometryTests(unittest.TestCase):
 
     def test_draw_translation_preserves_size_state_and_metadata(self):
         for facing, angle, index in (("front_right", -math.pi / 4, 4),
+                                     ("back_right", math.pi / 4, 4),
                                      ("back_left", 3 * math.pi / 4, 1),
                                      ("front_left", -3 * math.pi / 4, 2)):
             with self.subTest(facing=facing, frame=index):

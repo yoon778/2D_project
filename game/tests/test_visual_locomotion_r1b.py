@@ -81,7 +81,8 @@ class LocomotionLoopTests(unittest.TestCase):
         self._assert_actual_displacements(frames, updates)
         self.assertEqual([state["moving"] for state in updates], [True, True, False, False])
         self.assertTrue(all(state["dy"] > 0 for state in updates[:2]))
-        self.assertTrue(all(state["frame_index"] in (1, 2) for state in updates[:2]))
+        self.assertTrue(all(1 <= state["frame_index"] <= state["frame_count"]
+                            for state in updates[:2]))
         for state in updates[2:]:
             self.assertEqual((state["dx"], state["dy"], state["frame_index"]), (0.0, 0.0, 0))
 
@@ -146,21 +147,27 @@ class LocomotionLoopTests(unittest.TestCase):
             self.assertFalse(state["moving"])
             self.assertEqual(state["frame_index"], 0)
 
-    def test_front_right_loop_selects_all_eight_walk_frames_then_idle(self):
-        frames, updates = self._run_observed(
-            initial=[("motion", 1120, 521), ("down", p.SDLK_w)],
-            after_draw={22: [("up", p.SDLK_w)], 23: [("quit",)]},
-            maximum_draws=24,
+    def test_eight_frame_facings_return_to_idle_after_actual_movement(self):
+        cases = (
+            ("front_right", [("motion", 1120, 521)]),
+            ("back_right", []),  # Default target keeps the +pi/4 representative.
         )
-        self._assert_actual_displacements(frames, updates)
-        moving = updates[:22]
-        self.assertEqual(len(updates), 23)
-        self.assertTrue(all(state["facing"] == "front_right" for state in updates))
-        self.assertTrue(all(state["frame_count"] == 8 for state in updates))
-        self.assertTrue(all(state["moving"] for state in moving))
-        self.assertEqual({state["frame_index"] for state in moving}, set(range(1, 9)))
-        self.assertEqual(updates[-1]["frame_index"], 0)
-        self.assertFalse(updates[-1]["moving"])
+        for facing, aim_events in cases:
+            with self.subTest(facing=facing):
+                frames, updates = self._run_observed(
+                    initial=aim_events + [("down", p.SDLK_w)],
+                    after_draw={22: [("up", p.SDLK_w)], 23: [("quit",)]},
+                    maximum_draws=24,
+                )
+                self._assert_actual_displacements(frames, updates)
+                moving = updates[:22]
+                self.assertEqual(len(updates), 23)
+                self.assertTrue(all(state["facing"] == facing for state in updates))
+                self.assertTrue(all(state["frame_count"] == 8 for state in updates))
+                self.assertTrue(all(state["moving"] for state in moving))
+                self.assertEqual({state["frame_index"] for state in moving}, set(range(1, 9)))
+                self.assertEqual(updates[-1]["frame_index"], 0)
+                self.assertFalse(updates[-1]["moving"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,38 @@
+R1-B-S2 back_right eight-pose walk sheet
+Tool: built-in image_gen.imagegen; transparent_background=true
+Generated on: 2026-11-05
+Initial output not selected: exec-5d27882c-a4f4-420c-b1b7-71295a4c7cc9.png
+Initial references: existing 12-pose atlas; approved S1 front_right sheet
+
+INITIAL EXACT PROMPT
+Use case: stylized-concept
+Asset: transparent production 8-frame BACK RIGHT walking sprite sheet for Dead Route.
+Reference 1 is the existing 12-pose character atlas. Use ONLY ROW TWO, its back-right courier seen FROM BEHIND AND ABOVE with the cap brim pointing toward upper-right. Its leftmost idle is the character/camera/proportion/equipment reference. Reference 2 is the approved front-right eight-frame sheet for matching pixel style and quality ONLY; do not use its front-facing camera.
+Create exactly ONE 4-column by 2-row sheet, equal square cells, landscape 2:1, ideally2048x1024. Exactly eight sequential poses of this SAME back-right character in one complete walking-in-place cycle. All poses face diagonally AWAY toward upper-right. Show the BACK of cap and large brown backpack with orange flap throughout, never a face/front torso. Same camera/cap/body volume/equipment and one scale across every cell. Cap top, backpack top/center and belt/body root share constant cell-local positions, with only tiny natural gait movement. Entire character and bat inside cells with transparent gutters.
+Match existing crisp chunky pixel clusters, dark outlines, limited shaded navy/slate/orange/brown palette. Anatomical RIGHT hand carries the downward wooden bat on visible SCREEN-RIGHT side, as in atlas row2. Anatomical LEFT arm cradles the parcel in FRONT of torso, naturally mostly hidden by body from this rear camera, possibly only its far edge visible; do not move parcel onto back or swap hands. Chest lamp is on front torso and naturally occluded from this rear view, never draw a glowing light on the backpack. Match backpack straps/orange flap, cap/head size, trousers and boots. Arms largely hold equipment steady.
+Temporal reading order: top row phases0/8,1/8,2/8,3/8 then bottom row4/8,5/8,6/8,7/8.
+1 CONTACT A: left leg reaches forward along upper-right travel direction, right/bat-side leg extends back toward viewer, opposite boot contacts
+2 DOWN A: weight on left supporting leg/knee slightly bends, right trailing heel rises/toe pushes off
+3 PASS A: left leg supports under pelvis, right knee flexes/boot airborne passing alongside; feet closer together, do not make every pose wide
+4 UP A: left heel lifts, right knee and raised boot swing forward, preparing opposite contact
+5 CONTACT B: reverse pose1 unmistakably: RIGHT/BAT-SIDE leg reaches forward away, LEFT leg extends back toward viewer. Trace the same hip through thigh/knee/shin to each boot; do not repeat pose1's leading/support leg
+6 DOWN B: weight on right supporting leg, left rear foot pushes off
+7 PASS B: right leg supports under pelvis, left knee flexes/boot airborne passing alongside
+8 UP B: right heel lifts, left knee/raised boot swings forward, naturally leading into pose1.
+Must contain eight genuine intermediate leg drawings and two opposite-support half-cycles. Follow the actual anatomy, not eight variations of the same lead leg. Body anchored in place; leg motion from thighs, knees, shins, ankles and boots. Do not rotate/mirror any reference or pose; no copied silhouettes, whole-body shifts, crossfades, ghost legs, motion blur, extra limbs. Keep proportions fixed between poses, cap/backpack stable, correct back-right identity. No idle, extra directions, scene, ground shadow, labels, frame numbers, grid lines or checkerboard; real transparent alpha.
+
+Selected targeted correction: exec-ffa3db12-9b72-4919-962e-29d175474e94.png
+Correction references: initial sheet; original 12-pose atlas (back_right opposite leg pose)
+Director confirmed frames1/5 and3/7 opposite support legs and selected this correction
+Source pixels copied unchanged; no programmatic image edits
+
+TARGETED CORRECTION EXACT PROMPT
+Edit target: the 4x2 back-right walk sheet in Image1. Supporting anatomy reference: Image2 is the ORIGINAL character atlas. In its SECOND ROW THIRD COLUMN (back-right walk2) the SCREEN-RIGHT leg is long/down/supporting and the SCREEN-LEFT leg is raised/bent. This is the distinct opposite-leg arrangement missing from Image1.
+Correct ONLY THE FOUR LOWER-BODY DRAWINGS IN THE BOTTOM ROW of Image1. Preserve top row1-4, entire cap/backpack/arms/box/bat/upper body in all cells, canvas4x2/cell positions, exact pixel style, scale, transparency and fixed back-right camera. Never mirror whole character or swap equipment.
+Problem: Image1 poses5-8 repeat1-4, with the same trailing left big boot in5 as1. Need a genuine opposite-support half-cycle. Redraw thighs/knees/shins/boots attached to the same pelvis, keep two legs only.
+Bottom-left pose5 CONTACT B: visibly match original atlas back-right walk2 opposite-leg arrangement. Bat-side SCREEN-RIGHT leg now forms the LONG DOWNWARD SUPPORTING LEG ending in a low large boot at SCREEN-RIGHT (under/right of pelvis). SCREEN-LEFT knee folds upward with its boot CLEARLY HIGHER at screen-left, behind/away. Do not leave a long screen-left leg with low boot as in current pose5. This right-side low boot versus left-side raised boot MUST be obvious, opposing pose1.
+Pose6 DOWN B: same right leg supports under right hip, knee slightly absorbs weight, boot low screen-right; left rear knee bends/foot lifts screen-left.
+Pose7 PASS B: unlike upper pose3, LEFT leg is under pelvis supporting on left ground track; RIGHT/bat-side leg bends at knee with its boot airborne to screen-right beside it. This is the opposite of upper3's left airborne/right supporting pattern.
+Pose8 UP B: LEFT leg is finishing support, RIGHT/bat-side knee/boot swings forward along upper-right travel direction, approaching pose1. Reverse the upper4 support/raised leg. Show thigh-to-knee attachment clearly.
+Make frame5-8 a natural continuation of1-4 and8→1. Use actual opposite leg support and intermediate anatomy, not whole-body translation/duplicated silhouettes/crossfade. Maintain proportions and identical registered upper body. No text, scene, shadows, grid, extra limbs or changes outside the bottom four leg areas. Real alpha transparency.
+

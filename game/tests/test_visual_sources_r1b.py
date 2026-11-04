@@ -69,15 +69,15 @@ def track_texture_destruction():
 
 
 class MultiSourceTextureTests(unittest.TestCase):
-    def test_all_three_real_sources_match_canvas_and_override_linear_sampling(self):
+    def test_all_real_sources_match_canvas_and_override_linear_sampling(self):
         visual = None
         image = None
         with dummy_canvas():
             try:
                 visual = player_visual.PlayerVisual()
-                self.assertEqual(set(visual.images), {"atlas", "front_steps", "smooth_front_right"})
+                self.assertEqual(set(visual.images), set(visual.metadata["sources"]))
                 self.assertIs(visual.image, visual.images["atlas"])
-                for key in ("atlas", "front_steps", "smooth_front_right"):
+                for key in visual.metadata["sources"]:
                     with self.subTest(source=key):
                         image = visual.images[key]
                         self.assertEqual(
@@ -99,7 +99,7 @@ class MultiSourceTextureTests(unittest.TestCase):
                 try:
                     visual = player_visual.PlayerVisual()
                     handles = {address(image.texture) for image in visual.images.values()}
-                    self.assertEqual(len(handles), 3)
+                    self.assertEqual(len(handles), len(visual.metadata["sources"]))
                     visual.close()
                     gc.collect()
                     self.assertIsNone(visual.image)
@@ -120,9 +120,10 @@ class MultiSourceTextureTests(unittest.TestCase):
         for source in metadata["sources"].values():
             source["image"] = str((original_metadata.parent / source["image"]).resolve())
         metadata["image"] = str((original_metadata.parent / metadata["image"]).resolve())
-        metadata["sources"] = {key: metadata["sources"][key]
-                               for key in ("atlas", "front_steps", "smooth_front_right")}
-        metadata["sources"]["front_steps"]["canvas_size"] = [1, 1]
+        order = ["atlas"] + [key for key in metadata["sources"] if key != "atlas"]
+        metadata["sources"] = {key: metadata["sources"][key] for key in order}
+        failure_index = len(order) // 2
+        metadata["sources"][order[failure_index]]["canvas_size"] = [1, 1]
         loaded = []
         original_load = p.load_image
 
@@ -141,19 +142,22 @@ class MultiSourceTextureTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         player_visual.PlayerVisual()
                     gc.collect()
-                    self.assertEqual(len(loaded), 2, "The second source must reach size validation")
-                    self.assertEqual(len(set(loaded)), 2)
+                    self.assertEqual(len(loaded), failure_index + 1,
+                                     "The middle source must reach size validation")
+                    self.assertEqual(len(set(loaded)), len(loaded))
                     self.assertEqual(set(destroyed), set(loaded))
                     self.assertTrue(all(destroyed[handle] == 1 for handle in loaded))
 
-    def test_middle_load_failure_releases_first_source(self):
+    def test_middle_load_failure_releases_loaded_prefix(self):
         original_load = p.load_image
+        metadata = json.loads(Path(player_visual.METADATA_PATH).read_text(encoding="utf-8"))
+        failure_attempt = len(metadata["sources"]) // 2 + 1
         loaded, attempts = [], []
         failure = RuntimeError("middle source load failure sentinel")
 
         def load_image(path):
             attempts.append(path)
-            if len(attempts) == 2:
+            if len(attempts) == failure_attempt:
                 raise failure
             image = original_load(path)
             loaded.append(address(image.texture))
@@ -165,10 +169,10 @@ class MultiSourceTextureTests(unittest.TestCase):
                     player_visual.PlayerVisual()
                 self.assertIs(raised.exception, failure)
                 gc.collect()
-                self.assertEqual(len(attempts), 2)
-                self.assertEqual(len(loaded), 1)
+                self.assertEqual(len(attempts), failure_attempt)
+                self.assertEqual(len(loaded), failure_attempt - 1)
                 self.assertEqual(set(destroyed), set(loaded))
-                self.assertEqual(destroyed[loaded[0]], 1)
+                self.assertTrue(all(destroyed[handle] == 1 for handle in loaded))
 
 
 if __name__ == "__main__":
