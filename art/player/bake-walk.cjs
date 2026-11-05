@@ -55,6 +55,11 @@ async function makeParts(rig) {
     hips = '<linearGradient id="hipFade" x2="0" y2="1"><stop offset="0" stop-color="white"/><stop offset=".75" stop-color="black"/></linearGradient>'
       + `<mask id="hipJoin"><rect width="${torsoWidth}" height="${torsoHeight}" fill="white"/><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#hipFade)"/>${lowerMask}</mask>`
   }
+  if (rig.heldBat) {
+    const {data, info} = await sharp(path.join(__dirname, rig.heldBat.image))
+      .png().toBuffer({resolveWithObject: true})
+    parts.push(`<image id="externalHeldBat" width="${info.width}" height="${info.height}" xlink:href="data:image/png;base64,${data.toString('base64')}"/>`)
+  }
   return cuff + hips + parts.join('')
 }
 
@@ -77,7 +82,9 @@ function drawLeg(rig, side, frame) {
   const phase = (frame + (side === 'right' ? 0 : 4)) % 8
   const shift = idle ? 0 : bodyShift[frame] * rig.ground[0]
   const drop = idle ? 0 : bodyDrop[frame]
-  const travel = idle ? 0 : stride[phase]
+  // Normalize projected directions so cardinal and diagonal steps cover the same ground distance.
+  const strideScale = Math.SQRT2 / Math.hypot(rig.ground[0], rig.ground[1] / 0.60)
+  const travel = idle ? 0 : stride[phase] * strideScale
   const raised = idle ? 0 : lift[phase]
   const bend = idle ? 2 : kneeBend[phase]
   const hip = [rig[side].hip[0] + shift, rig[side].hip[1] + drop]
@@ -106,8 +113,14 @@ async function bake(facing) {
     const torso = use('torsobody', transform)
     const bat = rig.torso.bat ? use('heldBat', transform) : ''
     const behind = rig.torso.bat?.layer === 'behind'
+    let externalBat = ''
+    if (rig.heldBat) {
+      const {position, anchor, angle, scale} = rig.heldBat
+      externalBat = use('externalHeldBat', `translate(${position[0] + shift} ${position[1] + drop}) rotate(${angle}) scale(${scale}) translate(${-anchor[0]} ${-anchor[1]})`)
+    }
+    const batBehindLegs = rig.heldBat?.behindLegs !== false
     const x = (frame % 4) * cellSize, y = Math.floor(frame / 4) * cellSize
-    poses.push(`<g transform="translate(${x} ${y})">${behind ? bat : ''}${drawLeg(rig, farLeg, frame)}${drawLeg(rig, rig.nearLeg, frame)}${torso}${behind ? '' : bat}</g>`)
+    poses.push(`<g transform="translate(${x} ${y})">${batBehindLegs ? externalBat : ''}${behind ? bat : ''}${drawLeg(rig, farLeg, frame)}${drawLeg(rig, rig.nearLeg, frame)}${batBehindLegs ? '' : externalBat}${torso}${behind ? '' : bat}</g>`)
   }
   const scene = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="640" height="480"><defs>${parts}</defs>${poses.join('')}</svg>`
   const output = path.join(__dirname, `../../game/assets/player/r1-pixel64-${facing.replaceAll('_', '-')}-20261105.png`)

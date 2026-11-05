@@ -532,5 +532,471 @@
         0.092
       ]
     }
+  },
+  "front": {
+    "parts": "courier-pixel64-parts-front.png",
+    "rects": {
+      "torso": [
+        107,
+        41,
+        464,
+        609
+      ],
+      "thigh": [
+        802,
+        153,
+        238,
+        436
+      ],
+      "shin": [
+        243,
+        736,
+        191,
+        386
+      ],
+      "boot": [
+        826,
+        818,
+        181,
+        285
+      ]
+    },
+    "torso": {
+      "position": [
+        31.536,
+        19.71
+      ],
+      "scale": [
+        0.208,
+        0.145
+      ],
+      "hipFade": [
+        118,
+        494,
+        245,
+        85
+      ],
+      "hideBelowHipFade": true
+    },
+    "ground": [
+      0,
+      0.6
+    ],
+    "nearLeg": "right",
+    "right": {
+      "hip": [
+        70,
+        94
+      ],
+      "ankle": [
+        70,
+        128
+      ]
+    },
+    "left": {
+      "hip": [
+        90,
+        94
+      ],
+      "ankle": [
+        90,
+        128
+      ]
+    },
+    "thigh": {
+      "start": [
+        119,
+        56.68
+      ],
+      "end": [
+        119,
+        366.24
+      ],
+      "width": 0.13
+    },
+    "shin": {
+      "start": [
+        95.5,
+        50.18
+      ],
+      "end": [
+        95.5,
+        339.68
+      ],
+      "width": 0.14
+    },
+    "boot": {
+      "anchor": [
+        90.5,
+        57
+      ],
+      "scale": [
+        0.14,
+        0.075
+      ]
+    },
+    "heldBat": {
+      "image": "courier-bat-64.png",
+      "anchor": [
+        6,
+        0
+      ],
+      "position": [
+        44.016,
+        94.24
+      ],
+      "angle": 0,
+      "scale": 2,
+      "behindLegs": false
+    }
+  },
+  "back": {
+    "parts": "courier-pixel64-parts-back.png",
+    "rects": {
+      "torso": [
+        108,
+        47,
+        447,
+        603
+      ],
+      "thigh": [
+        803,
+        160,
+        243,
+        426
+      ],
+      "shin": [
+        238,
+        737,
+        176,
+        355
+      ],
+      "boot": [
+        823,
+        816,
+        167,
+        251
+      ]
+    },
+    "torso": {
+      "position": [
+        33.824000000000005,
+        19.71
+      ],
+      "scale": [
+        0.208,
+        0.145
+      ],
+      "hipFade": [
+        107,
+        493,
+        245,
+        65
+      ],
+      "hideBelowHipFade": true
+    },
+    "ground": [
+      0,
+      -0.6
+    ],
+    "nearLeg": "left",
+    "right": {
+      "hip": [
+        90,
+        94
+      ],
+      "ankle": [
+        90,
+        128
+      ]
+    },
+    "left": {
+      "hip": [
+        70,
+        94
+      ],
+      "ankle": [
+        70,
+        128
+      ]
+    },
+    "thigh": {
+      "start": [
+        121.5,
+        55.38
+      ],
+      "end": [
+        121.5,
+        357.84
+      ],
+      "width": 0.13
+    },
+    "shin": {
+      "start": [
+        88,
+        46.15
+      ],
+      "end": [
+        88,
+        312.4
+      ],
+      "width": 0.14
+    },
+    "boot": {
+      "anchor": [
+        83.5,
+        50.2
+      ],
+      "scale": [
+        0.14,
+        0.08
+      ]
+    },
+    "heldBat": {
+      "image": "courier-bat-64.png",
+      "anchor": [
+        6,
+        0
+      ],
+      "position": [
+        116.608,
+        91.91999999999999
+      ],
+      "angle": 200,
+      "scale": 2
+    }
+  },
+  "right": {
+    "parts": "courier-pixel64-parts-right.png",
+    "rects": {
+      "torso": [
+        131,
+        28,
+        368,
+        622
+      ],
+      "thigh": [
+        792,
+        153,
+        207,
+        400
+      ],
+      "shin": [
+        242,
+        736,
+        165,
+        381
+      ],
+      "boot": [
+        745,
+        844,
+        298,
+        227
+      ]
+    },
+    "torso": {
+      "position": [
+        39.648,
+        19.71
+      ],
+      "scale": [
+        0.208,
+        0.145
+      ],
+      "hipFade": [
+        104,
+        502,
+        190,
+        70
+      ],
+      "hideBelowHipFade": true
+    },
+    "ground": [
+      1,
+      0
+    ],
+    "nearLeg": "right",
+    "right": {
+      "hip": [
+        80,
+        94
+      ],
+      "ankle": [
+        81,
+        133
+      ]
+    },
+    "left": {
+      "hip": [
+        78,
+        92
+      ],
+      "ankle": [
+        78,
+        131
+      ]
+    },
+    "thigh": {
+      "start": [
+        103.5,
+        52
+      ],
+      "end": [
+        103.5,
+        336
+      ],
+      "width": 0.13
+    },
+    "shin": {
+      "start": [
+        82.5,
+        49.53
+      ],
+      "end": [
+        82.5,
+        335.28000000000003
+      ],
+      "width": 0.14
+    },
+    "boot": {
+      "anchor": [
+        68.54,
+        45.400000000000006
+      ],
+      "scale": [
+        0.095,
+        0.085
+      ]
+    },
+    "heldBat": {
+      "image": "courier-bat-64.png",
+      "anchor": [
+        6,
+        0
+      ],
+      "position": [
+        76.88,
+        91.195
+      ],
+      "angle": -65,
+      "scale": 2,
+      "behindLegs": false
+    }
+  },
+  "left": {
+    "parts": "courier-pixel64-parts-left.png",
+    "rects": {
+      "torso": [
+        168,
+        47,
+        374,
+        603
+      ],
+      "thigh": [
+        809,
+        157,
+        207,
+        409
+      ],
+      "shin": [
+        245,
+        754,
+        161,
+        377
+      ],
+      "boot": [
+        736,
+        856,
+        253,
+        237
+      ]
+    },
+    "torso": {
+      "position": [
+        44.224000000000004,
+        19.71
+      ],
+      "scale": [
+        0.208,
+        0.145
+      ],
+      "hipFade": [
+        67,
+        503,
+        195,
+        70
+      ],
+      "hideBelowHipFade": true
+    },
+    "ground": [
+      -1,
+      0
+    ],
+    "nearLeg": "left",
+    "right": {
+      "hip": [
+        79,
+        92
+      ],
+      "ankle": [
+        82,
+        131
+      ]
+    },
+    "left": {
+      "hip": [
+        81,
+        94
+      ],
+      "ankle": [
+        79,
+        133
+      ]
+    },
+    "thigh": {
+      "start": [
+        103.5,
+        53.17
+      ],
+      "end": [
+        103.5,
+        343.56
+      ],
+      "width": 0.13
+    },
+    "shin": {
+      "start": [
+        80.5,
+        49.010000000000005
+      ],
+      "end": [
+        80.5,
+        331.76
+      ],
+      "width": 0.14
+    },
+    "boot": {
+      "anchor": [
+        194.81,
+        47.400000000000006
+      ],
+      "scale": [
+        0.11,
+        0.085
+      ]
+    },
+    "heldBat": {
+      "image": "courier-bat-64.png",
+      "anchor": [
+        6,
+        0
+      ],
+      "position": [
+        102.256,
+        89.6
+      ],
+      "angle": 35,
+      "scale": 2
+    }
   }
 }
