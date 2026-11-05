@@ -75,7 +75,7 @@
           195,
           20,
           86,
-          132
+          133
         ],
         "foot_pivot_topleft": [
           240,
@@ -162,8 +162,8 @@
         "clip_topleft": [
           197,
           180,
-          86,
-          127
+          85,
+          128
         ],
         "foot_pivot_topleft": [
           240,
@@ -1550,14 +1550,16 @@
         640,
         320
       ],
-      "sha256": "65e93dbaeecbe9c9b0100d1d2d6dbd159bba8ca2771990ce62f8499c9955aee7",
+      "sha256": "ff65046d6e4d0ed99813a2cb778074f5ea8ddcd41d51e95af4c1eb00da5dc602",
       "generated_on": "2026-11-05",
       "provenance": {
         "parts": "art/player/courier-walk-parts.png",
         "bake": "art/player/bake-walk.cjs",
-        "method": "ImageGen modular pixel-art parts, offline two-leg pose rendering"
+        "method": "ImageGen modular pixel-art parts, offline two-leg pose rendering",
+        "parts_revision": "exec-1a5e45b2-bf85-4933-ac30-650df2b3732a.png",
+        "correction": "Raised waist and pelvis in ImageGen source; hip joints raised 6 display px, thigh width +25%, calf width +21.8%, pelvis seam blended at bake time"
       },
-      "review_status": "Native 8-pose capture reviewed; right contact on 1, left contact on 5; user play review pending",
+      "review_status": "Higher pelvis and fuller legs reviewed in native SDL eight-pose capture; right/left contacts on 1/5; user play review pending",
       "grid": {
         "columns": 4,
         "rows": 2,
