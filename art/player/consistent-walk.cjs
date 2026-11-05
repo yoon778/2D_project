@@ -17,15 +17,48 @@ function inside(x, y, polygon) {
   return hit
 }
 
-function cut(source, polygon) {
+function maskContains(source, x, y, mask) {
+  if (!mask) return false
+  let hit
+  if (Array.isArray(mask)) hit = inside(x + 0.5, y + 0.5, mask)
+  else if (mask.rows) {
+    const row = mask.rows[y]
+    const spans = row && (Array.isArray(row[0]) ? row : [row])
+    hit = spans && spans.some(([left, right]) => x >= left && x <= right)
+  } else hit = inside(x + 0.5, y + 0.5, mask.polygon)
+  if (!hit || !mask.colors) return Boolean(hit)
+  const offset = (y * size + x) * 4
+  return mask.colors.includes(source.subarray(offset, offset + 3).toString('hex'))
+}
+
+function cut(source, mask) {
   const pixels = Buffer.alloc(source.length)
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    if (inside(x + 0.5, y + 0.5, polygon)) {
+    if (maskContains(source, x, y, mask)) {
       const offset = (y * size + x) * 4
       source.copy(pixels, offset, offset, offset + 4)
     }
   }
+  // Restore only explicitly bounded, occluded material from the same view.
+  for (const patch of mask?.copies || []) {
+    if (!mask.restoreRows) throw new Error('Material copies require restoreRows bounds')
+    const [sx, sy, width, height] = patch.source, [tx, ty] = patch.target
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const fromX = sx + x, fromY = sy + y, toX = tx + x, toY = ty + y
+      if ([fromX, fromY, toX, toY].some(value => value < 0 || value >= size)) continue
+      if (!maskContains(source, toX, toY, {rows: mask.restoreRows})) continue
+      const from = (fromY * size + fromX) * 4, to = (toY * size + toX) * 4
+      if (pixels[to + 3] || !source[from + 3]) continue
+      if (mask.colors && !mask.colors.includes(source.subarray(from, from + 3).toString('hex'))) continue
+      source.copy(pixels, to, from, from + 4)
+    }
+  }
   return pixels
+}
+
+function legMaterial(rig, side, part) {
+  const leg = rig.legs[side]
+  return rig.legs[leg[part + 'TextureFrom'] || leg.textureFrom || side]
 }
 
 function paint(target, source, inverse) {
@@ -93,13 +126,14 @@ async function bake(facing) {
     .extract({left, top, width, height}).ensureAlpha().raw().toBuffer()
   const parts = {bat: cut(source, rig.batMask), body: Buffer.from(source)}
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    if (inside(x + 0.5, y + 0.5, rig.lowerBodyMask) || parts.bat[(y * size + x) * 4 + 3]) {
+    const remove = maskContains(source, x, y, rig.lowerBodyMask) || parts.bat[(y * size + x) * 4 + 3]
+    if (remove && !maskContains(source, x, y, rig.bodyKeepMask)) {
       parts.body.fill(0, (y * size + x) * 4, (y * size + x + 1) * 4)
     }
   }
   for (const side of ['right', 'left']) {
     parts[side] = Object.fromEntries(['thigh', 'shin', 'boot'].map(
-      part => [part, cut(source, rig.legs[side][part + 'Mask'])]))
+      part => [part, cut(source, legMaterial(rig, side, part)[part + 'Mask'])]))
   }
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
@@ -108,10 +142,13 @@ async function bake(facing) {
     if (rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
     for (const side of [farLeg, rig.nearLeg]) {
       const leg = rig.legs[side], points = joints(rig, leg, frame)
+      const bootMaterial = legMaterial(rig, side, 'boot')
+      const shinMaterial = legMaterial(rig, side, 'shin')
+      const thighMaterial = legMaterial(rig, side, 'thigh')
       frameJoints[side] = points
-      boot(pixels, parts[side].boot, leg.ankle, points.ankle, points.pitch)
-      segment(pixels, parts[side].shin, leg.knee, leg.ankle, points.knee, points.ankle)
-      segment(pixels, parts[side].thigh, leg.hip, leg.knee, points.hip, points.knee)
+      boot(pixels, parts[side].boot, bootMaterial.ankle, points.ankle, points.pitch)
+      segment(pixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, points.ankle)
+      segment(pixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee)
     }
     if (!rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
     translate(pixels, parts.body, 0, config.bodyDrop[frame])
@@ -162,6 +199,13 @@ async function bake(facing) {
 }
 
 async function main() {
+  for (const file of ['consistent-front-back.json', 'consistent-side.json', 'consistent-diagonal.json']) {
+    try {
+      Object.assign(config.facings, JSON.parse(await fs.readFile(path.join(__dirname, file), 'utf8')))
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
+  }
   const facings = process.argv[2] ? [process.argv[2]] : Object.keys(config.facings)
   for (const facing of facings) await bake(facing)
 }
