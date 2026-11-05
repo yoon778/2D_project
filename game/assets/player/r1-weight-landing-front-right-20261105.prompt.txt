@@ -1,0 +1,50 @@
+R1-W2 landing front_right8-pose sheet
+Tool: built-in image_gen.imagegen; transparent_background=true
+Generated on: 2026-11-05
+Reference: r1-weight-front-right-20261105.png (approved W1)
+Initial output not selected: exec-ac2d0d26-2254-4279-922b-3b19c725d33c.png
+Initial cap range20sourcepx; excessive squat and ambiguous opposite support
+
+INITIAL EXACT PROMPT
+Use case: identity-preserve. Production new FRONT RIGHT eight-frame grounded walk with VISIBLE LOAD ACCEPTANCE.
+Image1 is the current W1 low-foot walking sheet. Preserve EXACT courier identity, pixel style, costume, anatomical hands, front-right camera, low boot swing and opposite-leg cycle. Its problem: contact→load→recovery barely changes; supporting knees and pelvis/torso do not visibly absorb weight.
+Create ONE 4-column×2-row transparent sheet of8 genuine sequential poses, top1-4 then bottom5-8, landscape2:1 ideally2048x1024. Full characters inside equal square cells with gutters. Same cap/head/chest/parcel size and one scale, same shared ground/body-root coordinate in cells. Rearrange body JOINTS for loading; do not translate/rotate whole silhouette.
+Character locked: navy/slate cap bill screen-right, face partly shaded, navy outfit, orange shoulder/backpack accents, brown backpack/boots, amber chest lamp. Anatomical LEFT forearm cradles taped parcel close to lower abdomen at SCREEN-RIGHT, anatomical RIGHT hand holds wooden bat low at SCREEN-LEFT, no hand swaps. Crisp chunky pixel clusters/dark outline/limited palette. Same front-right elevated3/4 view.
+Most important visible timing poses:1 CONTACT→2 LOAD/SINK→3 RECOVER/LOW PASS→4 LOW ADVANCE;5 opposite CONTACT→6 opposite LOAD/SINK→7 RECOVER/LOW PASS→8 LOW ADVANCE. LOW FOOT SWING like W1, no knee-high tucks/kicks/jogging/float.
+DRAWING REGISTRATION TARGET, not whole-image bob: contact1/5 and advance4/8 cap top at roughly the same cell-local height. In LOAD2/6, cap and chest sit about6source pixels LOWER for an approximately400px-tall drawn character (about2px at final128px display). Recovery3/7 sits between contact and load, then rises naturally into4/8. Keep total cap-height range under about9source pixels (~3px display). Supporting boot sole stays at exactly the same ground level through contact→load→recovery; SAME boot size, no foot translating down with torso. The head lowers BECAUSE supporting knee angle bends and hip/pelvis lowers: hip-to-ankle vertical span shorter while limb lengths stay same. Do not fake loading by moving the whole character.
+1 CONTACT A: PARCEL-SIDE leg from screen-right hip steps forward modestly, sole near-flat/heel settling; bat-side rear toe still on its own track. Soft upright carry posture.
+2 LOAD A: SAME screen-right supporting boot planted FLAT in SAME place as1. Supporting KNEE visibly flexes/angles forward slightly more, pelvis drops, chest/shoulders lower with pelvis by small target amount. Left forearm visibly braces parcel from beneath close to belly, shoulders subtly compress/lean forward under weight, no detached box or head-only dip. Bat stays in hand naturally. Rear heel starts subtle toe-off.
+3 RECOVER A: right boot still supporting, knee begins straightening and pelvis/chest rise partway; opposite bat-side foot passes LOW beside supporting foot, not at knee height.
+4 LOW ADVANCE A: recovered body height, bat-side boot advances LOW toward next contact, toes level, supporting leg finishing stance.
+5 CONTACT B: clearly opposite leg from1: BAT-SIDE leg from SCREEN-LEFT hip now forward/near-flat contact with its LOW LARGE BOOT under LEFT/center of pelvis. Parcel-side leg behind on RIGHT track. Do not cross thighs/attach same leading boot to same hip.
+6 LOAD B: SAME screen-left supporting boot FLAT/SAMEplace as5, LEFT supporting knee visibly flexes/angles forward, pelvis/chest/cap settle small amount, arm supports parcel and shoulders subtly absorb load, mirrored joint ROLE but do NOT mirror character or swap equipment.
+7 RECOVER B: left supporting knee starts extending/pelvis/chest rise halfway, parcel-side foot passes LOW on RIGHT track.
+8 LOW ADVANCE B: body recovers, parcel-side boot advances LOW toward1; natural8→1. Opposite moving leg from4.
+Two parallel foot tracks, no high knees, both feet never airborne. Eight anatomically distinct drawings, planted-foot knee compression clearly visible2/6, not eight copies at different y. No leg shortening or stretching to fake compression. No large head/box bounce, whole-PNG shift/mirror/rotation, crossfade/ghost limbs/blur. No text/numbers/grid/guides/floor/ground shadow/environment/checkerboard. Real alpha transparency.
+
+Correction1 not selected: exec-0af2fb34-9943-42af-8440-27ed9d5d6c01.png
+Reference: initial output
+Cap range16sourcepx, still excessive; opposite support ambiguous
+
+CORRECTION1 EXACT PROMPT
+Targeted anatomy correction to this8-pose sheet ONLY. It correctly shows planted-boot knee/pelvis compression but LOAD2/6 crouches too deeply, violating head-height target. Preserve character/pixel style, cap/box dimensions, hands, front-right view,4x2canvas/registration/transparency and all other poses.
+Measured cell-local CAP TOP y: [15,34,22,14,14,34,18,14]. Desired target roughly [15,22,18,14,14,22,18,14]. Thus CHANGE ONLY POSE2 (top row column2), POSE3 (top row column3), POSE6 (bottom row column2). All remaining five drawings unchanged.
+POSE2 and POSE6: reduce the excessive knee/pelvis crouch. Supporting BOOT SOLE must stay planted at its CURRENT EXACT GROUND POSITION, same boot size/heel/toe and orientation; do NOT move feet up with body. Redraw the supporting knee with LESS flexion than current load but still visibly softer/more bent than contact1/5. Pelvis/torso/cap rise internally because hip-to-ankle vertical span increases through straighter knee, consistent limb lengths. Set load cap top about22px from cell top (currently34), about7-8px LOWER than contact cap, not19-20. At approximately400px drawn character height, that is ~2px head dip at final128px display, never more than3px. Arms still support box close to belly; small shoulder absorption, same cap/chest/box proportions. Not head-only movement or whole silhouette translation.
+POSE3: recovery intermediate. Keep planted supporting boot position, slightly straighten knee/pelvis upward so cap top around18px instead22. Chest/pelvis recover partway between load2 and advance4.
+Load6 uses opposite supporting anatomical leg to2, keep existing clear leg identity. Preserve low swing-foot clearance/near-flat soles, supporting boot fixed while knee/pelvis compresses, no high knees/kicking/hopping. Keep small visible joint compression; do not erase it to make identical poses.
+Absolutely no moving/scaling the entire PNG/cell silhouette, no global bob, foot translation, leg stretching/shortening, mirror/rotation, pose duplication or crossfade. Genuine joint redraw only in those3poses. No changes to1/4/5/7/8 or other art, no labels/guides/floor/shadow. Real alpha transparency.
+
+Selected correction2: exec-e644eac9-237b-4f9b-bd69-03c54bd65ea8.png
+References: correction1 output; approved W1 sheet
+Director confirmed clearer opposite support and shallow compression, authorized fixed-scale integration
+Generated original copied unchanged; no programmatic pixel transformations
+
+CORRECTION2 EXACT PROMPT
+TARGETED CORRECTION ONLY THREE POSES:2,5,6 in Image1. Image1 is current4x2sheet. Image2 is APPROVED W1 sheet; its bottom-left5 shows correct BAT-SIDE leading leg to restore. Keep Image1 poses1,3,4,7,8 unchanged, all character identity/equipment/camera/pixel style/scale/alpha unchanged.
+There are TWO ERRORS:
+A. LOAD2/6 still SQUATS TOO DEEPLY. Measured cap tops current2=29 and6=28 versus contacts~14. Restore neck/head/shoulders ALMOST LEVEL with contacts. NO crouching/squatting/deep drop.
+B. Pose5 still repeats parcel-side forward leg; restore W1 bottom-left leg attachment.6 must load same opposite bat-side support.
+2: Keep planted boot EXACT current place, same limb lengths/boot. REDRAW a nearly extended but softly unlocked support knee, not deep flexion. Raise pelvis/shoulders/neck/cap close to contact1 height. Cap top should be around19–20 source pixels (not29) vs contact1~14. Only tiny head-height drop4–6sourcepx on~400pxbody, about1.5–2px at128pxdisplay; cap tops across whole sheet nearly horizontal, range NEVER over9sourcepx(~3pxdisplay). Support foot must NOT rise with torso. Convey landing through tiny knee yield, small chest/shoulder TILT and forearm bracing box against belly, NOT by sitting down. Same head/box size.
+5: Keep upper body as Image1, REDRAW BELOW WAIST to EXACT OPPOSITE leg role from1. Use Image2 bottom-left5 as leg-attachment reference. BAT-SIDE anatomical RIGHT leg from SCREEN-LEFT HIP under bat hand must be the OBVIOUS LONG FORWARD SUPPORT LEG, thigh→knee→ankle all stay on LEFT TRACK, large low front boot BELOW LEFT/CENTER of pelvis. PARCEL-SIDE leg from SCREEN-RIGHT HIP is BACK, softly bent on RIGHT TRACK with smaller/higher rear boot. Do not cross thighs so screen-left leg appears attached to right hip; do not leave low big front boot on right. Broad flat planted front sole, low step, normal limb lengths, no boot lifted to opposite knee.
+6: SAME SCREEN-LEFT BAT-SIDE leg and SAME planted front boot place as corrected5. Tiny shallow knee yield/hip response, chest/shoulders small tilt, box supported by left forearm. Head/cap ALMOST LEVEL with5: cap top around19–20px instead28, not a crouch. Parcel-side rear foot stays behind on right, low toe-off. Keep opposite support to2 unmistakable.
+Only subtle joint yielding2/6, not sitting/kneeling; cap/head almost on same horizontal band as other poses. Preserve all feet near ground, no kick/high knee. No shifting/scaling whole silhouette, foot teleportation, leg stretching, mirrored PNG, fake bob, copied poses, crossfade/ghost limbs. Real redrawn anatomy only in these3poses, no other changes. Original4x2 layout, transparent background, no labels/grid/floor/shadow.

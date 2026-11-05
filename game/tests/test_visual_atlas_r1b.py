@@ -30,9 +30,9 @@ LEGACY_SOURCE_HASHES = {
     "front_steps": "ee7eaafeb48fdd435079d168d78d115ec20849e6350725a6214c5e95ab5abb75",
     "smooth_front_right": "b788c200ffc000d225cf228769cea01fe5f5bba2ab79ef52ff77cf0012b3d667",
 }
-# Canonical JSON hashes verified against git show a9723bc.
+# Canonical JSON hashes verified against git show 05f55ed.
 BASELINE_IDLES = "56584c6445ae8a552a90aa67c20133578909816e7ba78566094232bf7eee0a16"
-BASELINE_SOURCES = "0146fc78c3abc5fb9782f35efeb96d834702978e83673ca75f0eb1c31a8be0a4"
+BASELINE_SOURCES = "21fdc70ea8161f2bfce4213d081967e4b9b733b084980625beff5a93ce9ac50b"
 # Preserve the approved BR stage exactly from git show 9b6bb29.
 BASELINE_BACK_RIGHT_FRAMES = "388e9b486e1cb9f50a620ad2c91a4187db409f749cab0faeab2311b51eed6997"
 BASELINE_BACK_RIGHT_SOURCE = "534a1fc147b2a62cd97d8446d53c2a25e8aca42e5ba2631dbaf148d891d0ddf3"
@@ -47,6 +47,7 @@ PRESERVED_SOURCE_HASHES = {
     "smooth_back_right": BASELINE_BACK_RIGHT_PNG,
     "smooth_back_left": BASELINE_BACK_LEFT_PNG,
     "smooth_front_left": "d3dcd3d3ff13be1eb03c3c07d27087ace3824535ec592dacb7bfbf625958b5f1",
+    "weight_front_right": "d0330535d62b4586315aa373df9f12538a7e125b6e534eb61b16f5a171af57c6",
 }
 BASELINE_WAITING_FRAMES = {
     "back_right": "c82dc04a7caaf54061a04524d31249efd45f03ec47276ff7965295ddd26b12c3",
@@ -54,7 +55,7 @@ BASELINE_WAITING_FRAMES = {
     "front_left": "bd48db6087261dfff86233107bbd0d292a6acfcaf5314b70458e2cfaee183693",
 }
 SMOOTH_SOURCES = {facing: "smooth_" + facing for facing, _ in FACINGS}
-ACTIVE_SOURCES = {**SMOOTH_SOURCES, "front_right": "weight_front_right"}
+ACTIVE_SOURCES = {**SMOOTH_SOURCES, "front_right": "landing_front_right"}
 S2_ORDER = ("back_right", "back_left", "front_left")
 
 
@@ -131,7 +132,7 @@ class AtlasGeometryTests(unittest.TestCase):
         self.assertEqual(sum(len(frames) for frames in metadata["frames"].values()), 36)
         progress = [facing for facing in S2_ORDER if facing in expanded]
         self.assertEqual(progress, list(S2_ORDER[:len(progress)]))
-        self.assertEqual(set(sources), set(PRESERVED_SOURCE_HASHES) | {"weight_front_right"})
+        self.assertEqual(set(sources), set(PRESERVED_SOURCE_HASHES) | {"landing_front_right"})
         self.assertEqual(canonical_hash({name: frames[0] for name, frames in metadata["frames"].items()}),
                          BASELINE_IDLES)
         self.assertEqual(canonical_hash({name: sources[name] for name in PRESERVED_SOURCE_HASHES}),
