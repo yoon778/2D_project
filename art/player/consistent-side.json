@@ -12,6 +12,7 @@
     ],
     "nearLeg": "right",
     "batBehindLegs": false,
+    "hipOutline": true,
     "lowerBodyMask": [
       [
         33,
@@ -747,6 +748,7 @@
     ],
     "nearLeg": "left",
     "batBehindLegs": true,
+    "hipOutline": true,
     "lowerBodyMask": [
       [
         31,

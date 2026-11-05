@@ -3,9 +3,10 @@ const fs=require('fs'),path=require('path'),sharp=require('sharp');
 const root=path.resolve(__dirname,'../..'),art=__dirname,cfg=require(path.join(art,'consistent-rig.json'));
 for(const file of ['consistent-front-back.json','consistent-side.json','consistent-diagonal.json'])Object.assign(cfg.facings,require(path.join(art,file)));
 const dark=new Set(['15141b','242633','392b29']),dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+const navy=new Set(['15141b','242633','323648','42495f','555d77','69728e']);
 const sourceDir=path.resolve(root,process.argv[2]||'game/assets/player');
 (async()=>{
-const report={scope:'Exposed lower-leg alpha boundary, excluding fixed torso/bat and their one-pixel margin',dark_colors:[...dark],facings:{},exposed:0,missing:0};
+const report={scope:'Lower-leg boundary excludes fixed body/bat; side hip band also inspects body-owned garment edges and a visible inner-thigh seam',dark_colors:[...dark],hip_outline_color:'15141b',facings:{},exposed:0,missing:0,hip_exposed:0,hip_missing:0,seam_missing:0};
 for(const [facing,rig] of Object.entries(cfg.facings)){
 const slug=facing.replaceAll('_','-'),{data:atlas}=await sharp(path.join(sourceDir,'r1-consistent-'+slug+'-20261105.png')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
 const body=await sharp(path.join(art,'consistent-parts',slug,'body.png')).ensureAlpha().raw().toBuffer();
@@ -21,14 +22,31 @@ for(let f=0;f<8;f++){
  exposed++;const rgb=atlas.subarray(at(x,y),at(x,y)+3).toString('hex');
  if(!dark.has(rgb)){missing++;if(samples.length<12)samples.push({x,y,rgb})}
  }
- frames.push({pose:f+1,exposed,missing,samples});report.exposed+=exposed;report.missing+=missing;
+ let hipExposed=0,hipMissing=0,seamMissing=0;const hipSamples=[];
+ if(facing==='left'||facing==='right'){
+  const hips=[rig.legs.right.hip,rig.legs.left.hip];
+  const y0=Math.floor(Math.min(...hips.map(h=>h[1])))-2+drop,y1=Math.ceil(Math.max(...hips.map(h=>h[1])))+5+drop;
+  const x0=Math.floor(Math.min(...hips.map(h=>h[0])))-8,x1=Math.ceil(Math.max(...hips.map(h=>h[0])))+8;
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+   const rgb=atlas.subarray(at(x,y),at(x,y)+3).toString('hex');
+   if(!opaque(x,y)||!navy.has(rgb)||!dirs.some(([dx,dy])=>!opaque(x+dx,y+dy)))continue;
+   hipExposed++;if(rgb!=='15141b'){hipMissing++;hipSamples.push({x,y,rgb});}
+  }
+  // Actual reported defect: visible near/far boundary, invisible to alpha-only perimeter checks.
+  if(facing==='left'&&f===0){
+   const x=40,y=50,rgb=atlas.subarray(at(x,y),at(x,y)+3).toString('hex');
+   if(!opaque(x,y)||rgb!=='15141b'){seamMissing++;hipSamples.push({x,y,rgb,kind:'inner_thigh_seam'});}
+  }
+ }
+ frames.push({pose:f+1,exposed,missing,samples,hip_exposed:hipExposed,hip_missing:hipMissing,seam_missing:seamMissing,hip_samples:hipSamples});
+ report.exposed+=exposed;report.missing+=missing;report.hip_exposed+=hipExposed;report.hip_missing+=hipMissing;report.seam_missing+=seamMissing;
 }
-report.facings[facing]={missing:frames.reduce((a,f)=>a+f.missing,0),frames};
+report.facings[facing]={missing:frames.reduce((a,f)=>a+f.missing,0),hip_missing:frames.reduce((a,f)=>a+f.hip_missing,0),seam_missing:frames.reduce((a,f)=>a+f.seam_missing,0),frames};
 }
-report.status=report.exposed&&report.missing===0?'passed':'missing_leg_outline';
+report.status=report.exposed&&report.missing===0&&report.hip_missing===0&&report.seam_missing===0?'passed':'missing_leg_outline';
 const reportPath=path.resolve(root,process.argv[3]||'output/review/R1-C8-OUTLINE/outline-current.json');
 fs.mkdirSync(path.dirname(reportPath),{recursive:true});
 fs.writeFileSync(reportPath,JSON.stringify(report,null,2)+'\n');
-console.log(JSON.stringify({status:report.status,exposed:report.exposed,missing:report.missing,by_facing:Object.fromEntries(Object.entries(report.facings).map(([k,v])=>[k,v.missing]))}));
+console.log(JSON.stringify({status:report.status,exposed:report.exposed,missing:report.missing,hip_missing:report.hip_missing,seam_missing:report.seam_missing,by_facing:Object.fromEntries(Object.entries(report.facings).map(([k,v])=>[k,{lower:v.missing,hip:v.hip_missing,seam:v.seam_missing}]))}));
 if(report.status!=='passed')process.exitCode=1;
 })().catch(e=>{console.error(e);process.exitCode=1});

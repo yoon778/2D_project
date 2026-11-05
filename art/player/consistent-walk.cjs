@@ -86,6 +86,21 @@ function restoreLegOutline(pixels, hip) {
   }
 }
 
+function restoreHipOutline(pixels, band, protectedPixels, sideEdgesOnly = false) {
+  const navy = new Set(['242633', '323648', '42495f', '555d77', '69728e'])
+  const directions = sideEdgesOnly ? [[-1, 0], [1, 0]] : [[-1, 0], [1, 0], [0, -1], [0, 1]]
+  for (let y = Math.max(0, band[0]); y <= Math.min(size - 1, band[1]); y++) for (let x = 0; x < size; x++) {
+    const offset = (y * size + x) * 4
+    if (!pixels[offset + 3] || protectedPixels?.[offset + 3]
+      || !navy.has(pixels.subarray(offset, offset + 3).toString('hex'))) continue
+    const exposed = directions.some(([dx, dy]) => {
+      const nx = x + dx, ny = y + dy
+      return nx < 0 || nx >= size || ny < 0 || ny >= size || !pixels[(ny * size + nx) * 4 + 3]
+    })
+    if (exposed) pixels.set([0x15, 0x14, 0x1b], offset)
+  }
+}
+
 // Preserve the painted limb width; fit only its projected joint axis.
 function segment(target, source, sourceStart, sourceEnd, start, end) {
   const sx = sourceEnd[0] - sourceStart[0], sy = sourceEnd[1] - sourceStart[1]
@@ -149,8 +164,13 @@ async function bake(facing) {
   }
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
+  const heldHand = rig.hipOutline ? cut(source, rig.bodyKeepMask) : null
   for (let frame = 0; frame < 8; frame++) {
     const pixels = Buffer.alloc(source.length), frameJoints = {}
+    const drop = config.bodyDrop[frame]
+    const hipBand = rig.hipOutline ? [Math.min(rig.legs.right.hip[1], rig.legs.left.hip[1]) - 2 + drop,
+      Math.max(rig.legs.right.hip[1], rig.legs.left.hip[1]) + 5 + drop] : null
+    const legCoverage = hipBand ? Buffer.alloc(source.length) : null
     if (rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
     for (const side of [farLeg, rig.nearLeg]) {
       const legPixels = Buffer.alloc(source.length)
@@ -163,10 +183,24 @@ async function bake(facing) {
       segment(legPixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, points.ankle)
       segment(legPixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee)
       restoreLegOutline(legPixels, points.hip)
+      // Side edges separate the legs without drawing a horizontal hip cut line.
+      if (hipBand) restoreHipOutline(legPixels, hipBand, null, true)
       translate(pixels, legPixels, 0, 0)
+      if (legCoverage) translate(legCoverage, legPixels, 0, 0)
     }
     if (!rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
     translate(pixels, parts.body, 0, config.bodyDrop[frame])
+    if (hipBand) {
+      const protectedPixels = Buffer.alloc(source.length)
+      translate(protectedPixels, heldHand, 0, drop)
+      for (let y = hipBand[0]; y <= hipBand[1]; y++) for (let x = 0; x < size; x++) {
+        const to = (y * size + x) * 4, from = ((y - drop) * size + x) * 4
+        if (parts.bat[from + 3] && !parts.body[from + 3]
+          && (!rig.batBehindLegs || !legCoverage[to + 3])) protectedPixels[to + 3] = 255
+      }
+      // Fixed body pixels can own the exposed hip edge after leg compositing.
+      restoreHipOutline(pixels, hipBand, protectedPixels)
+    }
     poses.push(pixels)
     poseJoints.push(frameJoints)
   }
