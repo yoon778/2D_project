@@ -400,9 +400,10 @@
       "hipFade": [
         108,
         361,
-        196,
+        200,
         68
-      ]
+      ],
+      "hideBelowHipFade": true
     },
     "ground": [
       -1,

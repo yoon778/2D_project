@@ -1688,7 +1688,7 @@
         640,
         480
       ],
-      "sha256": "4c55d42a41ca7ab842cd2b7787f03ccf507026b6499560f4a35a967c845e29d7",
+      "sha256": "f3193c8689efd0bb36ca056f678253fdca3f72d2c6af883c82e165423eb58ff6",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -1718,9 +1718,10 @@
         "bake": "art/player/bake-walk.cjs",
         "rigs": "art/player/walk-rigs.json",
         "method": "ImageGen unique directional cutouts, offline two-leg pose rendering",
-        "prompt": "art/player/fourway-parts.prompt.txt"
+        "prompt": "art/player/fourway-parts.prompt.txt",
+        "hip_join_correction": "Extend the back-left pelvis mask below its fade so the original pants outline cannot reappear over the thighs"
       },
-      "review_status": "R1-W5 native capture checked; right/left contacts on 1/5, shared idle scale and intact bat; user play review pending",
+      "review_status": "Back-left pelvis seam corrected and reviewed in native SDL idle/eight poses; user play review pending",
       "alpha_review": "RGBA; per-cell alpha>16 bounds plus up to 2px padding"
     },
     "unified_front_left": {

@@ -45,8 +45,11 @@ async function makeParts(rig) {
   if (rig.torso.hipFade) {
     const [x, y, width, height] = rig.torso.hipFade
     const [, , torsoWidth, torsoHeight] = rig.rects.torso
+    // Some torso cutouts include pants below the blend area.
+    const lowerMask = rig.torso.hideBelowHipFade
+      ? `<rect x="${x}" y="${y + height}" width="${width}" height="${torsoHeight - y - height}" fill="black"/>` : ''
     hips = '<linearGradient id="hipFade" x2="0" y2="1"><stop offset="0" stop-color="white"/><stop offset=".75" stop-color="black"/></linearGradient>'
-      + `<mask id="hipJoin"><rect width="${torsoWidth}" height="${torsoHeight}" fill="white"/><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#hipFade)"/></mask>`
+      + `<mask id="hipJoin"><rect width="${torsoWidth}" height="${torsoHeight}" fill="white"/><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#hipFade)"/>${lowerMask}</mask>`
   }
   return cuff + hips + parts.join('')
 }
