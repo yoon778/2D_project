@@ -125,6 +125,42 @@ function boot(target, source, anchor, ankle, degrees) {
   })
 }
 
+function drawBat(target, source, rig, drop) {
+  if (!rig.batRotation) return translate(target, source, 0, drop)
+  const {pivot, targetPivot = pivot, degrees, axisEnd, lengthScale = 1} = rig.batRotation
+  const grip = [targetPivot[0], targetPivot[1] + drop]
+  if (!axisEnd || lengthScale === 1) return boot(target, source, pivot, grip, degrees)
+  const radians = degrees * Math.PI / 180
+  const dx = (axisEnd[0] - pivot[0]) * lengthScale, dy = (axisEnd[1] - pivot[1]) * lengthScale
+  const tip = [grip[0] + Math.cos(radians) * dx - Math.sin(radians) * dy,
+    grip[1] + Math.sin(radians) * dx + Math.cos(radians) * dy]
+  segment(target, source, pivot, axisEnd, grip, tip)
+}
+
+function applyLegFacet(pixels, facet, allowedPixels) {
+  const color = [0, 2, 4].map(offset => parseInt(facet.to.slice(offset, offset + 2), 16))
+  for (let y = facet.y[0]; y <= facet.y[1]; y++) for (let x = facet.x[0]; x <= facet.x[1]; x++) {
+    const offset = (y * size + x) * 4
+    if (allowedPixels && !allowedPixels[offset + 3]) continue
+    if (pixels[offset + 3] && pixels.subarray(offset, offset + 3).toString('hex') === facet.from) {
+      pixels.set(color, offset)
+    }
+  }
+}
+
+function drawLeg(rig, parts, side, points, hipBand) {
+  const pixels = Buffer.alloc(size * size * 4)
+  const bootMaterial = legMaterial(rig, side, 'boot')
+  const shinMaterial = legMaterial(rig, side, 'shin')
+  const thighMaterial = legMaterial(rig, side, 'thigh')
+  boot(pixels, parts[side].boot, bootMaterial.ankle, points.ankle, points.pitch)
+  segment(pixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, points.ankle)
+  segment(pixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee)
+  restoreLegOutline(pixels, points.hip)
+  if (hipBand) restoreHipOutline(pixels, hipBand, null, true)
+  return pixels
+}
+
 function joints(rig, leg, frame) {
   const phase = (frame + leg.phase) % 8
   const length = Math.hypot(...rig.worldFacing)
@@ -151,16 +187,27 @@ async function bake(facing) {
   const [left, top, width, height] = rig.sourceCell
   const source = await sharp(path.join(__dirname, config.master))
     .extract({left, top, width, height}).ensureAlpha().raw().toBuffer()
-  const parts = {bat: cut(source, rig.batMask), body: Buffer.from(source)}
+  const originalBat = cut(source, rig.batMask)
+  const parts = {bat: originalBat, body: Buffer.from(source)}
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const remove = maskContains(source, x, y, rig.lowerBodyMask) || parts.bat[(y * size + x) * 4 + 3]
     if (remove && !maskContains(source, x, y, rig.bodyKeepMask)) {
       parts.body.fill(0, (y * size + x) * 4, (y * size + x + 1) * 4)
     }
   }
+  if (rig.batSourceFacing) {
+    const donor = config.facings[rig.batSourceFacing]
+    const [left, top, width, height] = donor.sourceCell
+    const material = await sharp(path.join(__dirname, config.master))
+      .extract({left, top, width, height}).ensureAlpha().raw().toBuffer()
+    parts.bat = cut(material, donor.batMask)
+  }
   for (const side of ['right', 'left']) {
     parts[side] = Object.fromEntries(['thigh', 'shin', 'boot'].map(
       part => [part, cut(source, legMaterial(rig, side, part)[part + 'Mask'])]))
+  }
+  if (rig.legFacet) for (const part of ['thigh', 'shin']) {
+    applyLegFacet(parts[rig.legFacet.side][part], rig.legFacet)
   }
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
@@ -171,31 +218,25 @@ async function bake(facing) {
     const hipBand = rig.hipOutline ? [Math.min(rig.legs.right.hip[1], rig.legs.left.hip[1]) - 2 + drop,
       Math.max(rig.legs.right.hip[1], rig.legs.left.hip[1]) + 5 + drop] : null
     const legCoverage = hipBand ? Buffer.alloc(source.length) : null
-    if (rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
+    const batPixels = Buffer.alloc(source.length)
+    drawBat(batPixels, parts.bat, rig, drop)
+    if (rig.batBehindLegs) translate(pixels, batPixels, 0, 0)
     for (const side of [farLeg, rig.nearLeg]) {
-      const legPixels = Buffer.alloc(source.length)
       const leg = rig.legs[side], points = joints(rig, leg, frame)
-      const bootMaterial = legMaterial(rig, side, 'boot')
-      const shinMaterial = legMaterial(rig, side, 'shin')
-      const thighMaterial = legMaterial(rig, side, 'thigh')
       frameJoints[side] = points
-      boot(legPixels, parts[side].boot, bootMaterial.ankle, points.ankle, points.pitch)
-      segment(legPixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, points.ankle)
-      segment(legPixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee)
-      restoreLegOutline(legPixels, points.hip)
       // Side edges separate the legs without drawing a horizontal hip cut line.
-      if (hipBand) restoreHipOutline(legPixels, hipBand, null, true)
+      const legPixels = drawLeg(rig, parts, side, points, hipBand)
       translate(pixels, legPixels, 0, 0)
       if (legCoverage) translate(legCoverage, legPixels, 0, 0)
     }
-    if (!rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
+    if (!rig.batBehindLegs) translate(pixels, batPixels, 0, 0)
     translate(pixels, parts.body, 0, config.bodyDrop[frame])
     if (hipBand) {
       const protectedPixels = Buffer.alloc(source.length)
       translate(protectedPixels, heldHand, 0, drop)
       for (let y = hipBand[0]; y <= hipBand[1]; y++) for (let x = 0; x < size; x++) {
         const to = (y * size + x) * 4, from = ((y - drop) * size + x) * 4
-        if (parts.bat[from + 3] && !parts.body[from + 3]
+        if (batPixels[to + 3] && !parts.body[from + 3]
           && (!rig.batBehindLegs || !legCoverage[to + 3])) protectedPixels[to + 3] = 255
       }
       // Fixed body pixels can own the exposed hip edge after leg compositing.
@@ -204,8 +245,37 @@ async function bake(facing) {
     poses.push(pixels)
     poseJoints.push(frameJoints)
   }
-  // Idle is a byte-exact source-cell copy, independent of the rig render.
-  poses.push(source)
+  let idle = source
+  if (rig.batRotation) {
+    if (rig.batBehindLegs) {
+      const foreground = Buffer.from(source)
+      for (let offset = 0; offset < foreground.length; offset += 4) {
+        if (originalBat[offset + 3] && !heldHand?.[offset + 3]) foreground.fill(0, offset, offset + 4)
+      }
+      idle = Buffer.alloc(source.length)
+      drawBat(idle, parts.bat, rig, 0)
+      translate(idle, foreground, 0, 0)
+    } else {
+      const uncovered = Buffer.alloc(source.length)
+      const hipBand = rig.hipOutline ? [Math.min(rig.legs.right.hip[1], rig.legs.left.hip[1]) - 2,
+        Math.max(rig.legs.right.hip[1], rig.legs.left.hip[1]) + 5] : null
+      for (const side of [farLeg, rig.nearLeg]) {
+        const leg = rig.legs[side]
+        translate(uncovered, drawLeg(rig, parts, side, {...leg, pitch: 0}, hipBand), 0, 0)
+      }
+      idle = Buffer.from(source)
+      for (let offset = 0; offset < idle.length; offset += 4) {
+        if (originalBat[offset + 3] && !heldHand?.[offset + 3]) {
+          uncovered.copy(idle, offset, offset, offset + 4)
+        }
+      }
+      drawBat(idle, parts.bat, rig, 0)
+      translate(idle, parts.body, 0, 0)
+    }
+    if (rig.legFacet) applyLegFacet(idle, rig.legFacet, parts[rig.legFacet.side].thigh)
+  }
+  // Other views retain their exact approved idle; a rotated bat restores only its old footprint.
+  poses.push(idle)
   const atlas = Buffer.alloc(size * 4 * size * 3 * 4)
   for (let frame = 0; frame < poses.length; frame++) for (let y = 0; y < size; y++) {
     const to = ((Math.floor(frame / 4) * size + y) * size * 4 + frame % 4 * size) * 4

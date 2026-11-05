@@ -1534,7 +1534,7 @@
           106,
           11,
           29,
-          61
+          62
         ],
         "foot_pivot_topleft": [
           120,
@@ -1626,7 +1626,7 @@
           106,
           91,
           29,
-          60
+          62
         ],
         "foot_pivot_topleft": [
           120,
@@ -1649,7 +1649,7 @@
           186,
           90,
           29,
-          61
+          62
         ],
         "foot_pivot_topleft": [
           200,
@@ -1672,7 +1672,7 @@
           266,
           90,
           29,
-          61
+          62
         ],
         "foot_pivot_topleft": [
           280,
@@ -3237,7 +3237,7 @@
         320,
         240
       ],
-      "sha256": "5eee3b9ac434abe7f038c0c51d1a2e8cf105ba2eec1216e637967eeda0c2a7a4",
+      "sha256": "7a5049d9aada1a306c658fbe8352245e8b3800ebb11dd33123db566e4969238c",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -3282,7 +3282,7 @@
         320,
         240
       ],
-      "sha256": "7a1227124cf0ca824c903bd36987ad319910c7ef04b7f68c4149050ad03ffb4b",
+      "sha256": "05ee9d8df00eeb718b05de57199e8818a56bc65afc648381b519e18a598c609b",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,

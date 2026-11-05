@@ -5,12 +5,28 @@ for(const file of ['consistent-front-back.json','consistent-side.json','consiste
 const dark=new Set(['15141b','242633','392b29']),dirs=[[1,0],[-1,0],[0,1],[0,-1]];
 const navy=new Set(['15141b','242633','323648','42495f','555d77','69728e']);
 const sourceDir=path.resolve(root,process.argv[2]||'game/assets/player');
+// Align the excluded equipment mask with the baked grip/shaft pose.
+function posedBat(source,rig){
+ if(!rig.batRotation)return source;
+ const {pivot,targetPivot=pivot,degrees,axisEnd,lengthScale=1}=rig.batRotation,angle=degrees*Math.PI/180;
+ const axis=axisEnd?[axisEnd[0]-pivot[0],axisEnd[1]-pivot[1]]:[0,1],length=Math.hypot(...axis);
+ const su=axis.map(v=>v/length),c=Math.cos(angle),s=Math.sin(angle),du=[c*su[0]-s*su[1],s*su[0]+c*su[1]];
+ const scale=axisEnd?lengthScale:1,result=Buffer.alloc(source.length);
+ for(let y=0;y<80;y++)for(let x=0;x<80;x++){
+  const px=x-targetPivot[0],py=y-targetPivot[1],along=(px*du[0]+py*du[1])/scale,across=-px*du[1]+py*du[0];
+  const sx=Math.round(pivot[0]+su[0]*along-su[1]*across),sy=Math.round(pivot[1]+su[1]*along+su[0]*across);
+  if(sx<0||sx>=80||sy<0||sy>=80)continue;
+  const from=(sy*80+sx)*4;if(source[from+3])source.copy(result,(y*80+x)*4,from,from+4);
+ }
+ return result;
+}
 (async()=>{
 const report={scope:'Lower-leg boundary excludes fixed body/bat; side hip band also inspects body-owned garment edges and a visible inner-thigh seam',dark_colors:[...dark],hip_outline_color:'15141b',facings:{},exposed:0,missing:0,hip_exposed:0,hip_missing:0,seam_missing:0};
 for(const [facing,rig] of Object.entries(cfg.facings)){
 const slug=facing.replaceAll('_','-'),{data:atlas}=await sharp(path.join(sourceDir,'r1-consistent-'+slug+'-20261105.png')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
 const body=await sharp(path.join(art,'consistent-parts',slug,'body.png')).ensureAlpha().raw().toBuffer();
-const bat=await sharp(path.join(art,'consistent-parts',slug,'bat.png')).ensureAlpha().raw().toBuffer();
+const batSlug=(rig.batSourceFacing||facing).replaceAll('_','-');
+const bat=posedBat(await sharp(path.join(art,'consistent-parts',batSlug,'bat.png')).ensureAlpha().raw().toBuffer(),rig);
 const frames=[];
 for(let f=0;f<8;f++){
  const x0=f%4*80,y0=Math.floor(f/4)*80,drop=cfg.bodyDrop[f],cutoff=Math.max(rig.legs.right.hip[1],rig.legs.left.hip[1])+3+drop;

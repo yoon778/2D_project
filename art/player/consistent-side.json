@@ -13,6 +13,8 @@
     "nearLeg": "right",
     "batBehindLegs": false,
     "hipOutline": true,
+    "batRotation": {"pivot": [40, 53], "degrees": -8, "axisEnd": [39.5, 69], "lengthScale": 1.125},
+    "legFacet": {"side": "right", "x": [35, 36], "y": [53, 59], "from": "323648", "to": "42495f"},
     "lowerBodyMask": [
       [
         33,
@@ -749,6 +751,8 @@
     "nearLeg": "left",
     "batBehindLegs": true,
     "hipOutline": true,
+    "batSourceFacing": "right",
+    "batRotation": {"pivot": [40, 53], "targetPivot": [35, 51], "degrees": -8, "axisEnd": [39.5, 69], "lengthScale": 1.125},
     "lowerBodyMask": [
       [
         31,
