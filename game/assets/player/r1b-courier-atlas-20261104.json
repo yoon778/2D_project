@@ -5,14 +5,14 @@
     1448
   ],
   "clip_topleft": [
-    36,
-    337,
-    86,
-    135
+    17,
+    168,
+    45,
+    69
   ],
   "foot_pivot_topleft": [
-    80,
-    464
+    40,
+    232
   ],
   "display_height": 128,
   "sampling": "nearest",
@@ -28,837 +28,837 @@
     "front_right": [
       {
         "name": "idle",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          36,
-          337,
-          86,
-          135
+          17,
+          168,
+          45,
+          69
         ],
         "foot_pivot_topleft": [
-          80,
-          464
+          40,
+          232
         ],
         "cell_topleft": [
           0,
-          320,
           160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
       },
       {
         "name": "walk1_right_contact",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          36,
           17,
-          86,
-          139
+          8,
+          45,
+          72
         ],
         "foot_pivot_topleft": [
-          80,
-          144
+          40,
+          72
         ],
         "cell_topleft": [
           0,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.0
       },
       {
         "name": "walk2_right_load",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          195,
-          19,
-          86,
-          135
+          97,
+          9,
+          45,
+          69
         ],
         "foot_pivot_topleft": [
-          240,
-          144
+          120,
+          72
         ],
         "cell_topleft": [
-          160,
+          80,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.125
       },
       {
         "name": "walk3_left_passing",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          355,
-          18,
-          86,
-          135
+          177,
+          8,
+          45,
+          70
         ],
         "foot_pivot_topleft": [
-          400,
-          144
+          200,
+          72
         ],
         "cell_topleft": [
-          320,
-          0,
           160,
-          160
+          0,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.25
       },
       {
         "name": "walk4_left_advance",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          516,
-          17,
-          86,
-          135
+          257,
+          8,
+          45,
+          69
         ],
         "foot_pivot_topleft": [
-          560,
-          144
+          280,
+          72
         ],
         "cell_topleft": [
-          480,
+          240,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.375
       },
       {
         "name": "walk5_left_contact",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          36,
-          177,
-          86,
-          135
+          17,
+          88,
+          45,
+          70
         ],
         "foot_pivot_topleft": [
-          80,
-          304
+          40,
+          152
         ],
         "cell_topleft": [
           0,
-          160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.5
       },
       {
         "name": "walk6_left_load",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          197,
-          179,
-          86,
-          135
+          98,
+          89,
+          45,
+          69
         ],
         "foot_pivot_topleft": [
-          240,
-          304
+          120,
+          152
         ],
         "cell_topleft": [
-          160,
-          160,
-          160,
-          160
+          80,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.625
       },
       {
         "name": "walk7_right_passing",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          357,
-          178,
-          86,
-          135
+          177,
+          88,
+          46,
+          70
         ],
         "foot_pivot_topleft": [
-          400,
-          304
+          200,
+          152
         ],
         "cell_topleft": [
-          320,
           160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.75
       },
       {
         "name": "walk8_right_advance",
-        "source": "unified_front_right",
+        "source": "pixel64_front_right",
         "clip_topleft": [
-          516,
-          177,
-          86,
-          135
+          257,
+          88,
+          45,
+          69
         ],
         "foot_pivot_topleft": [
-          560,
-          304
+          280,
+          152
         ],
         "cell_topleft": [
-          480,
-          160,
-          160,
-          160
+          240,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.875
       }
     ],
     "back_right": [
       {
         "name": "idle",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          50,
-          338,
-          98,
-          133
+          23,
+          167,
+          52,
+          70
         ],
         "foot_pivot_topleft": [
-          80,
-          464
+          40,
+          232
         ],
         "cell_topleft": [
           0,
-          320,
           160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
       },
       {
         "name": "walk1_right_contact",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          50,
-          18,
-          98,
-          135
+          23,
+          7,
+          52,
+          70
         ],
         "foot_pivot_topleft": [
-          80,
-          144
+          40,
+          72
         ],
         "cell_topleft": [
           0,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.0
       },
       {
         "name": "walk2_right_load",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          209,
-          20,
-          98,
-          127
+          103,
+          8,
+          52,
+          67
         ],
         "foot_pivot_topleft": [
-          240,
-          144
+          120,
+          72
         ],
         "cell_topleft": [
-          160,
+          80,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.125
       },
       {
         "name": "walk3_left_passing",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          369,
-          19,
-          98,
-          132
+          183,
+          8,
+          52,
+          69
         ],
         "foot_pivot_topleft": [
-          400,
-          144
+          200,
+          72
         ],
         "cell_topleft": [
-          320,
-          0,
           160,
-          160
+          0,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.25
       },
       {
         "name": "walk4_left_advance",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          530,
-          18,
-          98,
-          136
+          263,
+          7,
+          52,
+          71
         ],
         "foot_pivot_topleft": [
-          560,
-          144
+          280,
+          72
         ],
         "cell_topleft": [
-          480,
+          240,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.375
       },
       {
         "name": "walk5_left_contact",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          50,
-          178,
-          98,
-          140
+          23,
+          87,
+          52,
+          73
         ],
         "foot_pivot_topleft": [
-          80,
-          304
+          40,
+          152
         ],
         "cell_topleft": [
           0,
-          160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.5
       },
       {
         "name": "walk6_left_load",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          210,
-          180,
-          99,
-          131
+          104,
+          88,
+          51,
+          68
         ],
         "foot_pivot_topleft": [
-          240,
-          304
+          120,
+          152
         ],
         "cell_topleft": [
-          160,
-          160,
-          160,
-          160
+          80,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.625
       },
       {
         "name": "walk7_right_passing",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          370,
-          179,
-          99,
-          127
+          184,
+          88,
+          51,
+          66
         ],
         "foot_pivot_topleft": [
-          400,
-          304
+          200,
+          152
         ],
         "cell_topleft": [
-          320,
           160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.75
       },
       {
         "name": "walk8_right_advance",
-        "source": "unified_back_right",
+        "source": "pixel64_back_right",
         "clip_topleft": [
-          530,
-          178,
-          98,
-          131
+          263,
+          87,
+          52,
+          69
         ],
         "foot_pivot_topleft": [
-          560,
-          304
+          280,
+          152
         ],
         "cell_topleft": [
-          480,
-          160,
-          160,
-          160
+          240,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.875
       }
     ],
     "back_left": [
       {
         "name": "idle",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          36,
-          338,
-          110,
-          131
+          16,
+          168,
+          58,
+          68
         ],
         "foot_pivot_topleft": [
-          80,
-          464
+          40,
+          232
         ],
         "cell_topleft": [
           0,
-          320,
           160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
       },
       {
         "name": "walk1_right_contact",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          36,
-          18,
-          110,
-          139
+          16,
+          8,
+          58,
+          72
         ],
         "foot_pivot_topleft": [
-          80,
-          144
+          40,
+          72
         ],
         "cell_topleft": [
           0,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.0
       },
       {
         "name": "walk2_right_load",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          197,
-          20,
-          110,
-          130
+          97,
+          9,
+          58,
+          68
         ],
         "foot_pivot_topleft": [
-          240,
-          144
+          120,
+          72
         ],
         "cell_topleft": [
-          160,
+          80,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.125
       },
       {
         "name": "walk3_left_passing",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          357,
-          19,
-          110,
-          125
+          177,
+          8,
+          58,
+          66
         ],
         "foot_pivot_topleft": [
-          400,
-          144
+          200,
+          72
         ],
         "cell_topleft": [
-          320,
-          0,
           160,
-          160
+          0,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.25
       },
       {
         "name": "walk4_left_advance",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          516,
-          18,
-          110,
-          130
+          256,
+          8,
+          58,
+          67
         ],
         "foot_pivot_topleft": [
-          560,
-          144
+          280,
+          72
         ],
         "cell_topleft": [
-          480,
+          240,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.375
       },
       {
         "name": "walk5_left_contact",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          36,
-          178,
-          110,
-          134
+          16,
+          88,
+          58,
+          70
         ],
         "foot_pivot_topleft": [
-          80,
-          304
+          40,
+          152
         ],
         "cell_topleft": [
           0,
-          160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.5
       },
       {
         "name": "walk6_left_load",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          196,
-          180,
-          110,
-          126
+          96,
+          89,
+          58,
+          65
         ],
         "foot_pivot_topleft": [
-          240,
-          304
+          120,
+          152
         ],
         "cell_topleft": [
-          160,
-          160,
-          160,
-          160
+          80,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.625
       },
       {
         "name": "walk7_right_passing",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          356,
-          179,
-          110,
-          130
+          176,
+          88,
+          58,
+          68
         ],
         "foot_pivot_topleft": [
-          400,
-          304
+          200,
+          152
         ],
         "cell_topleft": [
-          320,
           160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.75
       },
       {
         "name": "walk8_right_advance",
-        "source": "unified_back_left",
+        "source": "pixel64_back_left",
         "clip_topleft": [
-          516,
-          178,
-          110,
-          135
+          256,
+          88,
+          58,
+          70
         ],
         "foot_pivot_topleft": [
-          560,
-          304
+          280,
+          152
         ],
         "cell_topleft": [
-          480,
-          160,
-          160,
-          160
+          240,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.875
       }
     ],
     "front_left": [
       {
         "name": "idle",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          31,
-          337,
-          91,
-          133
+          12,
+          167,
+          51,
+          70
         ],
         "foot_pivot_topleft": [
-          80,
-          464
+          40,
+          232
         ],
         "cell_topleft": [
           0,
-          320,
           160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
       },
       {
         "name": "walk1_right_contact",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          31,
-          17,
-          91,
-          134
+          12,
+          7,
+          51,
+          71
         ],
         "foot_pivot_topleft": [
-          80,
-          144
+          40,
+          72
         ],
         "cell_topleft": [
           0,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.0
       },
       {
         "name": "walk2_right_load",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          192,
-          19,
-          91,
-          130
+          93,
+          8,
+          50,
+          69
         ],
         "foot_pivot_topleft": [
-          240,
-          144
+          120,
+          72
         ],
         "cell_topleft": [
-          160,
+          80,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.125
       },
       {
         "name": "walk3_left_passing",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          352,
-          18,
-          90,
-          127
+          173,
+          8,
+          50,
+          67
         ],
         "foot_pivot_topleft": [
-          400,
-          144
+          200,
+          72
         ],
         "cell_topleft": [
-          320,
-          0,
           160,
-          160
+          0,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.25
       },
       {
         "name": "walk4_left_advance",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          511,
-          17,
-          91,
-          134
+          252,
+          7,
+          51,
+          71
         ],
         "foot_pivot_topleft": [
-          560,
-          144
+          280,
+          72
         ],
         "cell_topleft": [
-          480,
+          240,
           0,
-          160,
-          160
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.375
       },
       {
         "name": "walk5_left_contact",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          31,
-          177,
-          91,
-          139
+          12,
+          87,
+          51,
+          73
         ],
         "foot_pivot_topleft": [
-          80,
-          304
+          40,
+          152
         ],
         "cell_topleft": [
           0,
-          160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.5
       },
       {
         "name": "walk6_left_load",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          190,
-          179,
-          91,
-          135
+          92,
+          88,
+          51,
+          71
         ],
         "foot_pivot_topleft": [
-          240,
-          304
+          120,
+          152
         ],
         "cell_topleft": [
-          160,
-          160,
-          160,
-          160
+          80,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.625
       },
       {
         "name": "walk7_right_passing",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          350,
-          178,
-          91,
-          132
+          172,
+          88,
+          51,
+          69
         ],
         "foot_pivot_topleft": [
-          400,
-          304
+          200,
+          152
         ],
         "cell_topleft": [
-          320,
           160,
-          160,
-          160
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.75
       },
       {
         "name": "walk8_right_advance",
-        "source": "unified_front_left",
+        "source": "pixel64_front_left",
         "clip_topleft": [
-          511,
-          177,
-          91,
-          130
+          252,
+          87,
+          51,
+          69
         ],
         "foot_pivot_topleft": [
-          560,
-          304
+          280,
+          152
         ],
         "cell_topleft": [
-          480,
-          160,
-          160,
-          160
+          240,
+          80,
+          80,
+          80
         ],
-        "scale_reference_height": 128,
-        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.875
       }
     ]
   },
-  "scale_basis": "All active directional frames use 128/fixed scale_reference_height; no per-frame normalization",
+  "scale_basis": "Active pixel64 sources: display128/reference64 = exact2; idle and all walk poses share one scale",
   "generated_on": "2026-11-04",
   "source_reference": "r1a-courier-20261104.png",
   "source_reference_sha256": "A928D8DF6FDAFAD919AF79E59B4AD805AFBBF07B2CC2A4E11C98C8BC23B83539",
@@ -878,10 +878,10 @@
       "reason": "No clear reversal of lead foot in front_right/front_left; no improvement accepted"
     }
   ],
-  "review_status": "R1-W5 four-way gait, matching idle and longer bat reviewed in native SDL; user play review pending",
-  "limits": "Generated pixels are not a strict native 64px grid. Low-alpha edge residue remains. Head/chest calibration does not guarantee identical cap/shoulder/parcel proportions; verify rendered poses.",
-  "alpha_review": "RGBA 0-255, 163307 low-alpha pixels (1-16) on initial atlas; runtime clips omit much of empty margins but within-clip edge fringe remains",
-  "root_alignment": "All active directional idle/walk frames share cell-local root (80,144); world collision anchor is the ground point",
+  "review_status": "R1-P64 four-way 64px-reference sprites reviewed in native SDL at integer 2x display; user play review pending",
+  "limits": "High-resolution generated parts are baked to80px cells with a64px reference height; visible pose bounds vary with motion. User play feel review pending.",
+  "alpha_review": "Active pixel64 sources use binary alpha 0/255; legacy image records retain their original alpha",
+  "root_alignment": "R1-P64 shared cell-local ground root(40,72), displayed at2x, tied to the existing world ground anchor",
   "sources": {
     "atlas": {
       "image": "r1b-courier-atlas-20261104.png",
@@ -1764,6 +1764,199 @@
       },
       "review_status": "R1-W5 native capture checked; right/left contacts on 1/5, shared idle scale and intact bat; user play review pending",
       "alpha_review": "RGBA; per-cell alpha>16 bounds plus up to 2px padding"
+    },
+    "pixel64_front_right": {
+      "image": "r1-pixel64-front-right-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "422c420cb49b6200c99c2a8d443d3b46dd08aece6a460c4fc7dc4dcc62771e94",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-front-right.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Directional ImageGen cutouts, offline two-leg pose render, nearest 64px reduction and approved 24-color palette mapping",
+        "prompt": "art/player/pixel64-parts.prompt.txt",
+        "palette": "art/player/style-studies/front-right-idle-64.json"
+      },
+      "review_status": "Native idle+eight-pose and60-frame capture checked; pixel-grid/nearest and integer2x passed; user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
+      "visible_color_count": 23,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "pixel64_back_right": {
+      "image": "r1-pixel64-back-right-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "48e30f36c64cfb7110fa5211c619cc1045b625ac686b3be73c09d659ada57f81",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-back-right.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Directional ImageGen cutouts, offline two-leg pose render, nearest 64px reduction and approved 24-color palette mapping",
+        "prompt": "art/player/pixel64-parts.prompt.txt",
+        "palette": "art/player/style-studies/front-right-idle-64.json"
+      },
+      "review_status": "Native idle+eight-pose and60-frame capture checked; pixel-grid/nearest and integer2x passed; user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
+      "visible_color_count": 23,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "pixel64_back_left": {
+      "image": "r1-pixel64-back-left-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "82785aec50654f5b1d01795e873174f028b9977f5d632ea60ef657f65f347c73",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-back-left.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Directional ImageGen cutouts, offline two-leg pose render, nearest 64px reduction and approved 24-color palette mapping",
+        "hip_join_correction": "Widen the hip fade from 200 to 212 source pixels to cover the remaining right-edge pelvis outline",
+        "prompt": "art/player/pixel64-parts.prompt.txt",
+        "palette": "art/player/style-studies/front-right-idle-64.json"
+      },
+      "review_status": "Native idle+eight-pose and60-frame capture checked; pixel-grid/nearest and integer2x passed; user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
+      "visible_color_count": 22,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "pixel64_front_left": {
+      "image": "r1-pixel64-front-left-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "2d8fb57347c3ac8b3431970d9d4f8217909684a5484d5fff6ef71b70b1d3bc09",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-front-left.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Directional ImageGen cutouts, offline two-leg pose render, nearest 64px reduction and approved 24-color palette mapping",
+        "prompt": "art/player/pixel64-parts.prompt.txt",
+        "palette": "art/player/style-studies/front-right-idle-64.json"
+      },
+      "review_status": "Native idle+eight-pose and60-frame capture checked; pixel-grid/nearest and integer2x passed; user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
+      "visible_color_count": 24,
+      "alpha_values": [
+        0,
+        255
+      ]
     }
   },
   "edited_on": "2026-11-05"

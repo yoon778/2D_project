@@ -25,8 +25,8 @@ FACINGS = (
     ("front_left", -3 * math.pi / 4),
 )
 
-# Immutable source records retained from b21f58d before the unified sheets.
-BASELINE_SOURCES = "b8d5d4beecc629ef8a833edee12ccd884a5d2179f396c80ca2b76b9a322a8e00"
+# Immutable source records retained from 526c96c before the 64px sheets.
+BASELINE_SOURCES = "a2cc4aa080dd68f44581cd0c9071030f5d7f4ab42d0433aa3cd0ab0a2c3d15b0"
 PRESERVED_SOURCE_HASHES = {
     "atlas": "ce8c0ac85daa5b7f8aebf44464b858db0bc192d4a838a493f774799690d24981",
     "front_steps": "ee7eaafeb48fdd435079d168d78d115ec20849e6350725a6214c5e95ab5abb75",
@@ -37,8 +37,12 @@ PRESERVED_SOURCE_HASHES = {
     "weight_front_right": "d0330535d62b4586315aa373df9f12538a7e125b6e534eb61b16f5a171af57c6",
     "landing_front_right": "27dcbfb0004dc06943cb15a7dc3f279167ee84002d6ff066235949da7ee562d8",
     "alternating_front_right": "ff65046d6e4d0ed99813a2cb778074f5ea8ddcd41d51e95af4c1eb00da5dc602",
+    "unified_front_right": "c050077ad86918868739ec2a7688ba8a6cc4d46f84da51fe2c7802caac1cd7d5",
+    "unified_back_right": "fe19c109da30a9ab61f8564356a44befea21329459c936c3340461c4467c3972",
+    "unified_back_left": "f3193c8689efd0bb36ca056f678253fdca3f72d2c6af883c82e165423eb58ff6",
+    "unified_front_left": "a19acd5b697b954394997099717adbea1db29b0fbfc96a99604dd2cbe5f7459c",
 }
-ACTIVE_SOURCES = {facing: "unified_" + facing for facing, _ in FACINGS}
+ACTIVE_SOURCES = {facing: "pixel64_" + facing for facing, _ in FACINGS}
 
 
 def canonical_hash(value):
@@ -105,13 +109,13 @@ class AtlasGeometryTests(unittest.TestCase):
         for facing, _ in FACINGS:
             source = ACTIVE_SOURCES[facing]
             source_info = sources[source]
-            self.assertEqual(source_info["canvas_size"], [640, 480])
-            self.assertEqual(source_info["scale_reference_height"], 128)
-            self.assertEqual(source_info["cell_local_body_root"], [80, 144])
+            self.assertEqual(source_info["canvas_size"], [320, 240])
+            self.assertEqual(source_info["scale_reference_height"], 64)
+            self.assertEqual(source_info["cell_local_body_root"], [40, 72])
             grid = source_info["grid"]
             self.assertEqual((grid["columns"], grid["rows"]), (4, 3))
-            self.assertEqual(grid["cell_boundaries_x"], [0, 160, 320, 480, 640])
-            self.assertEqual(grid["cell_boundaries_y"], [0, 160, 320, 480])
+            self.assertEqual(grid["cell_boundaries_x"], [0, 80, 160, 240, 320])
+            self.assertEqual(grid["cell_boundaries_y"], [0, 80, 160, 240])
             frames = metadata["frames"][facing]
             self.assertEqual(len(frames), 9)
             self.assertEqual(frames[0]["name"], "idle")
@@ -120,18 +124,18 @@ class AtlasGeometryTests(unittest.TestCase):
                 with self.subTest(facing=facing, frame=index):
                     self.assertEqual(frame["source"], source)
                     slot = index - 1 if index else 8
-                    cell_left, cell_top = (slot % 4) * 160, (slot // 4) * 160
-                    self.assertEqual(frame["cell_topleft"], [cell_left, cell_top, 160, 160])
-                    self.assertEqual(frame["foot_pivot_topleft"], [cell_left + 80, cell_top + 144])
-                    self.assertEqual(frame["scale_reference_height"], 128)
+                    cell_left, cell_top = (slot % 4) * 80, (slot // 4) * 80
+                    self.assertEqual(frame["cell_topleft"], [cell_left, cell_top, 80, 80])
+                    self.assertEqual(frame["foot_pivot_topleft"], [cell_left + 40, cell_top + 72])
+                    self.assertEqual(frame["scale_reference_height"], 64)
                     left, top, width, height = frame["clip_topleft"]
                     self.assertTrue(all(isinstance(value, int) for value in (left, top, width, height)))
                     self.assertGreater(width, 0)
                     self.assertGreater(height, 0)
                     self.assertGreaterEqual(left, cell_left)
                     self.assertGreaterEqual(top, cell_top)
-                    self.assertLessEqual(left + width, cell_left + 160)
-                    self.assertLessEqual(top + height, cell_top + 160)
+                    self.assertLessEqual(left + width, cell_left + 80)
+                    self.assertLessEqual(top + height, cell_top + 80)
                     seen.add(tuple(frame["clip_topleft"]))
                     if index:
                         self.assertAlmostEqual(frame["phase"], (index - 1) / 8)
@@ -176,6 +180,7 @@ class AtlasGeometryTests(unittest.TestCase):
                     self.assertEqual(visual.frame_index, index)
                     arguments = self.draw_arguments(visual, frame, (500.0, 300.0))
                     scale = metadata["display_height"] / frame["scale_reference_height"]
+                    self.assertEqual(scale, 2)
                     self.assertAlmostEqual(arguments[6], frame["clip_topleft"][2] * scale, places=9)
                     self.assertAlmostEqual(arguments[7], frame["clip_topleft"][3] * scale, places=9)
                     # Clipping less of a pose must not normalize it to a new scale.
