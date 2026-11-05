@@ -1710,7 +1710,7 @@
       "reason": "No clear reversal of lead foot in front_right/front_left; no improvement accepted"
     }
   ],
-  "review_status": "R1-C8 eight 64px directional cycles and matching idles integrated; director native and user play review pending",
+  "review_status": "R1-C8 eight64px directions integrated; director pixel and Windows hidden native review passed; physical input and user play review pending",
   "limits": "High-resolution generated parts are baked to80px cells with a64px reference height; visible pose bounds vary with motion. User play feel review pending.",
   "alpha_review": "Active pixel64 sources use binary alpha 0/255; legacy image records retain their original alpha",
   "root_alignment": "R1-P64 shared cell-local ground root(40,72), displayed at2x, tied to the existing world ground anchor",
@@ -2832,7 +2832,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     },
     "pixel64_back": {
@@ -2874,7 +2874,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     },
     "pixel64_left": {
@@ -2916,7 +2916,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     },
     "pixel64_right": {
@@ -2958,7 +2958,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     }
   },
