@@ -1,0 +1,186 @@
+{
+  "status": "candidate_for_review",
+  "source": "turnaround-v3.png",
+  "common_source_pixels_per_native_pixel": 6,
+  "per_direction_scaling": false,
+  "hard_alpha_threshold": 200,
+  "palette_colors": 24,
+  "facings": {
+    "front": {
+      "alpha_bounds": [
+        24,
+        10,
+        57,
+        72
+      ],
+      "silhouette_height_including_bat": 63,
+      "registration": [
+        5,
+        -1
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 73,
+        "body_hat_top_source": 64,
+        "body_boot_sole_source": 446
+      },
+      "lower_leg_axis": 35,
+      "color_count": 22,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    },
+    "front_right": {
+      "alpha_bounds": [
+        25,
+        10,
+        57,
+        72
+      ],
+      "silhouette_height_including_bat": 63,
+      "registration": [
+        10,
+        -1
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 73,
+        "body_hat_top_source": 64,
+        "body_boot_sole_source": 446
+      },
+      "lower_leg_axis": 30,
+      "color_count": 22,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    },
+    "right": {
+      "alpha_bounds": [
+        26,
+        10,
+        54,
+        72
+      ],
+      "silhouette_height_including_bat": 63,
+      "registration": [
+        15,
+        -1
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 73,
+        "body_hat_top_source": 65,
+        "body_boot_sole_source": 446
+      },
+      "lower_leg_axis": 25,
+      "color_count": 20,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    },
+    "back_right": {
+      "alpha_bounds": [
+        25,
+        10,
+        56,
+        72
+      ],
+      "silhouette_height_including_bat": 63,
+      "registration": [
+        16,
+        -1
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 73,
+        "body_hat_top_source": 64,
+        "body_boot_sole_source": 446
+      },
+      "lower_leg_axis": 24,
+      "color_count": 21,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    },
+    "back": {
+      "alpha_bounds": [
+        23,
+        8,
+        56,
+        72
+      ],
+      "silhouette_height_including_bat": 65,
+      "registration": [
+        2,
+        -2
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 74,
+        "body_hat_top_source": 61,
+        "body_boot_sole_source": 449
+      },
+      "lower_leg_axis": 38,
+      "color_count": 19,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    },
+    "back_left": {
+      "alpha_bounds": [
+        24,
+        8,
+        55,
+        72
+      ],
+      "silhouette_height_including_bat": 65,
+      "registration": [
+        7,
+        -2
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 74,
+        "body_hat_top_source": 62,
+        "body_boot_sole_source": 448
+      },
+      "lower_leg_axis": 33,
+      "color_count": 18,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    },
+    "left": {
+      "alpha_bounds": [
+        26,
+        8,
+        55,
+        72
+      ],
+      "silhouette_height_including_bat": 65,
+      "registration": [
+        12,
+        -2
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 74,
+        "body_hat_top_source": 62,
+        "body_boot_sole_source": 449
+      },
+      "lower_leg_axis": 28,
+      "color_count": 22,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    },
+    "front_left": {
+      "alpha_bounds": [
+        23,
+        8,
+        57,
+        72
+      ],
+      "silhouette_height_including_bat": 65,
+      "registration": [
+        15,
+        -2
+      ],
+      "body_boot_sole_after_registration": 72,
+      "body_anchors": {
+        "body_boot_sole_native": 74,
+        "body_hat_top_source": 62,
+        "body_boot_sole_source": 449
+      },
+      "lower_leg_axis": 25,
+      "color_count": 21,
+      "body_height_measurement": "Manual body/boot anchors; alpha bounds also reported separately"
+    }
+  }
+}

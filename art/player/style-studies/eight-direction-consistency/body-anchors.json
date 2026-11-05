@@ -1,0 +1,46 @@
+{
+  "source": "turnaround-v3.png",
+  "measurement": "Visually reviewed body boot sole after common1/6 bake, before translation; excludes bat and shadows",
+  "facings": {
+    "front": {
+      "body_boot_sole_native": 73,
+      "body_hat_top_source": 64,
+      "body_boot_sole_source": 446
+    },
+    "front_right": {
+      "body_boot_sole_native": 73,
+      "body_hat_top_source": 64,
+      "body_boot_sole_source": 446
+    },
+    "right": {
+      "body_boot_sole_native": 73,
+      "body_hat_top_source": 65,
+      "body_boot_sole_source": 446
+    },
+    "back_right": {
+      "body_boot_sole_native": 73,
+      "body_hat_top_source": 64,
+      "body_boot_sole_source": 446
+    },
+    "back": {
+      "body_boot_sole_native": 74,
+      "body_hat_top_source": 61,
+      "body_boot_sole_source": 449
+    },
+    "back_left": {
+      "body_boot_sole_native": 74,
+      "body_hat_top_source": 62,
+      "body_boot_sole_source": 448
+    },
+    "left": {
+      "body_boot_sole_native": 74,
+      "body_hat_top_source": 62,
+      "body_boot_sole_source": 449
+    },
+    "front_left": {
+      "body_boot_sole_native": 74,
+      "body_hat_top_source": 62,
+      "body_boot_sole_source": 449
+    }
+  }
+}

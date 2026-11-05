@@ -1,0 +1,54 @@
+{
+  "stage": "R1-C8-C1",
+  "selected_source": "turnaround-v3.png",
+  "assembly": "assemble-right-correction.cjs",
+  "right_correction": {
+    "image": "right-v3-edit.png",
+    "model_output": "exec-6a9b86e6-e15b-4fb0-b6db-410aed573fd8.png",
+    "selection": "Only x768,y0,w384,h512 right cell used; other seven views retain exact v2 RGBA",
+    "status": "candidate_for_user_review",
+    "prompt": "Use case: precise-object-edit of game sprite sheet.\nEdit target: the attached1536x1024 courier8-direction sheet. Keep the EXACT image layout, character design, pixel style, camera and all seven other views. Make a tiny, technical correction ONLY to the TOP ROW, THIRD CELL (the character facing RIGHT, source region x768..1151,y0..511).\n\nProblem: in that right-profile cell the bat ends at y446 but the visible boot sole is around y438..442. Using the bat bottom to align the character makes the feet float. Fix the drawing rather than resizing the character.\n\nRIGHT CELL ONLY:\nKeep the cap crown at y64, the face, jacket, shoulders, belt, parcel, backpack, hand and hip exactly where they are. Extend/finish the lower trouser cuffs and BOTH brown boot soles naturally downward by approximately4 to8 source pixels so the nearest brown boot sole rests at y446, matching the other top-row views. Preserve sturdy leg thickness and natural knee position. Make the bat bottom end around y434, clearly above the boot ground line y446. Keep it connected to the same right-hand grip. These are tiny pixel edits: do not squash, scale, shift or redraw the upper body, and do not change the camera. Do not add a floor line.\nAll other seven views must remain unchanged, including their heights, positions, clothes, equipment and pixel clusters.\nSame canvas1536x1024, same transparent background. No additional text, guide lines, aura, bloom or shadow. Only the courier sprite pixels."
+  },
+  "date": "2026-11-05",
+  "tool": "built-in image_gen.imagegen",
+  "master": "../front-right-idle-64.png",
+  "layout": "turnaround-guides.png",
+  "attempts": [
+    {
+      "image": "turnaround-v1.png",
+      "model_output": "exec-ecb3ecf0-c6a5-45ac-9849-f40e101fdeb6.png",
+      "status": "rejected_height_drift",
+      "height_range_source_px": [
+        387,
+        407
+      ],
+      "prompt": "Use case: identity-preserve game sprite turnaround\nAsset type: ONE coherent 8-direction idle turnaround sprite sheet for Dead Route, a fixed oblique 2.5D pixel-art game.\n\nINPUT ROLES:\nImage 1 (approved-character-reference-8x.png) is the ONLY character identity, pixel style, body proportion, clothing, palette and equipment master. It is enlarged nearest-neighbor pixel art: do not interpret the enlargement as smooth illustration.\nImage 2 (turnaround-guides.png) is the exact layout and alignment control; its eight cells are already labeled. Replace the empty cells with the same character turning in place. The guide itself is not game artwork.\n\nCreate one 1536x1024 transparent PNG arranged in FOUR columns and TWO rows. Each cell is384x512. Order row1: FRONT, FRONT-RIGHT, RIGHT, BACK-RIGHT. Order row2: BACK, BACK-LEFT, LEFT, FRONT-LEFT. These are eight camera-relative yaw views separated by45 degrees; FRONT looks toward viewer/bottom, RIGHT looks screen-right, BACK looks away/up.\nEach must be recognizably the SAME adult courier, not eight separately re-designed people. Lock camera elevation around35 degrees, orthographic lens, same zoom, same physical height/build and same overhead soft light. The courier turns in place; the camera never tilts, zooms or changes projection per view.\n\nCRITICAL COMMON ALIGNMENT in each384x512 cell:\ncenter ground/root x192. Hat crown top y86. Nearest boot sole touches y464. Body height measured crown-to-nearest-sole is378 source pixels =63 pixel intervals, representing a64px game character. Keep all eight body heights within6 source pixels (one native pixel); same eye line around160, shoulder around218, belt around320, hip around344. These are construction guides, not marks to show in final artwork. Stance neutral on both feet, matched leg lengths and thickness in all views. The far foot may be slightly higher due to ground perspective; preserve near sole/root and head height.\nMatch the master figure's natural hat/head shape, tall jacket silhouette and sturdy legs. Do not vertically squash the hat, face, parcel, torso or entire character to fit. All pixels/parts use the SAME aspect ratio. Perspective changes the visible shoulder width and which parts overlap, never the person's height or head/body ratio.\n\nIDENTITY/EQUIPMENT:\ndark navy cap, dark navy courier work clothes, orange delivery backpack/shoulder straps, brown shoes and belt, warm round amber chest-mounted lamp.\nANATOMICAL LEFT arm cradles ONE small tan cardboard parcel in front of abdomen, close to body.\nANATOMICAL RIGHT hand holds ONE wooden baseball bat relaxed downward/outward, at the same physical length in all views. Correct handedness as the body turns; never mirror the equipment. Back and left views naturally hide portions of parcel/bat behind the body; retain plausible visible ends instead of deleting whole objects. No separate handheld flashlight.\n\nSTYLE:\ncrisp chunky pixel clusters, deliberate stepped outlines, compact 24-color appearance matching reference. No anti-aliased painterly shading, no glossy 3D, no blur, no oversized cute head, no thin legs, no shortened torso. Preserve costume details consistently. No walking/action poses: all eight are matching neutral IDLE turntable poses.\nRemove ALL template guide lines, boxes, axes, numbers and text from the final PNG. Fully transparent background, no floor, no cast shadows, no border. Generous empty cell gutters, never cut a hat, boot, parcel or bat at a cell boundary.\nThe purpose is rigorous cross-direction consistency BEFORE animation: prioritize same character geometry, head height, belt height, camera and pixel style above added detail."
+    },
+    {
+      "image": "turnaround-v2.png",
+      "model_output": "exec-a7adf1d1-2b29-474e-b903-fb2538eaf14c.png",
+      "status": "rejected_right_boot_registration",
+      "height_range_source_px": [
+        383,
+        389
+      ],
+      "prompt": "Use case: identity-preserve / precise sprite-sheet correction.\nEdit target is Image1, the eight-view courier turnaround. Image2 is a STRICT geometry/alignment guide, not a style reference.\nThe first sheet failed because physical body height drifted between directions: measured head-to-boot heights were387,395,397,397,405,407,405,402 source pixels. A single character turning in place must not grow taller in the back views. Fix this at DRAWING/GEOMETRY level; no nonuniform squashing or stretching of heads/torsos/legs.\n\nKeep the same character identity, palette, chunky pixel clusters, dark cap, orange backpack, parcel in ANATOMICAL LEFT arm, wooden bat in ANATOMICAL RIGHT hand, chest lamp, same orthographic camera elevation and exact eight-direction order. The equipment overlaps naturally according to yaw. Neutral idle, both feet resting.\nDraw the SAME body geometry at 45-degree yaw increments in every cell.\n\nEXACT canvas1536x1024, grid4 columns x2 rows, cell384x512.\nIn EVERY CELL: crown y86; near sole y464; shoulder y218; belt y320; hip y344; knees y408. Crown-to-sole exactly378 source pixels in ALL8. Same head diameter and hat-dome height in every yaw. Anatomical body height is fixed; apparent width may vary. Do not make back views longer-legged or taller-headed. Reposition/redraw the front and back views onto the same construction guide before adding final pixel detail.\nCELL ORDER row1 front,front-right,right,back-right; row2 back,back-left,left,front-left.\nGround center x192 in every cell. Keep the courier pelvis centered above it. Same roomy margins. Far foot may sit slightly above near-foot baseline due to ground perspective, but the near boot bottom and hat crown use the exact common guides.\nKeep bat/parcel consistent physical size; do not count the bat as body height. The bat stays attached at the same right-hand grip and must not extend below near boot sole. Do not add a light halo, bloom, ambient aura, shadow, background, text, cell border, or guide mark. Only the solid pixel-art character on fully transparent background. Solid character pixels must be opaque, hard pixel edges, no semi-transparent glowing cloud.\n\nThis sheet is a technical production turnaround, not concept art: cross-direction head/belt/hip/sole alignment takes precedence over detail. Check all eight hats at the same y and all eight near soles at the same y before finishing."
+    }
+  ],
+  "compile": {
+    "script": "compile-turnaround.cjs",
+    "scale": "uniform1/6 for all eight views; no per-view stretch",
+    "alpha_threshold": 200,
+    "palette": "../front-right-idle-64.json",
+    "registration": "translation only; lower-leg axis x40 and separately reviewed body/boot anchors from body-anchors.json at y72",
+    "body_height_tolerance_native_px": [
+      63,
+      65
+    ],
+    "cell_size": [
+      80,
+      80
+    ],
+    "runtime_replaced": false
+  }
+}
