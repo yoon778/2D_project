@@ -29,6 +29,19 @@
 
 수정 커밋 `8b8c1b5`. 증거: `output/review/R1-C8-HIP/hip-regression-before.json`·`hip-regression-after.json`·`shape-preservation.json`·`hip-before-after.png`·`visible-game.json`. 최종 지휘 렌더는 `runtime-root/`, 담당 확대16자세는 `output/review/R1-C8-HIP-art/`
 
+## 오른쪽 판독·방망이 전환 보완 · R1-C8-BAT · 2026-11-06
+
+사용자 오른쪽 다리 판독과 방향 전환 시 방망이 위치 피드백. 오른쪽 무기가 인접뷰보다 짧고 다리와 겹치며, 왼쪽은 보이는37픽셀 조각만 있어 다리가 벌어져도 숨은 무기 구간이 없는 원인 확인
+
+- 오른쪽 그립(40,53) 고정, 회전−8도·장축1.125배·폭 유지. FR/R/BR 축 기울기−8/3.8/10.5도로 인접 순서 유지. near 다리 x35~36,y53~59의 기존323648 면만42495f로 보완하고 외곽 유지
+- 왼쪽은 승인 원화의 완성된 오른쪽 방망이87픽셀을 사용, 그립(35,51)에서 두 다리/몸 뒤로 합성. 원래 짧은 조각을 교체하고 정지/보행 모두 실제 깊이로 가림. 원화·부품 입력은 보존
+- 지휘 확대18자세·인접뷰 전환 비교·실제PNG 윤곽 검사 통과. 상부/손 RGBA 차이0, 다른6뷰·관절·발점·90px/s·주기64px 유지. 무기/가림 복원과 국소면이 정지 원본 보존의 이번 예외
+- 길어진 오른쪽 무기의22픽셀이 기존clip 밖에 있어 walk2/6/7/8의 하단만1~2px 확장. pivot·기준높이64·정수2배 유지, 최종clip 밖alpha0. 메타 변경은 두SHA와 이4개clip 높이에 한정
+- 관련 아틀라스4개·Windows 숨김 좌우 각2초/60프레임/180px·8방향 전환 선택/위상·nearest·벽 정지·반복 경계·SDL 종료0 확인. 지휘가 게임 렌더18자세와8방향 통합시트 검수 후 표시창 재실행·응답 확인
+- 실제 키보드·주관적 방향 전환·보행 판독·실시간 성능은 위 고정dt 캡처와 구분. 사용자2차 확인은 정지/걷기 중 마우스 방향을 바꾸며 손잡이 연결·무기 부분 가림·오른쪽 허벅지를 보는 순서이며 다음 묶음은 대기
+
+수정 커밋 `52bda09`. 증거는 `output/review/R1-C8-BAT/`의 `director-audit.json`·`outline-final.json`·`runtime/director-capture-summary.json`·`visible-game.json`, 최종 확대/턴 시트와 좌표는 `output/review/R1-C8-BAT-art/`의 `sides-final-18poses-2x.png`·`turn-bl-left-fl-final-before-after-2x.png`·`final-stats.json`
+
 ## 소유권
 
 | 담당 | 범위 |
