@@ -260,9 +260,9 @@
         "name": "walk1_right_contact",
         "source": "unified_back_right",
         "clip_topleft": [
-          49,
+          50,
           18,
-          99,
+          98,
           135
         ],
         "foot_pivot_topleft": [
@@ -1647,7 +1647,7 @@
         640,
         480
       ],
-      "sha256": "612360d6decdbe45d2ee6b9af0782318b7ce05c491c3c9afc9560a688cfc7d8f",
+      "sha256": "fe19c109da30a9ab61f8564356a44befea21329459c936c3340461c4467c3972",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -1679,7 +1679,7 @@
         "method": "ImageGen unique directional cutouts, offline two-leg pose rendering",
         "prompt": "art/player/fourway-parts.prompt.txt"
       },
-      "review_status": "R1-W5 native capture checked; right/left contacts on 1/5, shared idle scale and intact bat; user play review pending",
+      "review_status": "R1-W5 foot-occlusion correction checked in native SDL; right/left contacts on 1/5; user play review pending",
       "alpha_review": "RGBA; per-cell alpha>16 bounds plus up to 2px padding"
     },
     "unified_back_left": {
