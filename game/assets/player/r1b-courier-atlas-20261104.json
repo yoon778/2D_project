@@ -863,9 +863,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           14,
-          168,
+          163,
           52,
-          66
+          71
         ],
         "foot_pivot_topleft": [
           40,
@@ -885,9 +885,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           14,
-          8,
+          3,
           52,
-          71
+          76
         ],
         "foot_pivot_topleft": [
           40,
@@ -908,9 +908,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           94,
-          9,
+          4,
           52,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           120,
@@ -931,9 +931,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           174,
-          9,
+          4,
           52,
-          65
+          70
         ],
         "foot_pivot_topleft": [
           200,
@@ -954,9 +954,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           254,
-          8,
+          3,
           52,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           280,
@@ -977,9 +977,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           14,
-          88,
+          83,
           52,
-          71
+          76
         ],
         "foot_pivot_topleft": [
           40,
@@ -1000,9 +1000,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           94,
-          89,
+          84,
           52,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           120,
@@ -1023,9 +1023,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           174,
-          89,
+          84,
           52,
-          65
+          70
         ],
         "foot_pivot_topleft": [
           200,
@@ -1046,9 +1046,9 @@
         "source": "pixel64_front",
         "clip_topleft": [
           254,
-          88,
+          83,
           52,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           280,
@@ -1071,9 +1071,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           15,
-          168,
+          163,
           58,
-          66
+          71
         ],
         "foot_pivot_topleft": [
           40,
@@ -1093,9 +1093,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           15,
-          8,
+          3,
           58,
-          71
+          76
         ],
         "foot_pivot_topleft": [
           40,
@@ -1116,9 +1116,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           95,
-          9,
+          4,
           58,
-          66
+          71
         ],
         "foot_pivot_topleft": [
           120,
@@ -1139,9 +1139,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           175,
-          9,
+          4,
           57,
-          65
+          70
         ],
         "foot_pivot_topleft": [
           200,
@@ -1162,9 +1162,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           255,
-          8,
+          3,
           58,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           280,
@@ -1185,9 +1185,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           15,
-          88,
+          83,
           58,
-          71
+          76
         ],
         "foot_pivot_topleft": [
           40,
@@ -1208,9 +1208,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           95,
-          89,
+          84,
           58,
-          66
+          71
         ],
         "foot_pivot_topleft": [
           120,
@@ -1231,9 +1231,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           175,
-          89,
+          84,
           57,
-          65
+          70
         ],
         "foot_pivot_topleft": [
           200,
@@ -1254,9 +1254,9 @@
         "source": "pixel64_back",
         "clip_topleft": [
           255,
-          88,
+          83,
           58,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           280,
@@ -1279,9 +1279,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           20,
-          168,
+          163,
           43,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           40,
@@ -1301,9 +1301,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           20,
-          8,
+          3,
           43,
-          70
+          75
         ],
         "foot_pivot_topleft": [
           40,
@@ -1324,9 +1324,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           101,
-          9,
+          4,
           42,
-          67
+          72
         ],
         "foot_pivot_topleft": [
           120,
@@ -1347,9 +1347,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           181,
-          9,
+          4,
           42,
-          66
+          71
         ],
         "foot_pivot_topleft": [
           200,
@@ -1370,9 +1370,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           260,
-          8,
+          3,
           43,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           280,
@@ -1393,9 +1393,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           18,
-          88,
+          83,
           45,
-          69
+          74
         ],
         "foot_pivot_topleft": [
           40,
@@ -1416,9 +1416,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           100,
-          89,
+          84,
           42,
-          67
+          72
         ],
         "foot_pivot_topleft": [
           120,
@@ -1439,9 +1439,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           180,
-          89,
+          84,
           42,
-          67
+          72
         ],
         "foot_pivot_topleft": [
           200,
@@ -1462,9 +1462,9 @@
         "source": "pixel64_left",
         "clip_topleft": [
           260,
-          88,
+          83,
           43,
-          69
+          74
         ],
         "foot_pivot_topleft": [
           280,
@@ -1487,9 +1487,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           18,
-          168,
+          163,
           42,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           40,
@@ -1509,9 +1509,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           18,
-          8,
+          3,
           44,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           40,
@@ -1532,9 +1532,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           98,
-          9,
+          4,
           41,
-          67
+          72
         ],
         "foot_pivot_topleft": [
           120,
@@ -1555,9 +1555,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           178,
-          9,
+          4,
           41,
-          67
+          72
         ],
         "foot_pivot_topleft": [
           200,
@@ -1578,9 +1578,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           258,
-          8,
+          3,
           42,
-          68
+          73
         ],
         "foot_pivot_topleft": [
           280,
@@ -1601,9 +1601,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           18,
-          88,
+          83,
           42,
-          69
+          74
         ],
         "foot_pivot_topleft": [
           40,
@@ -1624,9 +1624,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           99,
-          89,
+          84,
           41,
-          66
+          71
         ],
         "foot_pivot_topleft": [
           120,
@@ -1647,9 +1647,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           179,
-          89,
+          84,
           41,
-          66
+          71
         ],
         "foot_pivot_topleft": [
           200,
@@ -1670,9 +1670,9 @@
         "source": "pixel64_right",
         "clip_topleft": [
           258,
-          88,
+          83,
           42,
-          67
+          72
         ],
         "foot_pivot_topleft": [
           280,
@@ -2799,7 +2799,7 @@
         320,
         240
       ],
-      "sha256": "a334b532539bd7def917ea9097039bd68515fc2ed396050f99f5561f7b191e36",
+      "sha256": "657ff560a9d9d0ea0a2555d6013b607bc19283d27ec7ae35bddf75f91b39fc33",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -2832,7 +2832,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
+      "review_status": "R1-C8-Yfit torso height corrected; pixel audit and Windows hidden60-frame capture passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     },
     "pixel64_back": {
@@ -2841,7 +2841,7 @@
         320,
         240
       ],
-      "sha256": "6880d33399d14c53c1204515243a5449abef25e9cd07f0edd1dd2f75128c0050",
+      "sha256": "ceaf6865ad867d693e1e82050e21ceac54bf0af6ff2c828f08182b991682a177",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -2874,7 +2874,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
+      "review_status": "R1-C8-Yfit torso height corrected; pixel audit and Windows hidden60-frame capture passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     },
     "pixel64_left": {
@@ -2883,7 +2883,7 @@
         320,
         240
       ],
-      "sha256": "07fc7508ec01ddb23a90e780437816380e18a8d0bf7b8d029f52c7262373b7bd",
+      "sha256": "c5b05cb58ef9cbe17297572cce0ed93decfd8c4e0385a65b1668aee6ec15f859",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -2916,7 +2916,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
+      "review_status": "R1-C8-Yfit torso height corrected; pixel audit and Windows hidden60-frame capture passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     },
     "pixel64_right": {
@@ -2925,7 +2925,7 @@
         320,
         240
       ],
-      "sha256": "59addfe3c82a74e1786b666e7009937dc4b760b21c103814d2f53258eaec2171",
+      "sha256": "5568ea2c567ba57dd7ff8dc277fbd137c360423dba4517a6813966f5081f155e",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -2958,7 +2958,7 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
       },
-      "review_status": "R1-C8 cardinal idle/eight poses and60-frame Windows hidden capture reviewed; exact2x nearest, wall depth and cleanup passed; physical input and user play review pending",
+      "review_status": "R1-C8-Yfit torso height corrected; pixel audit and Windows hidden60-frame capture passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     }
   },

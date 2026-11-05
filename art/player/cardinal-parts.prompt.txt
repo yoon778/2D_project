@@ -32,4 +32,4 @@ courier-bat-64.png is the approved bat cut from style-studies/front-right-idle-6
 
 ## Final bake
 
-walk-rigs.json records all source crops, joints, ground direction and heldBat position/angle. New torsos use authoring scales [0.208, 0.145] for a higher pelvis; front/back ankles end at y=128. Native cells are 80x80, sheet 320x240, reference height 64, pivot (40,72); game display is uniform integer 2x. Existing four diagonal sheets and frame records remain unchanged from 20b32ce.
+walk-rigs.json records all source crops, joints, ground direction and heldBat position/angle. Initial cardinal torsos used [0.208, 0.145] to raise the pelvis. R1-C8-Yfit corrects the flattened head/body with [0.208, 0.165], repositioned about the unchanged average hip height; heldBat grip Y follows the same transform. Legs, ankles, torso width and ground roots remain unchanged. Front/back ankles end at y=128. Native cells are 80x80, sheet 320x240, reference height 64, pivot (40,72); game display is uniform integer 2x. Existing four diagonal sheets and frame records remain unchanged from 20b32ce.
