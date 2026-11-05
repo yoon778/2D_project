@@ -1,0 +1,72 @@
+{
+  "image": "front-right-idle-64.png",
+  "width": 37,
+  "height": 64,
+  "visible_color_count": 23,
+  "alpha_values": [
+    0,
+    255
+  ],
+  "source_output": "exec-5b7eee10-ebd7-4c0a-8435-cd7a182a7a39.png",
+  "source_alpha_bounds": [
+    301,
+    117,
+    923,
+    1169
+  ],
+  "source_canvas": [
+    1254,
+    1254
+  ],
+  "compilation": "Hard alpha threshold 128, nearest resize to 64px height, hand-selected 24-color palette without dithering",
+  "comparison": {
+    "canvas": [
+      80,
+      80
+    ],
+    "placement": [
+      22,
+      9
+    ],
+    "scale": 2,
+    "ground_root": [
+      40,
+      72
+    ],
+    "current_source": "game/assets/player/r1-unified-front-right-20261105.png",
+    "current_cell": [
+      0,
+      320,
+      160,
+      160
+    ]
+  },
+  "scope": "Front-right idle style study; user comparison pending",
+  "palette_hex": [
+    "15141b",
+    "242633",
+    "323648",
+    "42495f",
+    "555d77",
+    "69728e",
+    "392b29",
+    "5b3e35",
+    "855a47",
+    "684d42",
+    "8a5430",
+    "b77c40",
+    "dda65d",
+    "bc8060",
+    "e9af89",
+    "ffcfaa",
+    "a96d32",
+    "d7a059",
+    "f5c687",
+    "ffe2ac",
+    "a54816",
+    "ef770b",
+    "ffa510",
+    "ffe276"
+  ],
+  "review_note": "Equipment and leg connections confirmed; the new torso is slightly slimmer than the current version"
+}
