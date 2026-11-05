@@ -77,8 +77,8 @@
 
 ## 준비 상태와 일정
 
-현재 네 방향 모두 idle 1장과 보행 8장. 이동속도 90px/s, 보행 한 주기 64px. 충돌 후 실제 움직인 거리에 맞춰 걷고, 멈추면 idle로 돌아감.
-네 방향 모두 1번에 오른발, 5번에 왼발이 착지한다. 높은 골반·굵은 다리와 긴 방망이, 같은 체형의 정지 자세를 적용함. 보행 박자와 원화 검수는 [R1-W3~W5 검수 기록](plans/handoffs/r1-walk-cadence-review.md) 참조. 이전 [R1-W2 착지 검수](plans/handoffs/r1-weight-landing-review.md) 및 [1주차 성능 측정](plans/handoffs/r1-week1-review.md)은 해당 시점 이력. 전투·좀비·손전등·배달은 미구현.
+현재 네 방향 모두64px 기준 도트풍으로 idle1장과 보행8장. 80px 셀·320×240 아틀라스를 정수2배 표시하며22~24색·알파0/255 사용. 이동속도 90px/s, 보행 한 주기 64px. 충돌 후 실제 움직인 거리에 맞춰 걷고, 멈추면 idle로 돌아감.
+네 방향 모두 1번에 오른발, 5번에 왼발이 착지한다. 높은 골반·굵은 다리와 긴 방망이, 같은 체형의 정지 자세를 적용함. 보행 박자와 원화 검수는 [R1-P64 도트풍·이전 보행 검수 기록](plans/handoffs/r1-walk-cadence-review.md) 참조. 이전 [R1-W2 착지 검수](plans/handoffs/r1-weight-landing-review.md) 및 [1주차 성능 측정](plans/handoffs/r1-week1-review.md)은 해당 시점 이력. 전투·좀비·손전등·배달은 미구현.
 미사용 이전 시제품·에셋·테스트·기획·PPT는 로컬 작업 폴더에서 삭제했습니다.
 이전 구현은 Git 이력으로 참고하며, 구형 테스트·렌더 결과를 새 2.5D의 성과로 보고하지 않습니다.
 첫 작업은 [개발 순서](plans/development-roadmap.md), 담당은 [채팅 협업](plans/team-workflow.md)을 따릅니다.
