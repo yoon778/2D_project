@@ -16,6 +16,19 @@
 수정 커밋 `74b6c50`. 재발검사 `node art/player/check-walk-outline.cjs`; 리소스만 다시 만들 때 `node art/player/consistent-walk.cjs --atlas-only`
 증거는 `output/review/R1-C8-OUTLINE/`의 `outline-baseline.json`·`outline-after.json`·`shape-preservation.json`·`runtime/`. 비교 `left-before-after.png`
 
+## 좌우 골반·허벅지 후속 보완 · R1-C8-HIP · 2026-11-06
+
+사용자 좌우, 특히 오른쪽 엉덩이~허벅지 선 누락 제보. 이전 검사가 hip+3px 아래만 확인하고 고정 body를 제외해 상부 골반 외곽과 두 다리 사이 경계를 놓침
+
+- 좌우 보행16자세에서 다리별 상단 측면선과 몸통 합성 후 골반 외곽 복구. hip−2~hip+5px(현재47~54행+bob)의 옷감 RGB만 기존alpha 안쪽 최암색으로 보완. 가로 띠를 추가하지 않음
+- 지휘 확대 검수·실제PNG 회귀검사: 상부 외곽 미충족129→0(오른쪽49·왼쪽80), 내부선1→0, 기존 하체 누락0 유지
+- 오른쪽60·왼쪽98픽셀 변경. alpha/idle/밴드 밖 RGBA 차이0, 가시 손/방망이 보존. 원화·부품·리그 좌표·다른6뷰·걷기90px/s/주기64px 유지
+- 골반 밴드의 옷감 RGB만 이번 보존 기준의 예외. 고정 몸통 소유 외곽을 검사에서 통째로 제외하지 않으며 장비의 자연스러운 가림 유지
+- 관련 아틀라스4개 통과. Windows 숨김 실제 Renderer/core의 좌우 각2초·60프레임·180px, 정수2배/nearest·벽 정지·위상 유지·SDL 종료0 확인. 지휘가 좌우 정지/보행 통합시트 검수 후 수정본 표시창 재실행·응답 확인
+- 고정dt 캡처는 실제 키보드·실시간 성능·주관적 보행 체감과 구분. 사용자2차 확인은 마우스 좌우 조준과 보행 중 골반 외곽/다리 사이 선의 판독이며 다음 묶음은 대기
+
+수정 커밋 `8b8c1b5`. 증거: `output/review/R1-C8-HIP/hip-regression-before.json`·`hip-regression-after.json`·`shape-preservation.json`·`hip-before-after.png`·`visible-game.json`. 최종 지휘 렌더는 `runtime-root/`, 담당 확대16자세는 `output/review/R1-C8-HIP-art/`
+
 ## 소유권
 
 | 담당 | 범위 |
