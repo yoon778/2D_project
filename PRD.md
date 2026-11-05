@@ -78,7 +78,7 @@
 ## 준비 상태와 일정
 
 현재 네 방향 모두 idle 1장과 보행 8장. 이동속도 90px/s, 보행 한 주기 64px. 충돌 후 실제 움직인 거리에 맞춰 걷고, 멈추면 idle로 돌아감.
-발이 과속해 보인다는 피드백과 변경 근거는 [R1-W3 검수 기록](plans/handoffs/r1-walk-cadence-review.md) 참조. 이전 [R1-W2 착지 검수](plans/handoffs/r1-weight-landing-review.md) 및 [1주차 성능 측정](plans/handoffs/r1-week1-review.md)은 해당 시점 이력. 전투·좀비·손전등·배달은 미구현.
+앞·오른쪽은 1번에 오른발, 5번에 왼발이 착지한다. 보행 박자와 양발 교대 과정은 [R1-W3·W4 검수 기록](plans/handoffs/r1-walk-cadence-review.md) 참조. 이전 [R1-W2 착지 검수](plans/handoffs/r1-weight-landing-review.md) 및 [1주차 성능 측정](plans/handoffs/r1-week1-review.md)은 해당 시점 이력. 전투·좀비·손전등·배달은 미구현.
 미사용 이전 시제품·에셋·테스트·기획·PPT는 로컬 작업 폴더에서 삭제했습니다.
 이전 구현은 Git 이력으로 참고하며, 구형 테스트·렌더 결과를 새 2.5D의 성과로 보고하지 않습니다.
 첫 작업은 [개발 순서](plans/development-roadmap.md), 담당은 [채팅 협업](plans/team-workflow.md)을 따릅니다.
