@@ -64,11 +64,11 @@ class FacingTests(unittest.TestCase):
 
 
 class LocomotionTests(unittest.TestCase):
-    def test_frames_follow_the_32_pixel_walking_cycle(self):
+    def test_frames_follow_the_64_pixel_walking_cycle(self):
         pose = Locomotion()
         self.assertEqual((pose.facing, pose.phase, pose.moving, pose.frame_index),
                          ("front_right", 0.0, False, 0))
-        for distance, phase, frame in ((8, 0.25, 1), (8, 0.5, 2), (16, 0.0, 1)):
+        for distance, phase, frame in ((16, 0.25, 1), (16, 0.5, 2), (32, 0.0, 1)):
             pose.update(-math.pi / 4, distance, 0)
             self.assertEqual(pose.phase, phase)
             self.assertTrue(pose.moving)
@@ -86,7 +86,7 @@ class LocomotionTests(unittest.TestCase):
         self.assertEqual(pose.facing, "back_right")
 
     def test_distance_partition_is_frame_rate_independent(self):
-        for distance, phase, frame in ((32.0, 0.0, 1), (48.0, 0.5, 2), (40.0, 0.25, 1)):
+        for distance, phase, frame in ((64.0, 0.0, 1), (96.0, 0.5, 2), (80.0, 0.25, 1)):
             for frames in (1, 10, 30, 60, 100, 144):
                 with self.subTest(distance=distance, frames=frames):
                     pose = Locomotion()
@@ -98,11 +98,11 @@ class LocomotionTests(unittest.TestCase):
     def test_displacement_uses_euclidean_distance(self):
         pose = Locomotion()
         pose.update(math.pi / 4, 3, 4)
-        self.assertEqual(pose.phase, 0.15625)
+        self.assertEqual(pose.phase, 0.078125)
         self.assertTrue(pose.moving)
 
     def test_backward_and_sideways_displacement_does_not_change_aim_facing(self):
-        for dx, dy in ((8, 0), (-8, 0), (0, 8), (0, -8)):
+        for dx, dy in ((16, 0), (-16, 0), (0, 16), (0, -16)):
             with self.subTest(displacement=(dx, dy)):
                 pose = Locomotion()
                 pose.update(math.pi / 4, dx, dy)
@@ -112,19 +112,19 @@ class LocomotionTests(unittest.TestCase):
 
     def test_stopping_and_turning_preserve_the_existing_phase(self):
         pose = Locomotion()
-        pose.update(-math.pi / 4, 8, 0)
+        pose.update(-math.pi / 4, 16, 0)
         for _ in range(5):
             pose.update(-math.pi / 4, 0, 0)
             self.assertEqual((pose.phase, pose.frame_index), (0.25, 0))
         pose.update(3 * math.pi / 4, 0, 0)
         self.assertEqual((pose.facing, pose.phase, pose.frame_index), ("back_left", 0.25, 0))
-        pose.update(-3 * math.pi / 4, 4, 0)
+        pose.update(-3 * math.pi / 4, 8, 0)
         self.assertEqual((pose.facing, pose.phase, pose.frame_index), ("front_left", 0.375, 1))
 
     def test_actual_wall_blocked_displacement_produces_idle_without_resetting_phase(self):
         player = Player(480.0, 316.0)
         pose = Locomotion()
-        pose.update(math.pi / 4, 8, 0)
+        pose.update(math.pi / 4, 16, 0)
         before = (player.x, player.y)
         move_player(player, 0, 1, 0.05, (Wall(400, 330, 220, 60),))
         self.assertEqual((player.x, player.y), before)
@@ -135,7 +135,7 @@ class LocomotionTests(unittest.TestCase):
 
     def test_displacement_at_or_below_epsilon_is_idle(self):
         pose = Locomotion()
-        pose.update(-math.pi / 4, 8, 0)
+        pose.update(-math.pi / 4, 16, 0)
         for dx, dy in ((0, 0), (1e-7, 0), (1e-6, 0), (0.6e-6, 0.8e-6)):
             with self.subTest(displacement=(dx, dy)):
                 pose.update(-math.pi / 4, dx, dy)
@@ -167,7 +167,7 @@ class LocomotionTests(unittest.TestCase):
 
     def test_large_finite_distance_keeps_fractional_phase(self):
         pose = Locomotion()
-        pose.update(-math.pi / 4, 8, 0)
+        pose.update(-math.pi / 4, 16, 0)
         pose.update(math.pi / 4, 1e308, 0)
         self.assertEqual((pose.facing, pose.phase, pose.frame_index), ("back_right", 0.25, 1))
 
@@ -223,8 +223,8 @@ class WalkFrameIndexTests(unittest.TestCase):
         self.assertEqual(pose.walk_frame_index(8), 0)
 
     def test_eight_frame_distance_partition_is_fps_independent(self):
-        for distance, expected in ((4, 2), (8, 3), (12, 4), (16, 5), (20, 6),
-                                   (24, 7), (28, 8), (32, 1), (36, 2), (48, 5)):
+        for distance, expected in ((8, 2), (16, 3), (24, 4), (32, 5), (40, 6),
+                                   (48, 7), (56, 8), (64, 1), (72, 2), (96, 5)):
             for frames in (1, 10, 30, 60, 100, 144):
                 with self.subTest(distance=distance, frames=frames):
                     pose = Locomotion()

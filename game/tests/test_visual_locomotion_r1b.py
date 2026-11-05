@@ -158,12 +158,12 @@ class LocomotionLoopTests(unittest.TestCase):
             with self.subTest(facing=facing):
                 frames, updates = self._run_observed(
                     initial=aim_events + [("down", p.SDLK_w)],
-                    after_draw={22: [("up", p.SDLK_w)], 23: [("quit",)]},
-                    maximum_draws=24,
+                    after_draw={44: [("up", p.SDLK_w)], 45: [("quit",)]},
+                    maximum_draws=46,
                 )
                 self._assert_actual_displacements(frames, updates)
-                moving = updates[:22]
-                self.assertEqual(len(updates), 23)
+                moving = updates[:44]
+                self.assertEqual(len(updates), 45)
                 self.assertTrue(all(state["facing"] == facing for state in updates))
                 self.assertTrue(all(state["frame_count"] == 8 for state in updates))
                 self.assertTrue(all(state["moving"] for state in moving))

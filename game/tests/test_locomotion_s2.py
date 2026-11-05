@@ -7,6 +7,23 @@ from game.locomotion import Locomotion
 
 
 class FourDirectionWalkTests(unittest.TestCase):
+    def test_two_seconds_at_90_pixels_per_second_has_two_cycles_and_five_half_steps(self):
+        for frames in (40, 120, 240):
+            with self.subTest(frames=frames):
+                player, pose = Player(240.0, 180.0), Locomotion()
+                cycles = half_steps = 0
+                for _ in range(frames):
+                    before, phase = (player.x, player.y), pose.phase
+                    move_player(player, 1, 0, 2.0 / frames, ())
+                    pose.update(-math.pi / 4, player.x - before[0], player.y - before[1])
+                    cycles += pose.phase < phase
+                    half_steps += (pose.phase < 0.5) != (phase < 0.5)
+                self.assertAlmostEqual(player.x - 240.0, 180.0)
+                self.assertEqual(player.y, 180.0)
+                self.assertEqual((cycles, half_steps), (2, 5))
+                self.assertAlmostEqual(pose.phase, 0.8125, places=11)
+                self.assertEqual(pose.walk_frame_index(8), 7)
+
     def test_actual_forward_backward_and_sideways_distance_in_all_facings(self):
         cases = (
             ("front_right", -math.pi / 4, ((1, -1), (-1, 1), (1, 1))),
@@ -27,13 +44,13 @@ class FourDirectionWalkTests(unittest.TestCase):
                         self.assertAlmostEqual(math.dist((240.0, 180.0), (player.x, player.y)), 36.0)
                         self.assertEqual(player.aim_angle, angle)
                         self.assertEqual(pose.facing, facing)
-                        self.assertAlmostEqual(pose.phase, 0.125, places=11)
+                        self.assertAlmostEqual(pose.phase, 0.5625, places=11)
                         self.assertTrue(pose.moving)
-                        self.assertEqual(pose.walk_frame_index(8), 2)
+                        self.assertEqual(pose.walk_frame_index(8), 5)
 
     def test_turn_stop_and_resume_preserve_phase_through_all_four_facings(self):
         pose = Locomotion()
-        pose.update(-math.pi / 4, 9, 0)
+        pose.update(-math.pi / 4, 18, 0)
         self.assertEqual((pose.phase, pose.walk_frame_index(8)), (0.28125, 3))
         for facing, angle, next_phase, frame in (
             ("back_right", math.pi / 4, 0.3125, 3),
@@ -46,7 +63,7 @@ class FourDirectionWalkTests(unittest.TestCase):
                 pose.update(angle, 0, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.moving), (facing, phase, False))
                 self.assertEqual(pose.walk_frame_index(8), 0)
-                pose.update(angle, -1, 0)
+                pose.update(angle, -2, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)),
                                  (facing, next_phase, frame))
 
@@ -67,16 +84,16 @@ class FourDirectionWalkTests(unittest.TestCase):
                     move_player(player, *axis, 0.05, walls)
                     pose.update(player.aim_angle, player.x - before[0], player.y - before[1])
                 self.assertEqual((player.x, player.y), contact)
-                self.assertEqual((pose.phase, pose.walk_frame_index(8)), (0.5, 5))
+                self.assertEqual((pose.phase, pose.walk_frame_index(8)), (0.25, 3))
                 for _ in range(3):
                     move_player(player, *axis, 0.05, walls)
                     pose.update(player.aim_angle, player.x - contact[0], player.y - contact[1])
                     self.assertFalse(player.moved)
-                    self.assertEqual((pose.facing, pose.phase, pose.moving), (facing, 0.5, False))
+                    self.assertEqual((pose.facing, pose.phase, pose.moving), (facing, 0.25, False))
                     self.assertEqual(pose.walk_frame_index(8), 0)
                 move_player(player, -axis[0], -axis[1], 0.05, walls)
                 pose.update(player.aim_angle, player.x - contact[0], player.y - contact[1])
-                self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (facing, 0.640625, 6))
+                self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (facing, 0.3203125, 3))
 
     def test_sliding_uses_tangent_distance_instead_of_requested_speed(self):
         cases = (
@@ -92,9 +109,11 @@ class FourDirectionWalkTests(unittest.TestCase):
                 dx, dy = player.x - start[0], player.y - start[1]
                 self.assertAlmostEqual(math.hypot(dx, dy), 3.181980515339464)
                 pose = Locomotion()
+                # Keep a frame boundary between actual sliding and a requested 4.5px step.
+                pose.update(player.aim_angle, 4, 0)
                 pose.update(player.aim_angle, dx, dy)
                 self.assertEqual(pose.facing, facing)
-                self.assertAlmostEqual(pose.phase, 0.09943689110435825)
+                self.assertAlmostEqual(pose.phase, 0.11221844555217912)
                 self.assertTrue(pose.moving)
                 self.assertEqual(pose.walk_frame_index(8), 1)
 
@@ -107,15 +126,15 @@ class FourDirectionWalkTests(unittest.TestCase):
         ):
             with self.subTest(facing=facing):
                 pose = Locomotion()
-                pose.update(math.radians(center), 28, 0)
+                pose.update(math.radians(center), 56, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (facing, 0.875, 8))
                 pose.update(math.radians(center + 50), 0, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (facing, 0.875, 0))
-                pose.update(math.radians(center + 50.001), 4, 0)
+                pose.update(math.radians(center + 50.001), 8, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (next_facing, 0.0, 1))
                 pose.update(math.radians(center + 50.001), 0, 0)
                 self.assertEqual((pose.phase, pose.walk_frame_index(8)), (0.0, 0))
-                pose.update(math.radians(center + 50.001), -4, 0)
+                pose.update(math.radians(center + 50.001), -8, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (next_facing, 0.125, 2))
 
 

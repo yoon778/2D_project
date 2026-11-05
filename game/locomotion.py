@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import math
 
 
-STRIDE_DISTANCE = 32.0
+STRIDE_DISTANCE = 64.0
 _ANGLE_TOLERANCE = 1e-12
 _PHASE_TOLERANCE = 1e-12
 _FACING_LIMIT = math.radians(50.0)
