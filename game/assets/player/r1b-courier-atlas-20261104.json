@@ -28,12 +28,12 @@
     "front_right": [
       {
         "name": "idle",
-        "source": "pixel64_front_right",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          17,
-          168,
-          45,
-          68
+          25,
+          170,
+          33,
+          63
         ],
         "foot_pivot_topleft": [
           40,
@@ -46,16 +46,16 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
       },
       {
-        "name": "walk1_right_contact",
-        "source": "pixel64_front_right",
+        "name": "walk1",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          17,
-          8,
-          45,
-          72
+          25,
+          10,
+          33,
+          66
         ],
         "foot_pivot_topleft": [
           40,
@@ -68,17 +68,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.0
       },
       {
-        "name": "walk2_right_load",
-        "source": "pixel64_front_right",
+        "name": "walk2",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          97,
-          9,
-          45,
-          69
+          105,
+          11,
+          33,
+          64
         ],
         "foot_pivot_topleft": [
           120,
@@ -91,17 +91,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.125
       },
       {
-        "name": "walk3_left_passing",
-        "source": "pixel64_front_right",
+        "name": "walk3",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          177,
-          8,
-          45,
-          68
+          185,
+          10,
+          33,
+          63
         ],
         "foot_pivot_topleft": [
           200,
@@ -114,17 +114,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.25
       },
       {
-        "name": "walk4_left_advance",
-        "source": "pixel64_front_right",
+        "name": "walk4",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          257,
-          8,
-          45,
-          68
+          265,
+          10,
+          33,
+          63
         ],
         "foot_pivot_topleft": [
           280,
@@ -137,17 +137,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.375
       },
       {
-        "name": "walk5_left_contact",
-        "source": "pixel64_front_right",
+        "name": "walk5",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          17,
-          88,
-          45,
-          70
+          25,
+          90,
+          34,
+          65
         ],
         "foot_pivot_topleft": [
           40,
@@ -160,17 +160,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.5
       },
       {
-        "name": "walk6_left_load",
-        "source": "pixel64_front_right",
+        "name": "walk6",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          98,
-          89,
-          45,
-          68
+          105,
+          91,
+          33,
+          63
         ],
         "foot_pivot_topleft": [
           120,
@@ -183,17 +183,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.625
       },
       {
-        "name": "walk7_right_passing",
-        "source": "pixel64_front_right",
+        "name": "walk7",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          177,
-          88,
-          46,
-          68
+          185,
+          90,
+          33,
+          63
         ],
         "foot_pivot_topleft": [
           200,
@@ -206,17 +206,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.75
       },
       {
-        "name": "walk8_right_advance",
-        "source": "pixel64_front_right",
+        "name": "walk8",
+        "source": "consistent_front_right",
         "clip_topleft": [
-          257,
-          88,
-          45,
-          69
+          265,
+          90,
+          33,
+          64
         ],
         "foot_pivot_topleft": [
           280,
@@ -229,19 +229,19 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.875
       }
     ],
     "back_right": [
       {
         "name": "idle",
-        "source": "pixel64_back_right",
+        "source": "consistent_back_right",
         "clip_topleft": [
-          23,
-          167,
-          57,
-          70
+          25,
+          170,
+          32,
+          63
         ],
         "foot_pivot_topleft": [
           40,
@@ -254,156 +254,156 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
       },
       {
-        "name": "walk1_right_contact",
-        "source": "pixel64_back_right",
+        "name": "walk1",
+        "source": "consistent_back_right",
         "clip_topleft": [
-          23,
-          7,
-          57,
-          70
-        ],
-        "foot_pivot_topleft": [
-          40,
-          72
-        ],
-        "cell_topleft": [
-          0,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.0
-      },
-      {
-        "name": "walk2_right_load",
-        "source": "pixel64_back_right",
-        "clip_topleft": [
-          103,
-          8,
-          56,
-          67
-        ],
-        "foot_pivot_topleft": [
-          120,
-          72
-        ],
-        "cell_topleft": [
-          80,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.125
-      },
-      {
-        "name": "walk3_left_passing",
-        "source": "pixel64_back_right",
-        "clip_topleft": [
-          183,
-          8,
-          56,
-          69
-        ],
-        "foot_pivot_topleft": [
-          200,
-          72
-        ],
-        "cell_topleft": [
-          160,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.25
-      },
-      {
-        "name": "walk4_left_advance",
-        "source": "pixel64_back_right",
-        "clip_topleft": [
-          263,
-          7,
-          57,
-          71
-        ],
-        "foot_pivot_topleft": [
-          280,
-          72
-        ],
-        "cell_topleft": [
-          240,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.375
-      },
-      {
-        "name": "walk5_left_contact",
-        "source": "pixel64_back_right",
-        "clip_topleft": [
-          23,
-          87,
-          57,
-          73
-        ],
-        "foot_pivot_topleft": [
-          40,
-          152
-        ],
-        "cell_topleft": [
-          0,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.5
-      },
-      {
-        "name": "walk6_left_load",
-        "source": "pixel64_back_right",
-        "clip_topleft": [
-          104,
-          88,
-          56,
-          68
-        ],
-        "foot_pivot_topleft": [
-          120,
-          152
-        ],
-        "cell_topleft": [
-          80,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.625
-      },
-      {
-        "name": "walk7_right_passing",
-        "source": "pixel64_back_right",
-        "clip_topleft": [
-          184,
-          88,
-          56,
+          24,
+          10,
+          33,
           66
         ],
         "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2",
+        "source": "consistent_back_right",
+        "clip_topleft": [
+          105,
+          11,
+          32,
+          63
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3",
+        "source": "consistent_back_right",
+        "clip_topleft": [
+          185,
+          10,
+          32,
+          63
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4",
+        "source": "consistent_back_right",
+        "clip_topleft": [
+          265,
+          10,
+          32,
+          65
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5",
+        "source": "consistent_back_right",
+        "clip_topleft": [
+          25,
+          90,
+          32,
+          67
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6",
+        "source": "consistent_back_right",
+        "clip_topleft": [
+          105,
+          91,
+          32,
+          63
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7",
+        "source": "consistent_back_right",
+        "clip_topleft": [
+          185,
+          90,
+          32,
+          63
+        ],
+        "foot_pivot_topleft": [
           200,
           152
         ],
@@ -414,17 +414,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.75
       },
       {
-        "name": "walk8_right_advance",
-        "source": "pixel64_back_right",
+        "name": "walk8",
+        "source": "consistent_back_right",
         "clip_topleft": [
-          263,
-          87,
-          57,
-          69
+          265,
+          90,
+          32,
+          64
         ],
         "foot_pivot_topleft": [
           280,
@@ -437,19 +437,19 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.875
       }
     ],
     "back_left": [
       {
         "name": "idle",
-        "source": "pixel64_back_left",
+        "source": "consistent_back_left",
         "clip_topleft": [
-          16,
+          24,
           168,
-          50,
-          68
+          32,
+          65
         ],
         "foot_pivot_topleft": [
           40,
@@ -462,16 +462,16 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
       },
       {
-        "name": "walk1_right_contact",
-        "source": "pixel64_back_left",
+        "name": "walk1",
+        "source": "consistent_back_left",
         "clip_topleft": [
-          16,
+          24,
           8,
-          50,
-          72
+          32,
+          69
         ],
         "foot_pivot_topleft": [
           40,
@@ -484,17 +484,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.0
       },
       {
-        "name": "walk2_right_load",
-        "source": "pixel64_back_left",
+        "name": "walk2",
+        "source": "consistent_back_left",
         "clip_topleft": [
-          97,
+          104,
           9,
-          49,
-          68
+          32,
+          65
         ],
         "foot_pivot_topleft": [
           120,
@@ -507,17 +507,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.125
       },
       {
-        "name": "walk3_left_passing",
-        "source": "pixel64_back_left",
+        "name": "walk3",
+        "source": "consistent_back_left",
         "clip_topleft": [
-          177,
+          184,
           8,
-          49,
-          66
+          32,
+          64
         ],
         "foot_pivot_topleft": [
           200,
@@ -530,16 +530,640 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.25
       },
       {
-        "name": "walk4_left_advance",
-        "source": "pixel64_back_left",
+        "name": "walk4",
+        "source": "consistent_back_left",
         "clip_topleft": [
-          256,
+          264,
           8,
-          50,
+          32,
+          66
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5",
+        "source": "consistent_back_left",
+        "clip_topleft": [
+          22,
+          88,
+          34,
+          68
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6",
+        "source": "consistent_back_left",
+        "clip_topleft": [
+          104,
+          89,
+          32,
+          63
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7",
+        "source": "consistent_back_left",
+        "clip_topleft": [
+          184,
+          88,
+          32,
+          65
+        ],
+        "foot_pivot_topleft": [
+          200,
+          152
+        ],
+        "cell_topleft": [
+          160,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.75
+      },
+      {
+        "name": "walk8",
+        "source": "consistent_back_left",
+        "clip_topleft": [
+          264,
+          88,
+          32,
+          67
+        ],
+        "foot_pivot_topleft": [
+          280,
+          152
+        ],
+        "cell_topleft": [
+          240,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.875
+      }
+    ],
+    "front_left": [
+      {
+        "name": "idle",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          23,
+          168,
+          35,
+          65
+        ],
+        "foot_pivot_topleft": [
+          40,
+          232
+        ],
+        "cell_topleft": [
+          0,
+          160,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
+      },
+      {
+        "name": "walk1",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          23,
+          8,
+          35,
+          67
+        ],
+        "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          103,
+          9,
+          35,
+          65
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          183,
+          8,
+          35,
+          64
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          263,
+          8,
+          35,
+          66
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          23,
+          88,
+          35,
+          68
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          103,
+          89,
+          35,
+          66
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          183,
+          88,
+          35,
+          65
+        ],
+        "foot_pivot_topleft": [
+          200,
+          152
+        ],
+        "cell_topleft": [
+          160,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.75
+      },
+      {
+        "name": "walk8",
+        "source": "consistent_front_left",
+        "clip_topleft": [
+          263,
+          88,
+          35,
+          65
+        ],
+        "foot_pivot_topleft": [
+          280,
+          152
+        ],
+        "cell_topleft": [
+          240,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.875
+      }
+    ],
+    "front": [
+      {
+        "name": "idle",
+        "source": "consistent_front",
+        "clip_topleft": [
+          24,
+          170,
+          34,
+          63
+        ],
+        "foot_pivot_topleft": [
+          40,
+          232
+        ],
+        "cell_topleft": [
+          0,
+          160,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
+      },
+      {
+        "name": "walk1",
+        "source": "consistent_front",
+        "clip_topleft": [
+          24,
+          10,
+          34,
+          68
+        ],
+        "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2",
+        "source": "consistent_front",
+        "clip_topleft": [
+          104,
+          11,
+          34,
+          64
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3",
+        "source": "consistent_front",
+        "clip_topleft": [
+          184,
+          10,
+          34,
+          63
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4",
+        "source": "consistent_front",
+        "clip_topleft": [
+          264,
+          10,
+          34,
+          65
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5",
+        "source": "consistent_front",
+        "clip_topleft": [
+          24,
+          90,
+          34,
+          68
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6",
+        "source": "consistent_front",
+        "clip_topleft": [
+          104,
+          91,
+          34,
+          64
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7",
+        "source": "consistent_front",
+        "clip_topleft": [
+          184,
+          90,
+          34,
+          63
+        ],
+        "foot_pivot_topleft": [
+          200,
+          152
+        ],
+        "cell_topleft": [
+          160,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.75
+      },
+      {
+        "name": "walk8",
+        "source": "consistent_front",
+        "clip_topleft": [
+          264,
+          90,
+          34,
+          65
+        ],
+        "foot_pivot_topleft": [
+          280,
+          152
+        ],
+        "cell_topleft": [
+          240,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.875
+      }
+    ],
+    "back": [
+      {
+        "name": "idle",
+        "source": "consistent_back",
+        "clip_topleft": [
+          23,
+          168,
+          34,
+          65
+        ],
+        "foot_pivot_topleft": [
+          40,
+          232
+        ],
+        "cell_topleft": [
+          0,
+          160,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
+      },
+      {
+        "name": "walk1",
+        "source": "consistent_back",
+        "clip_topleft": [
+          23,
+          8,
+          34,
+          70
+        ],
+        "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2",
+        "source": "consistent_back",
+        "clip_topleft": [
+          103,
+          9,
+          34,
+          65
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3",
+        "source": "consistent_back",
+        "clip_topleft": [
+          183,
+          8,
+          34,
+          65
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4",
+        "source": "consistent_back",
+        "clip_topleft": [
+          263,
+          8,
+          34,
           67
         ],
         "foot_pivot_topleft": [
@@ -553,16 +1177,16 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.375
       },
       {
-        "name": "walk5_left_contact",
-        "source": "pixel64_back_left",
+        "name": "walk5",
+        "source": "consistent_back",
         "clip_topleft": [
-          16,
+          23,
           88,
-          50,
+          34,
           70
         ],
         "foot_pivot_topleft": [
@@ -576,16 +1200,16 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.5
       },
       {
-        "name": "walk6_left_load",
-        "source": "pixel64_back_left",
+        "name": "walk6",
+        "source": "consistent_back",
         "clip_topleft": [
-          96,
+          103,
           89,
-          50,
+          34,
           65
         ],
         "foot_pivot_topleft": [
@@ -599,17 +1223,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.625
       },
       {
-        "name": "walk7_right_passing",
-        "source": "pixel64_back_left",
+        "name": "walk7",
+        "source": "consistent_back",
         "clip_topleft": [
-          176,
+          183,
           88,
-          50,
-          68
+          34,
+          65
         ],
         "foot_pivot_topleft": [
           200,
@@ -622,227 +1246,19 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.75
       },
       {
-        "name": "walk8_right_advance",
-        "source": "pixel64_back_left",
+        "name": "walk8",
+        "source": "consistent_back",
         "clip_topleft": [
-          256,
+          263,
           88,
-          50,
-          70
-        ],
-        "foot_pivot_topleft": [
-          280,
-          152
-        ],
-        "cell_topleft": [
-          240,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.875
-      }
-    ],
-    "front_left": [
-      {
-        "name": "idle",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          12,
-          167,
-          51,
-          70
-        ],
-        "foot_pivot_topleft": [
-          40,
-          232
-        ],
-        "cell_topleft": [
-          0,
-          160,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
-      },
-      {
-        "name": "walk1_right_contact",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          12,
-          7,
-          51,
-          71
-        ],
-        "foot_pivot_topleft": [
-          40,
-          72
-        ],
-        "cell_topleft": [
-          0,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.0
-      },
-      {
-        "name": "walk2_right_load",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          93,
-          8,
-          50,
-          69
-        ],
-        "foot_pivot_topleft": [
-          120,
-          72
-        ],
-        "cell_topleft": [
-          80,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.125
-      },
-      {
-        "name": "walk3_left_passing",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          173,
-          8,
-          50,
+          34,
           67
         ],
         "foot_pivot_topleft": [
-          200,
-          72
-        ],
-        "cell_topleft": [
-          160,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.25
-      },
-      {
-        "name": "walk4_left_advance",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          252,
-          7,
-          51,
-          71
-        ],
-        "foot_pivot_topleft": [
-          280,
-          72
-        ],
-        "cell_topleft": [
-          240,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.375
-      },
-      {
-        "name": "walk5_left_contact",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          12,
-          87,
-          51,
-          73
-        ],
-        "foot_pivot_topleft": [
-          40,
-          152
-        ],
-        "cell_topleft": [
-          0,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.5
-      },
-      {
-        "name": "walk6_left_load",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          92,
-          88,
-          51,
-          71
-        ],
-        "foot_pivot_topleft": [
-          120,
-          152
-        ],
-        "cell_topleft": [
-          80,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.625
-      },
-      {
-        "name": "walk7_right_passing",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          172,
-          88,
-          51,
-          69
-        ],
-        "foot_pivot_topleft": [
-          200,
-          152
-        ],
-        "cell_topleft": [
-          160,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.75
-      },
-      {
-        "name": "walk8_right_advance",
-        "source": "pixel64_front_left",
-        "clip_topleft": [
-          252,
-          87,
-          51,
-          69
-        ],
-        "foot_pivot_topleft": [
           280,
           152
         ],
@@ -853,435 +1269,19 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.875
-      }
-    ],
-    "front": [
-      {
-        "name": "idle",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          14,
-          163,
-          52,
-          71
-        ],
-        "foot_pivot_topleft": [
-          40,
-          232
-        ],
-        "cell_topleft": [
-          0,
-          160,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
-      },
-      {
-        "name": "walk1_right_contact",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          14,
-          3,
-          52,
-          76
-        ],
-        "foot_pivot_topleft": [
-          40,
-          72
-        ],
-        "cell_topleft": [
-          0,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.0
-      },
-      {
-        "name": "walk2_right_load",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          94,
-          4,
-          52,
-          73
-        ],
-        "foot_pivot_topleft": [
-          120,
-          72
-        ],
-        "cell_topleft": [
-          80,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.125
-      },
-      {
-        "name": "walk3_left_passing",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          174,
-          4,
-          52,
-          70
-        ],
-        "foot_pivot_topleft": [
-          200,
-          72
-        ],
-        "cell_topleft": [
-          160,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.25
-      },
-      {
-        "name": "walk4_left_advance",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          254,
-          3,
-          52,
-          73
-        ],
-        "foot_pivot_topleft": [
-          280,
-          72
-        ],
-        "cell_topleft": [
-          240,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.375
-      },
-      {
-        "name": "walk5_left_contact",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          14,
-          83,
-          52,
-          76
-        ],
-        "foot_pivot_topleft": [
-          40,
-          152
-        ],
-        "cell_topleft": [
-          0,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.5
-      },
-      {
-        "name": "walk6_left_load",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          94,
-          84,
-          52,
-          73
-        ],
-        "foot_pivot_topleft": [
-          120,
-          152
-        ],
-        "cell_topleft": [
-          80,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.625
-      },
-      {
-        "name": "walk7_right_passing",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          174,
-          84,
-          52,
-          70
-        ],
-        "foot_pivot_topleft": [
-          200,
-          152
-        ],
-        "cell_topleft": [
-          160,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.75
-      },
-      {
-        "name": "walk8_right_advance",
-        "source": "pixel64_front",
-        "clip_topleft": [
-          254,
-          83,
-          52,
-          73
-        ],
-        "foot_pivot_topleft": [
-          280,
-          152
-        ],
-        "cell_topleft": [
-          240,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.875
-      }
-    ],
-    "back": [
-      {
-        "name": "idle",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          15,
-          163,
-          58,
-          71
-        ],
-        "foot_pivot_topleft": [
-          40,
-          232
-        ],
-        "cell_topleft": [
-          0,
-          160,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
-      },
-      {
-        "name": "walk1_right_contact",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          15,
-          3,
-          58,
-          76
-        ],
-        "foot_pivot_topleft": [
-          40,
-          72
-        ],
-        "cell_topleft": [
-          0,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.0
-      },
-      {
-        "name": "walk2_right_load",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          95,
-          4,
-          58,
-          71
-        ],
-        "foot_pivot_topleft": [
-          120,
-          72
-        ],
-        "cell_topleft": [
-          80,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.125
-      },
-      {
-        "name": "walk3_left_passing",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          175,
-          4,
-          57,
-          70
-        ],
-        "foot_pivot_topleft": [
-          200,
-          72
-        ],
-        "cell_topleft": [
-          160,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.25
-      },
-      {
-        "name": "walk4_left_advance",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          255,
-          3,
-          58,
-          73
-        ],
-        "foot_pivot_topleft": [
-          280,
-          72
-        ],
-        "cell_topleft": [
-          240,
-          0,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.375
-      },
-      {
-        "name": "walk5_left_contact",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          15,
-          83,
-          58,
-          76
-        ],
-        "foot_pivot_topleft": [
-          40,
-          152
-        ],
-        "cell_topleft": [
-          0,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.5
-      },
-      {
-        "name": "walk6_left_load",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          95,
-          84,
-          58,
-          71
-        ],
-        "foot_pivot_topleft": [
-          120,
-          152
-        ],
-        "cell_topleft": [
-          80,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.625
-      },
-      {
-        "name": "walk7_right_passing",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          175,
-          84,
-          57,
-          70
-        ],
-        "foot_pivot_topleft": [
-          200,
-          152
-        ],
-        "cell_topleft": [
-          160,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
-        "phase": 0.75
-      },
-      {
-        "name": "walk8_right_advance",
-        "source": "pixel64_back",
-        "clip_topleft": [
-          255,
-          83,
-          58,
-          73
-        ],
-        "foot_pivot_topleft": [
-          280,
-          152
-        ],
-        "cell_topleft": [
-          240,
-          80,
-          80,
-          80
-        ],
-        "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.875
       }
     ],
     "left": [
       {
         "name": "idle",
-        "source": "pixel64_left",
+        "source": "consistent_left",
         "clip_topleft": [
-          20,
-          163,
-          43,
-          73
+          26,
+          168,
+          30,
+          65
         ],
         "foot_pivot_topleft": [
           40,
@@ -1294,16 +1294,16 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
       },
       {
-        "name": "walk1_right_contact",
-        "source": "pixel64_left",
+        "name": "walk1",
+        "source": "consistent_left",
         "clip_topleft": [
           20,
-          3,
-          43,
-          75
+          8,
+          36,
+          66
         ],
         "foot_pivot_topleft": [
           40,
@@ -1316,17 +1316,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.0
       },
       {
-        "name": "walk2_right_load",
-        "source": "pixel64_left",
+        "name": "walk2",
+        "source": "consistent_left",
         "clip_topleft": [
-          101,
-          4,
-          42,
-          72
+          104,
+          9,
+          32,
+          63
         ],
         "foot_pivot_topleft": [
           120,
@@ -1339,17 +1339,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.125
       },
       {
-        "name": "walk3_left_passing",
-        "source": "pixel64_left",
+        "name": "walk3",
+        "source": "consistent_left",
         "clip_topleft": [
-          181,
-          4,
-          42,
-          71
+          186,
+          8,
+          30,
+          64
         ],
         "foot_pivot_topleft": [
           200,
@@ -1362,17 +1362,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.25
       },
       {
-        "name": "walk4_left_advance",
-        "source": "pixel64_left",
+        "name": "walk4",
+        "source": "consistent_left",
         "clip_topleft": [
-          260,
-          3,
-          43,
-          73
+          266,
+          8,
+          30,
+          64
         ],
         "foot_pivot_topleft": [
           280,
@@ -1385,17 +1385,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.375
       },
       {
-        "name": "walk5_left_contact",
-        "source": "pixel64_left",
+        "name": "walk5",
+        "source": "consistent_left",
         "clip_topleft": [
-          18,
-          83,
-          45,
-          74
+          24,
+          88,
+          32,
+          65
         ],
         "foot_pivot_topleft": [
           40,
@@ -1408,17 +1408,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.5
       },
       {
-        "name": "walk6_left_load",
-        "source": "pixel64_left",
+        "name": "walk6",
+        "source": "consistent_left",
         "clip_topleft": [
-          100,
-          84,
-          42,
-          72
+          106,
+          89,
+          30,
+          64
         ],
         "foot_pivot_topleft": [
           120,
@@ -1431,17 +1431,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.625
       },
       {
-        "name": "walk7_right_passing",
-        "source": "pixel64_left",
+        "name": "walk7",
+        "source": "consistent_left",
         "clip_topleft": [
-          180,
-          84,
-          42,
-          72
+          186,
+          88,
+          30,
+          65
         ],
         "foot_pivot_topleft": [
           200,
@@ -1454,17 +1454,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.75
       },
       {
-        "name": "walk8_right_advance",
-        "source": "pixel64_left",
+        "name": "walk8",
+        "source": "consistent_left",
         "clip_topleft": [
-          260,
-          83,
-          43,
-          74
+          263,
+          88,
+          33,
+          65
         ],
         "foot_pivot_topleft": [
           280,
@@ -1477,19 +1477,19 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.875
       }
     ],
     "right": [
       {
         "name": "idle",
-        "source": "pixel64_right",
+        "source": "consistent_right",
         "clip_topleft": [
-          18,
-          163,
-          42,
-          73
+          26,
+          170,
+          29,
+          63
         ],
         "foot_pivot_topleft": [
           40,
@@ -1502,16 +1502,16 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지"
       },
       {
-        "name": "walk1_right_contact",
-        "source": "pixel64_right",
+        "name": "walk1",
+        "source": "consistent_right",
         "clip_topleft": [
-          18,
-          3,
-          44,
-          73
+          26,
+          10,
+          29,
+          62
         ],
         "foot_pivot_topleft": [
           40,
@@ -1524,17 +1524,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.0
       },
       {
-        "name": "walk2_right_load",
-        "source": "pixel64_right",
+        "name": "walk2",
+        "source": "consistent_right",
         "clip_topleft": [
-          98,
-          4,
-          41,
-          72
+          106,
+          11,
+          29,
+          61
         ],
         "foot_pivot_topleft": [
           120,
@@ -1547,17 +1547,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.125
       },
       {
-        "name": "walk3_left_passing",
-        "source": "pixel64_right",
+        "name": "walk3",
+        "source": "consistent_right",
         "clip_topleft": [
-          178,
-          4,
-          41,
-          72
+          186,
+          10,
+          29,
+          62
         ],
         "foot_pivot_topleft": [
           200,
@@ -1570,17 +1570,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.25
       },
       {
-        "name": "walk4_left_advance",
-        "source": "pixel64_right",
+        "name": "walk4",
+        "source": "consistent_right",
         "clip_topleft": [
-          258,
-          3,
-          42,
-          73
+          266,
+          10,
+          30,
+          62
         ],
         "foot_pivot_topleft": [
           280,
@@ -1593,17 +1593,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.375
       },
       {
-        "name": "walk5_left_contact",
-        "source": "pixel64_right",
+        "name": "walk5",
+        "source": "consistent_right",
         "clip_topleft": [
-          18,
-          83,
-          42,
-          74
+          26,
+          90,
+          33,
+          62
         ],
         "foot_pivot_topleft": [
           40,
@@ -1616,17 +1616,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.5
       },
       {
-        "name": "walk6_left_load",
-        "source": "pixel64_right",
+        "name": "walk6",
+        "source": "consistent_right",
         "clip_topleft": [
-          99,
-          84,
-          41,
-          71
+          106,
+          91,
+          29,
+          60
         ],
         "foot_pivot_topleft": [
           120,
@@ -1639,17 +1639,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.625
       },
       {
-        "name": "walk7_right_passing",
-        "source": "pixel64_right",
+        "name": "walk7",
+        "source": "consistent_right",
         "clip_topleft": [
-          179,
-          84,
-          41,
-          71
+          186,
+          90,
+          29,
+          61
         ],
         "foot_pivot_topleft": [
           200,
@@ -1662,17 +1662,17 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.75
       },
       {
-        "name": "walk8_right_advance",
-        "source": "pixel64_right",
+        "name": "walk8",
+        "source": "consistent_right",
         "clip_topleft": [
-          258,
-          83,
-          42,
-          72
+          266,
+          90,
+          29,
+          61
         ],
         "foot_pivot_topleft": [
           280,
@@ -1685,7 +1685,7 @@
           80
         ],
         "scale_reference_height": 64,
-        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "pivot_basis": "공통 몸 발점(40,72)·기준64·정수2배 유지",
         "phase": 0.875
       }
     ]
@@ -2960,6 +2960,366 @@
       },
       "review_status": "R1-C8-Yfit torso height corrected; pixel audit and Windows hidden60-frame capture passed; physical input and user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
+    },
+    "consistent_front_right": {
+      "image": "r1-consistent-front-right-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "c926245f20f1bec71477047e1f18b5a9fb33023f18a35e3d35e81607f6db2fab",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/front-right"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 22,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "consistent_back_right": {
+      "image": "r1-consistent-back-right-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "94ee0b3abc59f0090ec7b3a946448f4876db599fdb99b29882a8c258dc6d49cf",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/back-right"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 21,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "consistent_back_left": {
+      "image": "r1-consistent-back-left-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "96380268e39c7ebcac23269d872978863603b8c06e94a8371273c69c7580ae67",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/back-left"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 18,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "consistent_front_left": {
+      "image": "r1-consistent-front-left-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "d633b159b2274a73dc3c46b1ac117a1a50ed857229b1e41df9cd0bce2c995d0f",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/front-left"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 21,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "consistent_front": {
+      "image": "r1-consistent-front-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "303afc1aa8d884fe9109a3f53d630ba483e0f9d5a3bc809b3af186854c9343d4",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/front"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 22,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "consistent_back": {
+      "image": "r1-consistent-back-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "0d09b42ff9d8a2936dc7b8d7b54789b7154fa9eabf285ca349717cb39d91cbbf",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/back"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 19,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "consistent_left": {
+      "image": "r1-consistent-left-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "53efcae6cbb5666ee026ed33597ebebcc864aa03e81cf1f363eacfc56fe70781",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/left"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 22,
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "consistent_right": {
+      "image": "r1-consistent-right-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "0cc950f765884aad2c7e56425c4872e7a2c78b070a19d3ea00f4e068a3fbef56",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "승인 원화 공통64 기준·정수2배·nearest·프레임 bbox 정규화 없음",
+      "provenance": {
+        "master": "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+        "master_sha256": "45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad",
+        "bake": "art/player/consistent-walk.cjs",
+        "parts": "art/player/consistent-parts/right"
+      },
+      "review_status": "승인 원화 idle·상체 보존 및 지휘 보행 검토 통과; Windows 숨김60프레임·정수2배·벽/위상/자원 정리 통과; 사용자 실제 조작·체감 확인 대기",
+      "alpha_review": "알파0/255·셀별 가시 픽셀 전체를 포함한 clip",
+      "visible_color_count": 20,
+      "alpha_values": [
+        0,
+        255
+      ]
     }
   },
   "edited_on": "2026-11-05"

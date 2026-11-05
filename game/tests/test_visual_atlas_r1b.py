@@ -1,4 +1,4 @@
-"""R1-B atlas geometry contracts; not a visual animation-quality verdict."""
+"""R1-C8-WALK 아틀라스 기하·기존 원화 보존 검사. 주관적 보행 품질과 구분한다."""
 from copy import deepcopy
 from dataclasses import asdict
 import hashlib
@@ -29,18 +29,19 @@ FACINGS = (
     ("right", 0.0),
 )
 
-# Immutable sources and diagonal poses retained from 20b32ce.
-BASELINE_SOURCES = "8be8ed6a63a6835451cb8ec0c43a649a9988c9c5e9a066bd898766e8abf714a4"
-BASELINE_DIAGONAL_FRAMES = "748b02dffae1596f2cc0c2d43d67f6f68ae5db57ec0a55b04b8d8a3e34990598"
+# b665762의 기존21소스와 PNG 기록은 고정하며 active8방향은 이번 교체 대상이다.
+BASELINE_SOURCES = '51d9287ae98ae2f14b80acee59078b58a1b072d9f81dfcab241485a1e7cb32fc'
+BASELINE_LEGACY_TOP_VALUES = '40bbad8f0fc0cf14826fbc07b0064b0d5b72d347f9f036ccbb37ba66bd0f5325'
+APPROVED_IDLE_MASTER_SHA256 = '45ddbc25c2e4a3afa9435f973bc6e944374755b3bb2f101ec52612c2e690fdad'
 PRESERVED_SOURCE_HASHES = {
-    "atlas": "ce8c0ac85daa5b7f8aebf44464b858db0bc192d4a838a493f774799690d24981",
-    "front_steps": "ee7eaafeb48fdd435079d168d78d115ec20849e6350725a6214c5e95ab5abb75",
-    "smooth_front_right": "b788c200ffc000d225cf228769cea01fe5f5bba2ab79ef52ff77cf0012b3d667",
-    "smooth_back_right": "201fce1a74c302b0b180d52ab168ed84e6b04bfd5192a6063a00c19041f790af",
-    "smooth_back_left": "1b6fb22c7b8e5da37eef6ee89bd0168378aad8653b554bb09a8f43f455728558",
-    "smooth_front_left": "d3dcd3d3ff13be1eb03c3c07d27087ace3824535ec592dacb7bfbf625958b5f1",
-    "weight_front_right": "d0330535d62b4586315aa373df9f12538a7e125b6e534eb61b16f5a171af57c6",
-    "landing_front_right": "27dcbfb0004dc06943cb15a7dc3f279167ee84002d6ff066235949da7ee562d8",
+    "atlas": "CE8C0AC85DAA5B7F8AEBF44464B858DB0BC192D4A838A493F774799690D24981",
+    "front_steps": "EE7EAAFEB48FDD435079D168D78D115EC20849E6350725A6214C5E95AB5ABB75",
+    "smooth_front_right": "B788C200FFC000D225CF228769CEA01FE5F5BBA2AB79EF52FF77CF0012B3D667",
+    "smooth_back_right": "201FCE1A74C302B0B180D52AB168ED84E6B04BFD5192A6063A00C19041F790AF",
+    "smooth_back_left": "1B6FB22C7B8E5DA37EEF6EE89BD0168378AAD8653B554BB09A8F43F455728558",
+    "smooth_front_left": "D3DCD3D3FF13BE1EB03C3C07D27087ACE3824535EC592DACB7BFBF625958B5F1",
+    "weight_front_right": "D0330535D62B4586315AA373DF9F12538A7E125B6E534EB61B16F5A171AF57C6",
+    "landing_front_right": "27DCBFB0004DC06943CB15A7DC3F279167EE84002D6FF066235949DA7EE562D8",
     "alternating_front_right": "ff65046d6e4d0ed99813a2cb778074f5ea8ddcd41d51e95af4c1eb00da5dc602",
     "unified_front_right": "c050077ad86918868739ec2a7688ba8a6cc4d46f84da51fe2c7802caac1cd7d5",
     "unified_back_right": "fe19c109da30a9ab61f8564356a44befea21329459c936c3340461c4467c3972",
@@ -50,8 +51,15 @@ PRESERVED_SOURCE_HASHES = {
     "pixel64_back_right": "f49c7eca2427904e88ae462e79dc3d4ff1154f7226f192605f5abb74af292f3d",
     "pixel64_back_left": "5007e221e59c50a61220263fff4b3ff73afa8eb2b7708d887dbd9fbf472fdbb9",
     "pixel64_front_left": "2d8fb57347c3ac8b3431970d9d4f8217909684a5484d5fff6ef71b70b1d3bc09",
+    "pixel64_front": "657ff560a9d9d0ea0a2555d6013b607bc19283d27ec7ae35bddf75f91b39fc33",
+    "pixel64_back": "ceaf6865ad867d693e1e82050e21ceac54bf0af6ff2c828f08182b991682a177",
+    "pixel64_left": "c5b05cb58ef9cbe17297572cce0ed93decfd8c4e0385a65b1668aee6ec15f859",
+    "pixel64_right": "5568ea2c567ba57dd7ff8dc277fbd137c360423dba4517a6813966f5081f155e"
 }
-ACTIVE_SOURCES = {facing: "pixel64_" + facing for facing, _ in FACINGS}
+PRESERVED_EXTRA_PNG_HASHES = {
+    "r1a-courier-20261104.png": "a928d8df6fdafad919af79e59b4ad805afbbf07b2cc2a4e11c98c8bc23b83539"
+}
+ACTIVE_SOURCES = {facing: "consistent_" + facing for facing, _ in FACINGS}
 
 
 def canonical_hash(value):
@@ -102,9 +110,13 @@ class AtlasGeometryTests(unittest.TestCase):
         self.assertEqual(set(sources), set(PRESERVED_SOURCE_HASHES) | set(ACTIVE_SOURCES.values()))
         self.assertEqual(canonical_hash({name: sources[name] for name in PRESERVED_SOURCE_HASHES}),
                          BASELINE_SOURCES)
-        self.assertEqual(canonical_hash({name: metadata["frames"][name]
-                                         for name, _ in FACINGS[:4]}),
-                         BASELINE_DIAGONAL_FRAMES)
+        legacy = {key: value for key, value in metadata.items()
+                  if key not in ("sources", "frames", "edited_on", "review_status")}
+        self.assertEqual(canonical_hash(legacy), BASELINE_LEGACY_TOP_VALUES)
+        master = METADATA_PATH.parents[3] / "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png"
+        self.assertEqual(hashlib.sha256(master.read_bytes()).hexdigest(), APPROVED_IDLE_MASTER_SHA256)
+        for name, expected in PRESERVED_EXTRA_PNG_HASHES.items():
+            self.assertEqual(hashlib.sha256((METADATA_PATH.parent / name).read_bytes()).hexdigest(), expected)
         self.assertEqual(sum(len(frames) for frames in metadata["frames"].values()), 72)
         self.assertEqual(metadata["image"], sources["atlas"]["image"])
         self.assertEqual(metadata["canvas_size"], sources["atlas"]["canvas_size"])
@@ -116,7 +128,7 @@ class AtlasGeometryTests(unittest.TestCase):
                 self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
                 self.assertEqual(tuple(entry["canvas_size"]), struct.unpack(">II", header[16:24]))
                 digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
-                expected = PRESERVED_SOURCE_HASHES.get(source, entry.get("sha256", "").lower())
+                expected = PRESERVED_SOURCE_HASHES.get(source, entry.get("sha256", "")).lower()
                 self.assertEqual(digest, expected)
 
         for facing, _ in FACINGS:
@@ -125,6 +137,9 @@ class AtlasGeometryTests(unittest.TestCase):
             self.assertEqual(source_info["canvas_size"], [320, 240])
             self.assertEqual(source_info["scale_reference_height"], 64)
             self.assertEqual(source_info["cell_local_body_root"], [40, 72])
+            self.assertEqual(source_info["provenance"]["master_sha256"], APPROVED_IDLE_MASTER_SHA256)
+            self.assertEqual(source_info["alpha_values"], [0, 255])
+            self.assertLessEqual(source_info["visible_color_count"], 24)
             grid = source_info["grid"]
             self.assertEqual((grid["columns"], grid["rows"]), (4, 3))
             self.assertEqual(grid["cell_boundaries_x"], [0, 80, 160, 240, 320])
@@ -153,9 +168,6 @@ class AtlasGeometryTests(unittest.TestCase):
                     if index:
                         self.assertAlmostEqual(frame["phase"], (index - 1) / 8)
             self.assertEqual(len(seen), 9)
-        idle = metadata["frames"]["front_right"][0]
-        self.assertEqual(metadata["clip_topleft"], idle["clip_topleft"])
-        self.assertEqual(metadata["foot_pivot_topleft"], idle["foot_pivot_topleft"])
 
     def test_real_locomotion_selects_all_frames_and_draw_keeps_ground_anchor(self):
         foot = (640.125, 271.5)
