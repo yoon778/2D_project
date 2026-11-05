@@ -1,12 +1,12 @@
 # Dead Route 게임 개발 폴더
 
-상태: 2026-11-05 R1-C8 상하좌우 추가·8방향 통합
+상태: 2026-11-05 R1-C8-WALK 승인 공통 원화·8방향 보행 적용
 기준은 [PRD](../PRD.md)와 [개발 순서](../plans/development-roadmap.md)입니다.
 작은 2.5D 장면의 발 접지·지면 이동·마우스 조준·건물 앞뒤 가림을 연결했습니다.
 마우스로 몸의8방향 자세를 선택하고 실제 이동 거리로 방향당8장 보행을 재생합니다. 방향당 정지1장 포함 총72자세. 벽에 막히거나 정지하면 idle이며 뒤로·옆으로 걸어도 조준 방향을 유지합니다.
 현재 90px/s로 이동하고 64px마다 양발 한 주기를 재생함. 앞발이 바뀌는 간격은 약 0.356초.
 이전 baseline의 실제 표시창30초 측정은 약240FPS·프레임 간격p95 4.44ms·50ms초과0회. 현재 모션의 FPS 측정값이 아님.
-현재 [보행 비교·검수 기록](../plans/handoffs/r1-walk-cadence-review.md), 이전 [1주차 성능 기록](../plans/handoffs/r1-week1-review.md).
+승인 원화의 idle·머리/상체 픽셀 보존, 양발 교대와1px 눌림 적용. [현재 보행 검수](../plans/handoffs/r1-consistent-walk-review.md), [이전 보행](../plans/handoffs/r1-walk-cadence-review.md), [이전 성능](../plans/handoffs/r1-week1-review.md) 구분.
 
 기존 .venv를 재사용합니다. 처음 설치해야 하는 경우 프로젝트 루트에서:
 

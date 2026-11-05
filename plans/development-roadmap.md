@@ -9,6 +9,7 @@
 개발용 가상환경과 로컬 수업 가이드를 유지합니다. 사용자의 계속 개발 지시로 R1-B 4방향·짧은 보행을 연결하고 발 교대·상체 흔들림을 수정했습니다.
 사용자 요청의 S1·S2와 1주차 전체 검수를 마쳐 네 방향 모두8장 보행을 적용했습니다. 자동79개·Windows렌더·실제 표시창30초 성능·native입력/재시작3회 통과 기록은 [1주차 baseline](handoffs/r1-week1-review.md)에 보존.
 [W1 낮은 보행](handoffs/r1-weight-review.md)·[W2 착지](handoffs/r1-weight-landing-review.md) 이후 발 과속 피드백에 따라 [보행 박자·발 연결](handoffs/r1-walk-cadence-review.md) 보완. 90px/s·주기64px 유지. 도트풍 승인 뒤 사용자 요청의 R1-C8에서 상하좌우를 추가해8방향·72자세로 확장. 다음 단계 착수 전 실제 조작감2차 확인.
+현재 R1-C8-WALK에서 승인한 공통 원화로8방향 보행을 다시 연결함. 정지/상체 픽셀·체형 유지와 게임 검수는 [공통 원화 보행 기록](handoffs/r1-consistent-walk-review.md) 참조.
 
 ## 단계와 완료 기준
 
