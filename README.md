@@ -8,7 +8,7 @@
 
 - 고정 사선 3/4의 2.5D 도트풍, 왼손 몸 앞 택배·오른손 방망이·가슴등
 - 첫 범위는 지도 1개·좀비 1마리·방망이 1종·배달 1건
-- [R1-W2 착지·상체 보완](plans/handoffs/r1-weight-landing-review.md): 앞·오른쪽8장의 얕은 눌림·지지 교대 보완, 기존90px/s·32px 주기 유지. 자동79개·Windows렌더 통과, 사용자 체감 비교 대기. 이전 [1주차 실행·성능 검수](plans/handoffs/r1-week1-review.md)는 baseline 이력이며 전투·배달은 다음 단계.
+- [현재 보행과 검수 기록](plans/handoffs/r1-walk-cadence-review.md): 이동속도 90px/s, 네 방향 공통 64px마다 보행 한 주기. 앞·오른쪽 발 연결은 같은 속도의 전후 영상으로 확인 가능.
 - 이전 그림체 검수 이력과 도트풍 수정본·실제 키보드 미확인 항목을 구분한 [지휘 검수 기록](plans/handoffs/r1a-review.md)을 따릅니다.
 
 | 위치 | 용도 |

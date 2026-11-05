@@ -77,8 +77,8 @@
 
 ## 준비 상태와 일정
 
-새 game/에 네 방향 모두 idle1+보행8장을 적용했습니다. 속도90px/s·32px 실제 거리 주기·기존idle을 유지합니다. 자동79개·Windows방향별 렌더·실제 표시창30초 성능·native 입력/재시작3회 검수를 통과했습니다.
-추가 무게감 피드백의 R1-W2에서 앞·오른쪽8장의 얕은 착지·상체와 반대 지지를 보완. 기존90px/s·32px 주기·다른3방향·idle·기존7소스·로직 보존과 전체79개·Windows렌더 통과. 현재 [R1-W2 비교 확인](plans/handoffs/r1-weight-landing-review.md) 대기이며 눌림은 작고 비대칭이므로 무게감을 확정하지 않음. 앞 문단의 실제 표시창 성능/입력 수치는 이전 [1주차 baseline 검수](plans/handoffs/r1-week1-review.md)의 이력. 모션 과정은 [W1](plans/handoffs/r1-weight-review.md)·[S2](plans/handoffs/r1b-smooth-s2-review.md)에 보존. 물리 키보드·주관적 조작감은 별도 확인 대상. 사용자 확인과 다음 진행 요청 전 R2 착수 금지. 전투·좀비·손전등·배달은 미구현.
+현재 네 방향 모두 idle 1장과 보행 8장. 이동속도 90px/s, 보행 한 주기 64px. 충돌 후 실제 움직인 거리에 맞춰 걷고, 멈추면 idle로 돌아감.
+발이 과속해 보인다는 피드백과 변경 근거는 [R1-W3 검수 기록](plans/handoffs/r1-walk-cadence-review.md) 참조. 이전 [R1-W2 착지 검수](plans/handoffs/r1-weight-landing-review.md) 및 [1주차 성능 측정](plans/handoffs/r1-week1-review.md)은 해당 시점 이력. 전투·좀비·손전등·배달은 미구현.
 미사용 이전 시제품·에셋·테스트·기획·PPT는 로컬 작업 폴더에서 삭제했습니다.
 이전 구현은 Git 이력으로 참고하며, 구형 테스트·렌더 결과를 새 2.5D의 성과로 보고하지 않습니다.
 첫 작업은 [개발 순서](plans/development-roadmap.md), 담당은 [채팅 협업](plans/team-workflow.md)을 따릅니다.
