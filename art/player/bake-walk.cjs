@@ -28,13 +28,14 @@ async function makeParts(rig) {
       const image = `width="${width}" height="${height}" xlink:href="data:image/png;base64,${png.toString('base64')}"`
       if (name === 'torso' && rig.torso.bat) {
         // Rotate only the painted bat around its grip in source-local space.
-        const {pivot, polygon, angle, scale = 1} = rig.torso.bat
-        const points = polygon.map(point => point.join(',')).join(' ')
+        const {pivot, polygon, cutouts = [], angle, scale = 1, opacity = 1} = rig.torso.bat
+        const shapes = [polygon, ...cutouts].map(
+          shape => `<polygon points="${shape.map(point => point.join(',')).join(' ')}"/>`).join('')
         parts.push(`<image id="torsoTexture" ${image}/>`
-          + `<mask id="batCut"><rect width="${width}" height="${height}" fill="white"/><polygon points="${points}" fill="black"/></mask>`
-          + `<clipPath id="batOnly"><polygon points="${points}"/></clipPath>`
+          + `<mask id="batCut"><rect width="${width}" height="${height}" fill="white"/><g fill="black">${shapes}</g></mask>`
+          + `<clipPath id="batOnly">${shapes}</clipPath>`
           + `<g id="torsobody"><g${mask}><use xlink:href="#torsoTexture" mask="url(#batCut)"/></g>`
-          + `<g transform="translate(${pivot}) rotate(${angle}) scale(${scale}) translate(${-pivot[0]} ${-pivot[1]})"><use xlink:href="#torsoTexture" clip-path="url(#batOnly)"/></g></g>`)
+          + `<g opacity="${opacity}" transform="translate(${pivot}) rotate(${angle}) scale(${scale}) translate(${-pivot[0]} ${-pivot[1]})"><use xlink:href="#torsoTexture" clip-path="url(#batOnly)"/></g></g>`)
       } else {
         parts.push(`<image id="${name + side}"${mask} ${image}/>`)
       }

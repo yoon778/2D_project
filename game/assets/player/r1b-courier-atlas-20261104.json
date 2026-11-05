@@ -8,7 +8,7 @@
     17,
     168,
     45,
-    69
+    68
   ],
   "foot_pivot_topleft": [
     40,
@@ -33,7 +33,7 @@
           17,
           168,
           45,
-          69
+          68
         ],
         "foot_pivot_topleft": [
           40,
@@ -101,7 +101,7 @@
           177,
           8,
           45,
-          70
+          68
         ],
         "foot_pivot_topleft": [
           200,
@@ -124,7 +124,7 @@
           257,
           8,
           45,
-          69
+          68
         ],
         "foot_pivot_topleft": [
           280,
@@ -170,7 +170,7 @@
           98,
           89,
           45,
-          69
+          68
         ],
         "foot_pivot_topleft": [
           120,
@@ -193,7 +193,7 @@
           177,
           88,
           46,
-          70
+          68
         ],
         "foot_pivot_topleft": [
           200,
@@ -240,7 +240,7 @@
         "clip_topleft": [
           23,
           167,
-          52,
+          57,
           70
         ],
         "foot_pivot_topleft": [
@@ -262,7 +262,7 @@
         "clip_topleft": [
           23,
           7,
-          52,
+          57,
           70
         ],
         "foot_pivot_topleft": [
@@ -285,7 +285,7 @@
         "clip_topleft": [
           103,
           8,
-          52,
+          56,
           67
         ],
         "foot_pivot_topleft": [
@@ -308,7 +308,7 @@
         "clip_topleft": [
           183,
           8,
-          52,
+          56,
           69
         ],
         "foot_pivot_topleft": [
@@ -331,7 +331,7 @@
         "clip_topleft": [
           263,
           7,
-          52,
+          57,
           71
         ],
         "foot_pivot_topleft": [
@@ -354,7 +354,7 @@
         "clip_topleft": [
           23,
           87,
-          52,
+          57,
           73
         ],
         "foot_pivot_topleft": [
@@ -377,7 +377,7 @@
         "clip_topleft": [
           104,
           88,
-          51,
+          56,
           68
         ],
         "foot_pivot_topleft": [
@@ -400,7 +400,7 @@
         "clip_topleft": [
           184,
           88,
-          51,
+          56,
           66
         ],
         "foot_pivot_topleft": [
@@ -423,7 +423,7 @@
         "clip_topleft": [
           263,
           87,
-          52,
+          57,
           69
         ],
         "foot_pivot_topleft": [
@@ -448,7 +448,7 @@
         "clip_topleft": [
           16,
           168,
-          58,
+          50,
           68
         ],
         "foot_pivot_topleft": [
@@ -470,7 +470,7 @@
         "clip_topleft": [
           16,
           8,
-          58,
+          50,
           72
         ],
         "foot_pivot_topleft": [
@@ -493,7 +493,7 @@
         "clip_topleft": [
           97,
           9,
-          58,
+          49,
           68
         ],
         "foot_pivot_topleft": [
@@ -516,7 +516,7 @@
         "clip_topleft": [
           177,
           8,
-          58,
+          49,
           66
         ],
         "foot_pivot_topleft": [
@@ -539,7 +539,7 @@
         "clip_topleft": [
           256,
           8,
-          58,
+          50,
           67
         ],
         "foot_pivot_topleft": [
@@ -562,7 +562,7 @@
         "clip_topleft": [
           16,
           88,
-          58,
+          50,
           70
         ],
         "foot_pivot_topleft": [
@@ -585,7 +585,7 @@
         "clip_topleft": [
           96,
           89,
-          58,
+          50,
           65
         ],
         "foot_pivot_topleft": [
@@ -608,7 +608,7 @@
         "clip_topleft": [
           176,
           88,
-          58,
+          50,
           68
         ],
         "foot_pivot_topleft": [
@@ -631,7 +631,7 @@
         "clip_topleft": [
           256,
           88,
-          58,
+          50,
           70
         ],
         "foot_pivot_topleft": [
@@ -1771,7 +1771,7 @@
         320,
         240
       ],
-      "sha256": "422c420cb49b6200c99c2a8d443d3b46dd08aece6a460c4fc7dc4dcc62771e94",
+      "sha256": "7956778dee5244e6f19a9cd917db1e885d13dbdc5b1c61a3ce09961787340806",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -1803,9 +1803,10 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Directional ImageGen cutouts, offline two-leg pose render, nearest 64px reduction and approved 24-color palette mapping",
         "prompt": "art/player/pixel64-parts.prompt.txt",
-        "palette": "art/player/style-studies/front-right-idle-64.json"
+        "palette": "art/player/style-studies/front-right-idle-64.json",
+        "bat_adjustment": "Rotate the isolated bat 25 degrees counterclockwise from 28 to 3 degrees about its hand grip"
       },
-      "review_status": "Native idle+eight-pose and60-frame capture checked; pixel-grid/nearest and integer2x passed; user play review pending",
+      "review_status": "Directional bat placement checked across native SDL idle/eight walk poses and60-frame capture; user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
       "visible_color_count": 23,
       "alpha_values": [
@@ -1819,7 +1820,7 @@
         320,
         240
       ],
-      "sha256": "48e30f36c64cfb7110fa5211c619cc1045b625ac686b3be73c09d659ada57f81",
+      "sha256": "f49c7eca2427904e88ae462e79dc3d4ff1154f7226f192605f5abb74af292f3d",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -1851,9 +1852,10 @@
         "approved_palette": "art/player/style-studies/front-right-idle-64.json",
         "method": "Directional ImageGen cutouts, offline two-leg pose render, nearest 64px reduction and approved 24-color palette mapping",
         "prompt": "art/player/pixel64-parts.prompt.txt",
-        "palette": "art/player/style-studies/front-right-idle-64.json"
+        "palette": "art/player/style-studies/front-right-idle-64.json",
+        "bat_adjustment": "Rotate the isolated bat to -65 degrees about source grip (306,431), with its tip pointing up-right"
       },
-      "review_status": "Native idle+eight-pose and60-frame capture checked; pixel-grid/nearest and integer2x passed; user play review pending",
+      "review_status": "Directional bat placement checked across native SDL idle/eight walk poses and60-frame capture; user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
       "visible_color_count": 23,
       "alpha_values": [
@@ -1867,7 +1869,7 @@
         320,
         240
       ],
-      "sha256": "82785aec50654f5b1d01795e873174f028b9977f5d632ea60ef657f65f347c73",
+      "sha256": "e84014c5182068bb7b8f8ac4055ac5f20a85e308966a8ab55cb3babf9d275d80",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -1900,9 +1902,10 @@
         "method": "Directional ImageGen cutouts, offline two-leg pose render, nearest 64px reduction and approved 24-color palette mapping",
         "hip_join_correction": "Widen the hip fade from 200 to 212 source pixels to cover the remaining right-edge pelvis outline",
         "prompt": "art/player/pixel64-parts.prompt.txt",
-        "palette": "art/player/style-studies/front-right-idle-64.json"
+        "palette": "art/player/style-studies/front-right-idle-64.json",
+        "bat_adjustment": "Set bat opacity to zero, hiding the barrel, butt and remaining original outline"
       },
-      "review_status": "Native idle+eight-pose and60-frame capture checked; pixel-grid/nearest and integer2x passed; user play review pending",
+      "review_status": "Directional bat placement checked across native SDL idle/eight walk poses and60-frame capture; user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
       "visible_color_count": 22,
       "alpha_values": [
