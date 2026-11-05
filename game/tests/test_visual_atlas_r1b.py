@@ -57,6 +57,14 @@ BASELINE_WAITING_FRAMES = {
 SMOOTH_SOURCES = {facing: "smooth_" + facing for facing, _ in FACINGS}
 ACTIVE_SOURCES = {**SMOOTH_SOURCES, "front_right": "landing_front_right"}
 S2_ORDER = ("back_right", "back_left", "front_left")
+# Playback slots need not follow the physical order of the atlas cells.
+FR_TRANSFER_CELLS = {4: ("landing_front_right", 7), 7: ("weight_front_right", 3)}
+
+
+def expected_walk_cell(facing, slot):
+    if facing == "front_right" and slot in FR_TRANSFER_CELLS:
+        return FR_TRANSFER_CELLS[slot]
+    return ACTIVE_SOURCES[facing], slot
 
 
 def canonical_hash(value):
@@ -160,7 +168,7 @@ class AtlasGeometryTests(unittest.TestCase):
                         (METADATA_PATH.parent / entry["image"]).read_bytes()).hexdigest(),
                         entry["sha256"].lower())
         counts = {source: 0 for source in sources}
-        smooth_references = {facing: [] for facing in expanded}
+        walk_clips = {facing: set() for facing in expanded}
 
         for row, (facing, _) in enumerate(FACINGS):
             frames = metadata["frames"][facing]
@@ -205,9 +213,10 @@ class AtlasGeometryTests(unittest.TestCase):
                                          (887, 0, 887, 887))
                     else:
                         self.assertIn(facing, expanded)
-                        self.assertEqual(source, ACTIVE_SOURCES[facing])
+                        expected_source, atlas_slot = expected_walk_cell(facing, column)
+                        self.assertEqual(source, expected_source)
                         self.assertIn(column, range(1, 9))
-                        smooth_column, smooth_row = (column - 1) % 4, (column - 1) // 4
+                        smooth_column, smooth_row = (atlas_slot - 1) % 4, (atlas_slot - 1) // 4
                         grid = sources[source]["grid"]
                         self.assertEqual((grid["columns"], grid["rows"]), (4, 2))
                         boundaries_x, boundaries_y = grid["cell_boundaries_x"], grid["cell_boundaries_y"]
@@ -224,7 +233,7 @@ class AtlasGeometryTests(unittest.TestCase):
                         pivot_x, pivot_y = frame["foot_pivot_topleft"]
                         self.assertAlmostEqual(pivot_x - cell_left, root_x, places=6)
                         self.assertAlmostEqual(pivot_y - cell_top, root_y, places=6)
-                        smooth_references[facing].append(reference)
+                        walk_clips[facing].add((source, tuple(frame["clip_topleft"])))
                     self.assertGreaterEqual(left, cell_left)
                     self.assertLessEqual(left + width, cell_right)
                     self.assertGreaterEqual(top, cell_top)
@@ -239,15 +248,15 @@ class AtlasGeometryTests(unittest.TestCase):
         for facing, _ in FACINGS:
             expected_counts["atlas"] += 1
             if facing in expanded:
-                expected_counts[ACTIVE_SOURCES[facing]] += 8
+                for slot in range(1, 9):
+                    expected_counts[expected_walk_cell(facing, slot)[0]] += 1
             else:
                 for source, _, _, _ in LEGACY_FRAMES[facing][1:]:
                     expected_counts[source] += 1
         self.assertEqual(counts, expected_counts)
-        for facing, references in smooth_references.items():
-            with self.subTest(common_scale=facing):
-                self.assertEqual(len(references), 8)
-                self.assertTrue(all(reference == references[0] for reference in references))
+        for facing, clips in walk_clips.items():
+            with self.subTest(distinct_walk_poses=facing):
+                self.assertEqual(len(clips), 8)
         idle = metadata["frames"]["front_right"][0]
         self.assertEqual(metadata["clip_topleft"], idle["clip_topleft"])
         self.assertEqual(metadata["foot_pivot_topleft"], idle["foot_pivot_topleft"])

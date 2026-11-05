@@ -116,23 +116,23 @@
         "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest-lamp span against preserved front_right idle; no per-frame pivot or scale compensation"
       },
       {
-        "name": "walk4_low_advance_a",
+        "name": "walk4_transfer_to_b",
         "source": "landing_front_right",
         "clip_topleft": [
-          1425,
-          14,
-          241,
-          398
+          978,
+          457,
+          244,
+          412
         ],
         "foot_pivot_topleft": [
-          1545.98656,
-          386.727873
+          1102.98656,
+          829.727873
         ],
         "cell_topleft": [
-          1330,
-          0,
-          444,
-          443
+          887,
+          443,
+          443,
+          444
         ],
         "scale_reference_height": 385.036988,
         "phase": 0.375,
@@ -185,27 +185,27 @@
         "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest-lamp span against preserved front_right idle; no per-frame pivot or scale compensation"
       },
       {
-        "name": "walk7_recovery_b",
-        "source": "landing_front_right",
+        "name": "walk7_transfer_to_a",
+        "source": "weight_front_right",
         "clip_topleft": [
-          978,
-          457,
-          244,
-          412
+          983,
+          14,
+          235,
+          401
         ],
         "foot_pivot_topleft": [
-          1102.98656,
-          829.727873
+          1101.581222,
+          389.254427
         ],
         "cell_topleft": [
           887,
+          0,
           443,
-          443,
-          444
+          443
         ],
-        "scale_reference_height": 385.036988,
+        "scale_reference_height": 388.314604,
         "phase": 0.75,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest-lamp span against preserved front_right idle; no per-frame pivot or scale compensation"
+        "pivot_basis": "Shared cell-local body root from mean cap/chest-lamp span against preserved front_right idle; never per-frame sole midpoint"
       },
       {
         "name": "walk8_low_advance_b",
