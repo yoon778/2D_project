@@ -4,6 +4,18 @@
 사용자가 승인한8방향 원화로 전체 보행 제작·게임 적용·두 채팅 지시·중간 커밋을 요청함
 기준선 `b665762`, 승인 원화는 `art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png`
 
+## 후속 윤곽 보완 · R1-C8-OUTLINE
+
+사용자 걷는 다리 윤곽 소실 제보. 분리된 부위 단면에 윤곽이 없고 near 다리의 바지색이 far 다리 선을 덮는 원인 재현
+
+- 각 다리의 부츠·종아리·허벅지를 먼저 조립/회전한 뒤 hip+3px 아래 노출 경계만 기존alpha 안쪽 최암색1px로 복원. 기존 dark색은 유지하고 far→near→장비/몸 깊이 순서 보존
+- 실제PNG 노출 경계 검사501→0. RGB만707픽셀 변경, 전8방향 alpha/idle/상체 차이0·폭/관절/프레임clip/pivot 동일. 기존21소스·원화·부품·리그·엔진 보존
+- 관련 아틀라스4개·Windows8방향 각2초/60프레임/180px·정수2배·벽/위상/종료 검사 통과. 전체80 중복 실행 없이 영향 검사에 집중
+- 수정본 표시창 재실행과 응답 확인. 실제 키보드·보행 체감은 사용자2차 확인 대기, 이번 검수는 실시간 성능 측정이 아님
+
+수정 커밋 `74b6c50`. 재발검사 `node art/player/check-walk-outline.cjs`; 리소스만 다시 만들 때 `node art/player/consistent-walk.cjs --atlas-only`
+증거는 `output/review/R1-C8-OUTLINE/`의 `outline-baseline.json`·`outline-after.json`·`shape-preservation.json`·`runtime/`. 비교 `left-before-after.png`
+
 ## 소유권
 
 | 담당 | 범위 |
