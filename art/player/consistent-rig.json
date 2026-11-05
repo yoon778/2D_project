@@ -1,0 +1,43 @@
+{
+  "master": "style-studies/eight-direction-consistency/turnaround-idle-64-v3.png",
+  "cellSize": 80,
+  "root": [40, 72],
+  "referenceHeight": 64,
+  "strideNative": [8, 4, 0, -4, -8, -5, 0, 5],
+  "swingLift": [0, 0, 0, 0, 0, 2, 3, 1],
+  "kneeForward": [0, 1, 1, 0, 0, 3, 4, 2],
+  "bootPitchDegrees": [0, 0, 0, 0, 8, -8, -6, -2],
+  "bodyDrop": [0, 1, 0, 0, 0, 1, 0, 0],
+  "facings": {
+    "front_right": {
+      "sourceCell": [80, 0, 80, 80],
+      "worldFacing": [1, 1],
+      "nearLeg": "right",
+      "batBehindLegs": false,
+      "lowerBodyMask": [[33, 48], [54, 48], [54, 74], [33, 74]],
+      "batMask": [[27, 52], [33, 52], [33, 58], [32, 64], [31, 73], [24, 73], [24, 63], [25, 58], [26, 55]],
+      "legs": {
+        "right": {
+          "role": "anatomical right, bat side, near leg",
+          "phase": 0,
+          "hip": [38, 48],
+          "knee": [38, 57],
+          "ankle": [38, 66],
+          "thighMask": [[33, 48], [43, 48], [43, 58], [33, 58]],
+          "shinMask": [[33, 55], [43, 55], [43, 67], [34, 67], [33, 62]],
+          "bootMask": [[34, 66], [43, 66], [43, 70], [44, 70], [44, 73], [33, 73], [33, 67]]
+        },
+        "left": {
+          "role": "anatomical left, parcel side, far leg",
+          "phase": 4,
+          "hip": [46, 48],
+          "knee": [46, 56],
+          "ankle": [46, 64],
+          "thighMask": [[43, 48], [50, 48], [51, 50], [51, 57], [43, 57]],
+          "shinMask": [[43, 54], [51, 54], [51, 63], [50, 65], [43, 65]],
+          "bootMask": [[43, 64], [50, 64], [50, 66], [54, 67], [54, 72], [44, 72], [44, 70], [43, 70]]
+        }
+      }
+    }
+  }
+}
