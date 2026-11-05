@@ -3,6 +3,8 @@
 const path = require('node:path')
 const sharp = require('sharp')
 const rigs = require('./walk-rigs.json')
+const palette = require('./style-studies/front-right-idle-64.json').palette_hex.map(
+  hex => [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16)))
 
 const cellSize = 160
 const diagonalStep = 8 / Math.sqrt(2)
@@ -103,8 +105,28 @@ async function bake(facing) {
     poses.push(`<g transform="translate(${x} ${y})">${drawLeg(rig, farLeg, frame)}${drawLeg(rig, rig.nearLeg, frame)}${torso}</g>`)
   }
   const scene = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="640" height="480"><defs>${parts}</defs>${poses.join('')}</svg>`
-  const output = path.join(__dirname, `../../game/assets/player/r1-unified-${facing.replaceAll('_', '-')}-20261105.png`)
-  await sharp(Buffer.from(scene)).png().toFile(output)
+  const output = path.join(__dirname, `../../game/assets/player/r1-pixel64-${facing.replaceAll('_', '-')}-20261105.png`)
+  const {data, info} = await sharp(Buffer.from(scene))
+    .resize(320, 240, {kernel: 'nearest'}).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+  // Each 80px cell is authored for root (40,72) and a 64px reference height.
+  // Threshold coverage before mapping visible pixels to the approved palette.
+  for (let offset = 0; offset < data.length; offset += 4) {
+    if (data[offset + 3] < 128) {
+      data.fill(0, offset, offset + 4)
+      continue
+    }
+    let nearest = palette[0], distance = Infinity
+    for (const color of palette) {
+      const error = (data[offset] - color[0]) ** 2
+        + (data[offset + 1] - color[1]) ** 2 + (data[offset + 2] - color[2]) ** 2
+      if (error < distance) {
+        nearest = color
+        distance = error
+      }
+    }
+    data.set([...nearest, 255], offset)
+  }
+  await sharp(data, {raw: info}).png().toFile(output)
   console.log(`${facing}: ${output}`)
 }
 
