@@ -74,6 +74,18 @@ function translate(target, source, dx, dy) {
   paint(target, source, (x, y) => [x - dx, y - dy])
 }
 
+function restoreLegOutline(pixels, hip) {
+  const dark = new Set(['15141b', '242633', '392b29'])
+  // Recolor inside the assembled leg's existing alpha; keep the pelvis join open.
+  for (let y = Math.floor(hip[1]) + 3; y < size; y++) for (let x = 0; x < size; x++) {
+    const offset = (y * size + x) * 4
+    if (!pixels[offset + 3] || dark.has(pixels.subarray(offset, offset + 3).toString('hex'))) continue
+    const exposed = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].some(([nx, ny]) =>
+      nx < 0 || nx >= size || ny < 0 || ny >= size || !pixels[(ny * size + nx) * 4 + 3])
+    if (exposed) pixels.set([0x15, 0x14, 0x1b], offset)
+  }
+}
+
 // Preserve the painted limb width; fit only its projected joint axis.
 function segment(target, source, sourceStart, sourceEnd, start, end) {
   const sx = sourceEnd[0] - sourceStart[0], sy = sourceEnd[1] - sourceStart[1]
@@ -141,14 +153,17 @@ async function bake(facing) {
     const pixels = Buffer.alloc(source.length), frameJoints = {}
     if (rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
     for (const side of [farLeg, rig.nearLeg]) {
+      const legPixels = Buffer.alloc(source.length)
       const leg = rig.legs[side], points = joints(rig, leg, frame)
       const bootMaterial = legMaterial(rig, side, 'boot')
       const shinMaterial = legMaterial(rig, side, 'shin')
       const thighMaterial = legMaterial(rig, side, 'thigh')
       frameJoints[side] = points
-      boot(pixels, parts[side].boot, bootMaterial.ankle, points.ankle, points.pitch)
-      segment(pixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, points.ankle)
-      segment(pixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee)
+      boot(legPixels, parts[side].boot, bootMaterial.ankle, points.ankle, points.pitch)
+      segment(legPixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, points.ankle)
+      segment(legPixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee)
+      restoreLegOutline(legPixels, points.hip)
+      translate(pixels, legPixels, 0, 0)
     }
     if (!rig.batBehindLegs) translate(pixels, parts.bat, 0, config.bodyDrop[frame])
     translate(pixels, parts.body, 0, config.bodyDrop[frame])
@@ -166,9 +181,13 @@ async function bake(facing) {
   const output = path.join(root, `game/assets/player/r1-consistent-${slug}-20261105.png`)
   const review = path.join(root, 'output/review/R1-C8-WALK-art', slug)
   const extracted = path.join(__dirname, 'consistent-parts', slug)
+  await png(atlas, size * 4, size * 3, output)
+  if (process.argv.includes('--atlas-only')) {
+    console.log(JSON.stringify({facing, output}))
+    return
+  }
   await fs.mkdir(review, {recursive: true})
   await fs.mkdir(extracted, {recursive: true})
-  await png(atlas, size * 4, size * 3, output)
   await png(atlas, size * 4, size * 3, path.join(review, 'atlas-4x.png'), 4)
   for (const name of ['body', 'bat']) await png(parts[name], size, size, path.join(extracted, `${name}.png`))
   for (const side of ['right', 'left']) for (const part of ['thigh', 'shin', 'boot']) {
@@ -206,7 +225,8 @@ async function main() {
       if (error.code !== 'ENOENT') throw error
     }
   }
-  const facings = process.argv[2] ? [process.argv[2]] : Object.keys(config.facings)
+  const facing = process.argv.slice(2).find(arg => !arg.startsWith('--'))
+  const facings = facing ? [facing] : Object.keys(config.facings)
   for (const facing of facings) await bake(facing)
 }
 main().catch(error => {console.error(error); process.exitCode = 1})
