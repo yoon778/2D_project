@@ -32,7 +32,8 @@ LEGACY_SOURCE_HASHES = {
 }
 # Canonical JSON hashes verified against git show 05f55ed.
 BASELINE_IDLES = "56584c6445ae8a552a90aa67c20133578909816e7ba78566094232bf7eee0a16"
-BASELINE_SOURCES = "21fdc70ea8161f2bfce4213d081967e4b9b733b084980625beff5a93ce9ac50b"
+# Existing atlas sources at 3ccfb8a, before the two-foot walk was introduced.
+BASELINE_SOURCES = "875887529e115ee867c7f187886dc28fe494be85d9ee05d9d317076296882830"
 # Preserve the approved BR stage exactly from git show 9b6bb29.
 BASELINE_BACK_RIGHT_FRAMES = "388e9b486e1cb9f50a620ad2c91a4187db409f749cab0faeab2311b51eed6997"
 BASELINE_BACK_RIGHT_SOURCE = "534a1fc147b2a62cd97d8446d53c2a25e8aca42e5ba2631dbaf148d891d0ddf3"
@@ -48,6 +49,7 @@ PRESERVED_SOURCE_HASHES = {
     "smooth_back_left": BASELINE_BACK_LEFT_PNG,
     "smooth_front_left": "d3dcd3d3ff13be1eb03c3c07d27087ace3824535ec592dacb7bfbf625958b5f1",
     "weight_front_right": "d0330535d62b4586315aa373df9f12538a7e125b6e534eb61b16f5a171af57c6",
+    "landing_front_right": "27dcbfb0004dc06943cb15a7dc3f279167ee84002d6ff066235949da7ee562d8",
 }
 BASELINE_WAITING_FRAMES = {
     "back_right": "c82dc04a7caaf54061a04524d31249efd45f03ec47276ff7965295ddd26b12c3",
@@ -55,16 +57,8 @@ BASELINE_WAITING_FRAMES = {
     "front_left": "bd48db6087261dfff86233107bbd0d292a6acfcaf5314b70458e2cfaee183693",
 }
 SMOOTH_SOURCES = {facing: "smooth_" + facing for facing, _ in FACINGS}
-ACTIVE_SOURCES = {**SMOOTH_SOURCES, "front_right": "landing_front_right"}
+ACTIVE_SOURCES = {**SMOOTH_SOURCES, "front_right": "alternating_front_right"}
 S2_ORDER = ("back_right", "back_left", "front_left")
-# Playback slots need not follow the physical order of the atlas cells.
-FR_TRANSFER_CELLS = {4: ("landing_front_right", 7), 7: ("weight_front_right", 3)}
-
-
-def expected_walk_cell(facing, slot):
-    if facing == "front_right" and slot in FR_TRANSFER_CELLS:
-        return FR_TRANSFER_CELLS[slot]
-    return ACTIVE_SOURCES[facing], slot
 
 
 def canonical_hash(value):
@@ -140,7 +134,7 @@ class AtlasGeometryTests(unittest.TestCase):
         self.assertEqual(sum(len(frames) for frames in metadata["frames"].values()), 36)
         progress = [facing for facing in S2_ORDER if facing in expanded]
         self.assertEqual(progress, list(S2_ORDER[:len(progress)]))
-        self.assertEqual(set(sources), set(PRESERVED_SOURCE_HASHES) | {"landing_front_right"})
+        self.assertEqual(set(sources), set(PRESERVED_SOURCE_HASHES) | {"alternating_front_right"})
         self.assertEqual(canonical_hash({name: frames[0] for name, frames in metadata["frames"].items()}),
                          BASELINE_IDLES)
         self.assertEqual(canonical_hash({name: sources[name] for name in PRESERVED_SOURCE_HASHES}),
@@ -213,10 +207,9 @@ class AtlasGeometryTests(unittest.TestCase):
                                          (887, 0, 887, 887))
                     else:
                         self.assertIn(facing, expanded)
-                        expected_source, atlas_slot = expected_walk_cell(facing, column)
-                        self.assertEqual(source, expected_source)
+                        self.assertEqual(source, ACTIVE_SOURCES[facing])
                         self.assertIn(column, range(1, 9))
-                        smooth_column, smooth_row = (atlas_slot - 1) % 4, (atlas_slot - 1) // 4
+                        smooth_column, smooth_row = (column - 1) % 4, (column - 1) // 4
                         grid = sources[source]["grid"]
                         self.assertEqual((grid["columns"], grid["rows"]), (4, 2))
                         boundaries_x, boundaries_y = grid["cell_boundaries_x"], grid["cell_boundaries_y"]
@@ -248,8 +241,7 @@ class AtlasGeometryTests(unittest.TestCase):
         for facing, _ in FACINGS:
             expected_counts["atlas"] += 1
             if facing in expanded:
-                for slot in range(1, 9):
-                    expected_counts[expected_walk_cell(facing, slot)[0]] += 1
+                expected_counts[ACTIVE_SOURCES[facing]] += 8
             else:
                 for source, _, _, _ in LEGACY_FRAMES[facing][1:]:
                     expected_counts[source] += 1
