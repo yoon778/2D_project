@@ -116,7 +116,7 @@ class LocomotionLoopTests(unittest.TestCase):
             after_draw={1: [("motion", 160, 521)], 2: [("quit",)]},
         )
         self._assert_actual_displacements(frames, updates)
-        self.assertEqual([state["facing"] for state in updates], ["back_right", "back_left"])
+        self.assertEqual([state["facing"] for state in updates], ["back_right", "left"])
         self.assertAlmostEqual(frames[1]["aim_angle"], math.pi, places=9)
         self.assertNotAlmostEqual(frames[1]["aim_angle"], 3 * math.pi / 4, places=5)
         self.assertTrue(all(state["frame_index"] == 0 for state in updates))
@@ -135,9 +135,9 @@ class LocomotionLoopTests(unittest.TestCase):
         self.assertEqual(updates[0]["dy"], 0)
         self.assertEqual(updates[1]["dx"], 0)
         self.assertGreater(updates[1]["dy"], 0)
-        self.assertEqual([state["facing"] for state in updates], ["front_right"] * 3)
+        self.assertEqual([state["facing"] for state in updates], ["right"] * 3)
         self.assertEqual([state["moving"] for state in updates], [True, True, False])
-        self.assertNotAlmostEqual(frames[1]["aim_angle"], -math.pi / 4, places=5)
+        self.assertNotAlmostEqual(frames[1]["aim_angle"], 0.0, places=5)
 
     def test_smoke_fixture_teleports_do_not_advance_locomotion(self):
         frames, updates = self._run_observed(initial=[], smoke_test=True, maximum_draws=4)
@@ -149,10 +149,14 @@ class LocomotionLoopTests(unittest.TestCase):
 
     def test_eight_frame_facings_return_to_idle_after_actual_movement(self):
         cases = (
-            ("front_right", [("motion", 1120, 521)]),
+            ("front_right", [("motion", 820, 629)]),
             ("back_right", []),  # Default target keeps the +pi/4 representative.
             ("back_left", [("motion", 460, 413)]),  # Ground target (300, 360).
             ("front_left", [("motion", 460, 629)]),  # Ground target (300, 0).
+            ("right", [("motion", 1120, 521)]),  # Ground target (960, 180).
+            ("back", [("motion", 640, 269)]),  # Ground target (480, 600).
+            ("left", [("motion", 160, 521)]),  # Ground target (0, 180).
+            ("front", [("motion", 640, 629)]),  # Ground target (480, 0).
         )
         for facing, aim_events in cases:
             with self.subTest(facing=facing):

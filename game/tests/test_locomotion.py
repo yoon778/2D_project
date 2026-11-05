@@ -7,60 +7,72 @@ from game.locomotion import Locomotion, select_facing
 
 
 class FacingTests(unittest.TestCase):
-    def test_initial_selection_uses_the_nearest_representative(self):
+    def test_initial_selection_uses_all_eight_representatives(self):
         for degrees, expected in (
-            (-45, "front_right"), (45, "back_right"),
-            (135, "back_left"), (-135, "front_left"),
-            (2, "back_right"), (-2, "front_right"),
-            (88, "back_right"), (92, "back_left"),
-            (-88, "front_right"), (-92, "front_left"),
+            (0, "right"), (45, "back_right"), (90, "back"),
+            (135, "back_left"), (180, "left"), (-135, "front_left"),
+            (-90, "front"), (-45, "front_right"),
+            (2, "right"), (-2, "right"), (88, "back"), (92, "back"),
+            (-88, "front"), (-92, "front"),
         ):
             with self.subTest(degrees=degrees):
                 self.assertEqual(select_facing(math.radians(degrees)), expected)
 
     def test_ties_use_contract_order_including_near_equal_float_distances(self):
+        boundary = math.pi / 8
         for angle, expected in (
-            (0.0, "front_right"), (math.pi / 2, "back_right"),
-            (math.pi, "back_left"), (-math.pi, "back_left"),
-            (-math.pi / 2, "front_right"),
-            (2.5e-13, "front_right"), (2e-12, "back_right"),
-            (math.pi + 2.5e-13, "back_left"), (math.pi + 2e-12, "front_left"),
+            (boundary, "right"), (3 * boundary, "back_right"),
+            (5 * boundary, "back"), (7 * boundary, "back_left"),
+            (-7 * boundary, "left"), (-5 * boundary, "front_left"),
+            (-3 * boundary, "front"), (-boundary, "right"),
+            (boundary + 2.5e-13, "right"), (boundary + 2e-12, "back_right"),
+            (-7 * boundary + 2.5e-13, "left"),
+            (-7 * boundary + 2e-12, "front_left"),
         ):
             with self.subTest(angle=angle):
                 self.assertEqual(select_facing(angle), expected)
 
-    def test_hysteresis_keeps_each_direction_through_50_degrees(self):
+    def test_hysteresis_keeps_each_direction_through_27_5_degrees(self):
         for current, center, forward, backward in (
-            ("front_right", -45, "back_right", "front_left"),
-            ("back_right", 45, "back_left", "front_right"),
-            ("back_left", 135, "front_left", "back_right"),
-            ("front_left", -135, "front_right", "back_left"),
+            ("right", 0, "back_right", "front_right"),
+            ("back_right", 45, "back", "right"),
+            ("back", 90, "back_left", "back_right"),
+            ("back_left", 135, "left", "back"),
+            ("left", 180, "front_left", "back_left"),
+            ("front_left", -135, "front", "left"),
+            ("front", -90, "front_right", "front_left"),
+            ("front_right", -45, "right", "front"),
         ):
             for offset, expected in (
-                (49.9, current), (50.0, current), (50.001, forward),
-                (-49.9, current), (-50.0, current), (-50.001, backward),
+                (22.6, current), (27.5, current), (27.501, forward),
+                (-22.6, current), (-27.5, current), (-27.501, backward),
             ):
                 with self.subTest(current=current, offset=offset):
                     self.assertEqual(select_facing(math.radians(center + offset), current), expected)
 
     def test_equivalent_angles_wrap_consistently(self):
         for angle, expected in (
-            (0.0, "front_right"), (math.pi / 2, "back_right"),
-            (math.pi, "back_left"), (-math.pi / 2, "front_right"),
-            (math.radians(179), "back_left"), (math.radians(-179), "front_left"),
+            (0.0, "right"), (math.pi / 4, "back_right"),
+            (math.pi / 2, "back"), (3 * math.pi / 4, "back_left"),
+            (math.pi, "left"), (-3 * math.pi / 4, "front_left"),
+            (-math.pi / 2, "front"), (-math.pi / 4, "front_right"),
+            (math.radians(179), "left"), (math.radians(-179), "left"),
         ):
             for turns in (-3, -1, 0, 1, 3):
                 with self.subTest(angle=angle, turns=turns):
                     self.assertEqual(select_facing(angle + math.tau * turns), expected)
-        self.assertEqual(select_facing(math.radians(-179), "back_left"), "back_left")
-        self.assertEqual(select_facing(math.radians(179), "front_left"), "front_left")
+        self.assertEqual(select_facing(math.radians(-179), "left"), "left")
+        self.assertEqual(select_facing(math.radians(179), "left"), "left")
 
     def test_invalid_angle_preserves_a_valid_current_or_uses_the_default(self):
         for angle in (math.nan, math.inf, -math.inf, None, "0.0", 1j):
-            with self.subTest(angle=angle):
-                self.assertEqual(select_facing(angle, "back_left"), "back_left")
-                self.assertEqual(select_facing(angle), "front_right")
+            for current in ("right", "back_right", "back", "back_left",
+                            "left", "front_left", "front", "front_right"):
+                with self.subTest(angle=angle, current=current):
+                    self.assertEqual(select_facing(angle, current), current)
+            self.assertEqual(select_facing(angle), "front_right")
         self.assertEqual(select_facing(math.pi / 4, "unknown"), "back_right")
+
 
 
 class LocomotionTests(unittest.TestCase):
@@ -80,10 +92,10 @@ class LocomotionTests(unittest.TestCase):
 
     def test_first_valid_update_does_not_apply_default_facing_hysteresis(self):
         pose = Locomotion()
-        pose.update(math.radians(2), 0, 0)
-        self.assertEqual(pose.facing, "back_right")
-        pose.update(math.radians(-2), 0, 0)
-        self.assertEqual(pose.facing, "back_right")
+        pose.update(math.radians(-20), 0, 0)
+        self.assertEqual(pose.facing, "right")
+        pose.update(math.radians(-25), 0, 0)
+        self.assertEqual(pose.facing, "right")
 
     def test_distance_partition_is_frame_rate_independent(self):
         for distance, phase, frame in ((64.0, 0.0, 1), (96.0, 0.5, 2), (80.0, 0.25, 1)):
@@ -157,8 +169,8 @@ class LocomotionTests(unittest.TestCase):
                 pose.update(*values)
                 self.assertEqual((pose.facing, pose.phase, pose.moving, pose.frame_index),
                                  ("front_right", 0.0, False, 0))
-                pose.update(math.radians(2), 0, 0)
-                self.assertEqual(pose.facing, "back_right")
+                pose.update(math.radians(-20), 0, 0)
+                self.assertEqual(pose.facing, "right")
                 pose.update(-math.pi / 4, 8, 0)
                 before = (pose.facing, pose.phase)
                 pose.update(*values)
@@ -218,8 +230,8 @@ class WalkFrameIndexTests(unittest.TestCase):
         for count in (2, 8, 8, 2, 1, 3):
             pose.walk_frame_index(count)
             self.assertEqual((pose.facing, pose.phase, pose.moving, pose.frame_index), before)
-        pose.update(math.radians(2), 0, 0)
-        self.assertEqual((pose.facing, pose.phase, pose.moving), ("back_right", 0.3125, False))
+        pose.update(math.radians(-20), 0, 0)
+        self.assertEqual((pose.facing, pose.phase, pose.moving), ("right", 0.3125, False))
         self.assertEqual(pose.walk_frame_index(8), 0)
 
     def test_eight_frame_distance_partition_is_fps_independent(self):

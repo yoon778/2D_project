@@ -23,10 +23,15 @@ FACINGS = (
     ("back_right", math.pi / 4),
     ("back_left", 3 * math.pi / 4),
     ("front_left", -3 * math.pi / 4),
+    ("front", -math.pi / 2),
+    ("back", math.pi / 2),
+    ("left", math.pi),
+    ("right", 0.0),
 )
 
-# Immutable source records retained from 526c96c before the 64px sheets.
-BASELINE_SOURCES = "a2cc4aa080dd68f44581cd0c9071030f5d7f4ab42d0433aa3cd0ab0a2c3d15b0"
+# Immutable sources and diagonal poses retained from 20b32ce.
+BASELINE_SOURCES = "8be8ed6a63a6835451cb8ec0c43a649a9988c9c5e9a066bd898766e8abf714a4"
+BASELINE_DIAGONAL_FRAMES = "748b02dffae1596f2cc0c2d43d67f6f68ae5db57ec0a55b04b8d8a3e34990598"
 PRESERVED_SOURCE_HASHES = {
     "atlas": "ce8c0ac85daa5b7f8aebf44464b858db0bc192d4a838a493f774799690d24981",
     "front_steps": "ee7eaafeb48fdd435079d168d78d115ec20849e6350725a6214c5e95ab5abb75",
@@ -41,6 +46,10 @@ PRESERVED_SOURCE_HASHES = {
     "unified_back_right": "fe19c109da30a9ab61f8564356a44befea21329459c936c3340461c4467c3972",
     "unified_back_left": "f3193c8689efd0bb36ca056f678253fdca3f72d2c6af883c82e165423eb58ff6",
     "unified_front_left": "a19acd5b697b954394997099717adbea1db29b0fbfc96a99604dd2cbe5f7459c",
+    "pixel64_front_right": "7956778dee5244e6f19a9cd917db1e885d13dbdc5b1c61a3ce09961787340806",
+    "pixel64_back_right": "f49c7eca2427904e88ae462e79dc3d4ff1154f7226f192605f5abb74af292f3d",
+    "pixel64_back_left": "5007e221e59c50a61220263fff4b3ff73afa8eb2b7708d887dbd9fbf472fdbb9",
+    "pixel64_front_left": "2d8fb57347c3ac8b3431970d9d4f8217909684a5484d5fff6ef71b70b1d3bc09",
 }
 ACTIVE_SOURCES = {facing: "pixel64_" + facing for facing, _ in FACINGS}
 
@@ -93,9 +102,13 @@ class AtlasGeometryTests(unittest.TestCase):
         self.assertEqual(set(sources), set(PRESERVED_SOURCE_HASHES) | set(ACTIVE_SOURCES.values()))
         self.assertEqual(canonical_hash({name: sources[name] for name in PRESERVED_SOURCE_HASHES}),
                          BASELINE_SOURCES)
+        self.assertEqual(canonical_hash({name: metadata["frames"][name]
+                                         for name, _ in FACINGS[:4]}),
+                         BASELINE_DIAGONAL_FRAMES)
+        self.assertEqual(sum(len(frames) for frames in metadata["frames"].values()), 72)
         self.assertEqual(metadata["image"], sources["atlas"]["image"])
         self.assertEqual(metadata["canvas_size"], sources["atlas"]["canvas_size"])
-        self.assertEqual(len({sources[name]["sha256"] for name in ACTIVE_SOURCES.values()}), 4)
+        self.assertEqual(len({sources[name]["sha256"] for name in ACTIVE_SOURCES.values()}), 8)
         for source, entry in sources.items():
             with self.subTest(source=source):
                 image_path = METADATA_PATH.parent / entry["image"]
@@ -192,7 +205,11 @@ class AtlasGeometryTests(unittest.TestCase):
         for facing, angle, index in (("front_right", -math.pi / 4, 4),
                                      ("back_right", math.pi / 4, 4),
                                      ("back_left", 3 * math.pi / 4, 1),
-                                     ("front_left", -3 * math.pi / 4, 2)):
+                                     ("front_left", -3 * math.pi / 4, 2),
+                                     ("front", -math.pi / 2, 4),
+                                     ("back", math.pi / 2, 4),
+                                     ("left", math.pi, 4),
+                                     ("right", 0.0, 4)):
             with self.subTest(facing=facing, frame=index):
                 metadata = deepcopy(self.metadata)
                 visual = self.make_visual(metadata)

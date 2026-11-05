@@ -1,4 +1,4 @@
-"""S2 integration checks for four aim facings with eight walk frames."""
+"""S2 integration checks for eight aim facings with eight walk frames."""
 import math
 import unittest
 
@@ -6,7 +6,7 @@ from game.core import Player, Wall, move_player
 from game.locomotion import Locomotion
 
 
-class FourDirectionWalkTests(unittest.TestCase):
+class EightDirectionWalkTests(unittest.TestCase):
     def test_two_seconds_at_90_pixels_per_second_has_two_cycles_and_five_half_steps(self):
         for frames in (40, 120, 240):
             with self.subTest(frames=frames):
@@ -30,6 +30,10 @@ class FourDirectionWalkTests(unittest.TestCase):
             ("back_right", math.pi / 4, ((1, 1), (-1, -1), (-1, 1))),
             ("back_left", 3 * math.pi / 4, ((-1, 1), (1, -1), (-1, -1))),
             ("front_left", -3 * math.pi / 4, ((-1, -1), (1, 1), (1, -1))),
+            ("right", 0.0, ((1, 0), (-1, 0), (0, 1))),
+            ("back", math.pi / 2, ((0, 1), (0, -1), (1, 0))),
+            ("left", math.pi, ((-1, 0), (1, 0), (0, -1))),
+            ("front", -math.pi / 2, ((0, -1), (0, 1), (-1, 0))),
         )
         for facing, angle, axes in cases:
             for axis in axes:
@@ -48,15 +52,19 @@ class FourDirectionWalkTests(unittest.TestCase):
                         self.assertTrue(pose.moving)
                         self.assertEqual(pose.walk_frame_index(8), 5)
 
-    def test_turn_stop_and_resume_preserve_phase_through_all_four_facings(self):
+    def test_turn_stop_and_resume_preserve_phase_through_all_eight_facings(self):
         pose = Locomotion()
         pose.update(-math.pi / 4, 18, 0)
         self.assertEqual((pose.phase, pose.walk_frame_index(8)), (0.28125, 3))
         for facing, angle, next_phase, frame in (
-            ("back_right", math.pi / 4, 0.3125, 3),
-            ("back_left", 3 * math.pi / 4, 0.34375, 3),
-            ("front_left", -3 * math.pi / 4, 0.375, 4),
-            ("front_right", -math.pi / 4, 0.40625, 4),
+            ("right", 0.0, 0.3125, 3),
+            ("back_right", math.pi / 4, 0.34375, 3),
+            ("back", math.pi / 2, 0.375, 4),
+            ("back_left", 3 * math.pi / 4, 0.40625, 4),
+            ("left", math.pi, 0.4375, 4),
+            ("front_left", -3 * math.pi / 4, 0.46875, 4),
+            ("front", -math.pi / 2, 0.5, 5),
+            ("front_right", -math.pi / 4, 0.53125, 5),
         ):
             with self.subTest(facing=facing):
                 phase = pose.phase
@@ -119,22 +127,26 @@ class FourDirectionWalkTests(unittest.TestCase):
 
     def test_facing_boundary_cycle_wrap_and_idle_return_in_all_directions(self):
         for facing, center, next_facing in (
-            ("front_right", -45, "back_right"),
-            ("back_right", 45, "back_left"),
-            ("back_left", 135, "front_left"),
-            ("front_left", -135, "front_right"),
+            ("right", 0, "back_right"),
+            ("back_right", 45, "back"),
+            ("back", 90, "back_left"),
+            ("back_left", 135, "left"),
+            ("left", 180, "front_left"),
+            ("front_left", -135, "front"),
+            ("front", -90, "front_right"),
+            ("front_right", -45, "right"),
         ):
             with self.subTest(facing=facing):
                 pose = Locomotion()
                 pose.update(math.radians(center), 56, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (facing, 0.875, 8))
-                pose.update(math.radians(center + 50), 0, 0)
+                pose.update(math.radians(center + 27.5), 0, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (facing, 0.875, 0))
-                pose.update(math.radians(center + 50.001), 8, 0)
+                pose.update(math.radians(center + 27.501), 8, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (next_facing, 0.0, 1))
-                pose.update(math.radians(center + 50.001), 0, 0)
+                pose.update(math.radians(center + 27.501), 0, 0)
                 self.assertEqual((pose.phase, pose.walk_frame_index(8)), (0.0, 0))
-                pose.update(math.radians(center + 50.001), -8, 0)
+                pose.update(math.radians(center + 27.501), -8, 0)
                 self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), (next_facing, 0.125, 2))
 
 

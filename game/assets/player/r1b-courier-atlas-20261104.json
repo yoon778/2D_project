@@ -856,6 +856,838 @@
         "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
         "phase": 0.875
       }
+    ],
+    "front": [
+      {
+        "name": "idle",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          14,
+          168,
+          52,
+          66
+        ],
+        "foot_pivot_topleft": [
+          40,
+          232
+        ],
+        "cell_topleft": [
+          0,
+          160,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+      },
+      {
+        "name": "walk1_right_contact",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          14,
+          8,
+          52,
+          71
+        ],
+        "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2_right_load",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          94,
+          9,
+          52,
+          68
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3_left_passing",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          174,
+          9,
+          52,
+          65
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4_left_advance",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          254,
+          8,
+          52,
+          68
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5_left_contact",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          14,
+          88,
+          52,
+          71
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6_left_load",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          94,
+          89,
+          52,
+          68
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7_right_passing",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          174,
+          89,
+          52,
+          65
+        ],
+        "foot_pivot_topleft": [
+          200,
+          152
+        ],
+        "cell_topleft": [
+          160,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.75
+      },
+      {
+        "name": "walk8_right_advance",
+        "source": "pixel64_front",
+        "clip_topleft": [
+          254,
+          88,
+          52,
+          68
+        ],
+        "foot_pivot_topleft": [
+          280,
+          152
+        ],
+        "cell_topleft": [
+          240,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.875
+      }
+    ],
+    "back": [
+      {
+        "name": "idle",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          15,
+          168,
+          58,
+          66
+        ],
+        "foot_pivot_topleft": [
+          40,
+          232
+        ],
+        "cell_topleft": [
+          0,
+          160,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+      },
+      {
+        "name": "walk1_right_contact",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          15,
+          8,
+          58,
+          71
+        ],
+        "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2_right_load",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          95,
+          9,
+          58,
+          66
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3_left_passing",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          175,
+          9,
+          57,
+          65
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4_left_advance",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          255,
+          8,
+          58,
+          68
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5_left_contact",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          15,
+          88,
+          58,
+          71
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6_left_load",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          95,
+          89,
+          58,
+          66
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7_right_passing",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          175,
+          89,
+          57,
+          65
+        ],
+        "foot_pivot_topleft": [
+          200,
+          152
+        ],
+        "cell_topleft": [
+          160,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.75
+      },
+      {
+        "name": "walk8_right_advance",
+        "source": "pixel64_back",
+        "clip_topleft": [
+          255,
+          88,
+          58,
+          68
+        ],
+        "foot_pivot_topleft": [
+          280,
+          152
+        ],
+        "cell_topleft": [
+          240,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.875
+      }
+    ],
+    "left": [
+      {
+        "name": "idle",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          20,
+          168,
+          43,
+          68
+        ],
+        "foot_pivot_topleft": [
+          40,
+          232
+        ],
+        "cell_topleft": [
+          0,
+          160,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+      },
+      {
+        "name": "walk1_right_contact",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          20,
+          8,
+          43,
+          70
+        ],
+        "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2_right_load",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          101,
+          9,
+          42,
+          67
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3_left_passing",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          181,
+          9,
+          42,
+          66
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4_left_advance",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          260,
+          8,
+          43,
+          68
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5_left_contact",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          18,
+          88,
+          45,
+          69
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6_left_load",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          100,
+          89,
+          42,
+          67
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7_right_passing",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          180,
+          89,
+          42,
+          67
+        ],
+        "foot_pivot_topleft": [
+          200,
+          152
+        ],
+        "cell_topleft": [
+          160,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.75
+      },
+      {
+        "name": "walk8_right_advance",
+        "source": "pixel64_left",
+        "clip_topleft": [
+          260,
+          88,
+          43,
+          69
+        ],
+        "foot_pivot_topleft": [
+          280,
+          152
+        ],
+        "cell_topleft": [
+          240,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.875
+      }
+    ],
+    "right": [
+      {
+        "name": "idle",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          18,
+          168,
+          42,
+          68
+        ],
+        "foot_pivot_topleft": [
+          40,
+          232
+        ],
+        "cell_topleft": [
+          0,
+          160,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses"
+      },
+      {
+        "name": "walk1_right_contact",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          18,
+          8,
+          44,
+          68
+        ],
+        "foot_pivot_topleft": [
+          40,
+          72
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2_right_load",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          98,
+          9,
+          41,
+          67
+        ],
+        "foot_pivot_topleft": [
+          120,
+          72
+        ],
+        "cell_topleft": [
+          80,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3_left_passing",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          178,
+          9,
+          41,
+          67
+        ],
+        "foot_pivot_topleft": [
+          200,
+          72
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4_left_advance",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          258,
+          8,
+          42,
+          68
+        ],
+        "foot_pivot_topleft": [
+          280,
+          72
+        ],
+        "cell_topleft": [
+          240,
+          0,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5_left_contact",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          18,
+          88,
+          42,
+          69
+        ],
+        "foot_pivot_topleft": [
+          40,
+          152
+        ],
+        "cell_topleft": [
+          0,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.5
+      },
+      {
+        "name": "walk6_left_load",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          99,
+          89,
+          41,
+          66
+        ],
+        "foot_pivot_topleft": [
+          120,
+          152
+        ],
+        "cell_topleft": [
+          80,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.625
+      },
+      {
+        "name": "walk7_right_passing",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          179,
+          89,
+          41,
+          66
+        ],
+        "foot_pivot_topleft": [
+          200,
+          152
+        ],
+        "cell_topleft": [
+          160,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.75
+      },
+      {
+        "name": "walk8_right_advance",
+        "source": "pixel64_right",
+        "clip_topleft": [
+          258,
+          88,
+          42,
+          67
+        ],
+        "foot_pivot_topleft": [
+          280,
+          152
+        ],
+        "cell_topleft": [
+          240,
+          80,
+          80,
+          80
+        ],
+        "scale_reference_height": 64,
+        "pivot_basis": "Common cell-local ground root (40,72) and integer 2x scale for idle and all walk poses",
+        "phase": 0.875
+      }
     ]
   },
   "scale_basis": "Active pixel64 sources: display128/reference64 = exact2; idle and all walk poses share one scale",
@@ -878,7 +1710,7 @@
       "reason": "No clear reversal of lead foot in front_right/front_left; no improvement accepted"
     }
   ],
-  "review_status": "R1-P64 four-way 64px-reference sprites reviewed in native SDL at integer 2x display; user play review pending",
+  "review_status": "R1-C8 eight 64px directional cycles and matching idles integrated; director native and user play review pending",
   "limits": "High-resolution generated parts are baked to80px cells with a64px reference height; visible pose bounds vary with motion. User play feel review pending.",
   "alpha_review": "Active pixel64 sources use binary alpha 0/255; legacy image records retain their original alpha",
   "root_alignment": "R1-P64 shared cell-local ground root(40,72), displayed at2x, tied to the existing world ground anchor",
@@ -1960,6 +2792,174 @@
         0,
         255
       ]
+    },
+    "pixel64_front": {
+      "image": "r1-pixel64-front-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "a334b532539bd7def917ea9097039bd68515fc2ed396050f99f5561f7b191e36",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-front.png",
+        "held_bat": "art/player/courier-bat-64.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
+      },
+      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
+    },
+    "pixel64_back": {
+      "image": "r1-pixel64-back-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "6880d33399d14c53c1204515243a5449abef25e9cd07f0edd1dd2f75128c0050",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-back.png",
+        "held_bat": "art/player/courier-bat-64.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
+      },
+      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
+    },
+    "pixel64_left": {
+      "image": "r1-pixel64-left-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "07fc7508ec01ddb23a90e780437816380e18a8d0bf7b8d029f52c7262373b7bd",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-left.png",
+        "held_bat": "art/player/courier-bat-64.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
+      },
+      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
+    },
+    "pixel64_right": {
+      "image": "r1-pixel64-right-20261105.png",
+      "canvas_size": [
+        320,
+        240
+      ],
+      "sha256": "59addfe3c82a74e1786b666e7009937dc4b760b21c103814d2f53258eaec2171",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          80,
+          160,
+          240,
+          320
+        ],
+        "cell_boundaries_y": [
+          0,
+          80,
+          160,
+          240
+        ]
+      },
+      "scale_reference_height": 64,
+      "cell_local_body_root": [
+        40,
+        72
+      ],
+      "scale_basis": "64px authored reference displayed at integer 2x with nearest sampling; idle and walk share one scale and ground root",
+      "provenance": {
+        "parts": "art/player/courier-pixel64-parts-right.png",
+        "held_bat": "art/player/courier-bat-64.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "approved_palette": "art/player/style-studies/front-right-idle-64.json",
+        "method": "Unique cardinal ImageGen cutouts and shared held bat, offline two-leg rendering, nearest 64px reduction and approved palette mapping"
+      },
+      "review_status": "R1-C8 cardinal direction integrated; director native and user play review pending",
+      "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     }
   },
   "edited_on": "2026-11-05"

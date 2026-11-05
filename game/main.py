@@ -1,4 +1,4 @@
-"""Dead Route R1-B: four facings, distance-based walking and ground aiming."""
+"""Dead Route R1-B: eight facings, distance-based walking and ground aiming."""
 from __future__ import annotations
 
 import argparse
@@ -109,7 +109,7 @@ class Renderer:
         target_screen = world_to_screen(*target)
         p.draw_line(*foot, *target_screen, 112, 93, 56)
         cross(*target_screen, ORANGE, size=7)
-        self.font.draw(24, 683, "Dead Route - R1-B  |  4방향 · 실제 이동 거리로 보행", WHITE)
+        self.font.draw(24, 683, "Dead Route - R1-B  |  8방향 · 실제 이동 거리로 보행", WHITE)
         self.font.draw(24, 651, "WASD 이동 · 마우스 지면 조준 · 발점 청록 / 조준 주황 · Esc 종료", WHITE)
         self.font.draw(24, 54, "입력 활성" if focused else "포커스 없음 · 이동 입력 초기화", WHITE)
         self.font.draw(24, 24,

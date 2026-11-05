@@ -6,12 +6,16 @@ import math
 STRIDE_DISTANCE = 64.0
 _ANGLE_TOLERANCE = 1e-12
 _PHASE_TOLERANCE = 1e-12
-_FACING_LIMIT = math.radians(50.0)
+_FACING_LIMIT = math.radians(27.5)
 _DIRECTIONS = (
-    ("front_right", -math.pi / 4),
+    ("right", 0.0),
     ("back_right", math.pi / 4),
+    ("back", math.pi / 2),
     ("back_left", 3 * math.pi / 4),
+    ("left", math.pi),
     ("front_left", -3 * math.pi / 4),
+    ("front", -math.pi / 2),
+    ("front_right", -math.pi / 4),
 )
 
 
