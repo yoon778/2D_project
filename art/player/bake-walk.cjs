@@ -28,14 +28,15 @@ async function makeParts(rig) {
       const image = `width="${width}" height="${height}" xlink:href="data:image/png;base64,${png.toString('base64')}"`
       if (name === 'torso' && rig.torso.bat) {
         // Rotate only the painted bat around its grip in source-local space.
-        const {pivot, polygon, cutouts = [], angle, scale = 1, opacity = 1} = rig.torso.bat
+        const {pivot, polygon, cutouts = [], angle, scale = 1} = rig.torso.bat
         const shapes = [polygon, ...cutouts].map(
           shape => `<polygon points="${shape.map(point => point.join(',')).join(' ')}"/>`).join('')
+        const barrel = `<polygon points="${polygon.map(point => point.join(',')).join(' ')}"/>`
         parts.push(`<image id="torsoTexture" ${image}/>`
           + `<mask id="batCut"><rect width="${width}" height="${height}" fill="white"/><g fill="black">${shapes}</g></mask>`
-          + `<clipPath id="batOnly">${shapes}</clipPath>`
-          + `<g id="torsobody"><g${mask}><use xlink:href="#torsoTexture" mask="url(#batCut)"/></g>`
-          + `<g opacity="${opacity}" transform="translate(${pivot}) rotate(${angle}) scale(${scale}) translate(${-pivot[0]} ${-pivot[1]})"><use xlink:href="#torsoTexture" clip-path="url(#batOnly)"/></g></g>`)
+          + `<clipPath id="batOnly">${barrel}</clipPath>`
+          + `<g id="torsobody"><g${mask}><use xlink:href="#torsoTexture" mask="url(#batCut)"/></g></g>`
+          + `<g id="heldBat" transform="translate(${pivot}) rotate(${angle}) scale(${scale}) translate(${-pivot[0]} ${-pivot[1]})"><use xlink:href="#torsoTexture" clip-path="url(#batOnly)"/></g>`)
       } else {
         parts.push(`<image id="${name + side}"${mask} ${image}/>`)
       }
@@ -101,9 +102,12 @@ async function bake(facing) {
   for (let frame = 0; frame < 9; frame++) {
     const shift = frame === 8 ? 0 : bodyShift[frame] * rig.ground[0]
     const drop = frame === 8 ? 0 : bodyDrop[frame]
-    const torso = use('torsobody', `translate(${rig.torso.position[0] + shift} ${rig.torso.position[1] + drop}) scale(${rig.torso.scale})`)
+    const transform = `translate(${rig.torso.position[0] + shift} ${rig.torso.position[1] + drop}) scale(${rig.torso.scale})`
+    const torso = use('torsobody', transform)
+    const bat = rig.torso.bat ? use('heldBat', transform) : ''
+    const behind = rig.torso.bat?.layer === 'behind'
     const x = (frame % 4) * cellSize, y = Math.floor(frame / 4) * cellSize
-    poses.push(`<g transform="translate(${x} ${y})">${drawLeg(rig, farLeg, frame)}${drawLeg(rig, rig.nearLeg, frame)}${torso}</g>`)
+    poses.push(`<g transform="translate(${x} ${y})">${behind ? bat : ''}${drawLeg(rig, farLeg, frame)}${drawLeg(rig, rig.nearLeg, frame)}${torso}${behind ? '' : bat}</g>`)
   }
   const scene = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="640" height="480"><defs>${parts}</defs>${poses.join('')}</svg>`
   const output = path.join(__dirname, `../../game/assets/player/r1-pixel64-${facing.replaceAll('_', '-')}-20261105.png`)

@@ -451,8 +451,7 @@
             415
           ]
         ],
-        "angle": 0,
-        "opacity": 0,
+        "angle": 150,
         "cutouts": [
           [
             [
@@ -472,7 +471,8 @@
               390
             ]
           ]
-        ]
+        ],
+        "layer": "behind"
       }
     },
     "ground": [

@@ -1869,7 +1869,7 @@
         320,
         240
       ],
-      "sha256": "e84014c5182068bb7b8f8ac4055ac5f20a85e308966a8ab55cb3babf9d275d80",
+      "sha256": "5007e221e59c50a61220263fff4b3ff73afa8eb2b7708d887dbd9fbf472fdbb9",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
@@ -1903,9 +1903,9 @@
         "hip_join_correction": "Widen the hip fade from 200 to 212 source pixels to cover the remaining right-edge pelvis outline",
         "prompt": "art/player/pixel64-parts.prompt.txt",
         "palette": "art/player/style-studies/front-right-idle-64.json",
-        "bat_adjustment": "Set bat opacity to zero, hiding the barrel, butt and remaining original outline"
+        "bat_adjustment": "Retain the whole barrel at full opacity, rotated around the grip and rendered behind the character; legs and torso occlude it naturally"
       },
-      "review_status": "Directional bat placement checked across native SDL idle/eight walk poses and60-frame capture; user play review pending",
+      "review_status": "Native idle/eight-pose and60-frame capture reviewed; all nine poses retain a partially body-occluded bat; user play review pending",
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding",
       "visible_color_count": 22,
       "alpha_values": [
