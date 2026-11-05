@@ -5,14 +5,14 @@
     1448
   ],
   "clip_topleft": [
-    87,
-    30,
-    204,
-    312
+    36,
+    337,
+    86,
+    135
   ],
   "foot_pivot_topleft": [
-    194,
-    332
+    80,
+    464
   ],
   "display_height": 128,
   "sampling": "nearest",
@@ -28,32 +28,34 @@
     "front_right": [
       {
         "name": "idle",
+        "source": "unified_front_right",
         "clip_topleft": [
-          87,
-          30,
-          204,
-          312
+          36,
+          337,
+          86,
+          135
         ],
         "foot_pivot_topleft": [
-          194,
-          332
+          80,
+          464
         ],
         "cell_topleft": [
           0,
-          0,
-          362,
-          362
+          320,
+          160,
+          160
         ],
-        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
       },
       {
         "name": "walk1_right_contact",
-        "source": "alternating_front_right",
+        "source": "unified_front_right",
         "clip_topleft": [
           36,
-          18,
+          17,
           86,
-          138
+          139
         ],
         "foot_pivot_topleft": [
           80,
@@ -66,16 +68,17 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.0
       },
       {
         "name": "walk2_right_load",
-        "source": "alternating_front_right",
+        "source": "unified_front_right",
         "clip_topleft": [
           195,
-          20,
+          19,
           86,
-          133
+          135
         ],
         "foot_pivot_topleft": [
           240,
@@ -88,16 +91,17 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.125
       },
       {
-        "name": "walk3_left_pass",
-        "source": "alternating_front_right",
+        "name": "walk3_left_passing",
+        "source": "unified_front_right",
         "clip_topleft": [
           355,
-          19,
+          18,
           86,
-          130
+          135
         ],
         "foot_pivot_topleft": [
           400,
@@ -110,16 +114,17 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.25
       },
       {
         "name": "walk4_left_advance",
-        "source": "alternating_front_right",
+        "source": "unified_front_right",
         "clip_topleft": [
           516,
-          18,
+          17,
           86,
-          128
+          135
         ],
         "foot_pivot_topleft": [
           560,
@@ -132,16 +137,17 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.375
       },
       {
         "name": "walk5_left_contact",
-        "source": "alternating_front_right",
+        "source": "unified_front_right",
         "clip_topleft": [
           36,
-          178,
+          177,
           86,
-          133
+          135
         ],
         "foot_pivot_topleft": [
           80,
@@ -154,16 +160,17 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.5
       },
       {
         "name": "walk6_left_load",
-        "source": "alternating_front_right",
+        "source": "unified_front_right",
         "clip_topleft": [
           197,
-          180,
-          85,
-          128
+          179,
+          86,
+          135
         ],
         "foot_pivot_topleft": [
           240,
@@ -176,16 +183,17 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.625
       },
       {
-        "name": "walk7_right_pass",
-        "source": "alternating_front_right",
+        "name": "walk7_right_passing",
+        "source": "unified_front_right",
         "clip_topleft": [
-          356,
-          179,
+          357,
+          178,
           86,
-          125
+          135
         ],
         "foot_pivot_topleft": [
           400,
@@ -198,16 +206,17 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.75
       },
       {
         "name": "walk8_right_advance",
-        "source": "alternating_front_right",
+        "source": "unified_front_right",
         "clip_topleft": [
           516,
-          178,
+          177,
           86,
-          132
+          135
         ],
         "foot_pivot_topleft": [
           560,
@@ -220,629 +229,636 @@
           160
         ],
         "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
         "phase": 0.875
       }
     ],
     "back_right": [
       {
         "name": "idle",
+        "source": "unified_back_right",
         "clip_topleft": [
+          50,
+          338,
           98,
-          389,
-          190,
-          313
+          133
         ],
         "foot_pivot_topleft": [
-          182,
-          694
+          80,
+          464
         ],
         "cell_topleft": [
           0,
-          362,
-          362,
-          362
+          320,
+          160,
+          160
         ],
-        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
       },
       {
-        "name": "walk1_contact_a",
-        "source": "smooth_back_right",
+        "name": "walk1_right_contact",
+        "source": "unified_back_right",
         "clip_topleft": [
-          115,
-          15,
-          249,
-          419
+          49,
+          18,
+          99,
+          135
         ],
         "foot_pivot_topleft": [
-          224.937789,
-          414.854546
+          80,
+          144
         ],
         "cell_topleft": [
           0,
           0,
-          443,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.0,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.0
       },
       {
-        "name": "walk2_down_a",
-        "source": "smooth_back_right",
+        "name": "walk2_right_load",
+        "source": "unified_back_right",
         "clip_topleft": [
-          558,
-          15,
-          250,
-          405
+          209,
+          20,
+          98,
+          127
         ],
         "foot_pivot_topleft": [
-          667.937789,
-          414.854546
+          240,
+          144
         ],
         "cell_topleft": [
-          443,
+          160,
           0,
-          444,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.125,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.125
       },
       {
-        "name": "walk3_pass_a",
-        "source": "smooth_back_right",
+        "name": "walk3_left_passing",
+        "source": "unified_back_right",
         "clip_topleft": [
-          1001,
-          16,
-          250,
-          396
+          369,
+          19,
+          98,
+          132
         ],
         "foot_pivot_topleft": [
-          1111.937789,
-          414.854546
+          400,
+          144
         ],
         "cell_topleft": [
-          887,
+          320,
           0,
-          443,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.25,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.25
       },
       {
-        "name": "walk4_up_a",
-        "source": "smooth_back_right",
+        "name": "walk4_left_advance",
+        "source": "unified_back_right",
         "clip_topleft": [
-          1445,
-          15,
-          250,
-          395
+          530,
+          18,
+          98,
+          136
         ],
         "foot_pivot_topleft": [
-          1554.937789,
-          414.854546
+          560,
+          144
         ],
         "cell_topleft": [
-          1330,
+          480,
           0,
-          444,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.375,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.375
       },
       {
-        "name": "walk5_contact_b",
-        "source": "smooth_back_right",
+        "name": "walk5_left_contact",
+        "source": "unified_back_right",
         "clip_topleft": [
-          115,
-          459,
-          249,
-          413
+          50,
+          178,
+          98,
+          140
         ],
         "foot_pivot_topleft": [
-          224.937789,
-          857.854546
+          80,
+          304
         ],
         "cell_topleft": [
           0,
-          443,
-          443,
-          444
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.5,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.5
       },
       {
-        "name": "walk6_down_b",
-        "source": "smooth_back_right",
+        "name": "walk6_left_load",
+        "source": "unified_back_right",
         "clip_topleft": [
-          558,
-          459,
-          249,
-          415
+          210,
+          180,
+          99,
+          131
         ],
         "foot_pivot_topleft": [
-          667.937789,
-          857.854546
+          240,
+          304
         ],
         "cell_topleft": [
-          443,
-          443,
-          444,
-          444
+          160,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.625,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.625
       },
       {
-        "name": "walk7_pass_b",
-        "source": "smooth_back_right",
+        "name": "walk7_right_passing",
+        "source": "unified_back_right",
         "clip_topleft": [
-          1001,
-          459,
-          250,
-          416
+          370,
+          179,
+          99,
+          127
         ],
         "foot_pivot_topleft": [
-          1111.937789,
-          857.854546
+          400,
+          304
         ],
         "cell_topleft": [
-          887,
-          443,
-          443,
-          444
+          320,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.75,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.75
       },
       {
-        "name": "walk8_up_b",
-        "source": "smooth_back_right",
+        "name": "walk8_right_advance",
+        "source": "unified_back_right",
         "clip_topleft": [
-          1445,
-          459,
-          250,
-          417
+          530,
+          178,
+          98,
+          131
         ],
         "foot_pivot_topleft": [
-          1554.937789,
-          857.854546
+          560,
+          304
         ],
         "cell_topleft": [
-          1330,
-          443,
-          444,
-          444
+          480,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 410.339432,
-        "phase": 0.875,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/top orange backpack flap landmarks against preserved back_right idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.875
       }
     ],
     "back_left": [
       {
         "name": "idle",
+        "source": "unified_back_left",
         "clip_topleft": [
-          95,
-          752,
-          188,
-          311
+          36,
+          338,
+          110,
+          131
         ],
         "foot_pivot_topleft": [
-          189,
-          1054
+          80,
+          464
         ],
         "cell_topleft": [
           0,
-          724,
-          362,
-          362
+          320,
+          160,
+          160
         ],
-        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
       },
       {
-        "name": "walk1_contact_a",
-        "source": "smooth_back_left",
+        "name": "walk1_right_contact",
+        "source": "unified_back_left",
         "clip_topleft": [
-          96,
-          10,
-          249,
-          427
+          36,
+          18,
+          110,
+          139
         ],
         "foot_pivot_topleft": [
-          223.813893,
-          404.934783
+          80,
+          144
         ],
         "cell_topleft": [
           0,
           0,
-          443,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.0,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.0
       },
       {
-        "name": "walk2_down_a",
-        "source": "smooth_back_left",
+        "name": "walk2_right_load",
+        "source": "unified_back_left",
         "clip_topleft": [
-          540,
-          10,
-          249,
-          410
+          197,
+          20,
+          110,
+          130
         ],
         "foot_pivot_topleft": [
-          666.813893,
-          404.934783
+          240,
+          144
         ],
         "cell_topleft": [
-          443,
+          160,
           0,
-          444,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.125,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.125
       },
       {
-        "name": "walk3_pass_a",
-        "source": "smooth_back_left",
+        "name": "walk3_left_passing",
+        "source": "unified_back_left",
         "clip_topleft": [
-          983,
-          10,
-          249,
-          423
+          357,
+          19,
+          110,
+          125
         ],
         "foot_pivot_topleft": [
-          1110.813893,
-          404.934783
+          400,
+          144
         ],
         "cell_topleft": [
-          887,
+          320,
           0,
-          443,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.25,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.25
       },
       {
-        "name": "walk4_up_a",
-        "source": "smooth_back_left",
+        "name": "walk4_left_advance",
+        "source": "unified_back_left",
         "clip_topleft": [
-          1427,
-          10,
-          249,
-          423
+          516,
+          18,
+          110,
+          130
         ],
         "foot_pivot_topleft": [
-          1553.813893,
-          404.934783
+          560,
+          144
         ],
         "cell_topleft": [
-          1330,
+          480,
           0,
-          444,
-          443
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.375,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.375
       },
       {
-        "name": "walk5_contact_b",
-        "source": "smooth_back_left",
+        "name": "walk5_left_contact",
+        "source": "unified_back_left",
         "clip_topleft": [
-          96,
-          454,
-          249,
-          419
+          36,
+          178,
+          110,
+          134
         ],
         "foot_pivot_topleft": [
-          223.813893,
-          847.934783
+          80,
+          304
         ],
         "cell_topleft": [
           0,
-          443,
-          443,
-          444
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.5,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.5
       },
       {
-        "name": "walk6_down_b",
-        "source": "smooth_back_left",
+        "name": "walk6_left_load",
+        "source": "unified_back_left",
         "clip_topleft": [
-          540,
-          454,
-          249,
-          408
+          196,
+          180,
+          110,
+          126
         ],
         "foot_pivot_topleft": [
-          666.813893,
-          847.934783
+          240,
+          304
         ],
         "cell_topleft": [
-          443,
-          443,
-          444,
-          444
+          160,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.625,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.625
       },
       {
-        "name": "walk7_pass_b",
-        "source": "smooth_back_left",
+        "name": "walk7_right_passing",
+        "source": "unified_back_left",
         "clip_topleft": [
-          983,
-          454,
-          248,
-          419
+          356,
+          179,
+          110,
+          130
         ],
         "foot_pivot_topleft": [
-          1110.813893,
-          847.934783
+          400,
+          304
         ],
         "cell_topleft": [
-          887,
-          443,
-          443,
-          444
+          320,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.75,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.75
       },
       {
-        "name": "walk8_up_b",
-        "source": "smooth_back_left",
+        "name": "walk8_right_advance",
+        "source": "unified_back_left",
         "clip_topleft": [
-          1427,
-          454,
-          249,
-          419
+          516,
+          178,
+          110,
+          135
         ],
         "foot_pivot_topleft": [
-          1553.813893,
-          847.934783
+          560,
+          304
         ],
         "cell_topleft": [
-          1330,
-          443,
-          444,
-          444
+          480,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 406.824058,
-        "phase": 0.875,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/orange backpack flap landmarks against preserved back_left idle; not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.875
       }
     ],
     "front_left": [
       {
         "name": "idle",
+        "source": "unified_front_left",
         "clip_topleft": [
-          83,
-          1114,
-          186,
-          306
+          31,
+          337,
+          91,
+          133
         ],
         "foot_pivot_topleft": [
-          180,
-          1412
+          80,
+          464
         ],
         "cell_topleft": [
           0,
-          1086,
-          362,
-          362
+          320,
+          160,
+          160
         ],
-        "pivot_basis": "Shared cell-local body/ground root from facing idle; cap/chest alignment, not per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle"
       },
       {
-        "name": "walk1_contact_a",
-        "source": "smooth_front_left",
+        "name": "walk1_right_contact",
+        "source": "unified_front_left",
         "clip_topleft": [
-          94,
-          16,
+          31,
+          17,
+          91,
+          134
+        ],
+        "foot_pivot_topleft": [
+          80,
+          144
+        ],
+        "cell_topleft": [
+          0,
+          0,
+          160,
+          160
+        ],
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.0
+      },
+      {
+        "name": "walk2_right_load",
+        "source": "unified_front_left",
+        "clip_topleft": [
+          192,
+          19,
+          91,
+          130
+        ],
+        "foot_pivot_topleft": [
           240,
-          414
+          144
+        ],
+        "cell_topleft": [
+          160,
+          0,
+          160,
+          160
+        ],
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.125
+      },
+      {
+        "name": "walk3_left_passing",
+        "source": "unified_front_left",
+        "clip_topleft": [
+          352,
+          18,
+          90,
+          127
         ],
         "foot_pivot_topleft": [
-          219.869849,
-          385.992414
+          400,
+          144
+        ],
+        "cell_topleft": [
+          320,
+          0,
+          160,
+          160
+        ],
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.25
+      },
+      {
+        "name": "walk4_left_advance",
+        "source": "unified_front_left",
+        "clip_topleft": [
+          511,
+          17,
+          91,
+          134
+        ],
+        "foot_pivot_topleft": [
+          560,
+          144
+        ],
+        "cell_topleft": [
+          480,
+          0,
+          160,
+          160
+        ],
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.375
+      },
+      {
+        "name": "walk5_left_contact",
+        "source": "unified_front_left",
+        "clip_topleft": [
+          31,
+          177,
+          91,
+          139
+        ],
+        "foot_pivot_topleft": [
+          80,
+          304
         ],
         "cell_topleft": [
           0,
-          0,
-          443,
-          443
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.0,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.5
       },
       {
-        "name": "walk2_down_a",
-        "source": "smooth_front_left",
+        "name": "walk6_left_load",
+        "source": "unified_front_left",
         "clip_topleft": [
-          538,
-          16,
-          239,
-          412
+          190,
+          179,
+          91,
+          135
         ],
         "foot_pivot_topleft": [
-          662.869849,
-          385.992414
+          240,
+          304
         ],
         "cell_topleft": [
-          443,
-          0,
-          444,
-          443
+          160,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.125,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.625
       },
       {
-        "name": "walk3_pass_a",
-        "source": "smooth_front_left",
+        "name": "walk7_right_passing",
+        "source": "unified_front_left",
         "clip_topleft": [
-          982,
-          16,
-          239,
-          412
+          350,
+          178,
+          91,
+          132
         ],
         "foot_pivot_topleft": [
-          1106.869849,
-          385.992414
+          400,
+          304
         ],
         "cell_topleft": [
-          887,
-          0,
-          443,
-          443
+          320,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.25,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.75
       },
       {
-        "name": "walk4_up_a",
-        "source": "smooth_front_left",
+        "name": "walk8_right_advance",
+        "source": "unified_front_left",
         "clip_topleft": [
-          1426,
-          16,
-          238,
-          398
+          511,
+          177,
+          91,
+          130
         ],
         "foot_pivot_topleft": [
-          1549.869849,
-          385.992414
+          560,
+          304
         ],
         "cell_topleft": [
-          1330,
-          0,
-          444,
-          443
+          480,
+          160,
+          160,
+          160
         ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.375,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
-      },
-      {
-        "name": "walk5_contact_b",
-        "source": "smooth_front_left",
-        "clip_topleft": [
-          94,
-          459,
-          241,
-          411
-        ],
-        "foot_pivot_topleft": [
-          219.869849,
-          828.992414
-        ],
-        "cell_topleft": [
-          0,
-          443,
-          443,
-          444
-        ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.5,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
-      },
-      {
-        "name": "walk6_down_b",
-        "source": "smooth_front_left",
-        "clip_topleft": [
-          539,
-          459,
-          238,
-          410
-        ],
-        "foot_pivot_topleft": [
-          662.869849,
-          828.992414
-        ],
-        "cell_topleft": [
-          443,
-          443,
-          444,
-          444
-        ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.625,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
-      },
-      {
-        "name": "walk7_pass_b",
-        "source": "smooth_front_left",
-        "clip_topleft": [
-          982,
-          460,
-          239,
-          409
-        ],
-        "foot_pivot_topleft": [
-          1106.869849,
-          828.992414
-        ],
-        "cell_topleft": [
-          887,
-          443,
-          443,
-          444
-        ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.75,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
-      },
-      {
-        "name": "walk8_up_b",
-        "source": "smooth_front_left",
-        "clip_topleft": [
-          1426,
-          459,
-          238,
-          400
-        ],
-        "foot_pivot_topleft": [
-          1549.869849,
-          828.992414
-        ],
-        "cell_topleft": [
-          1330,
-          443,
-          444,
-          444
-        ],
-        "scale_reference_height": 380.295367,
-        "phase": 0.875,
-        "pivot_basis": "Shared cell-local body root calibrated from mean cap/chest lamp landmarks against preserved front_left idle; never per-frame sole midpoint"
+        "scale_reference_height": 128,
+        "pivot_basis": "One cell-local ground root and fixed scale for the directional idle and walk cycle",
+        "phase": 0.875
       }
     ]
   },
-  "scale_basis": "Atlas frames:128/facing idle clip height. Correction frames:128/fixed scale_reference_height calibrated to head/chest landmarks",
+  "scale_basis": "All active directional frames use 128/fixed scale_reference_height; no per-frame normalization",
   "generated_on": "2026-11-04",
   "source_reference": "r1a-courier-20261104.png",
   "source_reference_sha256": "A928D8DF6FDAFAD919AF79E59B4AD805AFBBF07B2CC2A4E11C98C8BC23B83539",
@@ -862,10 +878,10 @@
       "reason": "No clear reversal of lead foot in front_right/front_left; no improvement accepted"
     }
   ],
-  "review_status": "Front-right two-leg cycle checked in native SDL; user play review pending",
+  "review_status": "R1-W5 four-way gait, matching idle and longer bat reviewed in native SDL; user play review pending",
   "limits": "Generated pixels are not a strict native 64px grid. Low-alpha edge residue remains. Head/chest calibration does not guarantee identical cap/shoulder/parcel proportions; verify rendered poses.",
   "alpha_review": "RGBA 0-255, 163307 low-alpha pixels (1-16) on initial atlas; runtime clips omit much of empty margins but within-clip edge fringe remains",
-  "root_alignment": "2026-11-05 director correction: shared idle cell-local body root for atlas frames; world collision footpoint unchanged",
+  "root_alignment": "All active directional idle/walk frames share cell-local root (80,144); world collision anchor is the ground point",
   "sources": {
     "atlas": {
       "image": "r1b-courier-atlas-20261104.png",
@@ -1583,6 +1599,170 @@
       ],
       "scale_basis": "Authored at the 128px display scale; one common root and scale for all eight poses",
       "alpha_review": "RGBA; per-cell alpha>16 bounds with up to 2px padding"
+    },
+    "unified_front_right": {
+      "image": "r1-unified-front-right-20261105.png",
+      "canvas_size": [
+        640,
+        480
+      ],
+      "sha256": "c050077ad86918868739ec2a7688ba8a6cc4d46f84da51fe2c7802caac1cd7d5",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          160,
+          320,
+          480,
+          640
+        ],
+        "cell_boundaries_y": [
+          0,
+          160,
+          320,
+          480
+        ]
+      },
+      "scale_reference_height": 128,
+      "cell_local_body_root": [
+        80,
+        144
+      ],
+      "scale_basis": "Fixed authored display scale and ground root shared by idle and all eight walk poses",
+      "provenance": {
+        "parts": "art/player/courier-walk-parts.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "method": "ImageGen unique directional cutouts, offline two-leg pose rendering",
+        "prompt": "art/player/fourway-parts.prompt.txt"
+      },
+      "review_status": "R1-W5 native capture checked; right/left contacts on 1/5, shared idle scale and intact bat; user play review pending",
+      "alpha_review": "RGBA; per-cell alpha>16 bounds plus up to 2px padding"
+    },
+    "unified_back_right": {
+      "image": "r1-unified-back-right-20261105.png",
+      "canvas_size": [
+        640,
+        480
+      ],
+      "sha256": "612360d6decdbe45d2ee6b9af0782318b7ce05c491c3c9afc9560a688cfc7d8f",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          160,
+          320,
+          480,
+          640
+        ],
+        "cell_boundaries_y": [
+          0,
+          160,
+          320,
+          480
+        ]
+      },
+      "scale_reference_height": 128,
+      "cell_local_body_root": [
+        80,
+        144
+      ],
+      "scale_basis": "Fixed authored display scale and ground root shared by idle and all eight walk poses",
+      "provenance": {
+        "parts": "art/player/courier-parts-back-right.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "method": "ImageGen unique directional cutouts, offline two-leg pose rendering",
+        "prompt": "art/player/fourway-parts.prompt.txt"
+      },
+      "review_status": "R1-W5 native capture checked; right/left contacts on 1/5, shared idle scale and intact bat; user play review pending",
+      "alpha_review": "RGBA; per-cell alpha>16 bounds plus up to 2px padding"
+    },
+    "unified_back_left": {
+      "image": "r1-unified-back-left-20261105.png",
+      "canvas_size": [
+        640,
+        480
+      ],
+      "sha256": "4c55d42a41ca7ab842cd2b7787f03ccf507026b6499560f4a35a967c845e29d7",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          160,
+          320,
+          480,
+          640
+        ],
+        "cell_boundaries_y": [
+          0,
+          160,
+          320,
+          480
+        ]
+      },
+      "scale_reference_height": 128,
+      "cell_local_body_root": [
+        80,
+        144
+      ],
+      "scale_basis": "Fixed authored display scale and ground root shared by idle and all eight walk poses",
+      "provenance": {
+        "parts": "art/player/courier-parts-back-left.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "method": "ImageGen unique directional cutouts, offline two-leg pose rendering",
+        "prompt": "art/player/fourway-parts.prompt.txt"
+      },
+      "review_status": "R1-W5 native capture checked; right/left contacts on 1/5, shared idle scale and intact bat; user play review pending",
+      "alpha_review": "RGBA; per-cell alpha>16 bounds plus up to 2px padding"
+    },
+    "unified_front_left": {
+      "image": "r1-unified-front-left-20261105.png",
+      "canvas_size": [
+        640,
+        480
+      ],
+      "sha256": "a19acd5b697b954394997099717adbea1db29b0fbfc96a99604dd2cbe5f7459c",
+      "generated_on": "2026-11-05",
+      "grid": {
+        "columns": 4,
+        "rows": 3,
+        "cell_boundaries_x": [
+          0,
+          160,
+          320,
+          480,
+          640
+        ],
+        "cell_boundaries_y": [
+          0,
+          160,
+          320,
+          480
+        ]
+      },
+      "scale_reference_height": 128,
+      "cell_local_body_root": [
+        80,
+        144
+      ],
+      "scale_basis": "Fixed authored display scale and ground root shared by idle and all eight walk poses",
+      "provenance": {
+        "parts": "art/player/courier-parts-front-left.png",
+        "bake": "art/player/bake-walk.cjs",
+        "rigs": "art/player/walk-rigs.json",
+        "method": "ImageGen unique directional cutouts, offline two-leg pose rendering",
+        "prompt": "art/player/fourway-parts.prompt.txt"
+      },
+      "review_status": "R1-W5 native capture checked; right/left contacts on 1/5, shared idle scale and intact bat; user play review pending",
+      "alpha_review": "RGBA; per-cell alpha>16 bounds plus up to 2px padding"
     }
   },
   "edited_on": "2026-11-05"
