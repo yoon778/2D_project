@@ -6,6 +6,7 @@
 ## 담당
 
 - UI·에셋: 새 `art/player/r2c8-combat-assets.cjs`와 전용 설정/검사, 기존 전투 JSON에 새 소스14개 추가, 새7방향 정지/이동 PNG14개. `plans/handoffs/r2c8-ui.md` 보고
+- 지휘 추가 허용: 기존 `r2a-combat-assets.cjs`는 JSON 추가 키 보존만 보완해 새14소스를 삭제하지 않게 함. 원본 PNG/기존3메타 값은 유지
 - 로직: `game/combat_visual.py`·`game/main.py`, 관련 Python 검사·새 방향 검사. `plans/handoffs/r2c8-logic.md` 보고
 - 지휘: 이 계약·통합/실제SDL·성능·문서·Git. 두 채팅은 담당 밖 수정/Git 금지
 - 기존 core/locomotion/player_visual/combat.py·R1 원화/부품/메타/PNG·FR 공격/이동 PNG·좀비PNG 불변
