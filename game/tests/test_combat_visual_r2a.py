@@ -38,7 +38,7 @@ class CombatSpriteTests(unittest.TestCase):
         for t in (-.1, .6, float("nan")):
             self.assertIsNone(self.visual.attack_frame_index(self.attack(t)))
         self.assertIsNone(self.visual.attack_frame_index(None))
-        self.assertFalse(self.visual.draw_attack(self.attack(.18, "left"), 100, 200))
+        self.assertFalse(self.visual.draw_attack(self.attack(.18, "unknown"), 100, 200))
         self.visual.images["attack"].clip_draw.assert_not_called()
 
     def test_attack_full_cell_keeps_two_times_scale_and_ground_anchor(self):
@@ -84,16 +84,16 @@ class CombatSpriteTests(unittest.TestCase):
             self.assertEqual(self.visual.images["zombie"].clip_draw.call_args.args[:4], (x, 0, 80, 80))
 
     def test_images_load_once_at_initialization_and_release_references(self):
-        images = [SimpleNamespace(w=288, h=192, texture=object(), clip_draw=Mock()),
-                  SimpleNamespace(w=240, h=80, texture=object(), clip_draw=Mock()),
-                  SimpleNamespace(w=768, h=576, texture=object(), clip_draw=Mock())]
+        sources = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+        images = [SimpleNamespace(w=source["canvas_size"][0], h=source["canvas_size"][1],
+                                  texture=object(), clip_draw=Mock()) for source in sources.values()]
         with (patch.object(combat_visual.p, "load_image", side_effect=images) as load,
               patch.object(combat_visual.p, "SDL_SetTextureScaleMode", return_value=0)):
             visual = CombatVisual()
             for t in (0, .18, .48):
                 visual.draw_attack(self.attack(t), 100, 200)
             visual.draw_attack(self.attack(.18), 100, 200, walk_frame_index=7)
-            self.assertEqual(load.call_count, 3)
+            self.assertEqual(load.call_count, len(sources))
             visual.close()
             self.assertEqual(visual.images, {})
 
@@ -115,6 +115,8 @@ class CombatInputTests(unittest.TestCase):
             attack = world.attack
             states.append({"attack": attack, "elapsed": attack.elapsed if attack else None,
                            "angle": attack.angle if attack else None,
+                           "facing": attack.facing if attack else None,
+                           "display_facing": renderer.player_visual.locomotion.facing,
                            "phase": renderer.player_visual.locomotion.phase,
                            "zombie": (world.zombie.x, world.zombie.y),
                            "target": target, "hp": world.player_hp})
@@ -155,9 +157,10 @@ class CombatInputTests(unittest.TestCase):
         self.assertEqual(states[0]["elapsed"], states[1]["elapsed"])
         self.assertEqual(states[0]["zombie"], states[1]["zombie"])
 
-    def test_other_facing_cannot_start_unimplemented_attack(self):
+    def test_back_facing_can_start_the_authored_attack(self):
         _, states = self.observe([("click", 640, 269)], {1: [("quit",)]})
-        self.assertIsNone(states[0]["attack"])
+        self.assertIsNotNone(states[0]["attack"])
+        self.assertEqual(states[0]["facing"], "back")
 
     def test_attack_keeps_angle_while_actual_movement_advances_walk_phase(self):
         frames, states = self.observe([("click", 760, 569), ("down", main.p.SDLK_d)],

@@ -1,4 +1,4 @@
-"""Dead Route R2-A: one zombie and a front-right six-pose attack."""
+"""Dead Route R2-C8: one zombie and eight-direction moving attacks."""
 from __future__ import annotations
 
 import argparse
@@ -133,8 +133,8 @@ class Renderer:
         target_screen = world_to_screen(*target)
         p.draw_line(*foot, *target_screen, 112, 93, 56)
         cross(*target_screen, ORANGE, size=7)
-        self.font.draw(24, 683, "Dead Route - R2-A  |  좀비 1마리 · 앞오른쪽 공격", WHITE)
-        self.font.draw(24, 651, "WASD 이동 · 앞·오른쪽 조준 후 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
+        self.font.draw(24, 683, "Dead Route - R2-C8  |  좀비 1마리 · 8방향 공격", WHITE)
+        self.font.draw(24, 651, "WASD 이동 · 마우스 조준 · 좌클릭 8방향 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
             self.font.draw(24, 620, f"HP {combat.player_hp}/3   좀비 {combat.zombie.hp}/5", WHITE)
             if combat.result != "playing":
@@ -182,7 +182,7 @@ def run(smoke_test=False):
         if not p.renderer:
             raise RuntimeError(f"SDL renderer initialization failed: {p.SDL_GetError()!r}")
         p.hide_lattice()
-        p.SDL_SetWindowTitle(p.window, b"Dead Route - R2-A")
+        p.SDL_SetWindowTitle(p.window, b"Dead Route - R2-C8")
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
@@ -257,8 +257,7 @@ def run(smoke_test=False):
                 aim_player(player, *attack_target)
                 motion = renderer.player_visual.locomotion
                 facing = select_facing(player.aim_angle, motion.facing if motion._initialized else None)
-                if facing == "front_right":
-                    world.start_attack(facing="front_right")
+                world.start_attack(facing=facing)
                 aim_player(player, *target)
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
@@ -272,9 +271,9 @@ def run(smoke_test=False):
             renderer.player_visual.update(display_angle, dx, dy)
             renderer.draw(player, walls, target, focused)
             if smoke_test:
-                output = BASE_DIR.parent / "output/review/R2-A" / f"ui-{name}.png"
+                output = BASE_DIR.parent / "output/review/R2-C8" / f"ui-{name}.png"
                 capture(output)
-                print(f"R2-A SDL capture: {output}", flush=True)
+                print(f"R2-C8 SDL capture: {output}", flush=True)
             p.update_canvas()
             frame += 1
             if smoke_test and frame >= len(smoke_poses):
@@ -286,7 +285,7 @@ def run(smoke_test=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Dead Route R2-A one-zombie combat sample")
+    parser = argparse.ArgumentParser(description="Dead Route R2-C8 eight-direction combat sample")
     parser.add_argument("--smoke-test", action="store_true",
                         help="render three native SDL fixtures, save PNGs and exit")
     run(parser.parse_args().smoke_test)

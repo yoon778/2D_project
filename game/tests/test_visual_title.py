@@ -12,7 +12,7 @@ import main
 import pico2d.pico2d as p
 
 
-GAME_TITLE = b"Dead Route - R2-A"
+GAME_TITLE = b"Dead Route - R2-C8"
 
 
 class WindowTitleTests(unittest.TestCase):

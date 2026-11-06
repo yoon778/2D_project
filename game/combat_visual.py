@@ -1,4 +1,4 @@
-"""R2-A attack and temporary zombie sprites; combat time belongs to CombatWorld."""
+"""R2-C8 directional sprites; combat time belongs to CombatWorld."""
 from __future__ import annotations
 
 import json
@@ -18,25 +18,34 @@ class CombatVisual:
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.images = {}
         try:
-            for key in ("attack", "zombie", "attack_walk"):
-                source = self.metadata[key]
+            for key, source in self.metadata.items():
                 image = p.load_image(str(METADATA_PATH.parent / source["image"]))
                 self.images[key] = image
                 if [image.w, image.h] != source["canvas_size"]:
-                    raise ValueError(f"R2-A canvas differs from metadata: {key}")
+                    raise ValueError(f"R2-C8 canvas differs from metadata: {key}")
                 if p.SDL_SetTextureScaleMode(image.texture, p.SDL_ScaleModeNearest) != 0:
-                    raise RuntimeError(f"R2-A nearest sampling failed: {p.SDL_GetError()!r}")
+                    raise RuntimeError(f"R2-C8 nearest sampling failed: {p.SDL_GetError()!r}")
         except Exception:
             self.close()
             raise
 
+    def _attack_source(self, facing, walking=False):
+        name = "attack_walk" if walking else "attack"
+        if facing != self.metadata["attack"]["facing"]:
+            name += f"_{facing}"
+        source = self.metadata.get(name)
+        return name if source is not None and source["facing"] == facing else None
+
     def attack_frame_index(self, attack):
-        if attack is None or attack.facing != self.metadata["attack"]["facing"]:
+        if attack is None:
+            return None
+        source_name = self._attack_source(attack.facing)
+        if source_name is None:
             return None
         elapsed = attack.elapsed
-        if not math.isfinite(elapsed):
+        if not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed):
             return None
-        for index, frame in enumerate(self.metadata["attack"]["frames"]):
+        for index, frame in enumerate(self.metadata[source_name]["frames"]):
             if frame["start"] <= elapsed < frame["end"]:
                 return index
         return None
@@ -58,11 +67,11 @@ class CombatVisual:
         if walk_frame_index is not None and (type(walk_frame_index) is not int
                                               or not 0 <= walk_frame_index <= 8):
             raise ValueError("walk_frame_index must be None or an integer from 0 to 8")
-        if walk_frame_index:
-            frame = self.metadata["attack_walk"]["frames"][index * 8 + walk_frame_index - 1]
-            self._draw("attack_walk", frame, foot_x, foot_y)
-        else:
-            self._draw("attack", self.metadata["attack"]["frames"][index], foot_x, foot_y)
+        source_name = self._attack_source(attack.facing, bool(walk_frame_index))
+        if source_name is None:
+            return False
+        frame_index = index * 8 + walk_frame_index - 1 if walk_frame_index else index
+        self._draw(source_name, self.metadata[source_name]["frames"][frame_index], foot_x, foot_y)
         return True
 
     @staticmethod
