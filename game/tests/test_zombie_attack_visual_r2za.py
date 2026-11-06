@@ -1,5 +1,6 @@
 """R2-ZA attack-source selection, locked poses/masks and real SDL queue regressions."""
 import math
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -21,10 +22,10 @@ class ZombieAttackSpriteTests(unittest.TestCase):
         self.visual.metadata = {"zombie": zombie_fixture.zombie_metadata(),
                                 "zombie_attack": zombie_fixture.zombie_attack_metadata()}
         self.visual.images = {"zombie": SimpleNamespace(h=1120, clip_draw=Mock()),
-                              "zombie_attack": SimpleNamespace(h=640, clip_draw=Mock())}
+                              "zombie_attack": SimpleNamespace(h=960, clip_draw=Mock())}
         self.visual.reset_zombie_animation()
 
-    def test_all_64_locked_attack_poses_use_attack_texture_anchor_and_current_mask(self):
+    def test_all_96_locked_attack_poses_use_attack_texture_anchor_and_current_mask(self):
         zombie = CombatWorld().zombie
         for col, (facing, angle) in enumerate(zombie_fixture.FACINGS):
             for index, start in enumerate(zombie_fixture.ATTACK_BOUNDS[:-1]):
@@ -40,7 +41,7 @@ class ZombieAttackSpriteTests(unittest.TestCase):
                     self.assertFalse(self.visual.zombie_locomotion.moving)
                     self.visual.draw_zombie(zombie, 100, 200)
                     self.visual.images["zombie_attack"].clip_draw.assert_called_with(
-                        col * 80, 640 - (index + 1) * 80, 80, 80, 100.0, 264.0, 160.0, 160.0)
+                        col * 80, 960 - (index + 1) * 80, 80, 80, 100.0, 264.0, 160.0, 160.0)
                     row = 50 + index
                     screen = (20 + (20 + col * 5 + .5) * 2, 184 + (80 - row - .5) * 2)
                     self.assertTrue(self.visual.zombie_contains(zombie, 100, 200, *screen))
@@ -49,6 +50,19 @@ class ZombieAttackSpriteTests(unittest.TestCase):
                     zombie.attack.elapsed = math.nextafter(zombie_fixture.ATTACK_BOUNDS[index + 1], -math.inf)
                     self.assertIs(self.visual._zombie_frame(zombie), frame)
         self.visual.images["zombie"].clip_draw.assert_not_called()
+
+    def test_actual_twelve_pose_metadata_matches_boundaries_canvas_and_cell_pivots(self):
+        source = json.loads(zombie_fixture.combat_visual.ZOMBIE_ATTACK_METADATA_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(source["canvas_size"], [640, 960])
+        self.assertEqual(set(source["facings"]), {name for name, _ in zombie_fixture.FACINGS})
+        for col, (facing, _) in enumerate(zombie_fixture.FACINGS):
+            frames = source["facings"][facing]
+            self.assertEqual([frame["start"] for frame in frames], list(zombie_fixture.ATTACK_BOUNDS[:-1]))
+            self.assertEqual([frame["end"] for frame in frames], list(zombie_fixture.ATTACK_BOUNDS[1:]))
+            for row, frame in enumerate(frames):
+                self.assertEqual(frame["clip_topleft"], [col * 80, row * 80, 80, 80])
+                self.assertEqual(frame["foot_pivot_topleft"], [col * 80 + 40, row * 80 + 72])
+                self.assertTrue(frame["opaque_rows"])
 
     def test_death_hit_attack_priority_and_recovery_keep_walk_phase_without_loading(self):
         zombie = CombatWorld().zombie
@@ -83,12 +97,12 @@ class ZombieAttackQueueTests(unittest.TestCase):
         world.walls = []
         world.zombie.x, world.zombie.y = 508, 180
 
-    def test_real_contact_windup_single_hit_eight_poses_recovery_and_next_attack(self):
+    def test_real_contact_windup_single_hit_twelve_poses_recovery_and_next_attack(self):
         states = self.observe([], {50: [("quit",)]}, 51, self.contact)
         self.assertTrue(all(state["hp"] == 3 for state in states[:17]))
         self.assertEqual(states[17]["hp"], 2)
         self.assertTrue(all(state["hp"] == 2 for state in states[17:]))
-        self.assertEqual({state["row"] for state in states[:48] if state["source"] == "zombie_attack"}, set(range(8)))
+        self.assertEqual({state["row"] for state in states[:48] if state["source"] == "zombie_attack"}, set(range(12)))
         self.assertTrue(all(state["position"] == (508, 180) and state["phase"] == 0 for state in states))
         self.assertTrue(all(state["attack_facing"] == "left" for state in states if state["attack_elapsed"] is not None))
         self.assertIsNone(states[47]["attack_elapsed"])

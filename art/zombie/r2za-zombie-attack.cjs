@@ -1,11 +1,21 @@
 // New attack-only resources; existing zombie/player inputs are read-only.
 const fs=require('node:fs/promises'),path=require('node:path'),sharp=require('sharp')
 const r=require('./raster.cjs'),settings=require('./r2za-rigs.json'),sourceConfig=require('./r2z-source.json'),oldRig=require('./r2z-rig.json')
-const root=path.resolve(__dirname,'../..'),review=path.join(root,'output/review/R2-ZA-art'),times=[0,.08,.16,.30,.40,.52,.64,.72,.80]
+const root=path.resolve(__dirname,'../..'),review=path.join(root,'output/review/R2-ZA12-art'),times=[0,.04,.08,.12,.16,.23,.30,.40,.46,.52,.64,.72,.80]
 function solve(model,target,degrees){
   const a=degrees*Math.PI/180,dir=[Math.cos(a),Math.sin(a)],palm=Math.hypot(model.tip[0]-model.wrist[0],model.tip[1]-model.wrist[1]),l1=Math.hypot(model.elbow[0]-model.shoulder[0],model.elbow[1]-model.shoulder[1]),l2=Math.hypot(model.wrist[0]-model.elbow[0],model.wrist[1]-model.elbow[1]),s=model.shoulder
   const wanted=[target[0]-dir[0]*palm,target[1]-dir[1]*palm],dx=wanted[0]-s[0],dy=wanted[1]-s[1],distance=Math.hypot(dx,dy),d=Math.min((l1+l2)*.985,Math.max(Math.abs(l1-l2)+.1,distance)),wrist=[s[0]+dx/distance*d,s[1]+dy/distance*d],angle=Math.atan2(dy,dx)+(model.bend||1)*Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))))
   return{elbow:[s[0]+Math.cos(angle)*l1,s[1]+Math.sin(angle)*l1],wrist,tip:[wrist[0]+dir[0]*palm,wrist[1]+dir[1]*palm],handAngle:(a-Math.atan2(model.tip[1]-model.wrist[1],model.tip[0]-model.wrist[0]))*180/Math.PI}
+}
+function shortAngle(a,b,t){return a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t}
+function middlePose(model,a,b,t){
+  const bone=(u,v,origin,length)=>{const angle=shortAngle(Math.atan2(u[1],u[0]),Math.atan2(v[1],v[0]),t);return[origin[0]+Math.cos(angle)*length,origin[1]+Math.sin(angle)*length]},s=model.shoulder,l1=Math.hypot(model.elbow[0]-s[0],model.elbow[1]-s[1]),l2=Math.hypot(model.wrist[0]-model.elbow[0],model.wrist[1]-model.elbow[1])
+  const elbow=bone([a.elbow[0]-s[0],a.elbow[1]-s[1]],[b.elbow[0]-s[0],b.elbow[1]-s[1]],s,l1),wrist=bone([a.wrist[0]-a.elbow[0],a.wrist[1]-a.elbow[1]],[b.wrist[0]-b.elbow[0],b.wrist[1]-b.elbow[1]],elbow,l2),angle=shortAngle(a.handAngle*Math.PI/180,b.handAngle*Math.PI/180,t),dx=model.tip[0]-model.wrist[0],dy=model.tip[1]-model.wrist[1]
+  return{elbow,wrist,tip:[wrist[0]+Math.cos(angle)*dx-Math.sin(angle)*dy,wrist[1]+Math.sin(angle)*dx+Math.cos(angle)*dy],handAngle:angle*180/Math.PI}
+}
+function twelvePoses(config){
+  const keys=Array.from({length:7},(_,phase)=>Object.fromEntries(Object.entries(config.arms).map(([side,model])=>[side,solve(model,model.targets[phase],model.angles[phase])]))),middle=(from,to,row)=>Object.fromEntries(Object.entries(config.arms).map(([side,model])=>[side,middlePose(model,keys[from][side],keys[to][side],config.middle?.[row]?.[side]?.fraction??config.middle?.[row]?.fraction??.5)]))
+  return[keys[0],middle(0,1,1),keys[1],middle(1,2,3),keys[2],middle(2,3,5),keys[3],keys[4],middle(4,5,8),keys[5],keys[6],{original:true}]
 }
 async function sourceCell(facing){
   const[left,top,width,height]=sourceConfig.facings[facing].sourceCell
@@ -51,12 +61,12 @@ async function build(facing,options={}){
     base.fill(0,p,p+4)
   }
   for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4;if(repaired[p+3]&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>x+dx<0||x+dx>=80||y+dy<0||y+dy>=80||!base[((y+dy)*80+x+dx)*4+3]))base.set([21,20,27],p)}
-  const frames=[],poses=[],layers=[]
-  for(let phase=0;phase<8;phase++){
-    if(phase===7){frames.push(Buffer.from(source));poses.push({original:true});layers.push({});continue}
-    const arms={},pose={}
+  const frames=[],poses=twelvePoses(config),layers=[]
+  for(let phase=0;phase<12;phase++){
+    if(phase===11){frames.push(Buffer.from(source));layers.push({});continue}
+    const arms={},pose=poses[phase]
     for(const[side,model]of Object.entries(config.arms)){
-      const material=config.arms[model.textureFrom||side],p=parts[side],b=Buffer.alloc(source.length),j=solve(model,model.targets[phase],model.angles[phase]);pose[side]=j
+      const material=config.arms[model.textureFrom||side],p=parts[side],b=Buffer.alloc(source.length),j=pose[side]
       r.segment(b,p.upper,material.shoulder,material.elbow,model.shoulder,j.elbow);r.segment(b,p.fore,material.elbow,material.wrist,j.elbow,j.wrist);r.rotate(b,p.hand,material.wrist,j.wrist,j.handAngle);r.outline(b,oldRig.outline);arms[side]=b
     }
     const b=Buffer.alloc(source.length),near=config.nearArm,far=near==='right'?'left':'right'
@@ -64,7 +74,7 @@ async function build(facing,options={}){
     else{r.overlay(b,arms[far]);if(config.bothBehind)r.overlay(b,arms[near]);r.overlay(b,base);if(!config.bothBehind)r.overlay(b,arms[near])}
     // Ground-contact rows stay exactly as in the approved idle image.
     source.copy(b,config.protectFromY*80*4,config.protectFromY*80*4)
-    frames.push(b);poses.push(pose);layers.push(arms)
+    frames.push(b);layers.push(arms)
   }
   if(options.writeParts){await r.png(base,80,80,path.join(__dirname,'r2za-parts',facing.replaceAll('_','-'),'body.png'));await r.png(removed,80,80,path.join(__dirname,'r2za-parts',facing.replaceAll('_','-'),'source-arm-mask.png'))}
   return{facing,source,base,removed,repaired,parts,frames,poses,layers}
@@ -76,7 +86,7 @@ async function sheet(cells,cols,file,scale=4){
 }
 async function makeAtlas(options={}){
   if(r.facings.some(f=>!settings[f]))throw new Error('All eight approved attack rigs required for the production atlas')
-  const pixels=Buffer.alloc(640*640*4),metadata={image:'r2za-zombie-attack-20261106.png',canvas_size:[640,640],cell_size:[80,80],scale:2,reference_height:64,facings:{}},results=[]
+  const pixels=Buffer.alloc(640*960*4),metadata={image:'r2za-zombie-attack-20261106.png',canvas_size:[640,960],cell_size:[80,80],scale:2,reference_height:64,facings:{}},results=[]
   for(const[col,name]of r.facings.entries()){
     const result=await build(name,{writeParts:options.writeParts===true});results.push(result);metadata.facings[name]=result.frames.map((b,row)=>{for(let y=0;y<80;y++)b.copy(pixels,((row*80+y)*640+col*80)*4,y*320,(y+1)*320);return{clip_topleft:[col*80,row*80,80,80],foot_pivot_topleft:[col*80+40,row*80+72],opaque_rows:r.opaqueRows(b),start:times[row],end:times[row+1]}})
   }
@@ -84,8 +94,8 @@ async function makeAtlas(options={}){
 }
 async function main(){
   const index=process.argv.indexOf('--facing'),facing=index>=0?process.argv[index+1]:null
-  if(facing){const result=await build(facing,{writeParts:true});await sheet(result.frames,4,path.join(review,`${facing.replaceAll('_','-')}-attack-eight-4x.png`));await sheet([result.source,...result.frames],9,path.join(review,`${facing.replaceAll('_','-')}-compare-3x.png`),3);await fs.writeFile(path.join(review,`${facing}-joints.json`),JSON.stringify(result.poses,null,2)+'\n');console.log(JSON.stringify({facing,preview:true,poses:8,review}));return}
-  const{pixels,metadata,results}=await makeAtlas({writeParts:true}),dest=path.join(root,'game/assets/zombie');await r.png(pixels,640,640,path.join(dest,metadata.image));await fs.writeFile(path.join(dest,'r2za-zombie-attack-20261106.json'),JSON.stringify(metadata,null,2)+'\n');await sheet(results.flatMap(x=>x.frames),8,path.join(review,'attack-eight-directions-3x.png'),3);await fs.writeFile(path.join(review,'pose-joints.json'),JSON.stringify(Object.fromEntries(results.map(x=>[x.facing,x.poses])),null,2)+'\n');console.log(JSON.stringify({poses:64,review}))
+  if(facing){const result=await build(facing);await sheet(result.frames,4,path.join(review,`${facing.replaceAll('_','-')}-attack-twelve-4x.png`));await sheet([result.source,...result.frames],13,path.join(review,`${facing.replaceAll('_','-')}-compare-3x.png`),3);const previous=await fs.readFile(path.join(review,'previous/r2za-zombie-attack-20261106.png')).catch(error=>{if(error.code==='ENOENT')return null;throw error});if(previous){const data=await sharp(previous).ensureAlpha().raw().toBuffer(),col=r.facings.indexOf(facing),old=[];for(let row=0;row<8;row++){const b=Buffer.alloc(25600);for(let y=0;y<80;y++){const p=((row*80+y)*640+col*80)*4;data.copy(b,y*320,p,p+320)}old.push(b)}await sheet([...old,...[0,2,4,6,7,9,10,11].map(i=>result.frames[i])],8,path.join(review,`${facing.replaceAll('_','-')}-old-eight-vs-keys-3x.png`),3)}await fs.writeFile(path.join(review,`${facing}-joints.json`),JSON.stringify(result.poses,null,2)+'\n');console.log(JSON.stringify({facing,preview:true,poses:12,review}));return}
+  const{pixels,metadata,results}=await makeAtlas(),dest=path.join(root,'game/assets/zombie');await r.png(pixels,640,960,path.join(dest,metadata.image));await fs.writeFile(path.join(dest,'r2za-zombie-attack-20261106.json'),JSON.stringify(metadata,null,2)+'\n');await sheet(results.flatMap(x=>x.frames),12,path.join(review,'attack-eight-directions-3x.png'),3);await sheet(results.flatMap(x=>[1,3,5,8].map(i=>x.frames[i])),4,path.join(review,'middle-four-eight-directions-4x.png'),4);await fs.writeFile(path.join(review,'pose-joints.json'),JSON.stringify(Object.fromEntries(results.map(x=>[x.facing,x.poses])),null,2)+'\n');console.log(JSON.stringify({poses:96,review}))
 }
 if(require.main===module)main().catch(error=>{console.error(error);process.exitCode=1})
 module.exports={build,sourceCell,solve,times,makeAtlas}

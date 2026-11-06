@@ -22,7 +22,7 @@ FACINGS = (("front", -math.pi / 2), ("front_right", -math.pi / 4),
            ("right", 0), ("back_right", math.pi / 4), ("back", math.pi / 2),
            ("back_left", 3 * math.pi / 4), ("left", math.pi), ("front_left", -3 * math.pi / 4))
 HIT_BOUNDS = (0, .06, .14, .26, .4)
-ATTACK_BOUNDS = (0, .08, .16, .3, .4, .52, .64, .72, .8)
+ATTACK_BOUNDS = (0, .04, .08, .12, .16, .23, .3, .4, .46, .52, .64, .72, .8)
 
 
 def zombie_metadata():
@@ -51,8 +51,8 @@ def zombie_attack_metadata():
             {"clip_topleft": [col * 80, row * 80, 80, 80],
              "foot_pivot_topleft": [col * 80 + 40, row * 80 + 72],
              "opaque_rows": {str(50 + row): [[20 + col * 5, 22 + col * 5]]},
-             "start": ATTACK_BOUNDS[row], "end": ATTACK_BOUNDS[row + 1]} for row in range(8)]
-    return {"image": "fixture-zombie-attack.png", "canvas_size": [640, 640], "cell_size": [80, 80],
+             "start": ATTACK_BOUNDS[row], "end": ATTACK_BOUNDS[row + 1]} for row in range(12)]
+    return {"image": "fixture-zombie-attack.png", "canvas_size": [640, 960], "cell_size": [80, 80],
             "scale": 2, "reference_height": 64, "facings": facings}
 
 
