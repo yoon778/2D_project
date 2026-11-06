@@ -55,15 +55,19 @@ class DirectionSpriteTests(unittest.TestCase):
     def test_every_direction_stage_and_walk_cell_uses_its_own_source_and_anchor(self):
         for facing, _ in DIRECTIONS:
             stationary, walking = source_names(facing)
-            for index, elapsed in enumerate((0, .09, .18, .27, .37, .48)):
+            front_right = facing == "front_right"
+            starts = (0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54) if front_right else (
+                0, .09, .18, .27, .37, .48)
+            columns, idle_height, walk_height = (4, 288, 1152) if front_right else (3, 192, 576)
+            for index, elapsed in enumerate(starts):
                 attack = SimpleNamespace(facing=facing, elapsed=elapsed)
                 self.assertEqual(self.visual.attack_frame_index(attack), index)
                 for walk in (None, 0, *range(1, 9)):
                     with self.subTest(facing=facing, stage=index, walk=walk):
                         self.assertTrue(self.visual.draw_attack(attack, 100, 200, walk))
                         key = walking if walk else stationary
-                        x, y = ((walk - 1) * 96, 576 - (index + 1) * 96) if walk else (
-                            index % 3 * 96, 192 - (index // 3 + 1) * 96)
+                        x, y = ((walk - 1) * 96, walk_height - (index + 1) * 96) if walk else (
+                            index % columns * 96, idle_height - (index // columns + 1) * 96)
                         image = self.visual.images[key]
                         image.clip_draw.assert_called_once_with(x, y, 96, 96, 100.0, 264.0, 192.0, 192.0)
                         image.clip_draw.reset_mock()
@@ -119,7 +123,8 @@ class AuthoredDirectionMetadataTests(unittest.TestCase):
         metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.assertEqual(len(metadata), 17)
         for facing, _ in DIRECTIONS:
-            for key, count in zip(source_names(facing), (6, 48)):
+            counts = (12, 96) if facing == "front_right" else (6, 48)
+            for key, count in zip(source_names(facing), counts):
                 with self.subTest(source=key):
                     self.assertEqual(metadata[key]["facing"], facing)
                     self.assertEqual(len(metadata[key]["frames"]), count)

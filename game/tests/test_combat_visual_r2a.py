@@ -18,12 +18,15 @@ from combat_visual import CombatVisual, METADATA_PATH
 import test_visual_input_r1a as input_fixture
 
 
+FR_BOUNDARIES = (0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54, .6)
+
+
 class CombatSpriteTests(unittest.TestCase):
     def setUp(self):
         self.visual = CombatVisual.__new__(CombatVisual)
         self.visual.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.visual.images = {
-            "attack": SimpleNamespace(h=192, clip_draw=Mock()),
+            "attack": SimpleNamespace(h=self.visual.metadata["attack"]["canvas_size"][1], clip_draw=Mock()),
             "zombie": SimpleNamespace(h=80, clip_draw=Mock()),
         }
 
@@ -31,10 +34,13 @@ class CombatSpriteTests(unittest.TestCase):
         return SimpleNamespace(elapsed=elapsed, facing=facing)
 
     def test_hit_and_recovery_boundaries_choose_the_authored_pose(self):
-        for t, expected in ((0, 0), (.089999, 0), (.09, 1), (.179999, 1),
-                            (.18, 2), (.27, 3), (.37, 4), (.48, 5), (.599999, 5)):
-            with self.subTest(t=t):
-                self.assertEqual(self.visual.attack_frame_index(self.attack(t)), expected)
+        frames = self.visual.metadata["attack"]["frames"]
+        self.assertEqual([frame["start"] for frame in frames], list(FR_BOUNDARIES[:-1]))
+        self.assertEqual([frame["end"] for frame in frames], list(FR_BOUNDARIES[1:]))
+        for index, (start, end) in enumerate(zip(FR_BOUNDARIES, FR_BOUNDARIES[1:])):
+            for t in (start, math.nextafter(end, -math.inf)):
+                with self.subTest(t=t):
+                    self.assertEqual(self.visual.attack_frame_index(self.attack(t)), index)
         for t in (-.1, .6, float("nan")):
             self.assertIsNone(self.visual.attack_frame_index(self.attack(t)))
         self.assertIsNone(self.visual.attack_frame_index(None))
@@ -42,7 +48,9 @@ class CombatSpriteTests(unittest.TestCase):
         self.visual.images["attack"].clip_draw.assert_not_called()
 
     def test_attack_full_cell_keeps_two_times_scale_and_ground_anchor(self):
-        for t, source in ((0, (0, 96)), (.18, (192, 96)), (.48, (192, 0))):
+        self.assertEqual(self.visual.metadata["attack"]["canvas_size"], [384, 288])
+        for t, source in ((0, (0, 192)), (.135, (288, 192)), (.18, (0, 96)),
+                          (.48, (192, 0)), (.54, (288, 0))):
             self.assertTrue(self.visual.draw_attack(self.attack(t), 100, 200))
             self.visual.images["attack"].clip_draw.assert_called_with(
                 *source, 96, 96, 100.0, 264.0, 192.0, 192.0)
@@ -54,13 +62,35 @@ class CombatSpriteTests(unittest.TestCase):
         world.start_attack()
         world.update(.18)
         self.assertEqual(world.result, "cleared")
-        self.assertEqual(self.visual.attack_frame_index(world.attack), 2)
+        self.assertEqual(self.visual.attack_frame_index(world.attack), 4)
         self.assertTrue(self.visual.draw_attack(world.attack, 100, 200))
         world.update(.29)
-        self.assertEqual(self.visual.attack_frame_index(world.attack), 4)
+        self.assertEqual(self.visual.attack_frame_index(world.attack), 9)
         world.update(.13)
         self.assertIsNone(world.attack)
         self.assertFalse(self.visual.draw_attack(world.attack, 100, 200))
+
+    def test_twelve_visual_steps_keep_single_hit_at_018_and_recovery_at_060(self):
+        world = CombatWorld()
+        world.player.aim_angle = -math.pi / 4
+        world.zombie.x, world.zombie.y = 520, 140
+        world.zombie.stun_remaining = .4
+        self.assertTrue(world.start_attack())
+        previous = 0.0
+        for index, boundary in enumerate(FR_BOUNDARIES[:-1]):
+            world.update(boundary - previous)
+            self.assertAlmostEqual(world.attack.elapsed, boundary)
+            self.assertEqual(self.visual.attack_frame_index(world.attack), index)
+            self.assertEqual(world.zombie.hp, 5 if boundary < .18 else 4)
+            self.assertEqual(world.player_hp, 3)
+            if boundary >= .18:
+                self.assertAlmostEqual(world.zombie.stun_remaining, .4 - (boundary - .18))
+            self.assertFalse(world.start_attack())
+            previous = boundary
+        world.update(.6 - previous)
+        self.assertIsNone(world.attack)
+        self.assertEqual((world.zombie.hp, world.player_hp, world.zombie.stun_remaining), (4, 3, 0.0))
+        self.assertTrue(world.start_attack())
 
     def test_zombie_pick_uses_opaque_pixels_not_the_transparent_cell(self):
         world = CombatWorld()

@@ -20,17 +20,22 @@ class AttackWalkSpriteTests(unittest.TestCase):
     def setUp(self):
         self.visual = CombatVisual.__new__(CombatVisual)
         self.visual.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-        self.visual.images = {"attack": SimpleNamespace(h=192, clip_draw=Mock()),
-                              "attack_walk": SimpleNamespace(h=576, clip_draw=Mock())}
+        self.visual.images = {key: SimpleNamespace(h=self.visual.metadata[key]["canvas_size"][1], clip_draw=Mock())
+                              for key in ("attack", "attack_walk")}
 
-    def test_all_48_combinations_choose_the_right_cell_with_the_same_anchor(self):
+    def test_all_96_fr_combinations_choose_the_right_cell_with_the_same_anchor(self):
+        self.assertEqual(self.visual.metadata["attack_walk"]["canvas_size"], [768, 1152])
+        self.assertEqual(self.visual.metadata["attack_walk"]["attack_steps"], 12)
+        self.assertEqual(self.visual.metadata["attack_walk"]["walk_phases"], 8)
+        self.assertEqual(len(self.visual.metadata["attack"]["frames"]), 12)
+        self.assertEqual(len(self.visual.metadata["attack_walk"]["frames"]), 96)
         for a, pose in enumerate(self.visual.metadata["attack"]["frames"]):
             attack = SimpleNamespace(facing="front_right", elapsed=(pose["start"] + pose["end"]) / 2)
             for w in range(1, 9):
                 with self.subTest(attack=a, walk=w):
                     self.assertTrue(self.visual.draw_attack(attack, 100, 200, w))
                     self.visual.images["attack_walk"].clip_draw.assert_called_with(
-                        (w - 1) * 96, 576 - (a + 1) * 96, 96, 96,
+                        (w - 1) * 96, 1152 - (a + 1) * 96, 96, 96,
                         100.0, 264.0, 192.0, 192.0)
         self.visual.images["attack"].clip_draw.assert_not_called()
 
@@ -113,7 +118,7 @@ class AttackWalkInputTests(unittest.TestCase):
             distance += math.dist(previous, point)
             self.assertAlmostEqual(state["phase"], (.2 + distance / 64) % 1)
             previous = point
-        self.assertTrue(any(c["attack_index"] == 5 for c in choices))
+        self.assertEqual({c["attack_index"] for c in choices if c["attack_index"] is not None}, set(range(12)))
         self.assertIsNone(states[-1]["attack"])
         self.assertFalse(choices[-1]["drawn"])
         self.assertGreater(choices[-1]["walk"], 0)

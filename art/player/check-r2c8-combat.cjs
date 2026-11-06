@@ -4,7 +4,7 @@ const assert = require('node:assert/strict'), {execFileSync} = require('node:chi
 const sharp = require('sharp'), settings = require('./r2c8-rigs.json')
 const walk = require('./consistent-rig.json')
 const rigs = {...walk.facings, ...require('./consistent-front-back.json'), ...require('./consistent-side.json'), ...require('./consistent-diagonal.json')}
-const root = path.resolve(__dirname, '../..'), baseline = 'e23de0c'
+const root = path.resolve(__dirname, '../..'), baseline = '9f33924'
 const git = args => execFileSync('git', args, {cwd: root})
 const raw = file => sharp(path.join(root, file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
 const times = [0, .09, .18, .27, .37, .48, .60]
@@ -45,16 +45,20 @@ async function main() {
   const metaFile = 'game/assets/combat/r2a-combat-20261106.json'
   const metadata = JSON.parse(await fs.readFile(path.join(root, metaFile), 'utf8'))
   const original = JSON.parse(git(['show', `${baseline}:${metaFile}`]).toString())
-  for (const key of ['attack', 'attack_walk', 'zombie']) assert.deepEqual(metadata[key], original[key], `${key} baseline`)
+  // FR12 authorizes only these two sources to change; all other sources stay exact.
+  const preservedKeys = Object.keys(original).filter(key => !['attack', 'attack_walk'].includes(key))
+  assert.deepEqual(Object.keys(metadata).sort(), Object.keys(original).sort(), 'unchanged source names')
+  for (const key of preservedKeys) assert.deepEqual(metadata[key], original[key], `${key} baseline`)
   const frozenPaths = ['game/assets/player', 'art/player/consistent-parts', 'art/player/style-studies/eight-direction-consistency',
     'art/player/consistent-walk.cjs', 'art/player/consistent-rig.json', 'art/player/consistent-front-back.json',
     'art/player/consistent-side.json', 'art/player/consistent-diagonal.json', 'art/player/check-walk-outline.cjs',
     'game/core.py', 'game/locomotion.py', 'game/player_visual.py', 'game/combat.py',
-    ...['attack', 'attack_walk', 'zombie'].map(k => `game/assets/combat/${original[k].image}`)]
+    'art/player/r2c8-combat-assets.cjs', 'art/player/r2c8-rigs.json',
+    ...preservedKeys.map(k => `game/assets/combat/${original[k].image}`)]
   assert.equal(git(['diff', '--name-only', baseline, '--', ...frozenPaths]).toString().trim(), '', 'frozen inputs/resources')
   const source = await raw('art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png'), palette = new Set()
   for (let p = 0; p < source.data.length; p += 4) if (source.data[p + 3]) palette.add(source.data.subarray(p, p + 3).toString('hex'))
-  const report = {baseline, sources: 0, poses: 0, activePoses: 0, smallComponents: 0, exactReturns: 0, headPixels: 0, alphaErrors: 0, paletteErrors: 0, edgePixels: 0, sourceCleanupRegressions: 0, legacyBlocks: 3, frozenPaths: frozenPaths.length, facings: []}
+  const report = {baseline, sources: 0, poses: 0, activePoses: 0, smallComponents: 0, exactReturns: 0, headPixels: 0, alphaErrors: 0, paletteErrors: 0, edgePixels: 0, sourceCleanupRegressions: 0, preservedBlocks: preservedKeys.length, frozenPaths: frozenPaths.length, facings: []}
   const snapshots = [[metaFile, await fs.readFile(path.join(root, metaFile))]]
   for (const facing of Object.keys(settings)) {
     const slug = facing.replaceAll('_', '-'), r1 = await raw(`game/assets/player/r1-consistent-${slug}-20261105.png`)

@@ -4,15 +4,33 @@ const path = require('node:path')
 const sharp = require('sharp')
 const root = path.resolve(__dirname, '../..')
 const size = 96, sourceSize = 80, offset = 8
-const poses = [
+const keys = [
   {name: 'anticipate_1', label: '준비 1', elbow: [22, 38], wrist: [21, 32], hand: 145, bat: 120, behind: true},
   {name: 'anticipate_2', label: '준비 2', elbow: [25, 24], wrist: [31, 23], hand: -105, bat: -155, behind: true},
   {name: 'hit', label: '타격', elbow: [37, 35], wrist: [45, 37], hand: -70, bat: -45},
   {name: 'follow', label: '후속', elbow: [37, 43], wrist: [41, 50], hand: -15, bat: -10},
-  {name: 'recover', label: '회복', elbow: [28, 41], wrist: [30, 48], hand: 0, bat: 8},
-  {name: 'return', label: '복귀'}
+  {name: 'recover', label: '회복', elbow: [28, 41], wrist: [30, 48], hand: 0, bat: 8}
 ]
-const times = [0, .09, .18, .27, .37, .48, .60]
+const rest = {elbow: [27, 40], wrist: [28, 46], hand: 0, bat: 0}
+function shortAngle(a, b, t) {return a + ((b - a + 540) % 360 - 180) * t}
+function between(a, b, t, name, label) {
+  const bone = (from, to, origin) => {
+    const angle = shortAngle(Math.atan2(from[1], from[0]) * 180 / Math.PI, Math.atan2(to[1], to[0]) * 180 / Math.PI, t) * Math.PI / 180
+    const length = Math.hypot(...from) * (1 - t) + Math.hypot(...to) * t
+    return [origin[0] + Math.cos(angle) * length, origin[1] + Math.sin(angle) * length]
+  }
+  const elbow = bone([a.elbow[0] - 27, a.elbow[1] - 32], [b.elbow[0] - 27, b.elbow[1] - 32], [27, 32])
+  const wrist = bone([a.wrist[0] - a.elbow[0], a.wrist[1] - a.elbow[1]], [b.wrist[0] - b.elbow[0], b.wrist[1] - b.elbow[1]], elbow)
+  return {name, label, elbow, wrist, hand: shortAngle(a.hand, b.hand, t), bat: shortAngle(a.bat, b.bat, t), behind: Boolean(a.behind)}
+}
+const poses = [keys[0], between(keys[0], keys[1], .5, 'anticipate_mid', '준비 중간'),
+  keys[1], between(keys[1], keys[2], .5, 'swing_mid', '휘두르기 중간'),
+  keys[2], between(keys[2], keys[3], .5, 'hit_follow_mid', '타격 후속 중간'),
+  keys[3], between(keys[3], keys[4], .5, 'follow_recover_mid', '후속 회복 중간'),
+  keys[4], between(keys[4], rest, (.425 - .37) / (.54 - .37), 'recover_return_1', '복귀 중간 1'),
+  between(keys[4], rest, (.48 - .37) / (.54 - .37), 'recover_return_2', '복귀 중간 2'),
+  {name: 'return', label: '복귀'}]
+const times = [0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54, .60]
 const navy = ['15141b', '242633', '323648', '42495f', '555d77', '69728e']
 const masks = {
   upper: [[23, 31], [30, 31], [30, 41], [24, 41], [23, 38]],
@@ -83,8 +101,8 @@ async function attackWalk(dest, review, parts) {
   const upperCell = Buffer.alloc(size * size * 4)
   paint(upperCell, upper, (x, y) => [x, y])
   const walkPng = await sharp(path.join(root, 'game/assets/player/r1-consistent-front-right-20261105.png')).ensureAlpha().raw().toBuffer()
-  const atlas = Buffer.alloc(768 * 576 * 4), cells = [], frames = []
-  for (let attack = 0; attack < 6; attack++) {
+  const atlasHeight = poses.length * size, atlas = Buffer.alloc(768 * atlasHeight * 4), cells = [], frames = []
+  for (let attack = 0; attack < poses.length; attack++) {
     const pose = poses[attack], arm = Buffer.alloc(size * size * 4), weapon = Buffer.alloc(arm.length)
     if (pose.elbow) {
       const angle = pose.hand * Math.PI / 180
@@ -96,7 +114,7 @@ async function attackWalk(dest, review, parts) {
     }
     for (let phase = 0; phase < 8; phase++) {
       const b = Buffer.alloc(size * size * 4), drop = walk.bodyDrop[phase]
-      if (attack === 5) {
+      if (attack === poses.length - 1) {
         // The attack-to-walk transition uses the exact already-approved walk pixels.
         for (let y = 0; y < 80; y++) {
           const from = ((Math.floor(phase / 4) * 80 + y) * 320 + phase % 4 * 80) * 4
@@ -124,34 +142,34 @@ async function attackWalk(dest, review, parts) {
     }
   }
   const image = 'r2aw-attack-walk-front-right-20261106.png'
-  await png(atlas, 768, 576, path.join(dest, image))
-  await png(atlas, 768, 576, path.join(review, 'attack-walk-48-2x.png'), 2)
-  const sample = Buffer.alloc(288 * 192 * 4), sequence = []
-  for (let a = 0; a < 6; a++) {
+  await png(atlas, 768, atlasHeight, path.join(dest, image))
+  await png(atlas, 768, atlasHeight, path.join(review, 'attack-walk-96-2x.png'), 2)
+  const sample = Buffer.alloc(384 * 288 * 4), sequence = []
+  for (let a = 0; a < poses.length; a++) {
     const elapsed = (times[a] + times[a + 1]) / 2
     const walkFrame = Math.floor(((elapsed * 60 / 64) % 1) * 8) + 1
     const cell = cells[a * 8 + walkFrame - 1]
-    for (let y = 0; y < size; y++) cell.copy(sample, ((Math.floor(a / 3) * size + y) * 288 + a % 3 * size) * 4, y * size * 4, (y + 1) * size * 4)
+    for (let y = 0; y < size; y++) cell.copy(sample, ((Math.floor(a / 4) * size + y) * 384 + a % 4 * size) * 4, y * size * 4, (y + 1) * size * 4)
     sequence.push({attack: a, elapsed, walk_frame: walkFrame})
   }
-  await png(sample, 288, 192, path.join(review, 'attack-walk-sequence-4x.png'), 4)
+  await png(sample, 384, 288, path.join(review, 'attack-walk-sequence-4x.png'), 4)
   await fs.writeFile(path.join(review, 'sequence.json'), JSON.stringify(sequence, null, 2) + '\n')
   const metaPath = path.join(dest, 'r2a-combat-20261106.json')
   const metadata = JSON.parse(await fs.readFile(metaPath, 'utf8'))
-  metadata.attack_walk = {image, canvas_size: [768, 576], facing: 'front_right', cell_size: [96, 96],
-    scale: 2, reference_height: 64, attack_steps: 6, walk_phases: 8, frames}
+  metadata.attack_walk = {image, canvas_size: [768, atlasHeight], facing: 'front_right', cell_size: [96, 96],
+    scale: 2, reference_height: 64, attack_steps: poses.length, walk_phases: 8, frames}
   await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2) + '\n')
   console.log(JSON.stringify({image: path.join(dest, image), review, frames: frames.length}))
 }
 async function main() {
   const walkingOnly = process.argv.includes('--attack-walk-only')
-  const dest = path.join(root, 'game/assets/combat'), review = path.join(root, walkingOnly ? 'output/review/R2-AW-art' : 'output/review/R2-A-art')
+  const dest = path.join(root, 'game/assets/combat'), review = path.join(root, 'output/review/R2-FR12-art')
   await fs.mkdir(dest, {recursive: true}); await fs.mkdir(review, {recursive: true})
   const src = await sharp(path.join(__dirname, 'style-studies/eight-direction-consistency/turnaround-idle-64-v3.png')).extract({left: 80, top: 0, width: 80, height: 80}).ensureAlpha().raw().toBuffer()
   const parts = {upper: cut(src, masks.upper, navy), fore: cut(src, masks.fore), hand: cut(src, masks.hand), bat: cut(src, masks.bat)}, body = Buffer.from(src)
   if (walkingOnly) return attackWalk(dest, review, parts)
   for (let p = 0; p < body.length; p += 4) if (Object.values(parts).some(b => b[p + 3])) body.fill(0, p, p + 4)
-  const atlas = Buffer.alloc(288 * 192 * 4), cells = []
+  const atlas = Buffer.alloc(384 * 288 * 4), cells = []
   for (const pose of poses) {
     const b = Buffer.alloc(size * size * 4)
     if (!pose.elbow) paint(b, src, (x, y) => [x, y])
@@ -171,9 +189,20 @@ async function main() {
     }
     cells.push(b)
   }
-  for (let f = 0; f < 6; f++) for (let y = 0; y < size; y++) cells[f].copy(atlas, ((Math.floor(f / 3) * size + y) * 288 + f % 3 * size) * 4, y * size * 4, (y + 1) * size * 4)
-  await png(atlas, 288, 192, path.join(dest, 'r2a-attack-front-right-20261106.png'))
-  await png(atlas, 288, 192, path.join(review, 'attack-6poses-4x.png'), 4)
+  for (let f = 0; f < poses.length; f++) for (let y = 0; y < size; y++) cells[f].copy(atlas, ((Math.floor(f / 4) * size + y) * 384 + f % 4 * size) * 4, y * size * 4, (y + 1) * size * 4)
+  await png(atlas, 384, 288, path.join(dest, 'r2a-attack-front-right-20261106.png'))
+  await png(atlas, 384, 288, path.join(review, 'attack-12poses-4x.png'), 4)
+  const previousFile = path.join(review, 'previous/r2a-attack-front-right-20261106.png')
+  const previous = await fs.readFile(previousFile).catch(error => {if (error.code === 'ENOENT') return null; throw error})
+  if (previous) {
+    const old = await sharp(previous).ensureAlpha().raw().toBuffer(), comparison = Buffer.alloc(576 * 192 * 4), keyIndices = [0, 2, 4, 6, 8, 11]
+    for (let f = 0; f < 6; f++) for (let y = 0; y < size; y++) {
+      const from = ((Math.floor(f / 3) * size + y) * 288 + f % 3 * size) * 4
+      old.copy(comparison, (y * 576 + f * size) * 4, from, from + 384)
+      cells[keyIndices[f]].copy(comparison, ((96 + y) * 576 + f * size) * 4, y * 384, (y + 1) * 384)
+    }
+    await png(comparison, 576, 192, path.join(review, 'previous-six-vs-new-keys-3x.png'), 3)
+  }
   const zombie = Buffer.alloc(240 * 80 * 4), rows = {}
   for (let state = 0; state < 3; state++) {
     const b = Buffer.alloc(80 * 80 * 4)
@@ -206,14 +235,14 @@ async function main() {
       if (error.code === 'ENOENT') return '{}'
       throw error
     })),
-    attack: {image: 'r2a-attack-front-right-20261106.png', canvas_size: [288, 192], facing: 'front_right', cell_size: [96, 96], scale: 2, reference_height: 64,
-      frames: poses.map((p, i) => ({name: p.name, label: p.label, start: times[i], end: times[i + 1], clip_topleft: [i % 3 * 96, Math.floor(i / 3) * 96, 96, 96], foot_pivot_topleft: [i % 3 * 96 + 48, Math.floor(i / 3) * 96 + 80]}))},
+    attack: {image: 'r2a-attack-front-right-20261106.png', canvas_size: [384, 288], facing: 'front_right', cell_size: [96, 96], scale: 2, reference_height: 64,
+      frames: poses.map((p, i) => ({name: p.name, label: p.label, start: times[i], end: times[i + 1], clip_topleft: [i % 4 * 96, Math.floor(i / 4) * 96, 96, 96], foot_pivot_topleft: [i % 4 * 96 + 48, Math.floor(i / 4) * 96 + 80]}))},
     zombie: {image: 'r2a-zombie-20261106.png', canvas_size: [240, 80], scale: 2, reference_height: 64, opaque_rows: rows,
       frames: Object.fromEntries(['alive', 'stunned', 'dead'].map((name, i) => [name, {clip_topleft: [i * 80, 0, 80, 80], foot_pivot_topleft: [i * 80 + 40, 72]}]))}
   }
   await fs.writeFile(path.join(dest, 'r2a-combat-20261106.json'), JSON.stringify(metadata, null, 2) + '\n')
   await fs.writeFile(path.join(review, 'arm-poses.json'), JSON.stringify({source: 'approved front_right native80', masks, shoulder: [27, 32], poses}, null, 2) + '\n')
-  await attackWalk(dest, path.join(root, 'output/review/R2-AW-art'), parts)
+  await attackWalk(dest, review, parts)
   console.log(JSON.stringify({attack: path.join(dest, metadata.attack.image), metadata: path.join(dest, 'r2a-combat-20261106.json'), review}))
 }
 main().catch(error => {console.error(error); process.exitCode = 1})
