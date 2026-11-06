@@ -51,6 +51,13 @@ class DummyInputTests(unittest.TestCase):
                 event.motion.type = p.SDL_MOUSEMOTION
                 event.motion.windowID = p.SDL_GetWindowID(p.window)
                 event.motion.x, event.motion.y = values
+            elif kind in ("click", "release"):
+                event.type = p.SDL_MOUSEBUTTONDOWN if kind == "click" else p.SDL_MOUSEBUTTONUP
+                event.button.type = event.type
+                event.button.windowID = p.SDL_GetWindowID(p.window)
+                event.button.button = p.SDL_BUTTON_LEFT
+                event.button.state = p.SDL_PRESSED if kind == "click" else p.SDL_RELEASED
+                event.button.x, event.button.y = values
             elif kind == "quit":
                 event.type = p.SDL_QUIT
             else:
@@ -101,13 +108,14 @@ class DummyInputTests(unittest.TestCase):
         ):
             main.run(smoke_test=False)
 
-        title_writes.assert_called_once_with(p.window, b"Dead Route - R1-B")
+        title_writes.assert_called_once_with(p.window, b"Dead Route - R2-A")
         fps_calls.assert_not_called()
         vendor_event_calls.assert_not_called()
         self.assertEqual(len(renderers), 1)
         self.assertEqual(closed, renderers)
         self.assertIsNone(renderers[0].font)
         self.assertIsNone(renderers[0].player_visual)
+        self.assertIsNone(renderers[0].combat_visual)
         self.assertEqual(p.SDL_WasInit(p.SDL_INIT_VIDEO), 0)
         self.assertEqual(p.TTF_WasInit(), 0)
         self.assertFalse(safety_quits, "Case reached its safety bound instead of its intended exit")
@@ -161,9 +169,9 @@ class DummyInputTests(unittest.TestCase):
             after_draw={1: [("motion", 160, 521)], 2: [("quit",)]},
         )
         self.assertEqual(len(frames), 2)
-        self.assertEqual(frames[0]["_target"], (660.0, 360.0))
+        self.assertEqual(frames[0]["_target"], (600.0, 100.0))
         self.assertEqual(frames[1]["_target"], (0.0, 180.0))
-        self.assertAlmostEqual(frames[0]["aim_angle"], math.pi / 4, places=7)
+        self.assertAlmostEqual(frames[0]["aim_angle"], math.atan2(-80, 120), places=7)
         self.assertAlmostEqual(frames[1]["aim_angle"], math.pi, places=7)
         for frame in frames:
             self.assertAlmostEqual(frame["x"], 480.0, places=7)

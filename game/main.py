@@ -1,4 +1,4 @@
-"""Dead Route R1-B: eight facings, distance-based walking and ground aiming."""
+"""Dead Route R2-A: one zombie and a front-right six-pose attack."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,10 @@ import time
 
 import pico2d.pico2d as p
 
-from core import Player, Wall, WORLD_WIDTH, WORLD_HEIGHT, move_player, aim_player
+from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player
+from combat import CombatWorld
+from combat_visual import CombatVisual
+from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
 
 WINDOW_WIDTH = 1280
@@ -35,10 +38,20 @@ def sdl_to_world(x, y):
     return screen_to_world(x, WINDOW_HEIGHT - 1 - y)
 
 
-def sorted_drawables(player, walls):
+def sorted_drawables(player, walls, zombie=None):
     # Stable ties: wall before player, so the player is drawn last at equal y.
-    objects = [("wall", wall) for wall in walls] + [("player", player)]
+    objects = [("wall", wall) for wall in walls]
+    if zombie is not None:
+        objects.append(("zombie", zombie))
+    objects.append(("player", player))
     return sorted(objects, key=lambda item: -item[1].y)
+
+
+def mouse_target(world, visual, mouse_x, mouse_y):
+    foot = world_to_screen(world.zombie.x, world.zombie.y)
+    if visual.zombie_contains(world.zombie, *foot, mouse_x, WINDOW_HEIGHT - 1 - mouse_y):
+        return world.zombie.x, world.zombie.y
+    return sdl_to_world(mouse_x, mouse_y)
 
 
 def rectangle(x, y, width, height, color, filled=True):
@@ -54,15 +67,21 @@ class Renderer:
     def __init__(self):
         self.font = None
         self.player_visual = None
+        self.combat_visual = None
+        self.combat = None
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
             self.player_visual = PlayerVisual()
+            self.combat_visual = CombatVisual()
         except Exception:
             self.close()
             raise
 
     def close(self):
+        if self.combat_visual is not None:
+            self.combat_visual.close()
+            self.combat_visual = None
         if self.player_visual is not None:
             self.player_visual.close()
             self.player_visual = None
@@ -99,18 +118,27 @@ class Renderer:
         p.SDL_RenderClear(p.renderer)
         self.floor()
         foot = world_to_screen(player.x, player.y)
-        for kind, actor in sorted_drawables(player, walls):
+        combat = getattr(self, "combat", None)
+        for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None):
             if kind == "wall":
                 self.wall(actor)
+            elif kind == "zombie":
+                self.combat_visual.draw_zombie(actor, *world_to_screen(actor.x, actor.y))
             else:
-                self.player_visual.draw(*foot)
+                if combat is None or not self.combat_visual.draw_attack(combat.attack, *foot):
+                    self.player_visual.draw(*foot)
                 cross(*foot, TEAL, size=4)
         # Development markers are separate from facing/frame selection.
         target_screen = world_to_screen(*target)
         p.draw_line(*foot, *target_screen, 112, 93, 56)
         cross(*target_screen, ORANGE, size=7)
-        self.font.draw(24, 683, "Dead Route - R1-B  |  8방향 · 실제 이동 거리로 보행", WHITE)
-        self.font.draw(24, 651, "WASD 이동 · 마우스 지면 조준 · 발점 청록 / 조준 주황 · Esc 종료", WHITE)
+        self.font.draw(24, 683, "Dead Route - R2-A  |  좀비 1마리 · 앞오른쪽 공격", WHITE)
+        self.font.draw(24, 651, "WASD 이동 · 앞·오른쪽 조준 후 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
+        if combat is not None:
+            self.font.draw(24, 620, f"HP {combat.player_hp}/3   좀비 {combat.zombie.hp}/5", WHITE)
+            if combat.result != "playing":
+                message = "연습 좀비 처치" if combat.result == "cleared" else "쓰러짐"
+                self.font.draw(470, 365, f"{message} · R 재시작", TEAL)
         self.font.draw(24, 54, "입력 활성" if focused else "포커스 없음 · 이동 입력 초기화", WHITE)
         self.font.draw(24, 24,
                        f"발점 ({player.x:.1f}, {player.y:.1f})   "
@@ -153,14 +181,17 @@ def run(smoke_test=False):
         if not p.renderer:
             raise RuntimeError(f"SDL renderer initialization failed: {p.SDL_GetError()!r}")
         p.hide_lattice()
-        p.SDL_SetWindowTitle(p.window, b"Dead Route - R1-B")
+        p.SDL_SetWindowTitle(p.window, b"Dead Route - R2-A")
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
-        player = Player()
-        walls = [Wall(400, 330, 220, 60)]
+        world = CombatWorld()
+        renderer.combat = world
+        player, walls = world.player, world.walls
         pressed = set()
-        target = (660.0, 360.0)
+        target = (world.zombie.x, world.zombie.y)
+        cursor = None
+        mouse_held = False
         previous = time.perf_counter()
         frame = 0
         running = True
@@ -170,6 +201,9 @@ def run(smoke_test=False):
             now = time.perf_counter()
             dt = min(now - previous, 0.05)
             previous = now
+            pending_click = None
+            reset_requested = False
+            lost_focus = False
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
@@ -178,32 +212,68 @@ def run(smoke_test=False):
                     pressed.add(key)
                     if key == p.SDLK_ESCAPE:
                         running = False
+                    elif key == p.SDLK_r:
+                        reset_requested = True
                 elif event.type == p.SDL_KEYUP and not event.key.repeat:
                     pressed.discard(event.key.keysym.sym)
                 elif event.type == p.SDL_MOUSEMOTION:
-                    target = sdl_to_world(event.motion.x, event.motion.y)
+                    cursor = (event.motion.x, event.motion.y)
+                elif event.type == p.SDL_MOUSEBUTTONDOWN and event.button.button == p.SDL_BUTTON_LEFT:
+                    cursor = (event.button.x, event.button.y)
+                    if not mouse_held:
+                        pending_click = cursor
+                    mouse_held = True
+                elif event.type == p.SDL_MOUSEBUTTONUP and event.button.button == p.SDL_BUTTON_LEFT:
+                    mouse_held = False
                 elif (event.type == p.SDL_WINDOWEVENT
                       and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
                     pressed.clear()
+                    pending_click = None
+                    mouse_held = False
+                    lost_focus = True
             if not running:
                 break
             focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
             if not focused:
                 pressed.clear()
+                pending_click = None
+                mouse_held = False
+            if reset_requested:
+                world.reset()
+                player, walls = world.player, world.walls
+                renderer.player_visual.locomotion = Locomotion()
+                pressed.clear()
+                pending_click = None
+                mouse_held = False
+                cursor = None
+                target = (world.zombie.x, world.zombie.y)
+            if cursor is not None:
+                target = mouse_target(world, renderer.combat_visual, *cursor)
+            aim_player(player, *target)
+            active = focused and not lost_focus
+            if pending_click is not None and active:
+                attack_target = mouse_target(world, renderer.combat_visual, *pending_click)
+                aim_player(player, *attack_target)
+                motion = renderer.player_visual.locomotion
+                facing = select_facing(player.aim_angle, motion.facing if motion._initialized else None)
+                if facing == "front_right":
+                    world.start_attack(facing="front_right")
+                aim_player(player, *target)
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             before = (player.x, player.y)
-            move_player(player, axis_x, axis_y, dt if focused else 0.0, walls)
+            world.update(dt if active else 0.0, axis_x, axis_y)
             dx, dy = player.x - before[0], player.y - before[1]
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
             aim_player(player, *target)
-            renderer.player_visual.update(player.aim_angle, dx, dy)
+            display_angle = world.attack.angle if world.attack is not None else player.aim_angle
+            renderer.player_visual.update(display_angle, dx, dy)
             renderer.draw(player, walls, target, focused)
             if smoke_test:
-                output = BASE_DIR.parent / "output/review/R1-B" / f"ui-{name}.png"
+                output = BASE_DIR.parent / "output/review/R2-A" / f"ui-{name}.png"
                 capture(output)
-                print(f"R1-B SDL capture: {output}", flush=True)
+                print(f"R2-A SDL capture: {output}", flush=True)
             p.update_canvas()
             frame += 1
             if smoke_test and frame >= len(smoke_poses):
@@ -215,7 +285,7 @@ def run(smoke_test=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Dead Route R1-B facing and walking sample")
+    parser = argparse.ArgumentParser(description="Dead Route R2-A one-zombie combat sample")
     parser.add_argument("--smoke-test", action="store_true",
                         help="render three native SDL fixtures, save PNGs and exit")
     run(parser.parse_args().smoke_test)

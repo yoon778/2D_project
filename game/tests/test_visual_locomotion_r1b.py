@@ -24,6 +24,7 @@ class LocomotionLoopTests(unittest.TestCase):
         updates = []
         original_update = main.PlayerVisual.update
         original_run = main.run
+        original_world = main.CombatWorld
 
         def update(visual, aim_angle, dx, dy):
             original_update(visual, aim_angle, dx, dy)
@@ -38,13 +39,15 @@ class LocomotionLoopTests(unittest.TestCase):
         def run(*args, **kwargs):
             return original_run(smoke_test=smoke_test)
 
-        def make_player():
-            return Player(**(player_start or {}))
+        def make_world():
+            world = original_world()
+            world.player = Player(**(player_start or {}))
+            return world
 
         with (
             patch.object(main.PlayerVisual, "update", update),
             patch.object(main, "run", side_effect=run),
-            patch.object(main, "Player", side_effect=make_player),
+            patch.object(main, "CombatWorld", side_effect=make_world),
             # Smoke uses its real loop/teleports but never writes screenshot files.
             patch.object(main, "capture", side_effect=lambda path: None) as capture,
             redirect_stdout(io.StringIO()),
@@ -116,7 +119,7 @@ class LocomotionLoopTests(unittest.TestCase):
             after_draw={1: [("motion", 160, 521)], 2: [("quit",)]},
         )
         self._assert_actual_displacements(frames, updates)
-        self.assertEqual([state["facing"] for state in updates], ["back_right", "left"])
+        self.assertEqual([state["facing"] for state in updates], ["front_right", "left"])
         self.assertAlmostEqual(frames[1]["aim_angle"], math.pi, places=9)
         self.assertNotAlmostEqual(frames[1]["aim_angle"], 3 * math.pi / 4, places=5)
         self.assertTrue(all(state["frame_index"] == 0 for state in updates))
@@ -150,7 +153,7 @@ class LocomotionLoopTests(unittest.TestCase):
     def test_eight_frame_facings_return_to_idle_after_actual_movement(self):
         cases = (
             ("front_right", [("motion", 820, 629)]),
-            ("back_right", []),  # Default target keeps the +pi/4 representative.
+            ("back_right", [("motion", 820, 413)]),  # Explicit old +pi/4 target.
             ("back_left", [("motion", 460, 413)]),  # Ground target (300, 360).
             ("front_left", [("motion", 460, 629)]),  # Ground target (300, 0).
             ("right", [("motion", 1120, 521)]),  # Ground target (960, 180).
