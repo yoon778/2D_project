@@ -125,7 +125,8 @@ class Renderer:
             elif kind == "zombie":
                 self.combat_visual.draw_zombie(actor, *world_to_screen(actor.x, actor.y))
             else:
-                if combat is None or not self.combat_visual.draw_attack(combat.attack, *foot):
+                if combat is None or not self.combat_visual.draw_attack(
+                        combat.attack, *foot, walk_frame_index=self.player_visual.frame_index):
                     self.player_visual.draw(*foot)
                 cross(*foot, TEAL, size=4)
         # Development markers are separate from facing/frame selection.

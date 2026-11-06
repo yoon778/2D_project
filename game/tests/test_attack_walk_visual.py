@@ -1,0 +1,135 @@
+"""R2-AW selection/anchors and real SDL queue movement-to-sprite integration."""
+import json
+import math
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+import unittest
+from unittest.mock import Mock, patch
+
+TEST_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(TEST_DIR))
+sys.path.insert(0, str(TEST_DIR.parent))
+
+import main
+from combat_visual import CombatVisual, METADATA_PATH
+import test_combat_visual_r2a as combat_fixture
+
+
+class AttackWalkSpriteTests(unittest.TestCase):
+    def setUp(self):
+        self.visual = CombatVisual.__new__(CombatVisual)
+        self.visual.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+        self.visual.images = {"attack": SimpleNamespace(h=192, clip_draw=Mock()),
+                              "attack_walk": SimpleNamespace(h=576, clip_draw=Mock())}
+
+    def test_all_48_combinations_choose_the_right_cell_with_the_same_anchor(self):
+        for a, pose in enumerate(self.visual.metadata["attack"]["frames"]):
+            attack = SimpleNamespace(facing="front_right", elapsed=(pose["start"] + pose["end"]) / 2)
+            for w in range(1, 9):
+                with self.subTest(attack=a, walk=w):
+                    self.assertTrue(self.visual.draw_attack(attack, 100, 200, w))
+                    self.visual.images["attack_walk"].clip_draw.assert_called_with(
+                        (w - 1) * 96, 576 - (a + 1) * 96, 96, 96,
+                        100.0, 264.0, 192.0, 192.0)
+        self.visual.images["attack"].clip_draw.assert_not_called()
+
+    def test_stopping_uses_existing_stationary_attack_and_invalid_phase_is_rejected(self):
+        attack = SimpleNamespace(facing="front_right", elapsed=.18)
+        for w in (None, 0):
+            self.assertTrue(self.visual.draw_attack(attack, 100, 200, w))
+        self.assertEqual(self.visual.images["attack"].clip_draw.call_count, 2)
+        self.visual.images["attack_walk"].clip_draw.assert_not_called()
+        for w in (-1, 9, True, 1.5):
+            with self.subTest(walk=w), self.assertRaises(ValueError):
+                self.visual.draw_attack(attack, 100, 200, w)
+        self.assertFalse(self.visual.draw_attack(None, 100, 200, 8))
+
+
+class AttackWalkInputTests(unittest.TestCase):
+    def observe(self, initial, after_draw, maximum_draws=6, phase=0, wall=False):
+        choices = []
+        original_init, original_draw = main.Renderer.__init__, CombatVisual.draw_attack
+        original_world = main.CombatWorld
+
+        def initialize(renderer):
+            original_init(renderer)
+            renderer.player_visual.locomotion.phase = phase
+
+        def draw(visual, attack, x, y, walk_frame_index=None):
+            drawn = original_draw(visual, attack, x, y, walk_frame_index)
+            choices.append({"walk": walk_frame_index, "drawn": drawn,
+                            "attack_index": visual.attack_frame_index(attack)})
+            return drawn
+
+        def make_world():
+            world = original_world()
+            if wall:
+                world.player.y = 316
+            return world
+
+        with (patch.object(main.Renderer, "__init__", initialize),
+              patch.object(CombatVisual, "draw_attack", draw),
+              patch.object(main, "CombatWorld", side_effect=make_world)):
+            frames, states = combat_fixture.CombatInputTests.observe(self, initial, after_draw, maximum_draws)
+        self.assertEqual(len(choices), len(states))
+        for frame, state, choice in zip(frames, states, choices):
+            expected = min(8, int(state["phase"] * 8) + 1) if frame["moved"] else 0
+            self.assertEqual(choice["walk"], expected)
+        return frames, states, choices
+
+    def test_attack_start_stop_and_resume_keep_existing_walk_phase(self):
+        _, states, choices = self.observe(
+            [("click", 760, 569), ("down", main.p.SDLK_d)],
+            {1: [("up", main.p.SDLK_d)], 3: [("down", main.p.SDLK_d)], 4: [("quit",)]}, phase=.37)
+        self.assertEqual([c["walk"] for c in choices], [4, 0, 0, 4])
+        self.assertEqual([c["drawn"] for c in choices], [True] * 4)
+        for i in (0, 1, 2):
+            self.assertAlmostEqual(states[i]["phase"], .37 + 1 / 64)
+        self.assertAlmostEqual(states[3]["phase"], .37 + 2 / 64)
+
+    def test_wall_contact_selects_stationary_attack_without_changing_phase(self):
+        frames, states, choices = self.observe(
+            [("click", 760, 569), ("down", main.p.SDLK_w)], {2: [("quit",)]}, phase=.4, wall=True)
+        self.assertEqual([f["y"] for f in frames], [316, 316])
+        self.assertTrue(all(c["walk"] == 0 and c["drawn"] for c in choices))
+        self.assertTrue(all(s["phase"] == .4 for s in states))
+
+    def test_forward_backward_and_strafe_advance_by_actual_distance(self):
+        for key in (main.p.SDLK_a, main.p.SDLK_s, main.p.SDLK_d):
+            with self.subTest(key=key):
+                _, states, choices = self.observe(
+                    [("click", 760, 569), ("down", key)], {2: [("quit",)]})
+                self.assertEqual([c["walk"] for c in choices], [1, 1])
+                self.assertAlmostEqual(states[1]["phase"], 2 / 64)
+
+    def test_attack_end_preserves_phase_and_returns_to_normal_walking(self):
+        frames, states, choices = self.observe(
+            [("click", 760, 569), ("down", main.p.SDLK_d)], {40: [("quit",)]}, 41, phase=.2)
+        distance = 0.0
+        previous = (480, 180)
+        for frame, state in zip(frames, states):
+            point = (frame["x"], frame["y"])
+            distance += math.dist(previous, point)
+            self.assertAlmostEqual(state["phase"], (.2 + distance / 64) % 1)
+            previous = point
+        self.assertTrue(any(c["attack_index"] == 5 for c in choices))
+        self.assertIsNone(states[-1]["attack"])
+        self.assertFalse(choices[-1]["drawn"])
+        self.assertGreater(choices[-1]["walk"], 0)
+
+    def test_focus_pause_and_reset_choose_static_or_normal_without_extra_phase(self):
+        _, states, choices = self.observe(
+            [("click", 760, 569), ("down", main.p.SDLK_d)],
+            {1: [("lost",), ("gained",)], 2: [("down", main.p.SDLK_d)],
+             3: [("down", main.p.SDLK_r)], 4: [("quit",)]}, phase=.3)
+        self.assertEqual(choices[1]["walk"], 0)
+        self.assertEqual(states[0]["elapsed"], states[1]["elapsed"])
+        self.assertEqual(states[0]["phase"], states[1]["phase"])
+        self.assertAlmostEqual(states[2]["phase"], .3 + 2 / 64)
+        self.assertEqual(states[3]["phase"], 0)
+        self.assertFalse(choices[3]["drawn"])
+
+
+if __name__ == "__main__":
+    unittest.main()

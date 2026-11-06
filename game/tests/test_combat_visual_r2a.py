@@ -85,13 +85,15 @@ class CombatSpriteTests(unittest.TestCase):
 
     def test_images_load_once_at_initialization_and_release_references(self):
         images = [SimpleNamespace(w=288, h=192, texture=object(), clip_draw=Mock()),
-                  SimpleNamespace(w=240, h=80, texture=object(), clip_draw=Mock())]
+                  SimpleNamespace(w=240, h=80, texture=object(), clip_draw=Mock()),
+                  SimpleNamespace(w=768, h=576, texture=object(), clip_draw=Mock())]
         with (patch.object(combat_visual.p, "load_image", side_effect=images) as load,
               patch.object(combat_visual.p, "SDL_SetTextureScaleMode", return_value=0)):
             visual = CombatVisual()
             for t in (0, .18, .48):
                 visual.draw_attack(self.attack(t), 100, 200)
-            self.assertEqual(load.call_count, 2)
+            visual.draw_attack(self.attack(.18), 100, 200, walk_frame_index=7)
+            self.assertEqual(load.call_count, 3)
             visual.close()
             self.assertEqual(visual.images, {})
 

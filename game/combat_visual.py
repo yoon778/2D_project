@@ -18,7 +18,7 @@ class CombatVisual:
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.images = {}
         try:
-            for key in ("attack", "zombie"):
+            for key in ("attack", "zombie", "attack_walk"):
                 source = self.metadata[key]
                 image = p.load_image(str(METADATA_PATH.parent / source["image"]))
                 self.images[key] = image
@@ -51,11 +51,18 @@ class CombatVisual:
         image.clip_draw(x, image.h - top - h, w, h,
                         left + width / 2, bottom + height / 2, width, height)
 
-    def draw_attack(self, attack, foot_x, foot_y):
+    def draw_attack(self, attack, foot_x, foot_y, walk_frame_index=None):
         index = self.attack_frame_index(attack)
         if index is None:
             return False
-        self._draw("attack", self.metadata["attack"]["frames"][index], foot_x, foot_y)
+        if walk_frame_index is not None and (type(walk_frame_index) is not int
+                                              or not 0 <= walk_frame_index <= 8):
+            raise ValueError("walk_frame_index must be None or an integer from 0 to 8")
+        if walk_frame_index:
+            frame = self.metadata["attack_walk"]["frames"][index * 8 + walk_frame_index - 1]
+            self._draw("attack_walk", frame, foot_x, foot_y)
+        else:
+            self._draw("attack", self.metadata["attack"]["frames"][index], foot_x, foot_y)
         return True
 
     @staticmethod
