@@ -7,8 +7,8 @@ const root = path.resolve(__dirname, '../..'), size = 96
 const navy = ['15141b','242633','323648','42495f','555d77','69728e']
 const skin = ['15141b','392b29','5b3e35','684d42','bc8060','e9af89','ffcfaa']
 const cuff = [...navy,'a54816','ef770b','ffa510','ffe276']
-const names = ['anticipate_1','anticipate_2','hit','follow','recover','return']
-const labels = ['준비 1','준비 2','타격','후속','회복','복귀'], times = [0,.09,.18,.27,.37,.48,.60]
+const names = ['anticipate_1','anticipate_mid','anticipate_2','swing_mid','hit','hit_follow_mid','follow','follow_recover_mid','recover','recover_return_1','recover_return_2','return']
+const labels = ['준비 1','준비 중간','준비 2','휘두르기 중간','타격','타격 후속 중간','후속','후속 회복 중간','회복','복귀 중간 1','복귀 중간 2','복귀'], times = [0,.045,.09,.135,.18,.225,.27,.32,.37,.425,.48,.54,.60]
 function inside(x,y,p) {let hit=false;for(let i=0,j=p.length-1;i<p.length;j=i++){const[a,b]=p[i],[c,d]=p[j];if((b>y)!==(d>y)&&x<(c-a)*(y-b)/(d-b)+a)hit=!hit}return hit}
 function contains(x,y,m) {if(Array.isArray(m))return inside(x+.5,y+.5,m);if(m.rows){const r=m.rows[y];return r&&(Array.isArray(r[0])?r:[r]).some(([a,b])=>x>=a&&x<=b)}return inside(x+.5,y+.5,m.polygon)}
 function cut(src,mask,colors,repair=false) {const b=Buffer.alloc(src.length);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4;if(!contains(x,y,mask))continue;const rgb=src.subarray(p,p+3).toString('hex');if(src[p+3]&&(!colors||colors.includes(rgb)))src.copy(b,p,p,p+4);else if(repair)b.set([50,54,72,255],p)}return b}
@@ -28,6 +28,20 @@ function poseFor(model,rig,index) {const d=direction(rig.worldFacing),s=model.sh
   else if(index===3){grip=model.followGrip||[s[0]+d[0]*9,s[1]+d[1]*7+8];dir=direction(rig.worldFacing,50*Math.PI/180)}
   else{grip=[model.grip[0]-d[0]*2,model.grip[1]-3];dir=[.08,Math.sqrt(1-.08*.08)]}
   return {...solve(model,grip,dir),dir,behind:model.far||index<2}
+}
+function shortAngle(a,b,t) {return a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t}
+function between(model,a,b,t) {
+  const bone=(from,to,origin)=>{const angle=shortAngle(Math.atan2(from[1],from[0]),Math.atan2(to[1],to[0]),t),length=Math.hypot(...from)*(1-t)+Math.hypot(...to)*t;return[origin[0]+Math.cos(angle)*length,origin[1]+Math.sin(angle)*length]}
+  const s=model.shoulder,elbow=bone([a.elbow[0]-s[0],a.elbow[1]-s[1]],[b.elbow[0]-s[0],b.elbow[1]-s[1]],s),wrist=bone([a.wrist[0]-a.elbow[0],a.wrist[1]-a.elbow[1]],[b.wrist[0]-b.elbow[0],b.wrist[1]-b.elbow[1]],elbow),handAngle=shortAngle(a.handAngle,b.handAngle,t),angle=shortAngle(Math.atan2(a.dir[1],a.dir[0]),Math.atan2(b.dir[1],b.dir[0]),t),palm=[model.hand.grip[0]-model.hand.anchor[0],model.hand.grip[1]-model.hand.anchor[1]],c=Math.cos(handAngle),sn=Math.sin(handAngle)
+  return{elbow,wrist,handAngle,grip:[wrist[0]+c*palm[0]-sn*palm[1],wrist[1]+sn*palm[0]+c*palm[1]],dir:[Math.cos(angle),Math.sin(angle)],behind:a.behind}
+}
+function twelvePoses(model,rig,pivot,axisEnd) {
+  const keys=Array.from({length:5},(_,i)=>poseFor(model,rig,i)),angle=Math.atan2(axisEnd[1]-pivot[1],axisEnd[0]-pivot[0])+(rig.batRotation?.degrees||0)*Math.PI/180,grip=rig.batRotation?.targetPivot||model.grip,palm=[model.hand.grip[0]-model.hand.anchor[0],model.hand.grip[1]-model.hand.anchor[1]],palmLength=Math.hypot(...palm),rest={elbow:model.upper.b,wrist:[grip[0]-palm[0],grip[1]-palm[1]],grip,handAngle:0,dir:[Math.cos(angle),Math.sin(angle)],behind:model.far}
+  if(model.removeArm===false)rest.elbow=solve(model,grip,palm.map(v=>v/palmLength)).elbow
+  const sequence=[keys[0],between(model,keys[0],keys[1],.5),keys[1],between(model,keys[1],keys[2],.5),keys[2],between(model,keys[2],keys[3],.5),keys[3],between(model,keys[3],keys[4],model.followRecoverFraction??.5),keys[4],between(model,keys[4],rest,(.425-.37)/(.54-.37)),between(model,keys[4],rest,(.48-.37)/(.54-.37)),{...rest,original:true}]
+  // A small recovery arc keeps the far weapon visible between occluded leg phases.
+  for(const [i,degrees]of(model.returnArcDegrees||[]).entries()){const p=sequence[9+i],a=Math.atan2(p.dir[1],p.dir[0])+degrees*Math.PI/180;p.dir=[Math.cos(a),Math.sin(a)]}
+  return sequence
 }
 async function png(b,w,h,file,scale=1) {await sharp(b,{raw:{width:w,height:h,channels:4}}).resize(w*scale,h*scale,{kernel:'nearest'}).png().toFile(file)}
 function atlas(cells,cols) {const width=cols*96,height=Math.ceil(cells.length/cols)*96,b=Buffer.alloc(width*height*4);for(let f=0;f<cells.length;f++)for(let y=0;y<96;y++)cells[f].copy(b,((Math.floor(f/cols)*96+y)*width+f%cols*96)*4,y*384,(y+1)*384);return{b,width,height}}
@@ -57,19 +71,30 @@ async function build(facing,dest) {
   const restingLegs=Buffer.alloc(96*96*4),far=rig.nearLeg==='right'?'left':'right',hipBand=rig.hipOutline?[Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1])-2,Math.max(rig.legs.right.hip[1],rig.legs.left.hip[1])+5]:null;
   for(const side of[far,rig.nearLeg])over(restingLegs,drawLeg(rig,legParts,side,{...rig.legs[side],pitch:0},hipBand),80,80,8,8);
   const idle=padded(r1,8),staticBody=Buffer.from(idle);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4,q=((y+8)*96+x+8)*4,isBat=oldWeapon[q+3];if(armMask[p+3]||isBat){if(armMask[p+3]&&core(x,y))staticBody.set([50,54,72,255],q);else if(y>=Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1]))restingLegs.copy(staticBody,q,q,q+4);else staticBody.fill(0,q,q+4)}}
-  const stationary=[],moving=[],poses=[];
-  for(let a=0;a<6;a++){
-    if(a===5){stationary.push(idle);for(let w=0;w<8;w++)moving.push(padded(r1,w));continue}
-    const pose=poseFor(model,rig,a),arm=Buffer.alloc(96*96*4),weapon=Buffer.alloc(arm.length);poses.push(pose);
+  const stationary=[],moving=[],poses=twelvePoses(model,rig,pivot,axisEnd);
+  for(let a=0;a<12;a++){
+    if(a===11){stationary.push(idle);for(let w=0;w<8;w++)moving.push(padded(r1,w));continue}
+    const pose=poses[a],arm=Buffer.alloc(96*96*4),weapon=Buffer.alloc(arm.length);
     segment(arm,parts.upper,model.upper.a,model.upper.b,model.shoulder,pose.elbow);segment(arm,parts.fore,model.fore.a,model.fore.b,pose.elbow,pose.wrist);rotate(arm,parts.hand,model.hand.anchor,pose.wrist,pose.handAngle);ink(arm);
     const end=[pose.grip[0]+pose.dir[0]*model.length,pose.grip[1]+pose.dir[1]*model.length];segment(weapon,bat,pivot,axisEnd,pose.grip,end);ink(weapon);
     const stand=Buffer.alloc(96*96*4);if(pose.behind){over(stand,weapon);over(stand,arm);over(stand,staticBody)}else{over(stand,staticBody);over(stand,arm);over(stand,weapon)}over(stand,headCell);over(stand,gearCell);hipInk(stand,rig,0,weapon);stationary.push(stand);
     for(let w=0;w<8;w++){const b=Buffer.alloc(96*96*4),drop=walk.bodyDrop[w],band=hipBand?hipBand.map(y=>y+drop):null;if(pose.behind)over(b,weapon,96,96,0,drop);for(const side of[far,rig.nearLeg])over(b,drawLeg(rig,legParts,side,joints(rig,rig.legs[side],w),band),80,80,8,8);if(pose.behind)over(b,arm,96,96,0,drop);over(b,upperCell,96,96,0,drop);if(!pose.behind){over(b,arm,96,96,0,drop);over(b,weapon,96,96,0,drop)}over(b,headCell,96,96,0,drop);over(b,gearCell,96,96,0,drop);const protectedWeapon=Buffer.alloc(b.length);over(protectedWeapon,weapon,96,96,0,drop);hipInk(b,rig,drop,protectedWeapon);moving.push(b)}
   }
-  const standAtlas=atlas(stationary,3),walkAtlas=atlas(moving,8),image=`r2c8-attack-${slug}-20261106.png`,walkImage=`r2c8-attack-walk-${slug}-20261106.png`;await png(standAtlas.b,288,192,path.join(dest,image));await png(walkAtlas.b,768,576,path.join(dest,walkImage));
+  const standAtlas=atlas(stationary,4),walkAtlas=atlas(moving,8),image=`r2c8-attack-${slug}-20261106.png`,walkImage=`r2c8-attack-walk-${slug}-20261106.png`;await png(standAtlas.b,384,288,path.join(dest,image));await png(walkAtlas.b,768,1152,path.join(dest,walkImage));
   const common={facing,cell_size:[96,96],scale:2,reference_height:64};
-  return{facing,stationary,moving,poses,attack:{...common,image,canvas_size:[288,192],frames:names.map((name,a)=>({name,label:labels[a],start:times[a],end:times[a+1],clip_topleft:[a%3*96,Math.floor(a/3)*96,96,96],foot_pivot_topleft:[a%3*96+48,Math.floor(a/3)*96+80]}))},attack_walk:{...common,image:walkImage,canvas_size:[768,576],attack_steps:6,walk_phases:8,frames:moving.map((_,i)=>({name:`${names[Math.floor(i/8)]}_walk${i%8+1}`,attack_index:Math.floor(i/8),walk_frame_index:i%8+1,clip_topleft:[i%8*96,Math.floor(i/8)*96,96,96],foot_pivot_topleft:[i%8*96+48,Math.floor(i/8)*96+80]}))}}
+  return{facing,stationary,moving,poses,attack:{...common,image,canvas_size:[384,288],frames:names.map((name,a)=>({name,label:labels[a],start:times[a],end:times[a+1],clip_topleft:[a%4*96,Math.floor(a/4)*96,96,96],foot_pivot_topleft:[a%4*96+48,Math.floor(a/4)*96+80]}))},attack_walk:{...common,image:walkImage,canvas_size:[768,1152],attack_steps:12,walk_phases:8,frames:moving.map((_,i)=>({name:`${names[Math.floor(i/8)]}_walk${i%8+1}`,attack_index:Math.floor(i/8),walk_frame_index:i%8+1,clip_topleft:[i%8*96,Math.floor(i/8)*96,96,96],foot_pivot_topleft:[i%8*96+48,Math.floor(i/8)*96+80]}))}}
 }
 async function sheet(cells,cols,rows,file) {const s=atlas(cells,cols),margin=80,width=s.width+margin,b=Buffer.alloc(width*s.height*4);for(let p=0;p<b.length;p+=4)b.set([49,63,75,255],p);for(let y=0;y<s.height;y++)for(let x=0;x<s.width;x++){const p=(y*s.width+x)*4;if(s.b[p+3])s.b.copy(b,(y*width+x+margin)*4,p,p+4)}const text=`<svg width="${width}" height="${s.height}">${rows.map((r,i)=>`<text x="2" y="${i*96+48}" font-size="10" font-family="monospace" fill="#e7ece7">${r}</text>`).join('')}</svg>`,base=await sharp(b,{raw:{width,height:s.height,channels:4}}).composite([{input:Buffer.from(text)}]).png().toBuffer();await sharp(base).resize(width*2,s.height*2,{kernel:'nearest'}).png().toFile(file)}
-async function main() {const dest=path.join(root,'game/assets/combat'),review=path.join(root,'output/review/R2-C8-art');await fs.mkdir(review,{recursive:true});const metaPath=path.join(dest,'r2a-combat-20261106.json'),metadata=JSON.parse(await fs.readFile(metaPath,'utf8')),results=[];for(const facing of Object.keys(settings)){const r=await build(facing,dest);metadata['attack_'+facing]=r.attack;metadata['attack_walk_'+facing]=r.attack_walk;results.push(r);console.log(facing+': 6 + 48 poses saved')}await fs.writeFile(metaPath,JSON.stringify(metadata,null,2)+'\n');await sheet(results.flatMap(r=>r.stationary),6,results.map(r=>r.facing),path.join(review,'stationary-seven-directions-2x.png'));await sheet(results.flatMap(r=>r.moving.slice(16,24)),8,results.map(r=>r.facing),path.join(review,'hit-walk-seven-directions-2x.png'));await fs.writeFile(path.join(review,'pose-joints.json'),JSON.stringify(Object.fromEntries(results.map(r=>[r.facing,r.poses])),null,2)+'\n');console.log(JSON.stringify({sources:14,poses:378,review}))}
+async function main() {
+  const dest=path.join(root,'game/assets/combat'),review=path.join(root,'output/review/R2-C812-art');await fs.mkdir(review,{recursive:true});const metaPath=path.join(dest,'r2a-combat-20261106.json'),metadata=JSON.parse(await fs.readFile(metaPath,'utf8')),results=[];
+  for(const facing of Object.keys(settings)){const r=await build(facing,dest);metadata['attack_'+facing]=r.attack;metadata['attack_walk_'+facing]=r.attack_walk;results.push(r);console.log(facing+': 12 + 96 poses saved')}
+  await fs.writeFile(metaPath,JSON.stringify(metadata,null,2)+'\n');
+  await sheet(results.flatMap(r=>r.stationary),12,results.map(r=>r.facing),path.join(review,'stationary-seven-directions-2x.png'));
+  await sheet(results.flatMap(r=>[1,3,5,7,9,10].map(i=>r.stationary[i])),6,results.map(r=>r.facing),path.join(review,'middle-six-seven-directions-2x.png'));
+  await sheet(results.flatMap(r=>r.moving.slice(32,40)),8,results.map(r=>r.facing),path.join(review,'hit-walk-seven-directions-2x.png'));
+  const comparison=[],rows=[];
+  for(const r of results){const previous=await fs.readFile(path.join(review,'previous',r.attack.image)).catch(error=>{if(error.code==='ENOENT')return null;throw error});if(!previous)continue;const raw=await sharp(previous).ensureAlpha().raw().toBuffer();for(let i=0;i<6;i++){const b=Buffer.alloc(96*96*4);for(let y=0;y<96;y++){const p=((Math.floor(i/3)*96+y)*288+i%3*96)*4;raw.copy(b,y*384,p,p+384)}comparison.push(b)}comparison.push(...[0,2,4,6,8,11].map(i=>r.stationary[i]));rows.push(r.facing+' old',r.facing+' new')}
+  if(comparison.length)await sheet(comparison,6,rows,path.join(review,'previous-six-vs-new-keys-2x.png'));
+  await fs.writeFile(path.join(review,'pose-joints.json'),JSON.stringify(Object.fromEntries(results.map(r=>[r.facing,r.poses])),null,2)+'\n');console.log(JSON.stringify({sources:14,poses:756,review}))
+}
 if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1})

@@ -14,6 +14,7 @@ sys.path.insert(0, str(TEST_DIR.parent))
 
 import main
 import combat_visual
+from combat import CombatWorld
 from combat_visual import CombatVisual, METADATA_PATH
 import test_attack_walk_visual as walk_fixture
 
@@ -22,6 +23,7 @@ DIRECTIONS = (("front_right", (1, -1)), ("right", (1, 0)),
               ("back_right", (1, 1)), ("back", (0, 1)),
               ("back_left", (-1, 1)), ("left", (-1, 0)),
               ("front_left", (-1, -1)), ("front", (0, -1)))
+BOUNDARIES = (0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54, .6)
 
 
 def source_names(facing):
@@ -55,23 +57,53 @@ class DirectionSpriteTests(unittest.TestCase):
     def test_every_direction_stage_and_walk_cell_uses_its_own_source_and_anchor(self):
         for facing, _ in DIRECTIONS:
             stationary, walking = source_names(facing)
-            front_right = facing == "front_right"
-            starts = (0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54) if front_right else (
-                0, .09, .18, .27, .37, .48)
-            columns, idle_height, walk_height = (4, 288, 1152) if front_right else (3, 192, 576)
-            for index, elapsed in enumerate(starts):
+            frames = self.metadata[stationary]["frames"]
+            self.assertEqual([frame["start"] for frame in frames], list(BOUNDARIES[:-1]))
+            self.assertEqual([frame["end"] for frame in frames], list(BOUNDARIES[1:]))
+            for index, elapsed in enumerate(BOUNDARIES[:-1]):
                 attack = SimpleNamespace(facing=facing, elapsed=elapsed)
                 self.assertEqual(self.visual.attack_frame_index(attack), index)
+                before_end = SimpleNamespace(facing=facing, elapsed=math.nextafter(BOUNDARIES[index + 1], -math.inf))
+                self.assertEqual(self.visual.attack_frame_index(before_end), index)
                 for walk in (None, 0, *range(1, 9)):
                     with self.subTest(facing=facing, stage=index, walk=walk):
                         self.assertTrue(self.visual.draw_attack(attack, 100, 200, walk))
                         key = walking if walk else stationary
-                        x, y = ((walk - 1) * 96, walk_height - (index + 1) * 96) if walk else (
-                            index % columns * 96, idle_height - (index // columns + 1) * 96)
+                        x, y = ((walk - 1) * 96, 1152 - (index + 1) * 96) if walk else (
+                            index % 4 * 96, 288 - (index // 4 + 1) * 96)
                         image = self.visual.images[key]
                         image.clip_draw.assert_called_once_with(x, y, 96, 96, 100.0, 264.0, 192.0, 192.0)
                         image.clip_draw.reset_mock()
         self.assertTrue(all(image.clip_draw.call_count == 0 for image in self.visual.images.values()))
+
+    def test_eight_directions_keep_one_hit_at_018_and_recovery_at_060(self):
+        for facing, (dx, dy) in DIRECTIONS:
+            with self.subTest(facing=facing):
+                world = CombatWorld()
+                world.walls = []
+                world.player.aim_angle = math.atan2(dy, dx)
+                distance = math.hypot(dx, dy)
+                world.zombie.x = world.player.x + dx / distance * 60
+                world.zombie.y = world.player.y + dy / distance * 60
+                world.zombie.stun_remaining = .4
+                self.assertTrue(world.start_attack(facing))
+                previous = 0.0
+                for index, boundary in enumerate(BOUNDARIES[:-1]):
+                    world.update(boundary - previous)
+                    self.assertEqual(world.attack.facing, facing)
+                    self.assertEqual(world.attack.angle, world.player.aim_angle)
+                    self.assertAlmostEqual(world.attack.elapsed, boundary)
+                    self.assertEqual(self.visual.attack_frame_index(world.attack), index)
+                    self.assertEqual((world.player_hp, world.zombie.hp), (3, 5 if boundary < .18 else 4))
+                    if boundary >= .18:
+                        self.assertAlmostEqual(world.zombie.stun_remaining, .4 - (boundary - .18))
+                    self.assertFalse(world.start_attack(facing))
+                    previous = boundary
+                world.update(.6 - previous)
+                self.assertIsNone(world.attack)
+                self.assertEqual((world.player_hp, world.zombie.hp, world.result), (3, 4, "playing"))
+                self.assertEqual(world.zombie.stun_remaining, 0.0)
+                self.assertTrue(world.start_attack(facing))
 
     def test_unknown_facing_and_unsupported_elapsed_do_not_draw(self):
         for facing, elapsed in (("unknown", .18), ("front", -.001), ("left", .6),
@@ -123,11 +155,11 @@ class AuthoredDirectionMetadataTests(unittest.TestCase):
         metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.assertEqual(len(metadata), 17)
         for facing, _ in DIRECTIONS:
-            counts = (12, 96) if facing == "front_right" else (6, 48)
-            for key, count in zip(source_names(facing), counts):
+            for key, count, canvas in zip(source_names(facing), (12, 96), ([384, 288], [768, 1152])):
                 with self.subTest(source=key):
                     self.assertEqual(metadata[key]["facing"], facing)
                     self.assertEqual(len(metadata[key]["frames"]), count)
+                    self.assertEqual(metadata[key]["canvas_size"], canvas)
                     self.assertTrue((METADATA_PATH.parent / metadata[key]["image"]).is_file())
 
 
@@ -176,6 +208,8 @@ class DirectionInputTests(unittest.TestCase):
                     self.assertAlmostEqual(state["phase"], (.23 + distance / 64) % 1)
                     previous = current
                 self.assertIsNone(states[-1]["attack"])
+                self.assertEqual({choice["attack_index"] for choice in choices
+                                  if choice["attack_index"] is not None}, set(range(12)))
                 self.assertFalse(choices[-1]["drawn"])
                 self.assertGreater(choices[-1]["walk"], 0)
 

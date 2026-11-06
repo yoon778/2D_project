@@ -1,10 +1,10 @@
 // FR12 image/metadata regression checks; no game or resource writes.
 const fs = require('node:fs/promises'), path = require('node:path'), assert = require('node:assert/strict')
 const {execFileSync} = require('node:child_process'), {createHash} = require('node:crypto'), sharp = require('sharp')
-const root = path.resolve(__dirname, '../..'), baseline = '9f33924', times = [0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54, .60]
+const root = path.resolve(__dirname, '../..'), baseline = '9f33924', frozenBaseline = 'c9e017b', times = [0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54, .60]
 const names = ['anticipate_1', 'anticipate_mid', 'anticipate_2', 'swing_mid', 'hit', 'hit_follow_mid', 'follow', 'follow_recover_mid', 'recover', 'recover_return_1', 'recover_return_2', 'return']
 const walk = require('./consistent-rig.json'), oldIndices = [0, 2, 4, 6, 8, 11]
-const git = file => execFileSync('git', ['show', `${baseline}:${file}`], {cwd: root})
+const git = (file, ref = baseline) => execFileSync('git', ['show', `${ref}:${file}`], {cwd: root})
 function cell(data, width, clip) {
   const [left, top, w, h] = clip, b = Buffer.alloc(w * h * 4)
   for (let y = 0; y < h; y++) data.copy(b, y * w * 4, ((top + y) * width + left) * 4, ((top + y) * width + left + w) * 4)
@@ -36,12 +36,17 @@ function smallComponents(b) {
 }
 async function main() {
   const metaFile = 'game/assets/combat/r2a-combat-20261106.json', metadata = JSON.parse(await fs.readFile(path.join(root, metaFile), 'utf8')), original = JSON.parse(git(metaFile))
-  assert.deepEqual(Object.keys(metadata).sort(), Object.keys(original).sort())
-  for (const key of Object.keys(original)) if (!['attack', 'attack_walk'].includes(key)) assert.deepEqual(metadata[key], original[key], key)
+  const frozen = JSON.parse(git(metaFile, frozenBaseline))
+  assert.deepEqual(Object.keys(metadata).sort(), Object.keys(frozen).sort())
+  for (const key of ['attack', 'attack_walk', 'zombie']) {
+    assert.deepEqual(metadata[key], frozen[key], `${key} completed FR12 baseline`)
+    const file = `game/assets/combat/${frozen[key].image}`
+    assert((await fs.readFile(path.join(root, file))).equals(git(file, frozenBaseline)), `${file} frozen PNG bytes`)
+  }
   const master = await sharp(path.join(__dirname, walk.master)).ensureAlpha().raw().toBuffer({resolveWithObject: true}), palette = new Set()
   for (let p = 0; p < master.data.length; p += 4) if (master.data[p + 3]) palette.add(master.data.subarray(p, p + 3).toString('hex'))
   const source = cell(master.data, master.info.width, [80, 0, 80, 80]), r1 = await sharp(path.join(root, 'game/assets/player/r1-consistent-front-right-20261105.png')).ensureAlpha().raw().toBuffer()
-  const report = {baseline, frames: 0, distinctStationary: 0, distinctMoving: 0, distinctByWalkPhase: [], exactOldKeys: 0, exactReturns: 0, headPixels: 0, alphaErrors: 0, paletteErrors: 0, edgePixels: 0, smallComponents: 0, preservedMetadataBlocks: 15, middleBoneChecks: 0}
+  const report = {baseline, frozenBaseline, frames: 0, distinctStationary: 0, distinctMoving: 0, distinctByWalkPhase: [], exactOldKeys: 0, exactReturns: 0, headPixels: 0, alphaErrors: 0, paletteErrors: 0, edgePixels: 0, smallComponents: 0, preservedMetadataBlocks: 3, frozenImages: 3, middleBoneChecks: 0}
   for (const moving of [false, true]) {
     const key = moving ? 'attack_walk' : 'attack', entry = metadata[key], width = moving ? 768 : 384, height = moving ? 1152 : 288, columns = moving ? 8 : 4
     assert.equal(entry.image, original[key].image); assert.deepEqual(entry.canvas_size, [width, height]); assert.equal(entry.facing, 'front_right')
