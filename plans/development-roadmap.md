@@ -1,6 +1,6 @@
 # Dead Route 개발 순서
 
-기준일: 2026-11-06 · 목표: 작은 골목의 좀보이드식 전투·소음 위험과 택배 배달
+기준일: 2026-11-07 · 목표: 작은 골목의 좀보이드식 전투·소음 위험과 택배 배달
 현재 기획은 [PRD](../PRD.md)를 따릅니다. 과거 구현이 필요하면 Git 커밋 7b46edd에서 참고합니다.
 
 ## 완료한 준비
@@ -11,7 +11,7 @@
 [W1 낮은 보행](handoffs/r1-weight-review.md)·[W2 착지](handoffs/r1-weight-landing-review.md) 이후 발 과속 피드백에 따라 [보행 박자·발 연결](handoffs/r1-walk-cadence-review.md) 보완. 90px/s·주기64px 유지. 도트풍 승인 뒤 사용자 요청의 R1-C8에서 상하좌우를 추가해8방향·72자세로 확장. 다음 단계 착수 전 실제 조작감2차 확인.
 현재 R1-C8-WALK에서 승인한 공통 원화로8방향 보행을 다시 연결함. 정지/상체 픽셀·체형 유지와 게임 검수는 [공통 원화 보행 기록](handoffs/r1-consistent-walk-review.md) 참조.
 
-현재1주차의 사용자 명시 요청으로 R2-Z 걷기/피격에 이어 R2-ZA 좀비8방향 공격64자세·준비/타격/회복·회피/취소 연결. 전체155개·Windows64상태/8방향 실공격·회피·동시피격취소·추격복귀/8복귀화면·표시창10초 성능 검수 완료, 사용자2차 확인 대기. [현재 공격 검수](handoffs/r2za-zombie-attack-review.md)·[계약](r2za-zombie-attack-contract.md), 이전 [걷기/피격](handoffs/r2z-zombie-review.md) 참조. 전체R2와 나머지 주차 완료를 뜻하지 않음.
+현재1주차의 사용자 요청으로 R2-ZA12 좀비 공격8→12자세·중간32개를 추가함. 기존64키/생산 코드/판정 보존·전체156개·Windows96상태/8실공격·회피·취소·추격복귀/기존64키·8복귀 실제화면0차이·표시창10초 검수 완료. [현재 검수](handoffs/r2za12-zombie-attack-review.md)·[계약](r2za12-zombie-attack-contract.md) 참조. 사용자2차 확인 대기이며 전체R2와 나머지 주차 완료를 뜻하지 않음.
 
 ## 단계와 완료 기준
 

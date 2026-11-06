@@ -1,6 +1,6 @@
 # Dead Route 채팅 운영
 
-기준일: 2026-11-06
+기준일: 2026-11-07
 현재 기준은 [PRD](../PRD.md), 순서는 [개발 계획](development-roadmap.md)입니다.
 실제 지시·보고·수정·중간 커밋·사용자 확인은 [지휘 실행 절차](commander-runbook.md)를 따릅니다.
 
@@ -32,7 +32,7 @@
 
 ## 현재 인계
 
-현재 R2-ZA 좀비8방향 공격64자세·실제 타격 적용·지휘 검수 후 사용자2차 확인 대기. 이번 계약의 파일 소유권을 일반 역할표보다 우선함. UI·에셋은 새 r2za-* 팔/설정/제작/검사·PNG/JSON, 로직은 combat.py/combat_visual.py/main.py·준비/타격/회복·피격취소/시간분할·현재소스alpha/R/회귀검사, 지휘는1차시각/코드·Windows/성능·수정요청·Git 담당. R2-Z105상태/기존도구·플레이어·core/locomotion/player_visual 보존. [계약](r2za-zombie-attack-contract.md)·[검수](handoffs/r2za-zombie-attack-review.md)를 따르며 다음 기능은 사용자 확인/요청 뒤 배정.
+현재 R2-ZA12 좀비8방향 공격12자세·지휘 검수 후 사용자2차 확인 대기. UI는 기존 팔/부품/64키를 보존한32중간 자세·메타/제작/재현, 로직은12경계·96픽킹/소스·회귀검사, 지휘는 실제Windows/성능/기존64키 비교·Git 담당. 생산 코드/판정/HUD·원래rig/부품·기존리소스 보존. [계약](r2za12-zombie-attack-contract.md)·[검수](handoffs/r2za12-zombie-attack-review.md) 참조, 다음 기능은 사용자 확인/요청 뒤 배정.
 
 R1-A 기존 그림체에서 UI-02/03 수정·입력·창 검수를 수행했고 이후 도트풍 캐릭터를 적용·지휘 재검수했습니다. 전체 자동 검사 38개·Windows 렌더 3장을 확인했으며 로직 판정은 유지했습니다.
 이전 R1-W3에서 로직은 보행 주기, UI·에셋은 앞오른쪽 중간 자세를 담당. 지휘는 같은 경로의 32px/64px 및 같은 64px에서의 그림 차이를 분리 검수. [W3 인계](handoffs/r1-walk-cadence-review.md) 참조. 이전 실제 성능은 [1주차 기록](handoffs/r1-week1-review.md) 참조.
