@@ -32,7 +32,7 @@
 
 ## 현재 인계
 
-현재 R2-A 한 방향 공격·임시 좀비1마리 적용/지휘 검수 후 사용자2차 확인 대기. 새 combat/combat_visual의 역할·API는 [R2-A 계약](r2a-combat-contract.md), 결과·이동공격 한계는 [전투 검수](handoffs/r2a-combat-review.md)를 따름. 다음 작업은 사용자 확인/요청 뒤 배정.
+현재 R2-AW 이동 공격 보행 연결 적용/지휘 검수 후 사용자2차 확인 대기. UI·에셋은6×8 그림/렌더 선택, 로직은 실제 거리·위상·전투 경계 검사, 지휘는 실제SDL·성능·불변 확인과 Git 담당. [R2-AW 계약](r2aw-attack-walk-contract.md)·[검수](handoffs/r2aw-attack-walk-review.md)를 따름. 다음 작업은 사용자 확인/요청 뒤 배정.
 
 R1-A 기존 그림체에서 UI-02/03 수정·입력·창 검수를 수행했고 이후 도트풍 캐릭터를 적용·지휘 재검수했습니다. 전체 자동 검사 38개·Windows 렌더 3장을 확인했으며 로직 판정은 유지했습니다.
 이전 R1-W3에서 로직은 보행 주기, UI·에셋은 앞오른쪽 중간 자세를 담당. 지휘는 같은 경로의 32px/64px 및 같은 64px에서의 그림 차이를 분리 검수. [W3 인계](handoffs/r1-walk-cadence-review.md) 참조. 이전 실제 성능은 [1주차 기록](handoffs/r1-week1-review.md) 참조.

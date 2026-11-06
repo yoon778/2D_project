@@ -11,7 +11,7 @@
 [W1 낮은 보행](handoffs/r1-weight-review.md)·[W2 착지](handoffs/r1-weight-landing-review.md) 이후 발 과속 피드백에 따라 [보행 박자·발 연결](handoffs/r1-walk-cadence-review.md) 보완. 90px/s·주기64px 유지. 도트풍 승인 뒤 사용자 요청의 R1-C8에서 상하좌우를 추가해8방향·72자세로 확장. 다음 단계 착수 전 실제 조작감2차 확인.
 현재 R1-C8-WALK에서 승인한 공통 원화로8방향 보행을 다시 연결함. 정지/상체 픽셀·체형 유지와 게임 검수는 [공통 원화 보행 기록](handoffs/r1-consistent-walk-review.md) 참조.
 
-현재1주차의 사용자 명시 요청으로 R2-A 최소 전투를 선행. 앞·오른쪽 공격6장·임시 좀비1마리·112개 검사와 실행 검수 완료, 사용자2차 확인 대기. 이동 공격 하체 한계와 결과는 [전투 검수](handoffs/r2a-combat-review.md), API는 [R2-A 계약](r2a-combat-contract.md) 참조. 전체 R2와 나머지 주차 완료를 뜻하지 않음.
+현재1주차의 사용자 명시 요청으로 R2-A 최소 전투를 선행한 뒤 R2-AW 이동 공격 보완. 앞·오른쪽 공격6단계×보행8위상·임시 좀비1마리·125개 검사와 실행 검수 완료, 사용자2차 확인 대기. [이동 공격 검수](handoffs/r2aw-attack-walk-review.md)·[API 계약](r2aw-attack-walk-contract.md) 참조. 전체 R2와 나머지 주차 완료를 뜻하지 않음.
 
 ## 단계와 완료 기준
 
