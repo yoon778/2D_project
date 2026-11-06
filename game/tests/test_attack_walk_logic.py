@@ -132,11 +132,11 @@ class AttackWalkLogicTests(unittest.TestCase):
                 self.assertAlmostEqual(motion.phase, 0.0 if axis == (0, 0) else 36 / 64)
                 self.assertTrue(world.start_attack())
 
-    def test_restart_recreates_locomotion_and_resets_world_after_contact_defeat(self):
+    def test_restart_recreates_locomotion_and_resets_world_after_zombie_strikes(self):
         world, motion = self.make_world(), Locomotion()
         self.advance(world, motion, 0.08, (1, 0))
         world.zombie.x, world.zombie.y = world.player.x + 28.0, world.player.y
-        for dt in (0.001, 1.0, 1.0):
+        for dt in (0.3, 1.6, 1.6):
             self.advance(world, motion, dt)
         self.assertEqual((world.player_hp, world.result), (0, "defeated"))
         self.assertAlmostEqual(motion.phase, 0.1125)

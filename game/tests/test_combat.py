@@ -117,17 +117,19 @@ class CombatTests(unittest.TestCase):
         self.assertEqual((world.zombie.x, world.zombie.y), (634.0, 360.0))
         self.assertEqual(world.player_hp, 3)
 
-    def test_contact_damage_has_one_second_immunity_and_defeat_stops_play(self):
+    def test_zombie_strikes_keep_one_second_immunity_and_defeat_stops_play(self):
         world = self.make_world(28.0)
+        world.update(0.299)
+        self.assertEqual(world.player_hp, 3)
         world.update(0.001)
         self.assertEqual(world.player_hp, 2)
         self.assertEqual(world.player_invulnerable_remaining, 1.0)
-        world.update(0.999)
+        world.update(0.8)  # The next strike occurs during the one-second immunity.
         self.assertEqual(world.player_hp, 2)
-        world.update(0.001)
+        world.update(0.8)
         self.assertEqual(world.player_hp, 1)
         self.assertEqual(world.player_invulnerable_remaining, 1.0)
-        world.update(1.0)
+        world.update(1.6)
         self.assertEqual((world.player_hp, world.result), (0, "defeated"))
         self.assertFalse(world.start_attack())
         position = (world.player.x, world.player.y, world.zombie.x, world.zombie.y)
@@ -146,7 +148,9 @@ class CombatTests(unittest.TestCase):
         self.assertEqual(world.player_hp, 3)
         self.assertEqual((world.zombie.x, world.zombie.y), position)
         world.update(0.001)
-        self.assertEqual((world.zombie.stun_remaining, world.player_hp), (0.0, 2))
+        self.assertEqual((world.zombie.stun_remaining, world.player_hp), (0.0, 3))
+        world.update(0.3)
+        self.assertEqual(world.player_hp, 2)
 
     def test_existing_stun_only_blocks_its_remaining_movement_time(self):
         world = self.make_world(100.0)
@@ -159,8 +163,9 @@ class CombatTests(unittest.TestCase):
         world = self.make_world(28.0)
         world.player_hp = 1
         world.player.aim_angle = math.pi
+        world.update(0.2)
         world.start_attack("left")
-        world.update(0.05)
+        world.update(0.1)
         self.assertEqual((world.player_hp, world.result, world.zombie.hp), (0, "defeated", 5))
         self.assertIsNone(world.attack)
         world.update(1.0)
@@ -179,7 +184,7 @@ class CombatTests(unittest.TestCase):
             world.update(0.42)
             self.assertIsNone(world.attack)
         self.assertEqual(world.result, "cleared")
-        self.assertGreater(world.player_hp, 0)  # 준비 중 접촉 피해는 허용한다.
+        self.assertEqual(world.player_hp, 3)  # Each player hit interrupts the slower zombie strike.
 
     def test_player_attack_movement_is_partition_independent_and_wall_safe(self):
         for count in (1, 12, 60):
@@ -255,8 +260,8 @@ class CombatTests(unittest.TestCase):
     def test_normal_dt_partitions_keep_health_timers_movement_and_recovery_consistent(self):
         cases = (
             (80.0001, 0.18, 5, 0, 3, 4, "playing"),
-            (10.0, 0.18, 5, 0, 2, 4, "playing"),
-            (120.0, 0.8, 5, 1, 2, 5, "playing"),
+            (10.0, 0.18, 5, 0, 3, 4, "playing"),
+            (120.0, 0.8, 5, 1, 3, 5, "playing"),
             (60.0, 0.6, 1, 1, 3, 0, "cleared"),
         )
         for distance, total, zombie_hp, axis, player_hp, target_hp, result in cases:

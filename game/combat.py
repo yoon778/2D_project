@@ -4,13 +4,17 @@ import math
 
 if __package__:
     from .core import Player, Wall, move_player, PLAYER_RADIUS, WALK_SPEED
+    from .locomotion import select_facing
 else:
     from core import Player, Wall, move_player, PLAYER_RADIUS, WALK_SPEED
+    from locomotion import select_facing
 
 
 ATTACK_DURATION = 0.6
 ATTACK_HIT_TIME = 0.18
 STUN_DURATION = 0.4
+ZOMBIE_ATTACK_DURATION = 0.8
+ZOMBIE_ATTACK_HIT_TIME = 0.3
 _EPSILON = 1e-12
 _TIME_STEP = 0.001
 _MAX_UPDATE_DT = 10.0
@@ -34,9 +38,18 @@ def _wall_blocks(start, end, wall):
 
 
 @dataclass
+class ZombieAttack:
+    angle: float
+    facing: str
+    elapsed: float = 0.0
+    _hit_done: bool = False
+
+
+@dataclass
 class Zombie(Player):
     hp: int = 5
     stun_remaining: float = 0.0
+    attack: ZombieAttack | None = None
 
     @property
     def alive(self):
@@ -77,6 +90,8 @@ class CombatWorld:
             self.attack = None
         elif not self.zombie.alive:
             self.result = "cleared"
+        if self.result != "playing":
+            self.zombie.attack = None
 
     def _target_in_strike(self, angle):
         dx, dy = self.zombie.x - self.player.x, self.zombie.y - self.player.y
@@ -99,14 +114,51 @@ class CombatWorld:
             self.zombie.aim_angle = math.atan2(dy, dx)
             travel_time = min(dt, (distance - 2 * PLAYER_RADIUS) / WALK_SPEED)
             move_player(self.zombie, dx, dy, travel_time, self.walls)
+            return travel_time
+        return 0.0
 
-    def _contact_damage(self):
-        distance = math.hypot(self.player.x - self.zombie.x, self.player.y - self.zombie.y)
-        if (self.player_invulnerable_remaining == 0 and distance <= 2 * PLAYER_RADIUS + _EPSILON
-                and not any(_wall_blocks(self.player, self.zombie, wall) for wall in self.walls)):
-            self.player_hp = max(0, self.player_hp - 1)
-            self.player_invulnerable_remaining = 1.0
-            self._resolve_result()
+    def _zombie_target_in_strike(self, angle):
+        dx, dy = self.player.x - self.zombie.x, self.player.y - self.zombie.y
+        distance = math.hypot(dx, dy)
+        if distance > 2 * PLAYER_RADIUS + _EPSILON:
+            return False
+        if distance > _EPSILON and abs(math.remainder(
+                math.atan2(dy, dx) - angle, math.tau)) > math.radians(50) + _EPSILON:
+            return False
+        return not any(_wall_blocks(self.zombie, self.player, wall) for wall in self.walls)
+
+    def _start_zombie_attack(self):
+        angle = math.atan2(self.player.y - self.zombie.y, self.player.x - self.zombie.x)
+        if not self._zombie_target_in_strike(angle):
+            return False
+        self.zombie.aim_angle = angle
+        self.zombie.attack = ZombieAttack(angle, select_facing(angle))
+        return True
+
+    def _update_zombie(self, dt):
+        if dt <= _EPSILON:
+            return
+        if self.zombie.attack is None and not self._start_zombie_attack():
+            travel_time = self._move_zombie(dt)
+            if not self._start_zombie_attack():
+                return
+            dt -= travel_time
+            if dt <= _EPSILON:
+                return
+        attack = self.zombie.attack
+        end = attack.elapsed + dt
+        for boundary in (ZOMBIE_ATTACK_HIT_TIME, ZOMBIE_ATTACK_DURATION):
+            if abs(end - boundary) <= _EPSILON:
+                end = boundary
+        if not attack._hit_done and end >= ZOMBIE_ATTACK_HIT_TIME:
+            attack._hit_done = True
+            if self.player_invulnerable_remaining == 0 and self._zombie_target_in_strike(attack.angle):
+                self.player_hp = max(0, self.player_hp - 1)
+                self.player_invulnerable_remaining = 1.0
+        attack.elapsed = min(end, ZOMBIE_ATTACK_DURATION)
+        if attack.elapsed >= ZOMBIE_ATTACK_DURATION:
+            self.zombie.attack = None
+        self._resolve_result()
 
     def _advance_player_attack(self, dt, axis_x, axis_y):
         attack = self.attack
@@ -127,6 +179,7 @@ class CombatWorld:
             if self._target_in_strike(attack.angle):
                 self.zombie.hp -= 1
                 self.zombie.stun_remaining = STUN_DURATION
+                self.zombie.attack = None
                 hit = True
         self._resolve_result()
         if self.result == "playing":
@@ -147,6 +200,17 @@ class CombatWorld:
         # 준비 중 추격/접촉도 진행하며 명중 tick에서는 피격을 먼저 처리한다.
         while remaining > _EPSILON:
             tick = min(remaining, _TIME_STEP)
+            # End ticks at combat events so partial external frames lose no time.
+            for attack, boundaries in ((self.attack, (ATTACK_HIT_TIME, ATTACK_DURATION)),
+                    (self.zombie.attack, (ZOMBIE_ATTACK_HIT_TIME, ZOMBIE_ATTACK_DURATION))):
+                if attack is not None:
+                    for boundary in boundaries:
+                        until = boundary - attack.elapsed
+                        if until > _EPSILON:
+                            tick = min(tick, until)
+            for timer in (self.zombie.stun_remaining, self.player_invulnerable_remaining):
+                if timer > _EPSILON:
+                    tick = min(tick, timer)
             self._update_tick(tick, axis_x, axis_y)
             remaining -= tick
             if self.result != "playing" and self.attack is None:
@@ -166,10 +230,11 @@ class CombatWorld:
         immunity = self.player_invulnerable_remaining - dt
         self.player_invulnerable_remaining = immunity if immunity > _EPSILON else 0.0
         hit = self._advance_player_attack(dt, axis_x, axis_y)
+        if self.zombie.stun_remaining > 0:
+            self.zombie.attack = None
         if not hit and self.result == "playing":
             previous_stun = self.zombie.stun_remaining
             remaining = previous_stun - dt
             self.zombie.stun_remaining = remaining if remaining > _EPSILON else 0.0
             if self.zombie.stun_remaining == 0:
-                self._move_zombie(max(0.0, dt - previous_stun))
-                self._contact_damage()
+                self._update_zombie(max(0.0, dt - previous_stun))
