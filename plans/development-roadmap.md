@@ -11,7 +11,7 @@
 [W1 낮은 보행](handoffs/r1-weight-review.md)·[W2 착지](handoffs/r1-weight-landing-review.md) 이후 발 과속 피드백에 따라 [보행 박자·발 연결](handoffs/r1-walk-cadence-review.md) 보완. 90px/s·주기64px 유지. 도트풍 승인 뒤 사용자 요청의 R1-C8에서 상하좌우를 추가해8방향·72자세로 확장. 다음 단계 착수 전 실제 조작감2차 확인.
 현재 R1-C8-WALK에서 승인한 공통 원화로8방향 보행을 다시 연결함. 정지/상체 픽셀·체형 유지와 게임 검수는 [공통 원화 보행 기록](handoffs/r1-consistent-walk-review.md) 참조.
 
-현재1주차의 사용자 명시 요청으로 R2-C8 뒤 R2-FR12 선행. 앞·오른쪽12/96자세·나머지7방향6/48 유지. 전체135개·FR 실제SDL108상태/복귀9화면·실행 성능 검수 완료, 사용자2차 확인 대기. [FR12 검수](handoffs/r2fr-smooth-review.md)·[계약](r2fr-smooth-contract.md) 참조. 전체R2와 나머지 주차 완료를 뜻하지 않음.
+현재1주차의 사용자 명시 요청으로 R2-C812 선행. 8방향 모두 공격12/이동96자세·전체136개·실제SDL864상태/72복귀화면·실행 성능 검수 완료, 사용자2차 확인 대기. [검수](handoffs/r2c812-combat-review.md)·[계약](r2c812-combat-contract.md) 참조. 전체R2와 나머지 주차 완료를 뜻하지 않음.
 
 ## 단계와 완료 기준
 
