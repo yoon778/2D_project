@@ -22,6 +22,25 @@ function padded(b) {
   for (let y = 0; y < 80; y++) b.copy(out, ((y + 8) * 96 + 8) * 4, y * 320, (y + 1) * 320)
   return out
 }
+function smallComponents(b) {
+  const seen = new Uint8Array(96 * 96)
+  let count = 0
+  for (let p = 0; p < seen.length; p++) if (!seen[p] && b[p * 4 + 3]) {
+    const queue = [p]
+    let length = 0
+    seen[p] = 1
+    while (queue.length) {
+      const n = queue.pop(), x = n % 96, y = Math.floor(n / 96)
+      length++
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy, next = yy * 96 + xx
+        if (xx >= 0 && xx < 96 && yy >= 0 && yy < 96 && !seen[next] && b[next * 4 + 3]) {seen[next] = 1; queue.push(next)}
+      }
+    }
+    if (length <= 2) count++
+  }
+  return count
+}
 async function main() {
   const metaFile = 'game/assets/combat/r2a-combat-20261106.json'
   const metadata = JSON.parse(await fs.readFile(path.join(root, metaFile), 'utf8'))
@@ -35,7 +54,7 @@ async function main() {
   assert.equal(git(['diff', '--name-only', baseline, '--', ...frozenPaths]).toString().trim(), '', 'frozen inputs/resources')
   const source = await raw('art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png'), palette = new Set()
   for (let p = 0; p < source.data.length; p += 4) if (source.data[p + 3]) palette.add(source.data.subarray(p, p + 3).toString('hex'))
-  const report = {baseline, sources: 0, poses: 0, exactReturns: 0, headPixels: 0, alphaErrors: 0, paletteErrors: 0, edgePixels: 0, sourceCleanupRegressions: 0, legacyBlocks: 3, frozenPaths: frozenPaths.length, facings: []}
+  const report = {baseline, sources: 0, poses: 0, activePoses: 0, smallComponents: 0, exactReturns: 0, headPixels: 0, alphaErrors: 0, paletteErrors: 0, edgePixels: 0, sourceCleanupRegressions: 0, legacyBlocks: 3, frozenPaths: frozenPaths.length, facings: []}
   const snapshots = [[metaFile, await fs.readFile(path.join(root, metaFile))]]
   for (const facing of Object.keys(settings)) {
     const slug = facing.replaceAll('_', '-'), r1 = await raw(`game/assets/player/r1-consistent-${slug}-20261105.png`)
@@ -57,6 +76,8 @@ async function main() {
         if (moving) {assert.equal(frame.attack_index, a); assert.equal(frame.walk_frame_index, w + 1)}
         else {assert.equal(frame.name, names[a]); assert.equal(frame.start, times[a]); assert.equal(frame.end, times[a + 1])}
         const b = cell(image.data, width, i, cols), drop = moving ? walk.bodyDrop[w] : 0
+        // Review future tiny components as possible occluded weapon tips; never auto-delete them.
+        if (a < 5) {report.activePoses++; report.smallComponents += smallComponents(b)}
         // Source remnants reported in the enlarged SDL review, before any movement.
         if (!moving && i === 0) for (const [x, y] of ({front: [[35, 53], [36, 53], [34, 60]], back_right: [[59, 53]], back_left: [[58, 51]], back: [[64, 76]], front_left: [[37, 48], [36, 52]]}[facing] || [])) {
           assert.equal(b[(y * 96 + x) * 4 + 3], 0, `${key} detached source pixel ${x},${y}`)
@@ -81,6 +102,7 @@ async function main() {
   assert.equal(report.alphaErrors, 0); assert.equal(report.paletteErrors, 0); assert.equal(report.edgePixels, 0)
   assert.equal(report.sources, 14); assert.equal(report.poses, 378); assert.equal(report.exactReturns, 63)
   assert.equal(report.sourceCleanupRegressions, 8)
+  assert.equal(report.activePoses, 315); assert.equal(report.smallComponents, 0)
   const output = execFileSync(process.execPath, ['-e', "require('./art/player/r2c8-combat-assets.cjs')"], {cwd: root})
   assert.equal(output.length, 0, 'require must not bake')
   for (const [file, before] of snapshots) assert(before.equals(await fs.readFile(path.join(root, file))), `${file} import unchanged`)
