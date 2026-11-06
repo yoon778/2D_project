@@ -200,7 +200,12 @@ async function main() {
   }
   await png(zombie, 240, 80, path.join(dest, 'r2a-zombie-20261106.png'))
   await png(zombie, 240, 80, path.join(review, 'zombie-states-4x.png'), 4)
+  const metaPath = path.join(dest, 'r2a-combat-20261106.json')
   const metadata = {
+    ...JSON.parse(await fs.readFile(metaPath, 'utf8').catch(error => {
+      if (error.code === 'ENOENT') return '{}'
+      throw error
+    })),
     attack: {image: 'r2a-attack-front-right-20261106.png', canvas_size: [288, 192], facing: 'front_right', cell_size: [96, 96], scale: 2, reference_height: 64,
       frames: poses.map((p, i) => ({name: p.name, label: p.label, start: times[i], end: times[i + 1], clip_topleft: [i % 3 * 96, Math.floor(i / 3) * 96, 96, 96], foot_pivot_topleft: [i % 3 * 96 + 48, Math.floor(i / 3) * 96 + 80]}))},
     zombie: {image: 'r2a-zombie-20261106.png', canvas_size: [240, 80], scale: 2, reference_height: 64, opaque_rows: rows,
