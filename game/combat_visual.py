@@ -8,18 +8,24 @@ from pathlib import Path
 import pico2d.pico2d as p
 
 from player_visual import sprite_rect
+from combat import STUN_DURATION
+from locomotion import Locomotion
 
 
 METADATA_PATH = Path(__file__).resolve().parent / "assets/combat/r2a-combat-20261106.json"
+ZOMBIE_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r2z-zombie-20261106.json"
 
 
 class CombatVisual:
     def __init__(self):
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+        self.metadata["zombie"] = json.loads(ZOMBIE_METADATA_PATH.read_text(encoding="utf-8"))
         self.images = {}
+        self.reset_zombie_animation()
         try:
             for key, source in self.metadata.items():
-                image = p.load_image(str(METADATA_PATH.parent / source["image"]))
+                directory = ZOMBIE_METADATA_PATH.parent if key == "zombie" else METADATA_PATH.parent
+                image = p.load_image(str(directory / source["image"]))
                 self.images[key] = image
                 if [image.w, image.h] != source["canvas_size"]:
                     raise ValueError(f"R2-C8 canvas differs from metadata: {key}")
@@ -80,16 +86,37 @@ class CombatVisual:
             return "dead"
         return "stunned" if zombie.stun_remaining > 0 else "alive"
 
+    def reset_zombie_animation(self):
+        self.zombie_locomotion = Locomotion()
+
+    def update_zombie(self, zombie, dx, dy):
+        self.zombie_locomotion.update(zombie.aim_angle, dx, dy)
+        if not zombie.alive or zombie.stun_remaining > 0:
+            self.zombie_locomotion.moving = False
+
+    def _zombie_frame(self, zombie):
+        source = self.metadata["zombie"]
+        if not zombie.alive:
+            return source["frames"]["dead"]
+        poses = source["facings"][self.zombie_locomotion.facing]
+        if zombie.stun_remaining > 0:
+            # The combat clock alone determines the hit pose; no visual timer.
+            for frame in poses["hit"]:
+                if zombie.stun_remaining > STUN_DURATION - frame["end"]:
+                    return frame
+            return poses["hit"][-1]
+        walk = self.zombie_locomotion.walk_frame_index(8)
+        return poses["walk"][walk - 1] if walk else poses["idle"]
+
     def draw_zombie(self, zombie, foot_x, foot_y):
-        frame = self.metadata["zombie"]["frames"][self.zombie_state(zombie)]
-        self._draw("zombie", frame, foot_x, foot_y)
+        self._draw("zombie", self._zombie_frame(zombie), foot_x, foot_y)
 
     def zombie_contains(self, zombie, foot_x, foot_y, screen_x, screen_y):
         """Pick the living sprite's actual opaque pixels, excluding cell padding."""
         if not zombie.alive:
             return False
         source = self.metadata["zombie"]
-        frame = source["frames"]["alive"]
+        frame = self._zombie_frame(zombie)
         clip, scale = frame["clip_topleft"], source["scale"]
         left, bottom, width, height = sprite_rect(
             foot_x, foot_y, clip, frame["foot_pivot_topleft"], clip[3] * scale)
@@ -97,7 +124,7 @@ class CombatVisual:
             return False
         x = int((screen_x - left) // scale)
         y = clip[3] - 1 - int((screen_y - bottom) // scale)
-        return any(start <= x <= end for start, end in source["opaque_rows"].get(str(y), ()))
+        return any(start <= x <= end for start, end in frame["opaque_rows"].get(str(y), ()))
 
     def close(self):
         self.images.clear()

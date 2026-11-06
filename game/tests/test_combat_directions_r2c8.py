@@ -17,6 +17,7 @@ import combat_visual
 from combat import CombatWorld
 from combat_visual import CombatVisual, METADATA_PATH
 import test_attack_walk_visual as walk_fixture
+from test_combat_visual_r2a import combat_metadata
 
 
 DIRECTIONS = (("front_right", (1, -1)), ("right", (1, 0)),
@@ -41,7 +42,7 @@ def click(facing, origin=(480, 180)):
 
 class DirectionSpriteTests(unittest.TestCase):
     def setUp(self):
-        self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+        self.metadata = combat_metadata()
         # Missing art sources use in-memory fixtures only until the handoff.
         for facing, _ in DIRECTIONS[1:]:
             for key, base in zip(source_names(facing), ("attack", "attack_walk")):
@@ -129,7 +130,8 @@ class DirectionSpriteTests(unittest.TestCase):
             self.assertEqual(load.call_count, 17)
             self.assertEqual(nearest.call_count, 17)
             self.assertEqual([args.args[0] for args in load.call_args_list],
-                             [str(path.parent / s["image"]) for s in self.metadata.values()])
+                             [str((combat_visual.ZOMBIE_METADATA_PATH.parent if key == "zombie" else path.parent)
+                                  / source["image"]) for key, source in self.metadata.items()])
             visual.close()
             self.assertEqual(visual.images, {})
 

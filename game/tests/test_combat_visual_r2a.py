@@ -21,14 +21,31 @@ import test_visual_input_r1a as input_fixture
 FR_BOUNDARIES = (0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54, .6)
 
 
+def combat_metadata():
+    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    metadata["zombie"] = json.loads(combat_visual.ZOMBIE_METADATA_PATH.read_text(encoding="utf-8"))
+    return metadata
+
+
+def zombie_body_point(visual, zombie, foot):
+    frame = visual._zombie_frame(zombie)
+    scale = visual.metadata["zombie"]["scale"]
+    row = min(map(int, frame["opaque_rows"]), key=lambda value: abs(value - 35))
+    start, end = max(frame["opaque_rows"][str(row)], key=lambda span: span[1] - span[0])
+    left, bottom, _, _ = combat_visual.sprite_rect(
+        *foot, frame["clip_topleft"], frame["foot_pivot_topleft"], frame["clip_topleft"][3] * scale)
+    return left + ((start + end) // 2 + .5) * scale, bottom + (frame["clip_topleft"][3] - row - .5) * scale
+
+
 class CombatSpriteTests(unittest.TestCase):
     def setUp(self):
         self.visual = CombatVisual.__new__(CombatVisual)
-        self.visual.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+        self.visual.metadata = combat_metadata()
         self.visual.images = {
             "attack": SimpleNamespace(h=self.visual.metadata["attack"]["canvas_size"][1], clip_draw=Mock()),
-            "zombie": SimpleNamespace(h=80, clip_draw=Mock()),
+            "zombie": SimpleNamespace(h=self.visual.metadata["zombie"]["canvas_size"][1], clip_draw=Mock()),
         }
+        self.visual.reset_zombie_animation()
 
     def attack(self, elapsed, facing="front_right"):
         return SimpleNamespace(elapsed=elapsed, facing=facing)
@@ -95,26 +112,28 @@ class CombatSpriteTests(unittest.TestCase):
     def test_zombie_pick_uses_opaque_pixels_not_the_transparent_cell(self):
         world = CombatWorld()
         foot = main.world_to_screen(world.zombie.x, world.zombie.y)
-        # Source (40,35), in the chest. Raw ground conversion points behind the player.
-        screen = (foot[0] + 1, foot[1] + 73)
+        # Pick a real opaque body pixel; raw ground conversion changes its aim.
+        screen = zombie_body_point(self.visual, world.zombie, foot)
         sdl = (screen[0], main.WINDOW_HEIGHT - 1 - screen[1])
         self.assertTrue(self.visual.zombie_contains(world.zombie, *foot, *screen))
         self.assertEqual(main.mouse_target(world, self.visual, *sdl), (600, 100))
         self.assertNotEqual(main.sdl_to_world(*sdl), (600, 100))
-        padding = (foot[0] - 78, main.WINDOW_HEIGHT - 1 - (foot[1] + 142))
+        padding = (foot[0] - 79, main.WINDOW_HEIGHT - 1 - (foot[1] - 15))
         self.assertEqual(main.mouse_target(world, self.visual, *padding), main.sdl_to_world(*padding))
         world.zombie.hp = 0
         self.assertEqual(main.mouse_target(world, self.visual, *sdl), main.sdl_to_world(*sdl))
 
     def test_zombie_stun_and_dead_states_use_separate_authored_cells(self):
         zombie = CombatWorld().zombie
-        for hp, stun, x in ((5, 0, 0), (4, .4, 80), (0, .4, 160)):
+        zombie.aim_angle = -math.pi / 4
+        for hp, stun, cell in ((5, 0, (80, 1040)), (4, .4, (80, 320)), (0, .4, (0, 0))):
             zombie.hp, zombie.stun_remaining = hp, stun
+            self.visual.update_zombie(zombie, 0, 0)
             self.visual.draw_zombie(zombie, 100, 200)
-            self.assertEqual(self.visual.images["zombie"].clip_draw.call_args.args[:4], (x, 0, 80, 80))
+            self.assertEqual(self.visual.images["zombie"].clip_draw.call_args.args[:4], (*cell, 80, 80))
 
     def test_images_load_once_at_initialization_and_release_references(self):
-        sources = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+        sources = combat_metadata()
         images = [SimpleNamespace(w=source["canvas_size"][0], h=source["canvas_size"][1],
                                   texture=object(), clip_draw=Mock()) for source in sources.values()]
         with (patch.object(combat_visual.p, "load_image", side_effect=images) as load,
@@ -157,7 +176,12 @@ class CombatInputTests(unittest.TestCase):
         return frames, states
 
     def test_body_click_without_motion_picks_zombie_and_starts_fr_attack(self):
-        _, states = self.observe([("click", 761, 496)], {1: [("quit",)]})
+        visual = CombatVisual.__new__(CombatVisual)
+        visual.metadata = combat_metadata()
+        visual.reset_zombie_animation()
+        world = CombatWorld()
+        x, y = zombie_body_point(visual, world.zombie, main.world_to_screen(world.zombie.x, world.zombie.y))
+        _, states = self.observe([("click", round(x), round(main.WINDOW_HEIGHT - 1 - y))], {1: [("quit",)]})
         self.assertIsNotNone(states[0]["attack"])
         self.assertEqual(states[0]["target"], (600, 100))
         self.assertAlmostEqual(states[0]["angle"], math.atan2(-80, 120))
