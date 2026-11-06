@@ -1,0 +1,73 @@
+{
+  "master": "zombie-idle-native-20261106.png",
+  "outline": "15141b",
+  "skin": ["c1b79e", "c7bea6", "aca38d", "beb59c", "908471", "b9ae96", "9b9480", "807b68"],
+  "trousers": ["151316", "201d21", "353139", "2b282b", "312f3a"],
+  "shirt": ["757660", "6b6e59", "58594a", "70735d"],
+  "facings": {
+    "front": {
+      "worldFacing": [0,1], "nearLeg": "right", "hipY": 45,
+      "hands": [[25,39,33,53],[48,39,56,53]],
+      "legs": {
+        "right": {"phase":0,"hip":[35,45],"knee":[35,58],"ankle":[35,66],"thigh":[31,45,40,59],"shin":[31,57,40,67],"boot":[29,65,41,73]},
+        "left": {"phase":4,"hip":[44,45],"knee":[44,58],"ankle":[44,66],"thigh":[40,45,49,59],"shin":[40,57,49,67],"boot":[40,65,51,73]}
+      }
+    },
+    "front_right": {
+      "worldFacing": [1,1], "nearLeg": "right", "hipY": 46,
+      "hands": [[28,39,39,54],[47,38,56,53]],
+      "legs": {
+        "right": {"phase":0,"hip":[35,46],"knee":[35,58],"ankle":[35,66],"thigh":[30,46,40,59],"shin":[30,57,40,67],"boot":[29,65,42,74]},
+        "left": {"phase":4,"hip":[43,46],"knee":[43,58],"ankle":[44,65],"thigh":[40,46,48,59],"shin":[39,57,48,67],"boot":[40,64,52,73]}
+      }
+    },
+    "right": {
+      "worldFacing": [1,0], "nearLeg": "right", "hipY": 46,
+      "hands": [[40,38,53,55]],
+      "legs": {
+        "right": {"phase":0,"hip":[38,46],"knee":[38,58],"ankle":[38,66],"thigh":[31,46,45,59],"shin":[31,57,45,67],"boot":[31,65,50,74]},
+        "left": {"phase":4,"hip":[40,46],"knee":[40,58],"ankle":[40,65],"textureFrom":"right"}
+      }
+    },
+    "back_right": {
+      "worldFacing": [1,-1], "nearLeg": "right", "hipY": 46,
+      "hands": [[45,38,55,57]],
+      "legs": {
+        "right": {"phase":0,"hip":[40,46],"knee":[41,58],"ankle":[42,66],"thigh":[37,46,46,59],"shin":[36,57,46,67],"boot":[36,65,51,74]},
+        "left": {"phase":4,"hip":[34,46],"knee":[34,58],"ankle":[34,65],"thigh":[29,46,38,59],"shin":[29,57,38,66],"boot":[29,64,39,73]}
+      }
+    },
+    "back": {
+      "worldFacing": [0,-1], "nearLeg": "right", "hipY": 46,
+      "hands": [[25,39,32,54],[49,39,56,54]],
+      "legs": {
+        "right": {"phase":0,"hip":[44,46],"knee":[44,58],"ankle":[44,66],"thigh":[40,46,49,59],"shin":[40,57,49,67],"boot":[40,65,51,74]},
+        "left": {"phase":4,"hip":[35,46],"knee":[35,58],"ankle":[35,66],"thigh":[31,46,40,59],"shin":[31,57,40,67],"boot":[30,65,40,74]}
+      }
+    },
+    "back_left": {
+      "worldFacing": [-1,-1], "nearLeg": "left", "hipY": 46,
+      "hands": [[24,38,34,54]],
+      "legs": {
+        "right": {"phase":0,"hip":[38,46],"knee":[38,58],"ankle":[37,66],"thigh":[33,46,43,59],"shin":[33,57,43,67],"boot":[30,65,44,74]},
+        "left": {"phase":4,"hip":[46,46],"knee":[46,58],"ankle":[46,65],"thigh":[42,46,52,59],"shin":[42,57,52,66],"boot":[42,64,52,73]}
+      }
+    },
+    "left": {
+      "worldFacing": [-1,0], "nearLeg": "left", "hipY": 46,
+      "hands": [[25,36,37,55]],
+      "legs": {
+        "left": {"phase":4,"hip":[43,46],"knee":[43,58],"ankle":[42,66],"thigh":[36,46,49,59],"shin":[36,57,49,67],"boot":[32,65,49,74]},
+        "right": {"phase":0,"hip":[40,46],"knee":[40,58],"ankle":[40,65],"textureFrom":"left"}
+      }
+    },
+    "front_left": {
+      "worldFacing": [-1,1], "nearLeg": "left", "hipY": 46,
+      "hands": [[24,37,33,53],[41,38,54,54]],
+      "legs": {
+        "right": {"phase":0,"hip":[37,46],"knee":[37,58],"ankle":[37,65],"thigh":[32,46,42,59],"shin":[32,57,42,66],"boot":[29,64,43,73]},
+        "left": {"phase":4,"hip":[45,46],"knee":[44,58],"ankle":[43,66],"thigh":[41,46,51,59],"shin":[40,57,51,67],"boot":[38,65,52,74]}
+      }
+    }
+  }
+}

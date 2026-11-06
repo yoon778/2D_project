@@ -1,0 +1,152 @@
+{
+  "source": "studies/zombie-turnaround-ai-20261106.png",
+  "nativeScale": 0.17857142857142858,
+  "alphaThreshold": 128,
+  "outline": "15141b",
+  "facings": {
+    "front": {
+      "sourceBounds": [
+        138,
+        50,
+        306,
+        406
+      ],
+      "sourceFoot": [
+        221,
+        406
+      ],
+      "sourceCell": [
+        0,
+        0,
+        80,
+        80
+      ]
+    },
+    "front_right": {
+      "sourceBounds": [
+        577,
+        50,
+        740,
+        406
+      ],
+      "sourceFoot": [
+        652.5,
+        406
+      ],
+      "sourceCell": [
+        80,
+        0,
+        80,
+        80
+      ]
+    },
+    "right": {
+      "sourceBounds": [
+        1034,
+        51,
+        1186,
+        406
+      ],
+      "sourceFoot": [
+        1094,
+        406
+      ],
+      "sourceCell": [
+        160,
+        0,
+        80,
+        80
+      ]
+    },
+    "back_right": {
+      "sourceBounds": [
+        1474,
+        52,
+        1622,
+        406
+      ],
+      "sourceFoot": [
+        1543,
+        406
+      ],
+      "sourceCell": [
+        240,
+        0,
+        80,
+        80
+      ]
+    },
+    "back": {
+      "sourceBounds": [
+        138,
+        496,
+        306,
+        850
+      ],
+      "sourceFoot": [
+        219,
+        850
+      ],
+      "sourceCell": [
+        0,
+        80,
+        80,
+        80
+      ]
+    },
+    "back_left": {
+      "sourceBounds": [
+        580,
+        496,
+        741,
+        850
+      ],
+      "sourceFoot": [
+        665,
+        850
+      ],
+      "sourceCell": [
+        80,
+        80,
+        80,
+        80
+      ]
+    },
+    "left": {
+      "sourceBounds": [
+        1027,
+        497,
+        1174,
+        850
+      ],
+      "sourceFoot": [
+        1110.5,
+        850
+      ],
+      "sourceCell": [
+        160,
+        80,
+        80,
+        80
+      ]
+    },
+    "front_left": {
+      "sourceBounds": [
+        1468,
+        498,
+        1631,
+        851
+      ],
+      "sourceFoot": [
+        1553,
+        851
+      ],
+      "sourceCell": [
+        240,
+        80,
+        80,
+        80
+      ]
+    }
+  }
+}
