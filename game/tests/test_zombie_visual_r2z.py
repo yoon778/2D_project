@@ -22,6 +22,7 @@ FACINGS = (("front", -math.pi / 2), ("front_right", -math.pi / 4),
            ("right", 0), ("back_right", math.pi / 4), ("back", math.pi / 2),
            ("back_left", 3 * math.pi / 4), ("left", math.pi), ("front_left", -3 * math.pi / 4))
 HIT_BOUNDS = (0, .06, .14, .26, .4)
+ATTACK_BOUNDS = (0, .08, .16, .3, .4, .52, .64, .72, .8)
 
 
 def zombie_metadata():
@@ -43,10 +44,22 @@ def zombie_metadata():
             "facings": facings, "frames": {"dead": frame(0, 13)}}
 
 
+def zombie_attack_metadata():
+    facings = {}
+    for col, (facing, _) in enumerate(FACINGS):
+        facings[facing] = [
+            {"clip_topleft": [col * 80, row * 80, 80, 80],
+             "foot_pivot_topleft": [col * 80 + 40, row * 80 + 72],
+             "opaque_rows": {str(50 + row): [[20 + col * 5, 22 + col * 5]]},
+             "start": ATTACK_BOUNDS[row], "end": ATTACK_BOUNDS[row + 1]} for row in range(8)]
+    return {"image": "fixture-zombie-attack.png", "canvas_size": [640, 640], "cell_size": [80, 80],
+            "scale": 2, "reference_height": 64, "facings": facings}
+
+
 class ZombiePoseTests(unittest.TestCase):
     def setUp(self):
         self.visual = CombatVisual.__new__(CombatVisual)
-        self.visual.metadata = {"zombie": zombie_metadata()}
+        self.visual.metadata = {"zombie": zombie_metadata(), "zombie_attack": zombie_attack_metadata()}
         self.visual.images = {"zombie": SimpleNamespace(h=1120, clip_draw=Mock())}
         self.visual.reset_zombie_animation()
 
@@ -151,25 +164,29 @@ class ZombiePoseTests(unittest.TestCase):
         metadata = json.loads(combat_visual.METADATA_PATH.read_text(encoding="utf-8"))
         legacy = metadata["zombie"]["image"]
         source = zombie_metadata()
+        attack_source = zombie_attack_metadata()
         overlay = SimpleNamespace(parent=Path("new-zombie"), read_text=Mock(return_value=json.dumps(source)))
-        expected = dict(metadata, zombie=source)
+        attack_overlay = SimpleNamespace(parent=Path("new-zombie-attack"), read_text=Mock(return_value=json.dumps(attack_source)))
+        expected = dict(metadata, zombie=source, zombie_attack=attack_source)
         images = [SimpleNamespace(w=s["canvas_size"][0], h=s["canvas_size"][1], texture=object(), clip_draw=Mock())
                   for s in expected.values()]
         with (patch.object(combat_visual, "ZOMBIE_METADATA_PATH", overlay, create=True),
+              patch.object(combat_visual, "ZOMBIE_ATTACK_METADATA_PATH", attack_overlay),
               patch.object(combat_visual.p, "load_image", side_effect=images) as load,
               patch.object(combat_visual.p, "SDL_SetTextureScaleMode", return_value=0)):
             visual = CombatVisual()
             self.assertEqual(visual.metadata, expected)
-            self.assertEqual(load.call_count, 17)
+            self.assertEqual(load.call_count, 18)
             paths = [call.args[0] for call in load.call_args_list]
             self.assertIn(str(overlay.parent / source["image"]), paths)
+            self.assertIn(str(attack_overlay.parent / attack_source["image"]), paths)
             self.assertFalse(any(Path(path).name == legacy for path in paths))
             for key in metadata.keys() - {"zombie"}:
                 self.assertEqual(visual.metadata[key], metadata[key])
             visual.zombie_locomotion.phase = .7
             visual.reset_zombie_animation()
             self.assertEqual((visual.zombie_locomotion.phase, visual.zombie_locomotion.moving), (0, False))
-            self.assertEqual(load.call_count, 17)
+            self.assertEqual(load.call_count, 18)
             visual.close()
             self.assertEqual(visual.images, {})
 
@@ -190,6 +207,11 @@ class ZombieQueueTests(unittest.TestCase):
             zombie, visual = renderer.combat.zombie, renderer.combat_visual
             states.append({"position": (zombie.x, zombie.y), "phase": visual.zombie_locomotion.phase,
                            "moving": visual.zombie_locomotion.moving, "stun": zombie.stun_remaining,
+                           "source": visual._zombie_pose(zombie)[0], "hp": renderer.combat.player_hp,
+                           "zombie_hp": zombie.hp,
+                           "attack_elapsed": zombie.attack.elapsed if zombie.attack else None,
+                           "attack_facing": zombie.attack.facing if zombie.attack else None,
+                           "attack_done": zombie.attack._hit_done if zombie.attack else None,
                            "row": visual._zombie_frame(zombie)["clip_topleft"][1] // 80})
 
         with (patch.object(main, "CombatWorld", side_effect=make_world), patch.object(main.Renderer, "draw", draw)):
@@ -200,7 +222,7 @@ class ZombieQueueTests(unittest.TestCase):
         original_load = main.p.load_image
         with patch.object(main.p, "load_image", wraps=original_load) as load:
             states = self.observe([], {1: [("lost",), ("gained",)], 3: [("down", main.p.SDLK_r)], 4: [("quit",)]})
-        self.assertEqual(load.call_count, 46)
+        self.assertEqual(load.call_count, 47)
         self.assertAlmostEqual(states[0]["phase"], 1.5 / 64)
         self.assertEqual(states[0]["phase"], states[1]["phase"])
         self.assertEqual(states[0]["position"], states[1]["position"])

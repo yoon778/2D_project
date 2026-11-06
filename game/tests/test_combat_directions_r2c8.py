@@ -115,7 +115,7 @@ class DirectionSpriteTests(unittest.TestCase):
                                                          100, 200, 8))
         self.assertTrue(all(image.clip_draw.call_count == 0 for image in self.visual.images.values()))
 
-    def test_all_seventeen_sources_load_once_and_rendering_never_reloads(self):
+    def test_all_eighteen_sources_load_once_and_rendering_never_reloads(self):
         images = [SimpleNamespace(w=s["canvas_size"][0], h=s["canvas_size"][1],
                                   texture=object(), clip_draw=Mock()) for s in self.metadata.values()]
         path = SimpleNamespace(read_text=Mock(return_value=json.dumps(self.metadata)), parent=Path("fixture"))
@@ -127,10 +127,11 @@ class DirectionSpriteTests(unittest.TestCase):
             for facing, _ in DIRECTIONS:
                 for walk in (0, 7):
                     self.assertTrue(visual.draw_attack(SimpleNamespace(facing=facing, elapsed=.18), 100, 200, walk))
-            self.assertEqual(load.call_count, 17)
-            self.assertEqual(nearest.call_count, 17)
+            self.assertEqual(load.call_count, 18)
+            self.assertEqual(nearest.call_count, 18)
             self.assertEqual([args.args[0] for args in load.call_args_list],
-                             [str((combat_visual.ZOMBIE_METADATA_PATH.parent if key == "zombie" else path.parent)
+                             [str({"zombie": combat_visual.ZOMBIE_METADATA_PATH.parent,
+                                   "zombie_attack": combat_visual.ZOMBIE_ATTACK_METADATA_PATH.parent}.get(key, path.parent)
                                   / source["image"]) for key, source in self.metadata.items()])
             visual.close()
             self.assertEqual(visual.images, {})

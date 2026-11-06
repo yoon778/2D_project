@@ -24,6 +24,7 @@ FR_BOUNDARIES = (0, .045, .09, .135, .18, .225, .27, .32, .37, .425, .48, .54, .
 def combat_metadata():
     metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
     metadata["zombie"] = json.loads(combat_visual.ZOMBIE_METADATA_PATH.read_text(encoding="utf-8"))
+    metadata["zombie_attack"] = json.loads(combat_visual.ZOMBIE_ATTACK_METADATA_PATH.read_text(encoding="utf-8"))
     return metadata
 
 

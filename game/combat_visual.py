@@ -14,17 +14,21 @@ from locomotion import Locomotion
 
 METADATA_PATH = Path(__file__).resolve().parent / "assets/combat/r2a-combat-20261106.json"
 ZOMBIE_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r2z-zombie-20261106.json"
+ZOMBIE_ATTACK_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r2za-zombie-attack-20261106.json"
 
 
 class CombatVisual:
     def __init__(self):
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.metadata["zombie"] = json.loads(ZOMBIE_METADATA_PATH.read_text(encoding="utf-8"))
+        self.metadata["zombie_attack"] = json.loads(ZOMBIE_ATTACK_METADATA_PATH.read_text(encoding="utf-8"))
         self.images = {}
         self.reset_zombie_animation()
         try:
             for key, source in self.metadata.items():
-                directory = ZOMBIE_METADATA_PATH.parent if key == "zombie" else METADATA_PATH.parent
+                path = {"zombie": ZOMBIE_METADATA_PATH, "zombie_attack": ZOMBIE_ATTACK_METADATA_PATH}.get(
+                    key, METADATA_PATH)
+                directory = path.parent
                 image = p.load_image(str(directory / source["image"]))
                 self.images[key] = image
                 if [image.w, image.h] != source["canvas_size"]:
@@ -84,39 +88,52 @@ class CombatVisual:
     def zombie_state(zombie):
         if not zombie.alive:
             return "dead"
-        return "stunned" if zombie.stun_remaining > 0 else "alive"
+        if zombie.stun_remaining > 0:
+            return "stunned"
+        return "attacking" if zombie.attack is not None else "alive"
 
     def reset_zombie_animation(self):
         self.zombie_locomotion = Locomotion()
 
     def update_zombie(self, zombie, dx, dy):
         self.zombie_locomotion.update(zombie.aim_angle, dx, dy)
-        if not zombie.alive or zombie.stun_remaining > 0:
+        if zombie.attack is not None and zombie.alive and zombie.stun_remaining <= 0:
+            self.zombie_locomotion.facing = zombie.attack.facing
+        if not zombie.alive or zombie.stun_remaining > 0 or zombie.attack is not None:
             self.zombie_locomotion.moving = False
 
-    def _zombie_frame(self, zombie):
+    def _zombie_pose(self, zombie):
         source = self.metadata["zombie"]
         if not zombie.alive:
-            return source["frames"]["dead"]
+            return "zombie", source["frames"]["dead"]
         poses = source["facings"][self.zombie_locomotion.facing]
         if zombie.stun_remaining > 0:
             # The combat clock alone determines the hit pose; no visual timer.
             for frame in poses["hit"]:
                 if zombie.stun_remaining > STUN_DURATION - frame["end"]:
-                    return frame
-            return poses["hit"][-1]
+                    return "zombie", frame
+            return "zombie", poses["hit"][-1]
+        attack = zombie.attack
+        if attack is not None:
+            for frame in self.metadata["zombie_attack"]["facings"][attack.facing]:
+                if frame["start"] <= attack.elapsed < frame["end"]:
+                    return "zombie_attack", frame
         walk = self.zombie_locomotion.walk_frame_index(8)
-        return poses["walk"][walk - 1] if walk else poses["idle"]
+        return "zombie", poses["walk"][walk - 1] if walk else poses["idle"]
+
+    def _zombie_frame(self, zombie):
+        return self._zombie_pose(zombie)[1]
 
     def draw_zombie(self, zombie, foot_x, foot_y):
-        self._draw("zombie", self._zombie_frame(zombie), foot_x, foot_y)
+        source, frame = self._zombie_pose(zombie)
+        self._draw(source, frame, foot_x, foot_y)
 
     def zombie_contains(self, zombie, foot_x, foot_y, screen_x, screen_y):
         """Pick the living sprite's actual opaque pixels, excluding cell padding."""
         if not zombie.alive:
             return False
-        source = self.metadata["zombie"]
-        frame = self._zombie_frame(zombie)
+        source_name, frame = self._zombie_pose(zombie)
+        source = self.metadata[source_name]
         clip, scale = frame["clip_topleft"], source["scale"]
         left, bottom, width, height = sprite_rect(
             foot_x, foot_y, clip, frame["foot_pivot_topleft"], clip[3] * scale)

@@ -1,4 +1,4 @@
-"""Dead Route R2-Z: courier combat and eight-direction zombie walk/hit sprites."""
+"""Dead Route R2-ZA: courier combat and telegraphed eight-direction zombie attacks."""
 from __future__ import annotations
 
 import argparse
@@ -133,7 +133,7 @@ class Renderer:
         target_screen = world_to_screen(*target)
         p.draw_line(*foot, *target_screen, 112, 93, 56)
         cross(*target_screen, ORANGE, size=7)
-        self.font.draw(24, 683, "Dead Route - R2-Z  |  좀비 1마리 · 도트 8방향 걷기/피격", WHITE)
+        self.font.draw(24, 683, "Dead Route - R2-ZA  |  좀비 1마리 · 8방향 공격/걷기/피격", WHITE)
         self.font.draw(24, 651, "WASD 이동 · 마우스 조준 · 좌클릭 8방향 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
             self.font.draw(24, 620, f"HP {combat.player_hp}/3   좀비 {combat.zombie.hp}/5", WHITE)
@@ -182,7 +182,7 @@ def run(smoke_test=False):
         if not p.renderer:
             raise RuntimeError(f"SDL renderer initialization failed: {p.SDL_GetError()!r}")
         p.hide_lattice()
-        p.SDL_SetWindowTitle(p.window, b"Dead Route - R2-Z")
+        p.SDL_SetWindowTitle(p.window, b"Dead Route - R2-ZA")
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
