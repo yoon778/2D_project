@@ -1,0 +1,12 @@
+# 좀비 기준 원화 · 2026-11-06
+
+도구: built-in image_gen, transparent_background=true
+입력 역할: 플레이어 원화는 스타일·고정 사선 카메라·동일 체형/발점/방향 배치 참고 및 편집 입력. 원본 플레이어 파일 보존
+입력: art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png
+프로젝트 출력: art/zombie/studies/zombie-turnaround-ai-20261106.png
+
+## 생성 프롬프트
+
+Create a new original zombie enemy turnaround sprite sheet by editing the supplied courier reference sheet. Reference role: exact pixel-art style, fixed oblique 3/4 camera, adult body proportions, common body height, eight orientation layout and foot anchors. Save a new image; do not preserve any courier equipment. Preserve the reference sheet's 4 columns x 2 rows and the direction of each figure: top row front (south), front-right (southeast), right (east), back-right (northeast); bottom row back (north), back-left (northwest), left (west), front-left (southwest). Each figure is the SAME original male zombie from a different view, a slightly hunched adult with a bald patch and short dark messy hair, pale desaturated grey-green skin, a worn dull sage-green open-collar work shirt with small tears and visible cloth folds, dark navy charcoal trousers with clear thick thighs and knees, and sturdy muted brown boots. Empty hands, arms hanging forward slightly in a restrained zombie posture, five fingers suggested with a few pixels. Remove the cap, parcel, baseball bat, orange backpack, harness and lamp completely. No props, weapons, text, labels, shadows, scenery or reference courier. Match the reference's clean native 64-pixel-tall character style: bold continuous dark pixel outline, crisp limited 24-color palette, two or three hard-edged shade levels, anatomically consistent solid legs and both feet. No painting, blurred smoothing, gradients or antialiasing. Characters must have identical head size, shoulder width, hip height and body height across all eight views, on the same baseline in each row. Fully visible head and boots; generous transparent margins between figures. Transparent background. This is one production turnaround sheet for a game, not a presentation poster. Prefer 1280x640 output at exact 4x nearest-neighbor display of a native 320x160 sheet (each native cell80x80, neutral body height64px, foot root40,72). Maintain a natural full body human silhouette rather than a block-shaped Minecraft character.
+
+원화는 생성된 참고/입력이며 최종64px·팔레트·알파·게임용 관절/모션·픽킹 마스크는 별도 베이크/검수
