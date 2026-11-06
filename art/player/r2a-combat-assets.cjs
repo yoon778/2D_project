@@ -59,11 +59,97 @@ function rotate(dst, src, anchor, target, degrees) {
 async function png(b, width, height, file, scale = 1) {
   await sharp(b, {raw: {width, height, channels: 4}}).resize(width * scale, height * scale, {kernel: 'nearest'}).png().toFile(file)
 }
+function overlay(dst, src, width, height, left = 0, top = 0) {
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const xx = x + left, yy = y + top, from = (y * width + x) * 4
+    if (xx < 0 || yy < 0 || xx >= size || yy >= size || !src[from + 3]) continue
+    src.copy(dst, (yy * size + xx) * 4, from, from + 4)
+  }
+}
+async function attackWalk(dest, review, parts) {
+  await fs.mkdir(review, {recursive: true})
+  const {drawLeg, joints} = require('./consistent-walk.cjs')
+  const walk = require('./consistent-rig.json'), rig = walk.facings.front_right
+  const legs = {}
+  for (const side of ['right', 'left']) {
+    legs[side] = {}
+    for (const name of ['thigh', 'shin', 'boot']) legs[side][name] = await sharp(
+      path.join(__dirname, 'consistent-parts/front-right', `${side}-${name}.png`)).ensureAlpha().raw().toBuffer()
+  }
+  const upper = await sharp(path.join(__dirname, 'consistent-parts/front-right/body.png')).ensureAlpha().raw().toBuffer()
+  for (let p = 0; p < upper.length; p += 4) {
+    if (parts.upper[p + 3] || parts.fore[p + 3] || parts.hand[p + 3]) upper.fill(0, p, p + 4)
+  }
+  const upperCell = Buffer.alloc(size * size * 4)
+  paint(upperCell, upper, (x, y) => [x, y])
+  const walkPng = await sharp(path.join(root, 'game/assets/player/r1-consistent-front-right-20261105.png')).ensureAlpha().raw().toBuffer()
+  const atlas = Buffer.alloc(768 * 576 * 4), cells = [], frames = []
+  for (let attack = 0; attack < 6; attack++) {
+    const pose = poses[attack], arm = Buffer.alloc(size * size * 4), weapon = Buffer.alloc(arm.length)
+    if (pose.elbow) {
+      const angle = pose.hand * Math.PI / 180
+      const grip = [pose.wrist[0] + Math.cos(angle) - 6 * Math.sin(angle), pose.wrist[1] + Math.sin(angle) + 6 * Math.cos(angle)]
+      segment(arm, parts.upper, [27, 32], [27, 40], [27, 32], pose.elbow)
+      segment(arm, parts.fore, [27, 40], [28, 46], pose.elbow, pose.wrist)
+      rotate(arm, parts.hand, [28, 46], pose.wrist, pose.hand)
+      rotate(weapon, parts.bat, [29, 52], grip, pose.bat)
+    }
+    for (let phase = 0; phase < 8; phase++) {
+      const b = Buffer.alloc(size * size * 4), drop = walk.bodyDrop[phase]
+      if (attack === 5) {
+        // The attack-to-walk transition uses the exact already-approved walk pixels.
+        for (let y = 0; y < 80; y++) {
+          const from = ((Math.floor(phase / 4) * 80 + y) * 320 + phase % 4 * 80) * 4
+          walkPng.copy(b, ((y + 8) * size + 8) * 4, from, from + 320)
+        }
+      } else {
+        if (pose.behind) overlay(b, weapon, size, size, 0, drop)
+        for (const side of ['left', 'right']) {
+          // joints already applies the hip bob; never translate these legs again.
+          overlay(b, drawLeg(rig, legs, side, joints(rig, rig.legs[side], phase), null), 80, 80, 8, 8)
+        }
+        if (pose.behind) overlay(b, arm, size, size, 0, drop)
+        overlay(b, upperCell, size, size, 0, drop)
+        if (!pose.behind) {
+          overlay(b, arm, size, size, 0, drop)
+          overlay(b, weapon, size, size, 0, drop)
+        }
+      }
+      const index = attack * 8 + phase
+      cells.push(b)
+      for (let y = 0; y < size; y++) b.copy(atlas, ((attack * size + y) * 768 + phase * size) * 4, y * size * 4, (y + 1) * size * 4)
+      frames.push({name: `${pose.name}_walk${phase + 1}`, attack_index: attack, walk_frame_index: phase + 1,
+        clip_topleft: [phase * size, attack * size, size, size],
+        foot_pivot_topleft: [phase * size + 48, attack * size + 80]})
+    }
+  }
+  const image = 'r2aw-attack-walk-front-right-20261106.png'
+  await png(atlas, 768, 576, path.join(dest, image))
+  await png(atlas, 768, 576, path.join(review, 'attack-walk-48-2x.png'), 2)
+  const sample = Buffer.alloc(288 * 192 * 4), sequence = []
+  for (let a = 0; a < 6; a++) {
+    const elapsed = (times[a] + times[a + 1]) / 2
+    const walkFrame = Math.floor(((elapsed * 60 / 64) % 1) * 8) + 1
+    const cell = cells[a * 8 + walkFrame - 1]
+    for (let y = 0; y < size; y++) cell.copy(sample, ((Math.floor(a / 3) * size + y) * 288 + a % 3 * size) * 4, y * size * 4, (y + 1) * size * 4)
+    sequence.push({attack: a, elapsed, walk_frame: walkFrame})
+  }
+  await png(sample, 288, 192, path.join(review, 'attack-walk-sequence-4x.png'), 4)
+  await fs.writeFile(path.join(review, 'sequence.json'), JSON.stringify(sequence, null, 2) + '\n')
+  const metaPath = path.join(dest, 'r2a-combat-20261106.json')
+  const metadata = JSON.parse(await fs.readFile(metaPath, 'utf8'))
+  metadata.attack_walk = {image, canvas_size: [768, 576], facing: 'front_right', cell_size: [96, 96],
+    scale: 2, reference_height: 64, attack_steps: 6, walk_phases: 8, frames}
+  await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2) + '\n')
+  console.log(JSON.stringify({image: path.join(dest, image), review, frames: frames.length}))
+}
 async function main() {
-  const dest = path.join(root, 'game/assets/combat'), review = path.join(root, 'output/review/R2-A-art')
+  const walkingOnly = process.argv.includes('--attack-walk-only')
+  const dest = path.join(root, 'game/assets/combat'), review = path.join(root, walkingOnly ? 'output/review/R2-AW-art' : 'output/review/R2-A-art')
   await fs.mkdir(dest, {recursive: true}); await fs.mkdir(review, {recursive: true})
   const src = await sharp(path.join(__dirname, 'style-studies/eight-direction-consistency/turnaround-idle-64-v3.png')).extract({left: 80, top: 0, width: 80, height: 80}).ensureAlpha().raw().toBuffer()
   const parts = {upper: cut(src, masks.upper, navy), fore: cut(src, masks.fore), hand: cut(src, masks.hand), bat: cut(src, masks.bat)}, body = Buffer.from(src)
+  if (walkingOnly) return attackWalk(dest, review, parts)
   for (let p = 0; p < body.length; p += 4) if (Object.values(parts).some(b => b[p + 3])) body.fill(0, p, p + 4)
   const atlas = Buffer.alloc(288 * 192 * 4), cells = []
   for (const pose of poses) {
@@ -122,6 +208,7 @@ async function main() {
   }
   await fs.writeFile(path.join(dest, 'r2a-combat-20261106.json'), JSON.stringify(metadata, null, 2) + '\n')
   await fs.writeFile(path.join(review, 'arm-poses.json'), JSON.stringify({source: 'approved front_right native80', masks, shoulder: [27, 32], poses}, null, 2) + '\n')
+  await attackWalk(dest, path.join(root, 'output/review/R2-AW-art'), parts)
   console.log(JSON.stringify({attack: path.join(dest, metadata.attack.image), metadata: path.join(dest, 'r2a-combat-20261106.json'), review}))
 }
 main().catch(error => {console.error(error); process.exitCode = 1})

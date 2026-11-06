@@ -333,4 +333,5 @@ async function main() {
   const facings = facing ? [facing] : Object.keys(config.facings)
   for (const facing of facings) await bake(facing)
 }
-main().catch(error => {console.error(error); process.exitCode = 1})
+module.exports = {drawLeg, joints}
+if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})
