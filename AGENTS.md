@@ -14,7 +14,8 @@
 - 현재 사용자 승인 묶음 R2-Z: 주인공과 같은64px 도트 좀비8방향·idle1/보행8/피격4·공통corpse1, 총105상태. 새 game/assets/zombie/ 리소스로 메모리의 좀비 소스만 대체하며 기존 전투JSON/PNG·플레이어·core/combat/locomotion/player_visual은 보존한다. 실제 이동 거리의 위상·기존0.4초 경직 시간·현재 자세의alpha 픽킹·R 초기화 연결. 범위/API는 plans/r2z-zombie-contract.md, 결과와 사용자2차 확인은 plans/handoffs/r2z-zombie-review.md를 따른다. 실제1주차이며 새로운 AI·사망 애니메이션·다음 기능을 추가하지 않는다.
 - 후속 사용자 승인 R2-ZA는 좀비8방향 공격8자세씩64상태와 실제 타격 연결이다. 접촉 즉시 피해를 준비/타격/회복 전체0.8초·타격0.30초1회로 교체,28px/전방50도/벽 재검사·방향잠금·피격/사망 취소. 이 묶음에서 combat.py/combat_visual.py/main.py와 관련 검사는 변경 허용하며 이전의 combat.py 동결보다 우선한다. R2-Z105상태/기존제작도구·플레이어·core/locomotion/player_visual은 보존, 새 r2za-* 파일만 추가한다. 범위/API는 plans/r2za-zombie-attack-contract.md, 결과는 plans/handoffs/r2za-zombie-attack-review.md. 실제1주차·지휘1차 검수 뒤 사용자2차 확인에서 정지한다.
 - R2-ZA12는 좀비 공격 8→12자세·총 96상태. `plans/r2za12-zombie-attack-contract.md`와 당시 검수 기록 참조.
-- 현재 R2-ZT는 공격 표시 방향을 직전 보행 방향 기준으로 고정하고, 첫 8px에 보행 복귀 자세 두 장을 적용한다. `plans/r2zt-zombie-transition-contract.md`와 `plans/handoffs/r2zt-zombie-transition-review.md`를 따른다. 실제 1주차·사용자 2차 확인 대기.
+- R2-ZT는 공격 표시 방향을 직전 보행 방향 기준으로 고정하고, 첫 8px에 보행 복귀 자세 두 장을 적용한다. `plans/r2zt-zombie-transition-contract.md`와 `plans/handoffs/r2zt-zombie-transition-review.md` 참조.
+- 현재 R2-AP8은 주인공 정지·이동과 좀비 공격의 8방향 자세 보완이다. `plans/r2ap8-attack-pose-contract.md`와 `plans/handoffs/r2ap8-attack-pose-review.md` 참조. 실제 1주차·사용자 2차 확인 대기.
 - 미사용 로컬 보관본·이전 코드·PPT·에셋·임시 출력은 사용자 요청으로 삭제했다. 이전 코드가 필요하면 Git 커밋 7b46edd의 해당 파일을 읽고, 필요한 부분만 검토해 새 game/에 적용한다. 이전 폴더 전체를 다시 만들지 않는다.
 - 구 탑뷰 PNG·360도 회전·몸 중심 피벗을 새 캐릭터로 그대로 사용하지 않는다. 초판 4방향에서 사용자 요청으로 8방향을 확장했다. 발 접지점, 지면 조준 변환, 깊이 정렬, 지면 빛과 세운 캐릭터 노출 분리가 기준이다.
 - 구형 테스트·렌더 통과는 이전 구현의 이력이다. 새 실행본의 검증 완료로 보고하지 않는다.

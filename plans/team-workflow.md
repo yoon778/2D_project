@@ -32,7 +32,7 @@
 
 ## 현재 인계
 
-현재 R2-ZT 좀비 공격 방향·보행 복귀. UI는 복귀 128자세와 재현 검사, 로직은 표시 방향 고정과 실제 거리 기준 복귀 연결, 지휘는 Windows 전후 비교와 전체 회귀·Git 담당. [규격](r2zt-zombie-transition-contract.md) · [검수](handoffs/r2zt-zombie-transition-review.md). 사용자 2차 확인 대기.
+현재 R2-AP8 주인공·좀비 공격 자세. UI는 일곱 방향 공격 제작·재현, 로직은 타격·픽킹·보행 복귀 검사, 지휘는 Windows 전후 비교와 단계별 Git 담당. [규격](r2ap8-attack-pose-contract.md) · [검수](handoffs/r2ap8-attack-pose-review.md). 사용자 2차 확인 대기.
 
 R1-A 기존 그림체에서 UI-02/03 수정·입력·창 검수를 수행했고 이후 도트풍 캐릭터를 적용·지휘 재검수했습니다. 전체 자동 검사 38개·Windows 렌더 3장을 확인했으며 로직 판정은 유지했습니다.
 이전 R1-W3에서 로직은 보행 주기, UI·에셋은 앞오른쪽 중간 자세를 담당. 지휘는 같은 경로의 32px/64px 및 같은 64px에서의 그림 차이를 분리 검수. [W3 인계](handoffs/r1-walk-cadence-review.md) 참조. 이전 실제 성능은 [1주차 기록](handoffs/r1-week1-review.md) 참조.
