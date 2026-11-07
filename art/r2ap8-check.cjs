@@ -5,6 +5,7 @@ const path = require('node:path')
 const sharp = require('sharp')
 const zombie = require('./zombie/r2za-zombie-attack.cjs')
 const player = require('./player/r2c8-combat-assets.cjs')
+const {renderWalkAtlas} = require('./player/consistent-walk.cjs')
 const {bodyDrop} = require('./player/consistent-rig.json')
 const {facings} = require('./zombie/raster.cjs')
 const {facings: zombieRigs} = require('./zombie/r2z-rig.json')
@@ -13,10 +14,12 @@ const zombieAttacks = require('./zombie/r2za-rigs.json')
 const root = path.resolve(__dirname, '..')
 const review = path.join(root, 'output/review/R2-AP8')
 const baseline = '9d6e1d3'
+const recoveryBaseline = '0c7eb9a'
 const directions = facings.filter(facing => facing !== 'front_right')
 const zombieFile = 'game/assets/zombie/r2za-zombie-attack-20261106'
 const combat = 'game/assets/combat'
-const original = file => execFileSync('git', ['show', `${baseline}:${file}`], {cwd: root, maxBuffer: 8 * 1024 * 1024})
+const original = (file, ref = baseline) =>
+  execFileSync('git', ['show', `${ref}:${file}`], {cwd: root, maxBuffer: 8 * 1024 * 1024})
 const read = file => fs.readFile(path.join(root, file))
 const raw = image => sharp(image).ensureAlpha().raw().toBuffer()
 
@@ -27,6 +30,61 @@ function cell(pixels, width, [left, top, size]) {
     pixels.copy(result, y * size * 4, from, from + size * 4)
   }
   return result
+}
+
+const recoveryRows = {
+  front_left: {3: 67, 4: 67, 5: 68},
+  back_left: {0: 57, 1: 58, 6: 57, 7: 57},
+}
+
+function recoveryPixels(facing, phase) {
+  const top = recoveryRows[facing]?.[phase]
+  if (top === undefined) return []
+  if (facing === 'back_left') return [0, 1, 2, 3].map(row => [47, top + row])
+  return [[32, top], ...[1, 2, 3].flatMap(row => [[31, top + row], [32, top + row]])]
+}
+
+function clearPixels(image, width, coords, left, top) {
+  for (const [x, y] of coords) {
+    const p = ((top + y) * width + left + x) * 4
+    assert.equal(image[p + 3], 255, 'approved pixel was opaque')
+    image.fill(0, p, p + 4)
+  }
+}
+
+async function checkRecoveryScope(preview) {
+  const changed = []
+  for (const facing of Object.keys(recoveryRows)) {
+    const slug = facing.replaceAll('_', '-')
+    const walkFile = `game/assets/player/r1-consistent-${slug}-20261105.png`
+    const attackFile = `${combat}/r2c8-attack-walk-${slug}-20261106.png`
+    changed.push(walkFile, attackFile)
+    const walk = await raw(original(walkFile, recoveryBaseline))
+    const attack = await raw(original(attackFile, recoveryBaseline))
+    for (let phase = 0; phase < 8; phase++) {
+      const coords = recoveryPixels(facing, phase)
+      if (!coords.length) continue
+      const left = phase % 4 * 80, top = Math.floor(phase / 4) * 80
+      const old = cell(walk, 320, [left, top, 80])
+      const [fragment, ...others] = disconnected(old, 80)
+      assert.equal(others.length, 0)
+      assert.deepEqual(new Set(fragment.map(([x, y]) => y * 80 + x)),
+        new Set(coords.map(([x, y]) => y * 80 + x)))
+      clearPixels(walk, 320, coords, left, top)
+      clearPixels(attack, 768, coords, phase * 96 + 8, 11 * 96 + 8)
+      assert.equal(disconnected(cell(walk, 320, [left, top, 80]), 80).length, 0)
+    }
+    const actual = await sharp(await read(walkFile)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    assert.deepEqual([actual.info.width, actual.info.height], [320, 240])
+    assert(actual.data.equals(walk), `${facing} exact walk pixel scope`)
+    assert((await renderWalkAtlas(facing)).equals(walk), `${facing} walk reproduction`)
+    if (!preview) assert((await raw(await read(attackFile))).equals(attack), `${facing} exact recovery pixel scope`)
+  }
+  if (!preview) {
+    const files = execFileSync('git', ['diff', '--name-only', recoveryBaseline, '--', 'game/assets'], {cwd: root})
+      .toString().trim().split(/\r?\n/)
+    assert.deepEqual(files.sort(), changed.sort(), 'only four approved atlases changed')
+  }
 }
 
 function layout(cells, size, columns, scale = 2) {
@@ -246,8 +304,13 @@ async function checkPlayer(preview) {
         checkMask(sprite, 96, null, tag)
         if (actual) assert(sprite.equals(cell(actual, width, spec.frames[i].clip_topleft)), tag)
         const recovery = i >= 11 * count
-        if (recovery) assert(sprite.equals(before[i]), `${tag} original recovery`)
-        else checkGear(sprite, layers[Math.floor(i / count)].gear, count === 8 ? bodyDrop[i % 8] : 0, tag)
+        if (recovery) {
+          const expected = Buffer.from(before[i])
+          if (count === 8) clearPixels(expected, 96, recoveryPixels(facing, i % 8), 8, 8)
+          assert(sprite.equals(expected), `${tag} recovery after approved cleanup`)
+        } else {
+          checkGear(sprite, layers[Math.floor(i / count)].gear, count === 8 ? bodyDrop[i % 8] : 0, tag)
+        }
         const groups = disconnected(sprite, 96)
         if (!groups.length) continue
         if (recovery) recoveryFragments[`${key}:${i}`] = groups
@@ -294,6 +357,7 @@ async function main() {
     console.log(JSON.stringify(zombies))
   }
   if (!process.argv.includes('--zombie')) {
+    await checkRecoveryScope(preview)
     const players = await checkPlayer(preview)
     if (!preview) assert(Object.values(players).every(result => !Object.keys(result.detached).length &&
       !result.gripGaps.length && result.reaches.every(reach => reach.ahead > 0 && reach.visibleTipPixels > 0)))
