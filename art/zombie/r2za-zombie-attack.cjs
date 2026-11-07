@@ -2,7 +2,8 @@
 const fs=require('node:fs/promises'),path=require('node:path'),sharp=require('sharp')
 const r=require('./raster.cjs'),settings=require('./r2za-rigs.json'),sourceConfig=require('./r2z-source.json'),oldRig=require('./r2z-rig.json')
 const {shiftWeight} = require('../attack-weight.cjs')
-const root=path.resolve(__dirname,'../..'),review=path.join(root,'output/review/R2-AP'),times=[0,.04,.08,.12,.16,.23,.30,.40,.46,.52,.64,.72,.80]
+const ap8 = require('./r2ap8-motion.json')
+const root=path.resolve(__dirname,'../..'),review=path.join(root,'output/review/R2-AP8'),times=[0,.04,.08,.12,.16,.23,.30,.40,.46,.52,.64,.72,.80]
 function solve(model,target,degrees){
   const a=degrees*Math.PI/180,dir=[Math.cos(a),Math.sin(a)],palm=Math.hypot(model.tip[0]-model.wrist[0],model.tip[1]-model.wrist[1]),l1=Math.hypot(model.elbow[0]-model.shoulder[0],model.elbow[1]-model.shoulder[1]),l2=Math.hypot(model.wrist[0]-model.elbow[0],model.wrist[1]-model.elbow[1]),s=model.shoulder
   const wanted=[target[0]-dir[0]*palm,target[1]-dir[1]*palm],dx=wanted[0]-s[0],dy=wanted[1]-s[1],distance=Math.hypot(dx,dy),d=Math.min((l1+l2)*.985,Math.max(Math.abs(l1-l2)+.1,distance)),wrist=[s[0]+dx/distance*d,s[1]+dy/distance*d],angle=Math.atan2(dy,dx)+(model.bend||1)*Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))))
@@ -17,6 +18,24 @@ function middlePose(model,a,b,t){
 function twelvePoses(config){
   const keys=Array.from({length:7},(_,phase)=>Object.fromEntries(Object.entries(config.arms).map(([side,model])=>[side,solve(model,model.targets[phase],model.angles[phase])]))),middle=(from,to,row)=>Object.fromEntries(Object.entries(config.arms).map(([side,model])=>[side,middlePose(model,keys[from][side],keys[to][side],config.middle?.[row]?.[side]?.fraction??config.middle?.[row]?.fraction??.5)]))
   return[keys[0],middle(0,1,1),keys[1],middle(1,2,3),keys[2],middle(2,3,5),keys[3],keys[4],middle(4,5,8),keys[5],keys[6],{original:true}]
+}
+function directionalAttack(facing, config) {
+  const [forwardX, forwardY] = oldRig.facings[facing].worldFacing
+  const depth = forwardY * (forwardX ? .6 : 1)
+  const override = ap8.overrides[facing]
+  const weights = ap8.travel.map((travel, i) =>
+    override?.weights?.[i] || [Math.round(forwardX * travel), Math.round(depth * travel + ap8.crouch[i])])
+  const arms = Object.fromEntries(Object.entries(config.arms).map(([side, arm]) => {
+    const idleAngle = Math.atan2(arm.tip[1] - arm.wrist[1], arm.tip[0] - arm.wrist[0])
+    const targets = arm.targets.map(([x, y], i) => override?.[side]?.targets?.[i] || [
+      arm.tip[0] + (x - arm.tip[0]) * ap8.tuck[i] + forwardX * ap8.aimTravel[i],
+      arm.tip[1] + (y - arm.tip[1]) * ap8.tuck[i] + depth * ap8.aimTravel[i],
+    ])
+    const angles = arm.angles.map((angle, i) => override?.[side]?.angles?.[i] ??
+      shortAngle(idleAngle, angle * Math.PI / 180, ap8.tuck[i]) * 180 / Math.PI)
+    return [side, {targets, angles}]
+  }))
+  return {weights, ...arms}
 }
 async function sourceCell(facing){
   const[left,top,width,height]=sourceConfig.facings[facing].sourceCell
@@ -62,7 +81,9 @@ async function build(facing,options={}){
     base.fill(0,p,p+4)
   }
   for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4;if(repaired[p+3]&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>x+dx<0||x+dx>=80||y+dy<0||y+dy>=80||!base[((y+dy)*80+x+dx)*4+3]))base.set([21,20,27],p)}
-  const adjustments = options.r2ap !== false && facing === 'front_right' ? require('./r2ap-front-right.json') : null
+  const adjustments = facing === 'front_right'
+    ? (options.r2ap === false ? null : require('./r2ap-front-right.json'))
+    : (options.r2ap8 === false ? null : directionalAttack(facing, config))
   const poseConfig = adjustments ? {...config, arms: Object.fromEntries(Object.entries(config.arms)
     .map(([side, model]) => [side, {...model, ...adjustments[side]}]))} : config
   const frames=[],poses=twelvePoses(poseConfig),layers=[]
@@ -84,7 +105,7 @@ async function build(facing,options={}){
     frames.push(b);layers.push(arms)
   }
   if(options.writeParts){await r.png(base,80,80,path.join(__dirname,'r2za-parts',facing.replaceAll('_','-'),'body.png'));await r.png(removed,80,80,path.join(__dirname,'r2za-parts',facing.replaceAll('_','-'),'source-arm-mask.png'))}
-  return{facing,source,base,removed,repaired,parts,frames,poses,layers}
+  return{facing,source,base,removed,repaired,parts,frames,poses,layers,weights:adjustments?.weights}
 }
 async function sheet(cells,cols,file,scale=4){
   const width=cols*80,height=Math.ceil(cells.length/cols)*80,b=Buffer.alloc(width*height*4)
@@ -95,7 +116,7 @@ async function makeAtlas(options={}){
   if(r.facings.some(f=>!settings[f]))throw new Error('All eight approved attack rigs required for the production atlas')
   const pixels=Buffer.alloc(640*960*4),metadata={image:'r2za-zombie-attack-20261106.png',canvas_size:[640,960],cell_size:[80,80],scale:2,reference_height:64,facings:{}},results=[]
   for(const[col,name]of r.facings.entries()){
-    const result=await build(name,{writeParts:options.writeParts===true,r2ap:options.r2ap});results.push(result);metadata.facings[name]=result.frames.map((b,row)=>{for(let y=0;y<80;y++)b.copy(pixels,((row*80+y)*640+col*80)*4,y*320,(y+1)*320);return{clip_topleft:[col*80,row*80,80,80],foot_pivot_topleft:[col*80+40,row*80+72],opaque_rows:r.opaqueRows(b),start:times[row],end:times[row+1]}})
+    const result=await build(name,{writeParts:options.writeParts===true,r2ap:options.r2ap,r2ap8:options.r2ap8});results.push(result);metadata.facings[name]=result.frames.map((b,row)=>{for(let y=0;y<80;y++)b.copy(pixels,((row*80+y)*640+col*80)*4,y*320,(y+1)*320);return{clip_topleft:[col*80,row*80,80,80],foot_pivot_topleft:[col*80+40,row*80+72],opaque_rows:r.opaqueRows(b),start:times[row],end:times[row+1]}})
   }
   return{pixels,metadata,results}
 }
