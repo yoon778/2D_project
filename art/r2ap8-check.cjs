@@ -7,6 +7,7 @@ const sharp = require('sharp')
 const zombie = require('./zombie/r2za-zombie-attack.cjs')
 const player = require('./player/r2c8-combat-assets.cjs')
 const {buildR2ap} = require('./player/r2a-combat-assets.cjs')
+const {buildFullSwing} = require('./player/r2sf-front-right.cjs')
 const swingPoses = require('./player/r2ap-front-right.json')
 const {renderWalkAtlas} = require('./player/consistent-walk.cjs')
 const {bodyDrop} = require('./player/consistent-rig.json')
@@ -19,6 +20,7 @@ const review = path.join(root, 'output/review/R2-AP8')
 const baseline = '9d6e1d3'
 const recoveryBaseline = '0c7eb9a'
 const swingBaseline = '29a659f'
+const fullSwingBaseline = '57f13de'
 const directions = facings.filter(facing => facing !== 'front_right')
 const zombieFile = 'game/assets/zombie/r2za-zombie-attack-20261106'
 const combat = 'game/assets/combat'
@@ -292,7 +294,51 @@ function swingTip(pose) {
   ]
 }
 
+async function checkFullSwing(metadata, preview) {
+  const {cells, contacts, pixels, width, height} = await buildFullSwing()
+  const spec = metadata.attack
+  assert.equal(spec.image, swingImages[0])
+  assert.deepEqual([width, height], spec.canvas_size)
+  assert.equal(cells.length, spec.frames.length)
+  assert.equal(spec.frames[4].start, .18)
+  assert.equal(spec.frames.at(-1).end, .60)
+  assert.equal(contacts.length, 11)
+  assert(contacts.every(({right, left}) => right && left), 'grip and parcel contact')
+
+  const file = `${combat}/${spec.image}`
+  const before = await raw(original(file, fullSwingBaseline))
+  const idle = cell(before, width, spec.frames[11].clip_topleft)
+  assert(cells[11].equals(idle), 'original idle recovery')
+  assert.equal(new Set(cells.map(sprite => createHash('sha256').update(sprite).digest('hex'))).size, 12)
+  const palette = new Set()
+  for (let p = 0; p < idle.length; p += 4) {
+    if (idle[p + 3]) palette.add(idle.readUInt32LE(p))
+  }
+  const sole = (80 * 96 + 42) * 4
+  for (const [i, sprite] of cells.entries()) {
+    const tag = `front_right stationary ${i}`
+    checkMask(sprite, 96, null, tag)
+    assert.equal(disconnected(sprite, 96).length, 0, tag)
+    assert(sprite.subarray(sole, sole + 40).equals(idle.subarray(sole, sole + 40)), 'planted sole')
+    for (let p = 0; p < sprite.length; p += 4) {
+      if (sprite[p + 3]) assert(palette.has(sprite.readUInt32LE(p)), tag)
+    }
+  }
+  const settle = cells[10]
+  for (let p = 0; p < settle.length; p += 4) {
+    if (settle.readUInt32LE(p) !== idle.readUInt32LE(p)) {
+      assert(p / 4 % 96 < 42 && Math.floor(p / 384) >= 54, 'settle keeps idle box and boots')
+    }
+  }
+  if (!preview) {
+    const actual = await sharp(await read(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    assert.deepEqual([actual.info.width, actual.info.height], [width, height])
+    assert(actual.data.equals(pixels), 'full-body stationary atlas reproduction')
+  }
+}
+
 async function checkFrontRightSwing(metadata, preview) {
+  await checkFullSwing(metadata, preview)
   const result = await buildR2ap()
   assert.deepEqual(result.times, [...metadata.attack.frames.map(frame => frame.start), .60])
   assert.deepEqual(result.walk.frames, metadata.attack_walk.frames)
@@ -305,40 +351,37 @@ async function checkFrontRightSwing(metadata, preview) {
   assert(hit.end.every((value, axis) => value > hit.grip[axis]), 'hit crosses diagonally down and forward')
   const [dx, dy] = swingPoses[3].weight
   const idle = result.cells.at(-1)
-  for (const [drop, phase] of [[0, -1], ...bodyDrop.map((drop, phase) => [drop, phase])]) {
-    const preHit = phase < 0 ? result.cells[3] : result.walk.cells[24 + phase]
+  for (const [phase, drop] of bodyDrop.entries()) {
+    const preHit = result.walk.cells[24 + phase]
     for (let y = 8; y <= 38; y++) for (let x = 38; x < 96; x++) {
       const p = (y * 96 + x) * 4
       if (!idle[p + 3]) continue
       const q = ((y + dy + drop) * 96 + x + dx) * 4
       assert.equal(preHit.readUInt32LE(q), idle.readUInt32LE(p), 'pre-hit face remains visible')
     }
-    const frame = phase < 0 ? result.cells[4] : result.walk.cells[32 + phase]
+    const frame = result.walk.cells[32 + phase]
     const reach = batReach(frame, hit, zombieRigs.front_right, drop)
     assert(reach.ahead > 0 && reach.visibleTipPixels > 0)
   }
-  for (const [index, key] of ['attack', 'attack_walk'].entries()) {
-    const spec = metadata[key], count = index ? 8 : 1
-    assert.equal(spec.image, swingImages[index])
-    const [width, height] = spec.canvas_size
-    const file = `${combat}/${spec.image}`
-    const before = await raw(original(file, swingBaseline))
-    const cells = index ? result.walk.cells : result.cells
-    assert.equal(cells.length, 12 * count)
-    let actual
-    if (!preview) {
-      const image = await sharp(await read(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
-      assert.deepEqual([image.info.width, image.info.height], [width, height])
-      actual = image.data
-    }
-    for (const [i, frame] of spec.frames.entries()) {
-      const pose = cells[i], attack = Math.floor(i / count)
-      const tag = `front_right ${key} ${i}`
-      checkMask(pose, 96, null, tag)
-      assert.equal(disconnected(pose, 96).length, 0, tag)
-      assert.equal(pose.equals(cell(before, width, frame.clip_topleft)), attack === 0 || attack > 5, tag)
-      if (actual) assert(pose.equals(cell(actual, width, frame.clip_topleft)), tag)
-    }
+  const spec = metadata.attack_walk
+  assert.equal(spec.image, swingImages[1])
+  const [width, height] = spec.canvas_size
+  const file = `${combat}/${spec.image}`
+  const before = await raw(original(file, swingBaseline))
+  assert.equal(result.walk.cells.length, 96)
+  if (!preview) {
+    const png = await read(file)
+    assert(png.equals(original(file, fullSwingBaseline)), 'approved moving swing PNG bytes')
+    const actual = await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    assert.deepEqual([actual.info.width, actual.info.height], [width, height])
+    assert(actual.data.equals(result.walk.atlas), 'moving swing reproduction')
+  }
+  for (const [i, frame] of spec.frames.entries()) {
+    const pose = result.walk.cells[i], attack = Math.floor(i / 8)
+    const tag = `front_right attack_walk ${i}`
+    checkMask(pose, 96, null, tag)
+    assert.equal(disconnected(pose, 96).length, 0, tag)
+    assert.equal(pose.equals(cell(before, width, frame.clip_topleft)), attack === 0 || attack > 5, tag)
   }
 }
 

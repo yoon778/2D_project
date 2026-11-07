@@ -288,17 +288,7 @@ async function main() {
   if (process.argv.includes('--legacy-review')) return legacyReview()
   const result = await buildR2ap()
   const dest = path.join(root, 'game/assets/combat')
-  if (!process.argv.includes('--attack-walk-only')) {
-    const width = 4 * size, height = 3 * size
-    const atlas = Buffer.alloc(width * height * 4)
-    for (const [index, cell] of result.cells.entries()) {
-      for (let y = 0; y < size; y++) {
-        const to = ((Math.floor(index / 4) * size + y) * width + index % 4 * size) * 4
-        cell.copy(atlas, to, y * size * 4, (y + 1) * size * 4)
-      }
-    }
-    await png(atlas, width, height, path.join(dest, 'r2a-attack-front-right-20261106.png'))
-  }
+  // The stationary atlas is built independently by r2sf-front-right.cjs.
   await png(result.walk.atlas, 8 * size, 12 * size, path.join(dest, 'r2aw-attack-walk-front-right-20261106.png'))
 }
 if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})
