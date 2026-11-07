@@ -4,6 +4,8 @@ R2-AP8에서 8방향 정지·이동 공격에 상체 무게 이동과 방향별 
 
 R2-SF 앞오른쪽 정지 공격 제작은 `node art/player/r2sf-front-right.cjs`. `r2sf-front-right.json`의 자세별 윤곽과 승인 정지 그림으로 12장 제작.
 
+R2-SFM 앞오른쪽 이동 공격은 같은 상체와 승인 보행 다리 8위상을 합성함. 제작은 `node art/player/r2a-combat-assets.cjs`.
+
 - 승인한 방향별 원화·분리 부품 사용. 전체 몸 회전/미러 없이 오른팔/손/방망이 관절만 변형, 왼손 택배 유지
 - 8방향 공통: 정지384×288(96셀4×3)12장·이동768×1152(96셀8×12)96장. 전체 정지96·이동768자세
 - 각 셀 피벗(48,80)·기준신체64·정수2배nearest·18~22색·alpha0/255. 모든 방향 정지12/이동96 고유
@@ -13,7 +15,6 @@ R2-SF 앞오른쪽 정지 공격 제작은 `node art/player/r2sf-front-right.cjs
 - 완성 FR12 PNG/메타 보존. 나머지7방향의 기존6키×정지/8보행378셀 RGBA 동일, 최종8방향 복귀72셀은 R1 정지/보행의(8,8) 패딩과 일치
 - 양발8위상·실제 거리의 걷기 박자·1px bob 유지. 무기는 완전한 형태로 만든 뒤 몸 깊이로 부분 가림
 - 임시 좀비240×80/80셀3장(alive/stunned/dead)·피벗(40,72) 유지. 메타 불투명 행으로 몸 클릭 처리
-- 앞오른쪽 이동 공격 제작 `node art/player/r2a-combat-assets.cjs`
 - 나머지7방향 제작: `node art/player/r2c8-combat-assets.cjs`
 - 검사: `node art/player/check-r2c8-combat.cjs`, FR 보존/규격: `node art/player/check-r2fr-smooth.cjs` (Sharp 환경)
 - 세 제작 경로 재실행 후17PNG/17메타 값 동일. 기존 도구는 새14메타, C8 도구는 FR/좀비3메타 보존
