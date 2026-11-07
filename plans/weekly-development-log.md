@@ -123,10 +123,11 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/7 | R2-ZT 25도 접근 방향 튐과 보행 복귀 재현, 채팅별 규격 확정 | 해당 묶음 착수 승인 | `0ffe0ca` |
 | 11/7 | 8방향 복귀 128자세 제작, 기존 105자세·공격 96자세 보존 및 64개 연결 검수 | 에셋 검수 완료 | `14431a1` |
 | 11/7 | 공격 표시 방향 고정, 실제 이동 첫 8px에 두 자세 적용. Windows 전후 비교, 전체 164개 통과 | 지휘 1차 완료, 사용자 2차 대기 | `5000c85` |
+| 11/7 | 2차 피드백 R2-AP. 앞오른쪽 주인공 정지·이동 및 좀비 공격의 체중 이동과 타격 자세 개선. Windows 전후 36자세·피해/이동 기록 대조, 전체 164개 통과 | 앞오른쪽 시안 2차 확인 대기 | `b5ff386` |
 
 기존 그림체 실행본의 검수 결과를 도트풍 수정본의 시각 검수로 대체하지 않음
 현재 [R1-C8 공통 원화 보행·골반 윤곽 검수](handoffs/r1-consistent-walk-review.md). 이전 모션은 [도트 보행 기록](handoffs/r1-walk-cadence-review.md)의 P64·W3~W5와 [W2](handoffs/r1-weight-landing-review.md), 이전 성능은 [1주차 지휘 기록](handoffs/r1-week1-review.md)에 보존.
-현재 실행본은 [R2-ZT 좀비 공격 전환 검수](handoffs/r2zt-zombie-transition-review.md) 참조. 이전 [R2-ZA12](handoffs/r2za12-zombie-attack-review.md)·[R2-ZA](handoffs/r2za-zombie-attack-review.md)·[R2-Z](handoffs/r2z-zombie-review.md)는 단계별 이력. 사용자 2차 확인 뒤 다음 범위 결정.
+현재 실행본은 [R2-AP 공격 자세 검수](handoffs/r2ap-attack-pose-review.md) 참조. 이전 [R2-ZT](handoffs/r2zt-zombie-transition-review.md)·[R2-ZA12](handoffs/r2za12-zombie-attack-review.md)·[R2-ZA](handoffs/r2za-zombie-attack-review.md)·[R2-Z](handoffs/r2z-zombie-review.md)는 단계별 이력. 사용자 2차 확인 뒤 다음 범위 결정.
 
 ## 다음 주차 기록 양식
 

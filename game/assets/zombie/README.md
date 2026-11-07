@@ -20,10 +20,11 @@
 
 ```powershell
 node art/zombie/r2z-zombie-assets.cjs
-node art/zombie/r2zt-check.cjs
+node art/zombie/r2za-zombie-attack.cjs
+node art/r2ap-check.cjs
 ```
 
 제작 스크립트는 새 좀비 리소스만 출력하며 기존 플레이어·전투 리소스는 수정하지 않음
 checker는 제품 리소스를 읽기 전용으로 검사하고 재현 결과는 ignored 검수 폴더에만 저장함
-`r2za-zombie-attack.cjs`는 별도 공격 아틀라스 제작용. `check-r2z.cjs`와 `r2za-check.cjs`의 동결 검사는 각각 당시 기준 커밋용
+`r2za-zombie-attack.cjs`는 앞오른쪽 상체 전진이 반영된 별도 공격 아틀라스 제작용. `check-r2z.cjs`, `r2za-check.cjs`, `r2zt-check.cjs`의 동결 검사는 각각 당시 기준 커밋용
 [복귀 자세 인계](../../../plans/handoffs/r2zt-ui.md) · [현재 검수](../../../plans/handoffs/r2zt-zombie-transition-review.md)

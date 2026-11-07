@@ -76,8 +76,8 @@ function forwardBat(frame, weapon, drop) {
   return {tipX, otherX}
 }
 
-function handReach(result, index, side) {
-  const [tx, ty] = result.poses[index][side].tip.map((value, axis) => value + weights[index][axis])
+function handReach(result, index, side, weight = [0, 0]) {
+  const [tx, ty] = result.poses[index][side].tip.map((value, axis) => value + weight[axis])
   const layer = result.layers[index][side], frame = result.frames[index]
   let xMax = 0, projected = 0
   for (let y = 0; y < 80; y++) for (let x = 0; x < 80; x++) {
@@ -135,12 +135,15 @@ async function checkZombie() {
   const {pixels, metadata: rebuilt, results} = await makeAtlas()
   assert(current.data.equals(pixels))
   assert.deepEqual(metadata, rebuilt)
+  const {facings: oldFacings, ...oldAtlas} = before
+  const {facings, ...newAtlas} = metadata
+  assert.deepEqual(newAtlas, oldAtlas)
   assert.equal(metadata.facings.front_right[6].start, .30)
   assert.equal(metadata.facings.front_right.at(-1).end, .80)
-  for (const [facing, frames] of Object.entries(metadata.facings)) {
+  for (const [facing, frames] of Object.entries(facings)) {
     assert.equal(frames.length, 12)
     for (const [i, frame] of frames.entries()) {
-      const previousFrame = before.facings[facing][i]
+      const previousFrame = oldFacings[facing][i]
       const {opaque_rows: oldMask, ...oldPose} = previousFrame
       const {opaque_rows: newMask, ...pose} = frame
       assert.deepEqual(pose, oldPose)
@@ -156,16 +159,18 @@ async function checkZombie() {
     }
   }
   const fr = results.find(result => result.facing === 'front_right')
+  const previousFr = await require('./zombie/r2za-zombie-attack.cjs').build('front_right', {r2ap: false})
   return Object.fromEntries(['right', 'left'].map(side => {
-    const rows = weights.map((_, i) => handReach(fr, i, side))
+    const rows = weights.map((weight, i) => handReach(fr, i, side, weight))
     const hit = rows[6]
     assert(rows.every((row, i) => i === 6 || hit.xMax > row.xMax && hit.projected > row.projected))
-    return [side, hit]
+    return [side, {before: handReach(previousFr, 6, side), after: hit}]
   }))
 }
 
 async function main() {
-  const changed = git('diff', '--name-only', baseline, '--', 'game/assets').toString().trim().split(/\r?\n/)
+  const changed = git('diff', '--name-only', baseline, '--', 'game/assets', ':(exclude,glob)game/assets/**/*.md')
+    .toString().trim().split(/\r?\n/)
   assert.deepEqual(changed.sort(), published.sort(), 'only approved product files')
   const frozen = await Promise.all(published.map(read))
   const [bat, hands] = await Promise.all([checkPlayer(), checkZombie()])
