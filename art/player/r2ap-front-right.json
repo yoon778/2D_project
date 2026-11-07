@@ -1,0 +1,13 @@
+[
+  {"weight":[-1,0],"elbow":[26,40],"wrist":[26,46],"hand":12,"bat":17,"behind":true},
+  {"weight":[-2,1],"elbow":[23,39],"wrist":[21,43],"hand":42,"bat":53,"behind":true},
+  {"weight":[-4,1],"elbow":[21,36],"wrist":[18,36],"hand":103,"bat":116,"behind":true},
+  {"weight":[-1,0],"elbow":[25,27],"wrist":[29,24],"hand":201,"bat":195,"behind":true},
+  {"weight":[5,0],"elbow":[36,33],"wrist":[45,34],"hand":-75,"bat":-87},
+  {"weight":[6,1],"elbow":[38,37],"wrist":[46,41],"hand":-52,"bat":-59},
+  {"weight":[5,2],"elbow":[36,42],"wrist":[41,48],"hand":-30,"bat":-32},
+  {"weight":[3,1],"elbow":[32,43],"wrist":[36,50],"hand":-12,"bat":-15},
+  {"weight":[2,1],"elbow":[30,42],"wrist":[32,49],"hand":-4,"bat":-6},
+  {"weight":[1,0],"elbow":[28,41],"wrist":[30,48],"hand":0,"bat":-2},
+  {"weight":[0,0],"elbow":[27,40],"wrist":[29,47],"hand":0,"bat":0}
+]

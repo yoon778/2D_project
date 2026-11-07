@@ -1,7 +1,8 @@
 // New attack-only resources; existing zombie/player inputs are read-only.
 const fs=require('node:fs/promises'),path=require('node:path'),sharp=require('sharp')
 const r=require('./raster.cjs'),settings=require('./r2za-rigs.json'),sourceConfig=require('./r2z-source.json'),oldRig=require('./r2z-rig.json')
-const root=path.resolve(__dirname,'../..'),review=path.join(root,'output/review/R2-ZA12-art'),times=[0,.04,.08,.12,.16,.23,.30,.40,.46,.52,.64,.72,.80]
+const {shiftWeight} = require('../attack-weight.cjs')
+const root=path.resolve(__dirname,'../..'),review=path.join(root,'output/review/R2-AP'),times=[0,.04,.08,.12,.16,.23,.30,.40,.46,.52,.64,.72,.80]
 function solve(model,target,degrees){
   const a=degrees*Math.PI/180,dir=[Math.cos(a),Math.sin(a)],palm=Math.hypot(model.tip[0]-model.wrist[0],model.tip[1]-model.wrist[1]),l1=Math.hypot(model.elbow[0]-model.shoulder[0],model.elbow[1]-model.shoulder[1]),l2=Math.hypot(model.wrist[0]-model.elbow[0],model.wrist[1]-model.elbow[1]),s=model.shoulder
   const wanted=[target[0]-dir[0]*palm,target[1]-dir[1]*palm],dx=wanted[0]-s[0],dy=wanted[1]-s[1],distance=Math.hypot(dx,dy),d=Math.min((l1+l2)*.985,Math.max(Math.abs(l1-l2)+.1,distance)),wrist=[s[0]+dx/distance*d,s[1]+dy/distance*d],angle=Math.atan2(dy,dx)+(model.bend||1)*Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))))
@@ -61,17 +62,23 @@ async function build(facing,options={}){
     base.fill(0,p,p+4)
   }
   for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4;if(repaired[p+3]&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>x+dx<0||x+dx>=80||y+dy<0||y+dy>=80||!base[((y+dy)*80+x+dx)*4+3]))base.set([21,20,27],p)}
-  const frames=[],poses=twelvePoses(config),layers=[]
+  const adjustments = options.r2ap !== false && facing === 'front_right' ? require('./r2ap-front-right.json') : null
+  const poseConfig = adjustments ? {...config, arms: Object.fromEntries(Object.entries(config.arms)
+    .map(([side, model]) => [side, {...model, ...adjustments[side]}]))} : config
+  const frames=[],poses=twelvePoses(poseConfig),layers=[]
   for(let phase=0;phase<12;phase++){
     if(phase===11){frames.push(Buffer.from(source));layers.push({});continue}
     const arms={},pose=poses[phase]
+    const weight = adjustments?.weights[phase] || [0, 0]
+    const shift = ([x, y]) => [x + weight[0], y + weight[1]]
+    const torso = adjustments ? shiftWeight(base, 80, 0, weight, 43, config.protectFromY) : base
     for(const[side,model]of Object.entries(config.arms)){
       const material=config.arms[model.textureFrom||side],p=parts[side],b=Buffer.alloc(source.length),j=pose[side]
-      r.segment(b,p.upper,material.shoulder,material.elbow,model.shoulder,j.elbow);r.segment(b,p.fore,material.elbow,material.wrist,j.elbow,j.wrist);r.rotate(b,p.hand,material.wrist,j.wrist,j.handAngle);r.outline(b,oldRig.outline);arms[side]=b
+      r.segment(b,p.upper,material.shoulder,material.elbow,shift(model.shoulder),shift(j.elbow));r.segment(b,p.fore,material.elbow,material.wrist,shift(j.elbow),shift(j.wrist));r.rotate(b,p.hand,material.wrist,shift(j.wrist),j.handAngle);r.outline(b,oldRig.outline);arms[side]=b
     }
     const b=Buffer.alloc(source.length),near=config.nearArm,far=near==='right'?'left':'right'
-    if(config.bothFront){r.overlay(b,base);r.overlay(b,arms[far]);r.overlay(b,arms[near])}
-    else{r.overlay(b,arms[far]);if(config.bothBehind)r.overlay(b,arms[near]);r.overlay(b,base);if(!config.bothBehind)r.overlay(b,arms[near])}
+    if(config.bothFront){r.overlay(b,torso);r.overlay(b,arms[far]);r.overlay(b,arms[near])}
+    else{r.overlay(b,arms[far]);if(config.bothBehind)r.overlay(b,arms[near]);r.overlay(b,torso);if(!config.bothBehind)r.overlay(b,arms[near])}
     // Ground-contact rows stay exactly as in the approved idle image.
     source.copy(b,config.protectFromY*80*4,config.protectFromY*80*4)
     frames.push(b);layers.push(arms)
@@ -88,7 +95,7 @@ async function makeAtlas(options={}){
   if(r.facings.some(f=>!settings[f]))throw new Error('All eight approved attack rigs required for the production atlas')
   const pixels=Buffer.alloc(640*960*4),metadata={image:'r2za-zombie-attack-20261106.png',canvas_size:[640,960],cell_size:[80,80],scale:2,reference_height:64,facings:{}},results=[]
   for(const[col,name]of r.facings.entries()){
-    const result=await build(name,{writeParts:options.writeParts===true});results.push(result);metadata.facings[name]=result.frames.map((b,row)=>{for(let y=0;y<80;y++)b.copy(pixels,((row*80+y)*640+col*80)*4,y*320,(y+1)*320);return{clip_topleft:[col*80,row*80,80,80],foot_pivot_topleft:[col*80+40,row*80+72],opaque_rows:r.opaqueRows(b),start:times[row],end:times[row+1]}})
+    const result=await build(name,{writeParts:options.writeParts===true,r2ap:options.r2ap});results.push(result);metadata.facings[name]=result.frames.map((b,row)=>{for(let y=0;y<80;y++)b.copy(pixels,((row*80+y)*640+col*80)*4,y*320,(y+1)*320);return{clip_topleft:[col*80,row*80,80,80],foot_pivot_topleft:[col*80+40,row*80+72],opaque_rows:r.opaqueRows(b),start:times[row],end:times[row+1]}})
   }
   return{pixels,metadata,results}
 }
