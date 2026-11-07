@@ -267,7 +267,7 @@ def run(smoke_test=False):
             world.update(dt if active else 0.0, axis_x, axis_y)
             dx, dy = player.x - before[0], player.y - before[1]
             renderer.combat_visual.update_zombie(
-                world.zombie, world.zombie.x - zombie_before[0], world.zombie.y - zombie_before[1])
+                world.zombie, world.zombie.x - zombie_before[0], world.zombie.y - zombie_before[1], paused=not active)
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
             aim_player(player, *target)

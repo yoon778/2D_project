@@ -127,11 +127,13 @@ class CombatSpriteTests(unittest.TestCase):
     def test_zombie_stun_and_dead_states_use_separate_authored_cells(self):
         zombie = CombatWorld().zombie
         zombie.aim_angle = -math.pi / 4
-        for hp, stun, cell in ((5, 0, (80, 1040)), (4, .4, (80, 320)), (0, .4, (0, 0))):
+        atlas_height = self.visual.metadata["zombie"]["canvas_size"][1]
+        for hp, stun, x, row in ((5, 0, 80, 0), (4, .4, 80, 9), (0, .4, 0, 13)):
             zombie.hp, zombie.stun_remaining = hp, stun
             self.visual.update_zombie(zombie, 0, 0)
             self.visual.draw_zombie(zombie, 100, 200)
-            self.assertEqual(self.visual.images["zombie"].clip_draw.call_args.args[:4], (*cell, 80, 80))
+            cell = (x, atlas_height - (row + 1) * 80, 80, 80)
+            self.assertEqual(self.visual.images["zombie"].clip_draw.call_args.args[:4], cell)
 
     def test_images_load_once_at_initialization_and_release_references(self):
         sources = combat_metadata()
