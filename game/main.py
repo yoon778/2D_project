@@ -9,7 +9,7 @@ import time
 import pico2d.pico2d as p
 
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player
-from combat import CombatWorld
+from combat import ATTACK_HIT_TIME, CombatWorld
 from combat_visual import CombatVisual
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
@@ -24,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent
 WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
+HIT_MARK_DURATION = 0.06
 
 
 def world_to_screen(x, y):
@@ -129,6 +130,15 @@ class Renderer:
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index):
                     self.player_visual.draw(*foot)
                 cross(*foot, TEAL, size=4)
+        attack = combat.attack if combat is not None else None
+        if (attack is not None and attack.facing == "front_right" and attack.landed
+                and attack.elapsed < ATTACK_HIT_TIME + HIT_MARK_DURATION):
+            x, y = world_to_screen(combat.zombie.x, combat.zombie.y)
+            x -= 12
+            y += 83
+            p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
+            p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
+            p.draw_line(x + 4, y + 2, x + 9, y + 4, *WHITE)
         # Development markers are separate from facing/frame selection.
         target_screen = world_to_screen(*target)
         p.draw_line(*foot, *target_screen, 112, 93, 56)

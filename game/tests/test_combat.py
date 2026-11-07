@@ -22,14 +22,17 @@ class CombatTests(unittest.TestCase):
         self.assertFalse(world.start_attack())
         world.update(0.179)
         self.assertEqual(world.zombie.hp, 5)
+        self.assertFalse(world.attack.landed)
         position = (world.zombie.x, world.zombie.y)
         world.update(0.001)
         self.assertEqual(world.zombie.hp, 4)
+        self.assertTrue(world.attack.landed)
         self.assertEqual(world.zombie.stun_remaining, STUN_DURATION)
         self.assertEqual((world.zombie.x, world.zombie.y), position)
         self.assertAlmostEqual(world.attack.elapsed, ATTACK_HIT_TIME)
         world.update(0.05)
         self.assertEqual(world.zombie.hp, 4)
+        self.assertTrue(world.attack.landed)
         self.assertAlmostEqual(world.zombie.stun_remaining, 0.35)
         self.assertEqual((world.zombie.x, world.zombie.y), position)
         self.assertFalse(world.start_attack())
@@ -64,6 +67,8 @@ class CombatTests(unittest.TestCase):
                 world.start_attack()
                 world.update(ATTACK_HIT_TIME)
                 self.assertEqual(world.zombie.hp, hp)
+                self.assertTrue(world.attack._hit_done)
+                self.assertIs(world.attack.landed, hp == 4)
 
     def test_movement_rates_recovery_lock_and_attack_aim_snapshot(self):
         world = self.make_world(400.0)
@@ -93,6 +98,7 @@ class CombatTests(unittest.TestCase):
         self.assertEqual((world.result, world.zombie.hp, world.player_hp), ("cleared", 0, 3))
         self.assertFalse(world.zombie.alive)
         self.assertIsNotNone(world.attack)
+        self.assertTrue(world.attack.landed)
         self.assertAlmostEqual(world.attack.elapsed, 0.18)
         position = (world.player.x, world.player.y, world.zombie.x, world.zombie.y)
         self.assertFalse(world.start_attack())
@@ -178,8 +184,10 @@ class CombatTests(unittest.TestCase):
         world = self.make_world()
         for hit in range(1, 6):
             self.assertTrue(world.start_attack())
+            self.assertFalse(world.attack.landed)
             world.update(0.18)
             self.assertEqual(world.zombie.hp, 5 - hit)
+            self.assertTrue(world.attack.landed)
             self.assertFalse(world.start_attack())
             world.update(0.42)
             self.assertIsNone(world.attack)
@@ -243,9 +251,12 @@ class CombatTests(unittest.TestCase):
         world.start_attack()
         world.update(0.18)
         self.assertEqual(world.zombie.hp, 5)
+        self.assertTrue(world.attack._hit_done)
+        self.assertFalse(world.attack.landed)
         world.update(0.18)
         self.assertLess(world.zombie.x - world.player.x, 80.0)
         self.assertEqual(world.zombie.hp, 5)
+        self.assertFalse(world.attack.landed)
 
     def test_large_dt_checks_range_at_hit_time_not_at_recovery_end(self):
         for distance, hp in ((100.0, 5), (90.0, 4)):

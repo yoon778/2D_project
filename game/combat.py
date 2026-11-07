@@ -62,6 +62,7 @@ class Attack:
     facing: str
     elapsed: float = 0.0
     _hit_done: bool = False
+    landed: bool = False
 
 
 class CombatWorld:
@@ -178,6 +179,7 @@ class CombatWorld:
             attack._hit_done = True
             if self._target_in_strike(attack.angle):
                 self.zombie.hp -= 1
+                attack.landed = True
                 self.zombie.stun_remaining = STUN_DURATION
                 self.zombie.attack = None
                 hit = True
