@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict')
 const {execFileSync} = require('node:child_process')
+const {createHash} = require('node:crypto')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 const sharp = require('sharp')
@@ -53,7 +54,9 @@ function clearPixels(image, width, coords, left, top) {
 }
 
 async function checkRecoveryScope(preview) {
-  const changed = []
+  const atlasFile = 'game/assets/player/r1b-courier-atlas-20261104.json'
+  const expectedAtlas = JSON.parse(original(atlasFile, recoveryBaseline))
+  const changed = [atlasFile]
   for (const facing of Object.keys(recoveryRows)) {
     const slug = facing.replaceAll('_', '-')
     const walkFile = `game/assets/player/r1-consistent-${slug}-20261105.png`
@@ -74,16 +77,19 @@ async function checkRecoveryScope(preview) {
       clearPixels(attack, 768, coords, phase * 96 + 8, 11 * 96 + 8)
       assert.equal(disconnected(cell(walk, 320, [left, top, 80]), 80).length, 0)
     }
-    const actual = await sharp(await read(walkFile)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    const png = await read(walkFile)
+    expectedAtlas.sources[`consistent_${facing}`].sha256 = createHash('sha256').update(png).digest('hex')
+    const actual = await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject: true})
     assert.deepEqual([actual.info.width, actual.info.height], [320, 240])
     assert(actual.data.equals(walk), `${facing} exact walk pixel scope`)
     assert((await renderWalkAtlas(facing)).equals(walk), `${facing} walk reproduction`)
     if (!preview) assert((await raw(await read(attackFile))).equals(attack), `${facing} exact recovery pixel scope`)
   }
+  assert.deepEqual(JSON.parse(await read(atlasFile)), expectedAtlas, 'only the two walk PNG hashes may change')
   if (!preview) {
     const files = execFileSync('git', ['diff', '--name-only', recoveryBaseline, '--', 'game/assets'], {cwd: root})
       .toString().trim().split(/\r?\n/)
-    assert.deepEqual(files.sort(), changed.sort(), 'only four approved atlases changed')
+    assert.deepEqual(files.sort(), changed.sort(), 'only four approved PNGs and their atlas metadata changed')
   }
 }
 

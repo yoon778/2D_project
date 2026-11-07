@@ -127,10 +127,12 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/7 | R2-AP8 일곱 방향 확대 및 검수 규격 확정 | 사용자 확대 요청 반영 | `e2a1096` |
 | 11/7 | 좀비 일곱 방향 84자세 검사, 정면 양손 간격·후면 손 높이 보정, Windows 96자세 대조 | 좀비 동결 | `5ec0efe` |
 | 11/7 | 주인공 일곱 방향 정지 84·이동 672자세 검사, 소매 연결·배트·발목 잔여 픽셀 보정. 통합 Windows 288자세와 24개 전투 경로 대조 | 지휘 1차 완료, 사용자 2차 대기 | `49dc153` |
+| 11/7 | R2-AP8-R 앞왼쪽 3장·뒤왼쪽 4장의 보행 원본에서 분리 윤곽 37픽셀 정리 | 보행 원본 동결 | `e941cce` |
+| 11/7 | 대응 공격 회수 7장 반영. Windows 회수·보행 16쌍, 위치·발점·위상 및 정지·재출발 대조 | 지휘 1차 완료, 사용자 2차 대기 | `cf20796` |
 
 기존 그림체 실행본의 검수 결과를 도트풍 수정본의 시각 검수로 대체하지 않음
 현재 [R1-C8 공통 원화 보행·골반 윤곽 검수](handoffs/r1-consistent-walk-review.md). 이전 모션은 [도트 보행 기록](handoffs/r1-walk-cadence-review.md)의 P64·W3~W5와 [W2](handoffs/r1-weight-landing-review.md), 이전 성능은 [1주차 지휘 기록](handoffs/r1-week1-review.md)에 보존.
-현재 실행본은 [R2-AP8 공격 자세 검수](handoffs/r2ap8-attack-pose-review.md) 참조. [앞오른쪽 R2-AP](handoffs/r2ap-attack-pose-review.md)와 [R2-ZT](handoffs/r2zt-zombie-transition-review.md)는 이전 단계 기록. 사용자 2차 확인 뒤 다음 범위 결정.
+현재 실행본은 [R2-AP8-R 회수·보행 검수](handoffs/r2ap8-r-recovery-review.md) 참조. [R2-AP8 공격 자세](handoffs/r2ap8-attack-pose-review.md), [앞오른쪽 R2-AP](handoffs/r2ap-attack-pose-review.md), [R2-ZT](handoffs/r2zt-zombie-transition-review.md)는 이전 단계 기록. 사용자 2차 확인 뒤 다음 범위 결정.
 
 ## 다음 주차 기록 양식
 
