@@ -40,6 +40,27 @@ function drawLeg(rig,parts,side,points){
   r.outline(b,config.outline,Math.floor(points.hip[1])+3)
   return b
 }
+function resumePoses(state) {
+  const {rig, parts, upper} = state
+  const near = rig.nearLeg
+  const far = near === 'right' ? 'left' : 'right'
+  return state.walk.map((_, phase) => [1/3, 2/3].map(progress => {
+    const pose = Buffer.alloc(size * size * 4)
+    for (const side of [far, near]) {
+      const leg = rig.legs[side]
+      const target = joints(rig, leg, phase)
+      const interpolate = (start, end) => start.map((value, axis) => value + (end[axis] - value) * progress)
+      r.overlay(pose, drawLeg(rig, parts, side, {
+        hip: interpolate(leg.hip, target.hip),
+        knee: interpolate(leg.knee, target.knee),
+        ankle: interpolate(leg.ankle, target.ankle),
+        pitch: target.pitch * progress,
+      }))
+    }
+    r.overlay(pose, upper, 0, walkConfig.bodyDrop[phase] * progress)
+    return pose
+  }))
+}
 function body(source,rig,coverage){
   const b=Buffer.from(source)
   for(let y=rig.hipY;y<80;y++)for(let x=0;x<80;x++){
@@ -93,20 +114,32 @@ async function sheet(cells,columns,file,scale=3){
   for(let i=0;i<cells.length;i++)for(let y=0;y<80;y++)cells[i].copy(b,((Math.floor(i/columns)*80+y)*width+i%columns*80)*4,y*320,(y+1)*320)
   await r.png(b,width,height,file,scale)
 }
-async function main(){
-  const master=await sharp(path.join(__dirname,config.master)).ensureAlpha().raw().toBuffer(),states={}
-  for(const facing of r.facings){
-    const[left,top]=sourceConfig.facings[facing].sourceCell,b=Buffer.alloc(80*80*4)
-    for(let y=0;y<80;y++){const p=((top+y)*320+left)*4;master.copy(b,y*320,p,p+320)}
-    states[facing]=await build(facing,b);console.log(`${facing}: idle1 walk8 hit4`)
+async function loadState(facing) {
+  const [left, top] = sourceConfig.facings[facing].sourceCell
+  const source = await sharp(path.join(__dirname, config.master))
+    .extract({left, top, width: size, height: size}).ensureAlpha().raw().toBuffer()
+  const state = await build(facing, source, {writeParts: false})
+  state.resume = resumePoses(state)
+  return state
+}
+async function loadStates() {
+  const states = await Promise.all(r.facings.map(loadState))
+  return Object.fromEntries(r.facings.map((facing, index) => [facing, states[index]]))
+}
+async function writeComparison(facing, state, review) {
+  const cells = state.resume.flatMap((steps, phase) => [state.idle, ...steps, state.walk[phase]])
+  await sheet(cells, 4, path.join(review, `${facing.replaceAll('_', '-')}-resume-3x.png`))
+}
+async function main() {
+  const review = path.join(root, 'output/review/R2-ZT-art')
+  if (process.argv[2] === '--preview') {
+    await writeComparison('front_right', await loadState('front_right'), review)
+    return
   }
-  const dead=corpse(states.front_right),dest=path.join(root,'game/assets/zombie'),review=path.join(root,'output/review/R2-Z-art')
-  await r.writeAssets(states,dead,dest)
-  await sheet(r.facings.flatMap(f=>states[f].walk),8,path.join(review,'walk-eight-directions-3x.png'))
-  await sheet(r.facings.flatMap(f=>states[f].hit),4,path.join(review,'hit-eight-directions-4x.png'),4)
-  await sheet([dead],1,path.join(review,'corpse-6x.png'),6)
-  await fs.writeFile(path.join(review,'material-repairs.json'),JSON.stringify(Object.fromEntries(r.facings.map(f=>[f,states[f].repairs])),null,2)+'\n')
-  console.log(JSON.stringify({poses:105,image:'game/assets/zombie/r2z-zombie-20261106.png',review}))
+  const states = await loadStates()
+  await Promise.all(r.facings.map(facing => writeComparison(facing, states[facing], review)))
+  const result = await r.writeAssets(states, corpse(states.front_right), path.join(root, 'game/assets/zombie'))
+  console.log(JSON.stringify({poses: 233, image: result.metadata.image, canvas: result.metadata.canvas_size, review}))
 }
 if(require.main===module)main().catch(error=>{console.error(error);process.exitCode=1})
-module.exports={build,corpse}
+module.exports={build,corpse,loadStates}

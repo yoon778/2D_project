@@ -71,7 +71,8 @@ function opaqueRows(b) {
   return rows
 }
 function atlas(states,dead) {
-  const width=640,height=1120,pixels=Buffer.alloc(width*height*4)
+  const withResume = facings.some(facing => states[facing]?.resume !== undefined)
+  const width=640,height=withResume ? 2400 : 1120,pixels=Buffer.alloc(width*height*4)
   const metadata={image:'r2z-zombie-20261106.png',canvas_size:[width,height],cell_size:[size,size],scale:2,reference_height:64,stride_distance:64,facings:{},frames:{}}
   const put=(b,col,row)=>{
     if(b.length!==size*size*4)throw new Error('Expected an 80x80 RGBA cell')
@@ -82,6 +83,13 @@ function atlas(states,dead) {
     const state=states[facing]
     if(!state||state.walk.length!==8||state.hit.length!==4)throw new Error(`Missing idle/walk8/hit4 for ${facing}`)
     metadata.facings[facing]={idle:put(state.idle,col,0),walk:state.walk.map((b,i)=>put(b,col,1+i)),hit:state.hit.map((b,i)=>({...put(b,col,9+i),start:hitTimes[i],end:hitTimes[i+1]}))}
+    if (withResume) {
+      if (state.resume?.length !== 8 || state.resume.some(steps => steps.length !== 2)) {
+        throw new Error(`Missing two resume poses for each walk phase of ${facing}`)
+      }
+      metadata.facings[facing].resume = state.resume.map((steps, phase) =>
+        steps.map((pose, step) => put(pose, col, 14 + 2 * phase + step)))
+    }
   }
   metadata.frames.dead=put(dead,0,13)
   return{pixels,width,height,metadata}
