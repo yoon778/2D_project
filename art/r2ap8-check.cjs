@@ -6,6 +6,8 @@ const path = require('node:path')
 const sharp = require('sharp')
 const zombie = require('./zombie/r2za-zombie-attack.cjs')
 const player = require('./player/r2c8-combat-assets.cjs')
+const {buildR2ap} = require('./player/r2a-combat-assets.cjs')
+const swingPoses = require('./player/r2ap-front-right.json')
 const {renderWalkAtlas} = require('./player/consistent-walk.cjs')
 const {bodyDrop} = require('./player/consistent-rig.json')
 const {facings} = require('./zombie/raster.cjs')
@@ -16,9 +18,11 @@ const root = path.resolve(__dirname, '..')
 const review = path.join(root, 'output/review/R2-AP8')
 const baseline = '9d6e1d3'
 const recoveryBaseline = '0c7eb9a'
+const swingBaseline = '29a659f'
 const directions = facings.filter(facing => facing !== 'front_right')
 const zombieFile = 'game/assets/zombie/r2za-zombie-attack-20261106'
 const combat = 'game/assets/combat'
+const swingImages = ['r2a-attack-front-right-20261106.png', 'r2aw-attack-walk-front-right-20261106.png']
 const original = (file, ref = baseline) =>
   execFileSync('git', ['show', `${ref}:${file}`], {cwd: root, maxBuffer: 8 * 1024 * 1024})
 const read = file => fs.readFile(path.join(root, file))
@@ -56,7 +60,7 @@ function clearPixels(image, width, coords, left, top) {
 async function checkRecoveryScope(preview) {
   const atlasFile = 'game/assets/player/r1b-courier-atlas-20261104.json'
   const expectedAtlas = JSON.parse(original(atlasFile, recoveryBaseline))
-  const changed = [atlasFile]
+  const changed = [atlasFile, ...swingImages.map(image => `${combat}/${image}`)]
   for (const facing of Object.keys(recoveryRows)) {
     const slug = facing.replaceAll('_', '-')
     const walkFile = `game/assets/player/r1-consistent-${slug}-20261105.png`
@@ -89,7 +93,7 @@ async function checkRecoveryScope(preview) {
   if (!preview) {
     const files = execFileSync('git', ['diff', '--name-only', recoveryBaseline, '--', 'game/assets'], {cwd: root})
       .toString().trim().split(/\r?\n/)
-    assert.deepEqual(files.sort(), changed.sort(), 'only four approved PNGs and their atlas metadata changed')
+    assert.deepEqual(files.sort(), changed.sort(), 'only approved recovery and swing assets changed')
   }
 }
 
@@ -278,14 +282,71 @@ async function checkZombie(preview) {
   return report
 }
 
+function swingTip(pose) {
+  const hand = pose.hand * Math.PI / 180
+  const bat = pose.bat * Math.PI / 180
+  // Representative distal axis point, relative to the native grip at (29, 52).
+  return [
+    pose.wrist[0] + Math.cos(hand) - 6 * Math.sin(hand) - 2 * Math.cos(bat) - 20 * Math.sin(bat),
+    pose.wrist[1] + Math.sin(hand) + 6 * Math.cos(hand) - 2 * Math.sin(bat) + 20 * Math.cos(bat),
+  ]
+}
+
+async function checkFrontRightSwing(metadata, preview) {
+  const result = await buildR2ap()
+  assert.deepEqual(result.times, [...metadata.attack.frames.map(frame => frame.start), .60])
+  assert.deepEqual(result.walk.frames, metadata.attack_walk.frames)
+  const tips = swingPoses.map(swingTip)
+  for (let i = 1; i < tips.length; i++) {
+    assert(Math.hypot(...tips[i].map((value, axis) => value - tips[i - 1][axis])) <= 40)
+  }
+  assert(gripConnected(result.hit), 'front-right hit grip contact')
+  const hit = {...result.hit, end: tips[4]}
+  assert(hit.end.every((value, axis) => value > hit.grip[axis]), 'hit crosses diagonally down and forward')
+  const [dx, dy] = swingPoses[3].weight
+  const idle = result.cells.at(-1)
+  for (const [drop, phase] of [[0, -1], ...bodyDrop.map((drop, phase) => [drop, phase])]) {
+    const preHit = phase < 0 ? result.cells[3] : result.walk.cells[24 + phase]
+    for (let y = 8; y <= 38; y++) for (let x = 38; x < 96; x++) {
+      const p = (y * 96 + x) * 4
+      if (!idle[p + 3]) continue
+      const q = ((y + dy + drop) * 96 + x + dx) * 4
+      assert.equal(preHit.readUInt32LE(q), idle.readUInt32LE(p), 'pre-hit face remains visible')
+    }
+    const frame = phase < 0 ? result.cells[4] : result.walk.cells[32 + phase]
+    const reach = batReach(frame, hit, zombieRigs.front_right, drop)
+    assert(reach.ahead > 0 && reach.visibleTipPixels > 0)
+  }
+  for (const [index, key] of ['attack', 'attack_walk'].entries()) {
+    const spec = metadata[key], count = index ? 8 : 1
+    assert.equal(spec.image, swingImages[index])
+    const [width, height] = spec.canvas_size
+    const file = `${combat}/${spec.image}`
+    const before = await raw(original(file, swingBaseline))
+    const cells = index ? result.walk.cells : result.cells
+    assert.equal(cells.length, 12 * count)
+    let actual
+    if (!preview) {
+      const image = await sharp(await read(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+      assert.deepEqual([image.info.width, image.info.height], [width, height])
+      actual = image.data
+    }
+    for (const [i, frame] of spec.frames.entries()) {
+      const pose = cells[i], attack = Math.floor(i / count)
+      const tag = `front_right ${key} ${i}`
+      checkMask(pose, 96, null, tag)
+      assert.equal(disconnected(pose, 96).length, 0, tag)
+      assert.equal(pose.equals(cell(before, width, frame.clip_topleft)), attack === 0 || attack > 5, tag)
+      if (actual) assert(pose.equals(cell(actual, width, frame.clip_topleft)), tag)
+    }
+  }
+}
+
 async function checkPlayer(preview) {
   const file = `${combat}/r2a-combat-20261106.json`
   const metadata = JSON.parse(await read(file))
   assert.deepEqual(metadata, JSON.parse(original(file)))
-  for (const key of ['attack', 'attack_walk']) {
-    const file = `${combat}/${metadata[key].image}`
-    assert((await read(file)).equals(original(file)), 'approved front-right sprites')
-  }
+  await checkFrontRightSwing(metadata, preview)
   const report = {}, overview = []
   for (const facing of directions) {
     const item = await player.build(facing), rig = zombieRigs[facing]
