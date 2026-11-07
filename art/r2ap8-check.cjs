@@ -4,6 +4,8 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 const sharp = require('sharp')
 const zombie = require('./zombie/r2za-zombie-attack.cjs')
+const player = require('./player/r2c8-combat-assets.cjs')
+const {bodyDrop} = require('./player/consistent-rig.json')
 const {facings} = require('./zombie/raster.cjs')
 const {facings: zombieRigs} = require('./zombie/r2z-rig.json')
 const zombieAttacks = require('./zombie/r2za-rigs.json')
@@ -13,6 +15,7 @@ const review = path.join(root, 'output/review/R2-AP8')
 const baseline = '9d6e1d3'
 const directions = facings.filter(facing => facing !== 'front_right')
 const zombieFile = 'game/assets/zombie/r2za-zombie-attack-20261106'
+const combat = 'game/assets/combat'
 const original = file => execFileSync('git', ['show', `${baseline}:${file}`], {cwd: root, maxBuffer: 8 * 1024 * 1024})
 const read = file => fs.readFile(path.join(root, file))
 const raw = image => sharp(image).ensureAlpha().raw().toBuffer()
@@ -26,7 +29,7 @@ function cell(pixels, width, [left, top, size]) {
   return result
 }
 
-function layout(cells, size, columns) {
+function layout(cells, size, columns, scale = 2) {
   const width = size * columns, height = size * Math.ceil(cells.length / columns)
   const pixels = Buffer.alloc(width * height * 4)
   for (const [i, sprite] of cells.entries()) {
@@ -36,7 +39,7 @@ function layout(cells, size, columns) {
     }
   }
   return sharp(pixels, {raw: {width, height, channels: 4}})
-    .flatten({background: '#566972'}).resize(width * 2, height * 2, {kernel: 'nearest'})
+    .flatten({background: '#566972'}).resize(width * scale, height * scale, {kernel: 'nearest'})
 }
 
 function disconnected(sprite, size) {
@@ -66,10 +69,13 @@ function disconnected(sprite, size) {
 function checkMask(sprite, size, rows, tag) {
   const mask = new Uint8Array(size * size)
   for (const [y, spans] of Object.entries(rows || {})) {
+    const row = Number(y)
+    assert(Number.isInteger(row) && row >= 0 && row < size)
     let previous = -2
     for (const [left, right] of spans) {
+      assert(Number.isInteger(left) && Number.isInteger(right))
       assert(left > previous + 1 && left <= right && right < size)
-      mask.fill(1, Number(y) * size + left, Number(y) * size + right + 1)
+      mask.fill(1, row * size + left, row * size + right + 1)
       previous = right
     }
   }
@@ -97,6 +103,40 @@ function zombieReach(result, rig, side, index) {
     reach = Math.max(reach ?? -Infinity, projection)
   }
   return reach
+}
+
+function batReach(frame, layer, rig, drop) {
+  const [fx, fy] = rig.worldFacing
+  const [gx, gy] = layer.grip.map((value, axis) => value + 8 + (axis ? drop : 0))
+  const [dx, dy] = layer.end.map((value, axis) => value - layer.grip[axis])
+  const length = Math.hypot(dx, dy)
+  let ahead = 0, visibleTipPixels = 0
+  for (let y = drop; y < 96; y++) for (let x = 0; x < 96; x++) {
+    const p = (y * 96 + x) * 4, q = ((y - drop) * 96 + x) * 4
+    if (!layer.weapon[q + 3] || layer.weapon.readUInt32LE(q) !== frame.readUInt32LE(p)) continue
+    const along = ((x - gx) * dx + (y - gy) * dy) / length
+    if (along > length * .7) visibleTipPixels++
+    ahead = Math.max(ahead, fx * (x - gx) + fy * .6 * (y - gy))
+  }
+  return {ahead: Math.round(ahead * 10) / 10, visibleTipPixels}
+}
+
+function gripConnected({arm, weapon, grip}) {
+  const [gx, gy] = grip.map(value => Math.round(value) + 8)
+  for (let y = gy - 3; y <= gy + 3; y++) for (let x = gx - 3; x <= gx + 3; x++) {
+    if (!arm[(y * 96 + x) * 4 + 3]) continue
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (weapon[((y + dy) * 96 + x + dx) * 4 + 3]) return true
+    }
+  }
+  return false
+}
+
+function checkGear(sprite, gear, drop, tag) {
+  const offset = drop * 96 * 4
+  for (let p = 0; p < gear.length - offset; p += 4) {
+    if (gear[p + 3]) assert.equal(sprite.readUInt32LE(p + offset), gear.readUInt32LE(p), tag)
+  }
 }
 
 async function makePreview(tag, old, next, size, times) {
@@ -174,11 +214,90 @@ async function checkZombie(preview) {
   return report
 }
 
+async function checkPlayer(preview) {
+  const file = `${combat}/r2a-combat-20261106.json`
+  const metadata = JSON.parse(await read(file))
+  assert.deepEqual(metadata, JSON.parse(original(file)))
+  for (const key of ['attack', 'attack_walk']) {
+    const file = `${combat}/${metadata[key].image}`
+    assert((await read(file)).equals(original(file)), 'approved front-right sprites')
+  }
+  const report = {}, overview = []
+  for (const facing of directions) {
+    const item = await player.build(facing), rig = zombieRigs[facing]
+    const slug = facing.replaceAll('_', '-')
+    const {stationary, moving, layers} = item
+    const detached = {}, recoveryFragments = {}, gripGaps = [], reaches = []
+    for (const [key, frames, count] of [['attack', stationary, 1], ['attack_walk', moving, 8]]) {
+      const spec = metadata[`${key}_${facing}`]
+      assert.deepEqual(item[key], spec)
+      const [width, height] = spec.canvas_size
+      const file = `${combat}/${spec.image}`
+      const baselinePixels = await raw(original(file))
+      const before = spec.frames.map(frame => cell(baselinePixels, width, frame.clip_topleft))
+      let actual
+      if (!preview) {
+        const image = await sharp(await read(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+        assert.deepEqual([image.info.width, image.info.height], [width, height])
+        actual = image.data
+      }
+      for (const [i, sprite] of frames.entries()) {
+        const tag = `${facing} ${key} ${i}`
+        checkMask(sprite, 96, null, tag)
+        if (actual) assert(sprite.equals(cell(actual, width, spec.frames[i].clip_topleft)), tag)
+        const recovery = i >= 11 * count
+        if (recovery) assert(sprite.equals(before[i]), `${tag} original recovery`)
+        else checkGear(sprite, layers[Math.floor(i / count)].gear, count === 8 ? bodyDrop[i % 8] : 0, tag)
+        const groups = disconnected(sprite, 96)
+        if (!groups.length) continue
+        if (recovery) recoveryFragments[`${key}:${i}`] = groups
+        else detached[`${key}:${i}`] = {groups, before: disconnected(before[i], 96)}
+      }
+      for (let phase = 0; phase < count; phase++) {
+        reaches.push(batReach(frames[4 * count + phase], layers[4], rig, count === 8 ? bodyDrop[phase] : 0))
+      }
+      if (preview) {
+        const walkAt = player.times.slice(0, 12).map((time, i) =>
+          i * 8 + Math.floor((time + player.times[i + 1]) / 2 * 60 / 64 * 8) % 8)
+        const indices = count === 8 ? walkAt : player.times.slice(0, 12).map((_, i) => i)
+        const tag = `player-${count === 8 ? 'walking-' : ''}${slug}`
+        await makePreview(tag, indices.map(i => before[i]), indices.map(i => frames[i]), 96, player.times)
+        if (count === 1) {
+          overview.push(...[2, 4, 9].map(i => before[i]), ...[2, 4, 9].map(i => frames[i]))
+          if (facing === 'front_left') {
+            await layout([before[4], frames[4]], 96, 2, 4).png()
+              .toFile(path.join(review, 'player-front-left-hit-grip-4x.png'))
+          }
+        }
+      }
+    }
+    for (const [i, layer] of layers.entries()) {
+      checkMask(layer.weapon, 96, null, `${facing} weapon ${i}`)
+      checkMask(layer.arm, 96, null, `${facing} arm ${i}`)
+      if (!gripConnected(layer)) gripGaps.push(i)
+    }
+    report[facing] = {detached, recoveryFragments, gripGaps, reaches}
+  }
+  if (preview) {
+    await layout(overview, 96, 6).png().toFile(path.join(review, 'player-seven-directions.png'))
+    await fs.writeFile(path.join(review, 'player-check.json'), JSON.stringify(report, null, 2) + '\n')
+  }
+  return report
+}
+
 async function main() {
   const preview = process.argv.includes('--preview')
   if (preview) await fs.mkdir(review, {recursive: true})
-  const zombies = await checkZombie(preview)
-  if (!preview) assert(Object.values(zombies).every(result => !Object.keys(result.detached).length))
-  console.log(JSON.stringify(zombies))
+  if (!process.argv.includes('--player')) {
+    const zombies = await checkZombie(preview)
+    if (!preview) assert(Object.values(zombies).every(result => !Object.keys(result.detached).length))
+    console.log(JSON.stringify(zombies))
+  }
+  if (!process.argv.includes('--zombie')) {
+    const players = await checkPlayer(preview)
+    if (!preview) assert(Object.values(players).every(result => !Object.keys(result.detached).length &&
+      !result.gripGaps.length && result.reaches.every(reach => reach.ahead > 0 && reach.visibleTipPixels > 0)))
+    console.log(JSON.stringify(players))
+  }
 }
 main().catch(error => {console.error(error); process.exitCode = 1})

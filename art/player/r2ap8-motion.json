@@ -1,0 +1,19 @@
+{
+  "travel": [-1, -2, -4, -1, 5, 6, 5, 3, 2, 1, 0],
+  "crouch": [0, 1, 1, 0, 0, 1, 2, 1, 1, 0, 0],
+  "startup": [0.14, 0.43],
+  "front": {"hitAngle": 40, "hitGrip": [-2, 0], "frontOnSwing": true, "shoulderOffset": [3, 0]},
+  "right": {"hitAngle": 9, "hitGrip": [0, 0], "ankleSeams": {"0": [44, 72], "2": [53, 69]}},
+  "back_right": {"hitAngle": 8, "hitGrip": [-3, 0]},
+  "back": {"hitAngle": 44, "hitGrip": [2, 0]},
+  "back_left": {
+    "hitAngle": -12, "hitGrip": [0, 0], "followAngle": -50,
+    "bodyFragment": [62, 55, 57],
+    "walkingBodyFragment": [55, 65, 68]
+  },
+  "left": {"hitAngle": -9, "hitGrip": [0, 0], "followAngle": -50},
+  "front_left": {
+    "hitAngle": -19, "hitGrip": [3, 0], "followAngle": -45, "shoulderOffset": [3, 0],
+    "batFragments": [[31, 68, 70], [32, 67, 70]]
+  }
+}
