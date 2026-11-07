@@ -7,6 +7,10 @@ const config = require('./consistent-rig.json')
 
 const size = config.cellSize
 const root = path.resolve(__dirname, '../..')
+const walkFragments = {
+  front_left: {phases: [3, 4, 5], columns: [[32, 67, 70], [31, 68, 70]]},
+  back_left: {phases: [0, 1, 6, 7], columns: [[47, 57, 60]]},
+}
 
 function inside(x, y, polygon) {
   let hit = false
@@ -181,7 +185,7 @@ async function png(pixels, width, height, destination, scale = 1) {
     .resize(width * scale, height * scale, {kernel: 'nearest'}).png().toFile(destination)
 }
 
-async function bake(facing) {
+async function bake(facing, {renderOnly = false} = {}) {
   const rig = config.facings[facing]
   if (!rig) throw new Error(`No approved rig for ${facing}`)
   const [left, top, width, height] = rig.sourceCell
@@ -212,6 +216,7 @@ async function bake(facing) {
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
   const heldHand = rig.hipOutline ? cut(source, rig.bodyKeepMask) : null
+  const fragment = walkFragments[facing]
   for (let frame = 0; frame < 8; frame++) {
     const pixels = Buffer.alloc(source.length), frameJoints = {}
     const drop = config.bodyDrop[frame]
@@ -241,6 +246,15 @@ async function bake(facing) {
       }
       // Fixed body pixels can own the exposed hip edge after leg compositing.
       restoreHipOutline(pixels, hipBand, protectedPixels)
+    }
+    // Clear only the verified outline remnants after pose compositing.
+    if (fragment?.phases.includes(frame)) {
+      for (const [x, top, bottom] of fragment.columns) {
+        for (let y = top + drop; y <= bottom + drop; y++) {
+          const p = (y * size + x) * 4
+          pixels.fill(0, p, p + 4)
+        }
+      }
     }
     poses.push(pixels)
     poseJoints.push(frameJoints)
@@ -281,6 +295,7 @@ async function bake(facing) {
     const to = ((Math.floor(frame / 4) * size + y) * size * 4 + frame % 4 * size) * 4
     poses[frame].copy(atlas, to, y * size * 4, (y + 1) * size * 4)
   }
+  if (renderOnly) return atlas
   const slug = facing.replaceAll('_', '-')
   const output = path.join(root, `game/assets/player/r1-consistent-${slug}-20261105.png`)
   const review = path.join(root, 'output/review/R1-C8-WALK-art', slug)
@@ -321,7 +336,7 @@ async function bake(facing) {
   console.log(JSON.stringify({facing, output, review, extracted}))
 }
 
-async function main() {
+async function loadRigs() {
   for (const file of ['consistent-front-back.json', 'consistent-side.json', 'consistent-diagonal.json']) {
     try {
       Object.assign(config.facings, JSON.parse(await fs.readFile(path.join(__dirname, file), 'utf8')))
@@ -329,9 +344,18 @@ async function main() {
       if (error.code !== 'ENOENT') throw error
     }
   }
+}
+
+async function renderWalkAtlas(facing) {
+  await loadRigs()
+  return bake(facing, {renderOnly: true})
+}
+
+async function main() {
+  await loadRigs()
   const facing = process.argv.slice(2).find(arg => !arg.startsWith('--'))
   const facings = facing ? [facing] : Object.keys(config.facings)
   for (const facing of facings) await bake(facing)
 }
-module.exports = {drawLeg, joints}
+module.exports = {drawLeg, joints, renderWalkAtlas}
 if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})
