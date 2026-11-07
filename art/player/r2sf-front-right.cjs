@@ -1,13 +1,17 @@
-// Authored full-body stationary poses. The approved idle anchors face, boots, and recovery.
+// Authored full-body poses and their composition with the approved walk cycle.
 const path = require('node:path')
 const sharp = require('sharp')
 const poses = require('./r2sf-front-right.json')
+const walk = require('./consistent-rig.json')
+const {drawLeg, joints} = require('./consistent-walk.cjs')
+const {shiftWeight} = require('../attack-weight.cjs')
 const size = 96
 const outline = '15141b', shade = '242633', cloth = '323648', facet = '42495f'
 const skin = 'e9af89', lightSkin = 'ffcfaa', skinShade = 'bc8060'
 const leather = '5b3e35', leatherLight = '855a47', leatherDark = '392b29'
 const root = path.resolve(__dirname, '../..')
 const atlasPath = path.join(root, 'game/assets/combat/r2a-attack-front-right-20261106.png')
+const walkPath = path.join(root, 'game/assets/player/r1-consistent-front-right-20261105.png')
 
 function inside(points, x, y) {
   let inside = false
@@ -105,23 +109,15 @@ function head(sprite, idle, [dx, dy, tilt]) {
     }
   }
 }
-function drawPose(pose, idle) {
-  if (pose.rest) {
-    const sprite = Buffer.from(idle)
-    for (let y = 55; y <= 80; y++) {
-      sprite.fill(0, (y * size + 32) * 4, (y * size + 42) * 4)
-    }
-    weapon(sprite, pose.grip, pose.tip)
-    fist(sprite, pose.grip)
-    return sprite
+function redrawRestGrip(sprite, pose) {
+  for (let y = 55; y <= 80; y++) {
+    sprite.fill(0, (y * size + 32) * 4, (y * size + 42) * 4)
   }
-  const sprite = Buffer.alloc(size * size * 4)
-  const {torso, chest, belt, legs, feet, pack, shoulder, grip, tip, carry} = pose
-  if (pose.weaponBehind) weapon(sprite, grip, tip)
-  for (const i of [1,0]) {
-    limb(sprite, legs[i], i ? [4.5,4,3.5] : [5.5,4.5,4], i ? shade : cloth, i ? cloth : facet)
-    boot(sprite, idle, feet[i], i === 1)
-  }
+  weapon(sprite, pose.grip, pose.tip)
+  fist(sprite, pose.grip)
+}
+function drawUpper(sprite, pose, idle) {
+  const {torso, chest, belt, pack, shoulder, grip, tip, carry} = pose
   backpack(sprite, pack)
   limb(sprite, pose.left, [4.3,3.9,3], shade, facet)
   paint(sprite, outline, torso)
@@ -146,6 +142,20 @@ function drawPose(pose, idle) {
   if (!pose.weaponBehind) weapon(sprite, grip, tip)
   fist(sprite, grip)
   head(sprite, idle, pose.head)
+}
+function drawPose(pose, idle) {
+  if (pose.rest) {
+    const sprite = Buffer.from(idle)
+    redrawRestGrip(sprite, pose)
+    return sprite
+  }
+  const sprite = Buffer.alloc(size * size * 4)
+  if (pose.weaponBehind) weapon(sprite, pose.grip, pose.tip)
+  for (const i of [1, 0]) {
+    limb(sprite, pose.legs[i], i ? [4.5,4,3.5] : [5.5,4.5,4], i ? shade : cloth, i ? cloth : facet)
+    boot(sprite, idle, pose.feet[i], i === 1)
+  }
+  drawUpper(sprite, pose, idle)
   return sprite
 }
 function grid(cells, columns) {
@@ -158,13 +168,79 @@ function grid(cells, columns) {
   return {pixels, width, height}
 }
 async function loadIdle() {
-  const source = await sharp(path.join(root, 'game/assets/player/r1-consistent-front-right-20261105.png'))
+  const source = await sharp(walkPath)
     .extract({left: 0, top: 160, width: 80, height: 80}).ensureAlpha().raw().toBuffer()
   const idle = Buffer.alloc(size * size * 4)
   for (let y = 0; y < 80; y++) {
     source.copy(idle, ((y + 8) * size + 8) * 4, y * 320, (y + 1) * 320)
   }
   return idle
+}
+
+function overlay(sprite, layer, width, left, top) {
+  for (let y = 0; y < width && y + top < size; y++) for (let x = 0; x < width; x++) {
+    const from = (y * width + x) * 4
+    if (layer[from + 3]) layer.copy(sprite, ((y + top) * size + x + left) * 4, from, from + 4)
+  }
+}
+
+function walkingCell(atlas, phase) {
+  const cell = Buffer.alloc(size * size * 4)
+  for (let y = 0; y < 80; y++) {
+    const from = ((Math.floor(phase / 4) * 80 + y) * 320 + phase % 4 * 80) * 4
+    atlas.copy(cell, ((y + 8) * size + 8) * 4, from, from + 320)
+  }
+  return cell
+}
+
+async function buildMovingFullSwing() {
+  const partsPath = path.join(__dirname, 'consistent-parts/front-right')
+  const read = file => sharp(file).ensureAlpha().raw().toBuffer()
+  const atlas = await read(walkPath)
+  const idle = walkingCell(atlas, 8)
+  const restBody = Buffer.alloc(idle.length)
+  overlay(restBody, await read(path.join(partsPath, 'body.png')), 80, 8, 8)
+
+  const rig = walk.facings.front_right
+  const sides = ['left', 'right'], parts = {}
+  for (const side of sides) {
+    parts[side] = {}
+    for (const name of ['thigh', 'shin', 'boot']) {
+      parts[side][name] = await read(path.join(partsPath, `${side}-${name}.png`))
+    }
+  }
+  const gait = walk.bodyDrop.map((_, phase) => sides.map(side => {
+    const points = joints(rig, rig.legs[side], phase)
+    return {points, pixels: drawLeg(rig, parts, side, points, null)}
+  }))
+
+  const cells = [], upperLayers = [], legLayers = []
+  for (const pose of Object.values(poses)) {
+    const rear = Buffer.alloc(idle.length)
+    if (pose.weaponBehind) weapon(rear, pose.grip, pose.tip)
+    const upper = pose.rest ? Buffer.from(restBody) : Buffer.alloc(idle.length)
+    if (pose.rest) redrawRestGrip(upper, pose)
+    else drawUpper(upper, pose, idle)
+    upperLayers.push({rear, upper})
+
+    for (const [phase, drop] of walk.bodyDrop.entries()) {
+      const sprite = Buffer.alloc(idle.length)
+      overlay(sprite, rear, size, 0, drop)
+      const legs = gait[phase].map(({points, pixels}, index) => {
+        if (pose.rest) return pixels
+        const [x, y] = pose.legs[1 - index][0]
+        const shift = [x - 8 - points.hip[0], y - 8 + drop - points.hip[1]]
+        // Blend the belt into the thighs without moving the original knee or boot pixels.
+        return shiftWeight(pixels, 80, 0, shift, points.hip[1], Math.floor(points.knee[1]))
+      })
+      for (const leg of legs) overlay(sprite, leg, 80, 8, 8)
+      overlay(sprite, upper, size, 0, drop)
+      cells.push(sprite)
+      legLayers.push(legs)
+    }
+  }
+  cells.push(...walk.bodyDrop.map((_, phase) => walkingCell(atlas, phase)))
+  return {cells, upperLayers, gait, legLayers, ...grid(cells, 8)}
 }
 
 function holds(pose, sprite) {
@@ -204,4 +280,4 @@ async function main() {
   await sharp(pixels, {raw: {width, height, channels: 4}}).png().toFile(atlasPath)
 }
 if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})
-module.exports = {buildFullSwing}
+module.exports = {buildFullSwing, buildMovingFullSwing}

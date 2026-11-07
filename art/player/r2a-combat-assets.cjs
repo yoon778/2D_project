@@ -286,10 +286,11 @@ async function legacyReview() {
 }
 async function main() {
   if (process.argv.includes('--legacy-review')) return legacyReview()
-  const result = await buildR2ap()
+  const {buildMovingFullSwing} = require('./r2sf-front-right.cjs')
+  const {pixels, width, height} = await buildMovingFullSwing()
   const dest = path.join(root, 'game/assets/combat')
   // The stationary atlas is built independently by r2sf-front-right.cjs.
-  await png(result.walk.atlas, 8 * size, 12 * size, path.join(dest, 'r2aw-attack-walk-front-right-20261106.png'))
+  await png(pixels, width, height, path.join(dest, 'r2aw-attack-walk-front-right-20261106.png'))
 }
 if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})
 module.exports = {buildR2ap}

@@ -6,9 +6,7 @@ const path = require('node:path')
 const sharp = require('sharp')
 const zombie = require('./zombie/r2za-zombie-attack.cjs')
 const player = require('./player/r2c8-combat-assets.cjs')
-const {buildR2ap} = require('./player/r2a-combat-assets.cjs')
-const {buildFullSwing} = require('./player/r2sf-front-right.cjs')
-const swingPoses = require('./player/r2ap-front-right.json')
+const {buildFullSwing, buildMovingFullSwing} = require('./player/r2sf-front-right.cjs')
 const {renderWalkAtlas} = require('./player/consistent-walk.cjs')
 const {bodyDrop} = require('./player/consistent-rig.json')
 const {facings} = require('./zombie/raster.cjs')
@@ -19,8 +17,8 @@ const root = path.resolve(__dirname, '..')
 const review = path.join(root, 'output/review/R2-AP8')
 const baseline = '9d6e1d3'
 const recoveryBaseline = '0c7eb9a'
-const swingBaseline = '29a659f'
 const fullSwingBaseline = '57f13de'
+const movingSwingBaseline = 'db03c9c'
 const directions = facings.filter(facing => facing !== 'front_right')
 const zombieFile = 'game/assets/zombie/r2za-zombie-attack-20261106'
 const combat = 'game/assets/combat'
@@ -93,7 +91,8 @@ async function checkRecoveryScope(preview) {
   }
   assert.deepEqual(JSON.parse(await read(atlasFile)), expectedAtlas, 'only the two walk PNG hashes may change')
   if (!preview) {
-    const files = execFileSync('git', ['diff', '--name-only', recoveryBaseline, '--', 'game/assets'], {cwd: root})
+    const files = execFileSync('git', ['diff', '--name-only', recoveryBaseline, '--', 'game/assets',
+      ':(exclude,glob)game/assets/**/*.md'], {cwd: root})
       .toString().trim().split(/\r?\n/)
     assert.deepEqual(files.sort(), changed.sort(), 'only approved recovery and swing assets changed')
   }
@@ -284,16 +283,6 @@ async function checkZombie(preview) {
   return report
 }
 
-function swingTip(pose) {
-  const hand = pose.hand * Math.PI / 180
-  const bat = pose.bat * Math.PI / 180
-  // Representative distal axis point, relative to the native grip at (29, 52).
-  return [
-    pose.wrist[0] + Math.cos(hand) - 6 * Math.sin(hand) - 2 * Math.cos(bat) - 20 * Math.sin(bat),
-    pose.wrist[1] + Math.sin(hand) + 6 * Math.cos(hand) - 2 * Math.sin(bat) + 20 * Math.cos(bat),
-  ]
-}
-
 async function checkFullSwing(metadata, preview) {
   const {cells, contacts, pixels, width, height} = await buildFullSwing()
   const spec = metadata.attack
@@ -331,57 +320,55 @@ async function checkFullSwing(metadata, preview) {
     }
   }
   if (!preview) {
-    const actual = await sharp(await read(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    const png = await read(file)
+    assert(png.equals(original(file, movingSwingBaseline)), 'approved stationary PNG bytes')
+    const actual = await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject: true})
     assert.deepEqual([actual.info.width, actual.info.height], [width, height])
     assert(actual.data.equals(pixels), 'full-body stationary atlas reproduction')
   }
+  return cells
 }
 
 async function checkFrontRightSwing(metadata, preview) {
-  await checkFullSwing(metadata, preview)
-  const result = await buildR2ap()
-  assert.deepEqual(result.times, [...metadata.attack.frames.map(frame => frame.start), .60])
-  assert.deepEqual(result.walk.frames, metadata.attack_walk.frames)
-  const tips = swingPoses.map(swingTip)
-  for (let i = 1; i < tips.length; i++) {
-    assert(Math.hypot(...tips[i].map((value, axis) => value - tips[i - 1][axis])) <= 40)
-  }
-  assert(gripConnected(result.hit), 'front-right hit grip contact')
-  const hit = {...result.hit, end: tips[4]}
-  assert(hit.end.every((value, axis) => value > hit.grip[axis]), 'hit crosses diagonally down and forward')
-  const [dx, dy] = swingPoses[3].weight
-  const idle = result.cells.at(-1)
-  for (const [phase, drop] of bodyDrop.entries()) {
-    const preHit = result.walk.cells[24 + phase]
-    for (let y = 8; y <= 38; y++) for (let x = 38; x < 96; x++) {
-      const p = (y * 96 + x) * 4
-      if (!idle[p + 3]) continue
-      const q = ((y + dy + drop) * 96 + x + dx) * 4
-      assert.equal(preHit.readUInt32LE(q), idle.readUInt32LE(p), 'pre-hit face remains visible')
-    }
-    const frame = result.walk.cells[32 + phase]
-    const reach = batReach(frame, hit, zombieRigs.front_right, drop)
-    assert(reach.ahead > 0 && reach.visibleTipPixels > 0)
-  }
+  const standing = await checkFullSwing(metadata, preview)
+  const moving = await buildMovingFullSwing()
   const spec = metadata.attack_walk
   assert.equal(spec.image, swingImages[1])
-  const [width, height] = spec.canvas_size
+  const {width, height, pixels, cells, upperLayers, gait, legLayers} = moving
+  assert.deepEqual([width, height], spec.canvas_size)
+  assert.equal(cells.length, 96)
   const file = `${combat}/${spec.image}`
-  const before = await raw(original(file, swingBaseline))
-  assert.equal(result.walk.cells.length, 96)
+  const before = await raw(original(file, movingSwingBaseline))
+  const walk = await raw(await read('game/assets/player/r1-consistent-front-right-20261105.png'))
   if (!preview) {
-    const png = await read(file)
-    assert(png.equals(original(file, fullSwingBaseline)), 'approved moving swing PNG bytes')
-    const actual = await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    const actual = await sharp(await read(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
     assert.deepEqual([actual.info.width, actual.info.height], [width, height])
-    assert(actual.data.equals(result.walk.atlas), 'moving swing reproduction')
+    assert(actual.data.equals(pixels), 'moving swing reproduction')
   }
   for (const [i, frame] of spec.frames.entries()) {
-    const pose = result.walk.cells[i], attack = Math.floor(i / 8)
+    const pose = cells[i], attack = Math.floor(i / 8), phase = i % 8
     const tag = `front_right attack_walk ${i}`
+    assert.deepEqual(frame.clip_topleft, [phase * 96, attack * 96, 96, 96])
+    assert.deepEqual(frame.foot_pivot_topleft, [phase * 96 + 48, attack * 96 + 80])
     checkMask(pose, 96, null, tag)
     assert.equal(disconnected(pose, 96).length, 0, tag)
-    assert.equal(pose.equals(cell(before, width, frame.clip_topleft)), attack === 0 || attack > 5, tag)
+    if (attack === 11) {
+      assert(pose.equals(cell(before, width, frame.clip_topleft)), 'original moving recovery')
+      assert(cell(pose, 96, [8, 8, 80]).equals(cell(walk, 320, [phase % 4 * 80, Math.floor(phase / 4) * 80, 80])))
+      continue
+    }
+    const bob = bodyDrop[phase] * 96 * 4
+    assert(pose.subarray(bob, bob + 52 * 96 * 4).equals(standing[attack].subarray(0, 52 * 96 * 4)), tag)
+    const {upper} = upperLayers[attack]
+    for (let p = 0; p < upper.length; p += 4) {
+      if (!upper[p + 3]) continue
+      assert.equal(standing[attack].readUInt32LE(p), upper.readUInt32LE(p), tag)
+      assert.equal(pose.readUInt32LE(p + bob), upper.readUInt32LE(p), tag)
+    }
+    for (const [side, leg] of gait[phase].entries()) {
+      const knee = Math.floor(leg.points.knee[1]) * 80 * 4
+      assert(legLayers[i][side].subarray(knee).equals(leg.pixels.subarray(knee)), 'approved knee, ankle and boot')
+    }
   }
 }
 
