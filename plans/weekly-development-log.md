@@ -155,8 +155,9 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/8 | R2-RWL 오른쪽 보행 먼쪽 바지 폭 보강. Windows 이동 공격 회수 연결과 전체 183개 검사 통과 | 사용자 직접 조작 확인 대기 | `a846589` |
 | 11/8 | R2-RWM 왼쪽 보행 하체 픽셀을 반전해 오른쪽에 적용. Windows 회수 연결과 전체 183개 검사 통과 | 사용자 직접 조작 확인 대기 | `944d5b9` |
 | 11/8 | R2-RWH 좌우 보행 6자세의 허리 접합과 이동 공격 틈 보완. Windows 회수 연결 16쌍과 전체 183개 검사 통과 | 사용자 직접 조작 확인 대기 | `d3c8255` |
+| 11/8 | R2-SFW 앞오른쪽 정지 공격의 체중 이동과 타격 자세 보완. Windows 0.18초 명중·헛스윙 대조 및 게임 자동 검사 183개 통과 | 사용자 직접 조작 확인 대기 | `f487ae0` |
 
-현재 실행본은 [R2-RWH 좌우 허리 접합 검수](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합) 참조. [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
+현재 실행본은 [R2-SFW 정지 공격 검수](handoffs/r2sfw-stationary-swing-review.md) 참조. [R2-RWH 좌우 허리 접합](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합)과 [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
 
 ## 다음 주차 기록 양식
 
