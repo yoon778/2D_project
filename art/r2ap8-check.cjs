@@ -19,10 +19,12 @@ const baseline = '9d6e1d3'
 const recoveryBaseline = '0c7eb9a'
 const fullSwingBaseline = '57f13de'
 const movingSwingBaseline = 'db03c9c'
-const zombieRecoveryBaseline = '7803fc3'
+const zombieVisibilityBaseline = '26ba4bd'
 const directions = facings.filter(facing => facing !== 'front_right')
 const zombieFile = 'game/assets/zombie/r2za-zombie-attack-20261106'
 const combat = 'game/assets/combat'
+const rightWalkFile = 'game/assets/player/r1-consistent-right-20261105.png'
+const rightAttackWalkFile = `${combat}/r2c8-attack-walk-right-20261106.png`
 const swingImages = ['r2a-attack-front-right-20261106.png', 'r2aw-attack-walk-front-right-20261106.png']
 const original = (file, ref = baseline) =>
   execFileSync('git', ['show', `${ref}:${file}`], {cwd: root, maxBuffer: 8 * 1024 * 1024})
@@ -62,6 +64,7 @@ async function checkRecoveryScope(preview) {
   const atlasFile = 'game/assets/player/r1b-courier-atlas-20261104.json'
   const expectedAtlas = JSON.parse(original(atlasFile, recoveryBaseline))
   const changed = [atlasFile, ...swingImages.map(image => `${combat}/${image}`), zombieFile + '.png', zombieFile + '.json']
+  changed.push(rightWalkFile, rightAttackWalkFile)
   for (const facing of Object.keys(recoveryRows)) {
     const slug = facing.replaceAll('_', '-')
     const walkFile = `game/assets/player/r1-consistent-${slug}-20261105.png`
@@ -90,7 +93,18 @@ async function checkRecoveryScope(preview) {
     assert((await renderWalkAtlas(facing)).equals(walk), `${facing} walk reproduction`)
     if (!preview) assert((await raw(await read(attackFile))).equals(attack), `${facing} exact recovery pixel scope`)
   }
-  assert.deepEqual(JSON.parse(await read(atlasFile)), expectedAtlas, 'only the two walk PNG hashes may change')
+  const rightPng = await read(rightWalkFile)
+  expectedAtlas.sources.consistent_right.sha256 = createHash('sha256').update(rightPng).digest('hex')
+  const rightWalk = await raw(rightPng)
+  const oldRightWalk = await raw(original(rightWalkFile, recoveryBaseline))
+  assert(rightWalk.equals(await renderWalkAtlas('right')), 'right walk reproduction')
+  for (let row = 0; row < 240; row++) {
+    if (row < 160 && row % 80 >= 48) continue
+    const offset = row * 320 * 4
+    assert(rightWalk.subarray(offset, offset + 320 * 4).equals(oldRightWalk.subarray(offset, offset + 320 * 4)),
+      'right walk preserves idle and upper body')
+  }
+  assert.deepEqual(JSON.parse(await read(atlasFile)), expectedAtlas, 'only approved walk PNG hashes may change')
   if (!preview) {
     const files = execFileSync('git', ['diff', '--name-only', recoveryBaseline, '--', 'game/assets',
       ':(exclude,glob)game/assets/**/*.md'], {cwd: root})
@@ -233,17 +247,20 @@ async function checkZombie(preview) {
   const oldMeta = JSON.parse(original(zombieFile + '.json'))
   const old = await raw(original(zombieFile + '.png'))
   const result = await zombie.makeAtlas()
-  const recoveryMeta = JSON.parse(original(zombieFile + '.json', zombieRecoveryBaseline))
-  const recoveryPixels = await raw(original(zombieFile + '.png', zombieRecoveryBaseline))
-  const recoveryFrame = result.metadata.facings.back[8]
-  const [left, top] = recoveryFrame.clip_topleft
-  for (let y = top; y < top + 58; y++) {
-    const offset = (y * 640 + left) * 4
-    result.pixels.copy(recoveryPixels, offset, offset, offset + 80 * 4)
+  const visibilityMeta = JSON.parse(original(zombieFile + '.json', zombieVisibilityBaseline))
+  const visibilityPixels = await raw(original(zombieFile + '.png', zombieVisibilityBaseline))
+  for (const index of [1, 2, 3, 4, 9]) {
+    const [left, top] = result.metadata.facings.back[index].clip_topleft
+    for (let y = top; y < top + 58; y++) {
+      const offset = (y * 640 + left) * 4
+      for (let p = offset + 3; p < offset + 320; p += 4) {
+        assert.equal(result.pixels[p], visibilityPixels[p], 'zombie visibility keeps alpha')
+      }
+      result.pixels.copy(visibilityPixels, offset, offset, offset + 320)
+    }
   }
-  assert(result.pixels.equals(recoveryPixels), 'zombie recovery keeps every other cell and the boots')
-  recoveryMeta.facings.back[8].opaque_rows = recoveryFrame.opaque_rows
-  assert.deepEqual(result.metadata, recoveryMeta, 'only the back recovery mask may change')
+  assert(result.pixels.equals(visibilityPixels), 'zombie visibility keeps all other cells and boots')
+  assert.deepEqual(result.metadata, visibilityMeta, 'zombie visibility keeps masks and timing')
   const baselineLayout = structuredClone(result.metadata)
   for (const facing of directions) {
     for (const [i, frame] of baselineLayout.facings[facing].entries()) {
@@ -389,6 +406,7 @@ async function checkPlayer(preview) {
   const metadata = JSON.parse(await read(file))
   assert.deepEqual(metadata, JSON.parse(original(file)))
   await checkFrontRightSwing(metadata, preview)
+  const rightWalk = await raw(await read(rightWalkFile))
   const report = {}, overview = []
   for (const facing of directions) {
     const item = await player.build(facing), rig = zombieRigs[facing]
@@ -414,8 +432,15 @@ async function checkPlayer(preview) {
         if (actual) assert(sprite.equals(cell(actual, width, spec.frames[i].clip_topleft)), tag)
         const recovery = i >= 11 * count
         if (recovery) {
-          const expected = Buffer.from(before[i])
-          if (count === 8) clearPixels(expected, 96, recoveryPixels(facing, i % 8), 8, 8)
+          let expected = Buffer.from(before[i])
+          if (facing === 'right' && count === 8) {
+            const phase = i % 8
+            const walk = cell(rightWalk, 320, [phase % 4 * 80, Math.floor(phase / 4) * 80, 80])
+            expected = Buffer.alloc(96 * 96 * 4)
+            for (let y = 0; y < 80; y++) walk.copy(expected, ((y + 8) * 96 + 8) * 4, y * 320, (y + 1) * 320)
+          } else if (count === 8) {
+            clearPixels(expected, 96, recoveryPixels(facing, i % 8), 8, 8)
+          }
           assert(sprite.equals(expected), `${tag} recovery after approved cleanup`)
         } else {
           checkGear(sprite, layers[Math.floor(i / count)].gear, count === 8 ? bodyDrop[i % 8] : 0, tag)

@@ -171,8 +171,8 @@ function joints(rig, leg, frame) {
   const ground = [rig.worldFacing[0] / length, rig.worldFacing[1] / length * 0.6]
   const travel = config.strideNative[phase], bend = config.kneeForward[phase]
   const hip = [leg.hip[0], leg.hip[1] + config.bodyDrop[frame]]
-  const ankle = [leg.ankle[0] + ground[0] * travel,
-    leg.ankle[1] + ground[1] * travel - config.swingLift[phase]]
+  const ankle = [leg.ankle[0] + ground[0] * travel + (leg.passingOffsetX?.[phase] ?? 0),
+    leg.ankle[1] + ground[1] * travel - config.swingLift[phase] + (leg.depthOffset ?? 0)]
   const ratio = Math.hypot(leg.knee[0] - leg.hip[0], leg.knee[1] - leg.hip[1])
     / Math.hypot(leg.ankle[0] - leg.hip[0], leg.ankle[1] - leg.hip[1])
   const knee = [hip[0] + (ankle[0] - hip[0]) * ratio + ground[0] * bend,
@@ -215,6 +215,7 @@ async function bake(facing, {renderOnly = false} = {}) {
   }
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
+  const batBehindLegs = rig.walkBatBehindLegs ?? rig.batBehindLegs
   const heldHand = rig.hipOutline ? cut(source, rig.bodyKeepMask) : null
   const fragment = walkFragments[facing]
   for (let frame = 0; frame < 8; frame++) {
@@ -225,7 +226,7 @@ async function bake(facing, {renderOnly = false} = {}) {
     const legCoverage = hipBand ? Buffer.alloc(source.length) : null
     const batPixels = Buffer.alloc(source.length)
     drawBat(batPixels, parts.bat, rig, drop)
-    if (rig.batBehindLegs) translate(pixels, batPixels, 0, 0)
+    if (batBehindLegs) translate(pixels, batPixels, 0, 0)
     for (const side of [farLeg, rig.nearLeg]) {
       const leg = rig.legs[side], points = joints(rig, leg, frame)
       frameJoints[side] = points
@@ -234,7 +235,7 @@ async function bake(facing, {renderOnly = false} = {}) {
       translate(pixels, legPixels, 0, 0)
       if (legCoverage) translate(legCoverage, legPixels, 0, 0)
     }
-    if (!rig.batBehindLegs) translate(pixels, batPixels, 0, 0)
+    if (!batBehindLegs) translate(pixels, batPixels, 0, 0)
     translate(pixels, parts.body, 0, config.bodyDrop[frame])
     if (hipBand) {
       const protectedPixels = Buffer.alloc(source.length)
@@ -242,7 +243,7 @@ async function bake(facing, {renderOnly = false} = {}) {
       for (let y = hipBand[0]; y <= hipBand[1]; y++) for (let x = 0; x < size; x++) {
         const to = (y * size + x) * 4, from = ((y - drop) * size + x) * 4
         if (batPixels[to + 3] && !parts.body[from + 3]
-          && (!rig.batBehindLegs || !legCoverage[to + 3])) protectedPixels[to + 3] = 255
+          && (!batBehindLegs || !legCoverage[to + 3])) protectedPixels[to + 3] = 255
       }
       // Fixed body pixels can own the exposed hip edge after leg compositing.
       restoreHipOutline(pixels, hipBand, protectedPixels)

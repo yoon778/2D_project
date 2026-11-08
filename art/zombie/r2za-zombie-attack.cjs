@@ -60,6 +60,17 @@ function fillCore(source,removed,x,y,colors=oldRig.shirt){
   }
   return from
 }
+function overlayArmEdge(sprite, torso, arm, side, start, end, width) {
+  const direction = side === 'left' ? 1 : -1
+  for (let y = start; y < end; y++) {
+    let x = side === 'left' ? 0 : 79
+    while (x >= 0 && x < 80 && !torso[(y * 80 + x) * 4 + 3]) x += direction
+    for (let i = 0; i < width && x >= 0 && x < 80; i++, x += direction) {
+      const p = (y * 80 + x) * 4
+      if (torso[p + 3] && arm[p + 3]) arm.copy(sprite, p, p, p + 4)
+    }
+  }
+}
 async function build(facing,options={}){
   const config=settings[facing],source=await sourceCell(facing),base=Buffer.from(source),removed=Buffer.alloc(source.length),repaired=Buffer.alloc(source.length),parts={}
   for(const[side,arm]of Object.entries(config.arms)){
@@ -100,6 +111,14 @@ async function build(facing,options={}){
     const b=Buffer.alloc(source.length),near=config.nearArm,far=near==='right'?'left':'right'
     if(config.bothFront){r.overlay(b,torso);r.overlay(b,arms[far]);r.overlay(b,arms[near])}
     else{r.overlay(b,arms[far]);if(config.bothBehind)r.overlay(b,arms[near]);r.overlay(b,torso);if(!config.bothBehind)r.overlay(b,arms[near])}
+    const edgeWidth = adjustments && config.armEdgeWidths?.[phase]
+    if (edgeWidth) {
+      // Keep the reaching arms behind the center of the back, with visible side contours.
+      for (const side of [far, near]) {
+        const top = config.arms[side].shoulder[1] + weight[1] - 1
+        overlayArmEdge(b, torso, arms[side], side, top, config.protectFromY, edgeWidth)
+      }
+    }
     // Ground-contact rows stay exactly as in the approved idle image.
     source.copy(b,config.protectFromY*80*4,config.protectFromY*80*4)
     frames.push(b);layers.push(arms)
