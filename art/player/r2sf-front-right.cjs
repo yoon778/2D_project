@@ -136,7 +136,7 @@ function drawUpper(sprite, pose, idle) {
   local(sprite, 'ffe276', [c[0]-3,c[1]+2], [[-1,0],[1,0],[0,1],[-1,1]])
   parcel(sprite, pose.parcel)
   fist(sprite, carry, true)
-  limb(sprite, pose.right, [4.8,3.8,2.9], cloth, facet)
+  limb(sprite, pose.right, [4.8,3.8,2.9], pose.rightCloth ?? cloth, pose.rightHighlight ?? facet)
   local(sprite, outline, shoulder, [[-4,-2],[-2,-4],[3,-3],[5,-1],[3,2],[-3,2]])
   local(sprite, 'ef770b', shoulder, [[-3,-2],[-2,-3],[2,-2],[3,-1],[2,0],[-3,0]])
   local(sprite, 'a54816', shoulder, [[-3,0],[3,0],[2,1],[-2,1]])
