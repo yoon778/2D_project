@@ -158,8 +158,9 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/8 | R2-SFW 앞오른쪽 정지 공격의 체중 이동과 타격 자세 보완. Windows 0.18초 명중·헛스윙 대조 및 게임 자동 검사 183개 통과 | 사용자 직접 조작 확인 대기 | `f487ae0` |
 | 11/8 | R2-SFW 사용자 피드백 반영. 방망이 준비 궤적과 오른팔 윤곽 보강. Windows 6거리 179·180ms 대조와 전투 렌더 검사 15개 통과 | 사용자 직접 조작 재확인 대기 | `5c8327c` |
 | 11/8 | [R2-SF6](r2sf6-swing-study.md) PixelLab 자세를 참고한 앞오른쪽 전신 6장 시안과 180·240ms GIF 비교. 표시 시점과 기존 에셋 재생성 검수 | 게임 적용 전 시안 선택 대기 | `6e3e49c` |
+| 11/8 | [R2-SF6 B안 적용](r2sf6-game-contract.md) 앞오른쪽 정지 240ms 타격과 전신 6자세 연결. Windows 명중·헛스윙 대조와 자동 테스트 192개 통과 | 사용자 직접 조작 확인 대기 | `224cccb`, `e579606` |
 
-현재 실행본은 [R2-SFW 정지 공격 검수](handoffs/r2sfw-stationary-swing-review.md) 참조. [R2-RWH 좌우 허리 접합](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합)과 [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
+현재 정지 공격은 [R2-SF6 적용 검수](r2sf6-game-contract.md) 참조. [R2-SFW 정지 공격](handoffs/r2sfw-stationary-swing-review.md), [R2-RWH 좌우 허리 접합](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합), [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
 
 ## 다음 주차 기록 양식
 
