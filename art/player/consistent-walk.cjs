@@ -302,6 +302,10 @@ async function bake(facing, {renderOnly = false, overrides} = {}) {
       // Fixed body pixels can own the exposed hip edge after leg compositing.
       restoreHipOutline(pixels, hipBand, protectedPixels)
     }
+    for (const [y, left, right, color] of rig.walkHipSeams?.[frame] ?? []) {
+      const pixel = Buffer.from(color + 'ff', 'hex')
+      pixels.fill(pixel, (y * size + left) * 4, (y * size + right + 1) * 4)
+    }
     // Clear only the verified outline remnants after pose compositing.
     if (fragment?.phases.includes(frame)) {
       for (const [x, top, bottom] of fragment.columns) {

@@ -26,6 +26,19 @@ function clearRun(pixels, [x, top, bottom], width = size) {
 }
 function ink(b,top=0,bottom=95,protectedPixels=null) {for(let y=top;y<=bottom;y++)for(let x=0;x<96;x++){const p=(y*96+x)*4,rgb=b.subarray(p,p+3).toString('hex');if(!b[p+3]||protectedPixels?.[p+3]||['15141b','242633','392b29'].includes(rgb))continue;if([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>x+dx<0||x+dx>=96||y+dy<0||y+dy>=96||!b[((y+dy)*96+x+dx)*4+3]))b.set([21,20,27],p)}}
 function hipInk(b,rig,drop,weapon) {if(!rig.hipOutline)return;for(let y=55+drop;y<=62+drop;y++)for(let x=0;x<96;x++){const p=(y*96+x)*4;if(!navy.includes(b.subarray(p,p+3).toString('hex'))||!b[p+3]||weapon?.[p+3])continue;if([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>x+dx<0||x+dx>=96||!b[((y+dy)*96+x+dx)*4+3]))b.set([21,20,27],p)}}
+function closeMovingHipSlots(pixels) {
+  const index = (x, y) => (y * size + x) * 4
+  const outline = (x, y) => pixels.readUInt32BE(index(x, y)) === 0x15141bff
+  const transparent = (x, y) => pixels[index(x, y) + 3] === 0
+  const cloth = Buffer.from([0x32, 0x36, 0x48, 255])
+  // Close enclosed one-row cuts in the join. The open gap between the legs stays intact.
+  for (let y = 54; y <= 62; y++) for (let x = 37; x <= 60; x++) {
+    if (!transparent(x, y) || !outline(x - 1, y)) continue
+    let end = x
+    while (end < x + 4 && transparent(end, y) && outline(end, y - 1) && outline(end, y + 1)) end++
+    if (end > x && end <= 61 && outline(end, y)) pixels.fill(cloth, index(x, y), index(end, y))
+  }
+}
 function padded(atlas,frame) {const b=Buffer.alloc(96*96*4);for(let y=0;y<80;y++){const p=((Math.floor(frame/4)*80+y)*320+frame%4*80)*4;atlas.copy(b,((y+8)*96+8)*4,p,p+320)}return b}
 function direction(v,angle=0) {const n=Math.hypot(v[0],v[1]*.6),x=v[0]/n,y=v[1]*.6/n,c=Math.cos(angle),s=Math.sin(angle);return[x*c-y*s,x*s+y*c]}
 function solve(model,grip,dir) {const palm=Math.hypot(model.hand.grip[0]-model.hand.anchor[0],model.hand.grip[1]-model.hand.anchor[1]),shoulder=model.shoulder,l1=Math.hypot(model.upper.b[0]-model.upper.a[0],model.upper.b[1]-model.upper.a[1]),l2=Math.hypot(model.fore.b[0]-model.fore.a[0],model.fore.b[1]-model.fore.a[1]);let wrist=[grip[0]-dir[0]*palm,grip[1]-dir[1]*palm],dx=wrist[0]-shoulder[0],dy=wrist[1]-shoulder[1],distance=Math.hypot(dx,dy),d=Math.min((l1+l2)*.98,Math.max(Math.abs(l1-l2)+.1,distance));if(distance<.001){dx=1;dy=0;distance=1}wrist=[shoulder[0]+dx/distance*d,shoulder[1]+dy/distance*d];const a=Math.atan2(dy,dx)+Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))));return{elbow:[shoulder[0]+l1*Math.cos(a),shoulder[1]+l1*Math.sin(a)],wrist,grip:[wrist[0]+dir[0]*palm,wrist[1]+dir[1]*palm],handAngle:Math.atan2(dir[1],dir[0])-Math.atan2(model.hand.grip[1]-model.hand.anchor[1],model.hand.grip[0]-model.hand.anchor[0])}}
@@ -169,6 +182,7 @@ async function build(facing, walkAtlas) {
       const protectedWeapon = Buffer.alloc(arm.length)
       over(protectedWeapon, weapon, size, size, 0, drop)
       hipInk(frame, rig, drop, protectedWeapon)
+      if (rig.walkHipSeams) closeMovingHipSlots(frame)
       moving.push(frame)
     }
   }
