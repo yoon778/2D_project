@@ -1,6 +1,6 @@
 # Dead Route 주차별 개발 기록
 
-기준일: 2026-11-07 · 현재 프로젝트 1주차
+기준일: 2026-11-08 · 현재 프로젝트 2주차
 기존 [개발 로드맵](development-roadmap.md)의 체크포인트를 그대로 주차로 묶음
 학교 확정 마감이 아닌 자체 점검 일정이며 실제 수행일·검수 결과로 기록함
 
@@ -9,7 +9,7 @@
 | 프로젝트 주차 | 기간·체크포인트 | 원래 계획 | 현재 상태 |
 | --- | --- | --- | --- |
 | 1주차 | 11/3~11/7 | R1 사선 장면·이동·조준·보행 | 공통 원화 8방향·72자세, 요청한 전투와 좀비 걷기·피격·공격 및 R2-ZT 전환 선행 검수 |
-| 2주차 | 11/8~11/14 | R2 방망이 전투·좀비 1마리·경직·체력·재시작 | R2-ZT 사용자 2차 확인 대기, 전체 R2 진행 중 |
+| 2주차 | 11/8~11/14 | R2 방망이 전투·좀비 1마리·경직·체력·재시작 | R2-ZR 후면 오른팔 회수 1차 검수 완료, 전체 R2 진행 중 |
 | 3주차 | 11/15~11/21 | R3 감지·소음·수색·스태미나, R4 손전등·암흑·거리 음향 | 대기 |
 | 4주차 | 11/22~11/28 | R5 작은 골목·택배 수령/전달·성공/실패·최소 HUD | 대기 |
 | 5주차·마무리 | 11/29~12/6 | R6 에셋·모션 보완·오류 수정·실행/제출 자료 확인 | 대기 |
@@ -138,7 +138,15 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 
 기존 그림체 실행본의 검수 결과를 도트풍 수정본의 시각 검수로 대체하지 않음
 현재 [R1-C8 공통 원화 보행·골반 윤곽 검수](handoffs/r1-consistent-walk-review.md). 이전 모션은 [도트 보행 기록](handoffs/r1-walk-cadence-review.md)의 P64·W3~W5와 [W2](handoffs/r1-weight-landing-review.md), 이전 성능은 [1주차 지휘 기록](handoffs/r1-week1-review.md)에 보존.
-현재 실행본은 [R2-SFM 이동 스윙 검수](handoffs/r2sfm-moving-swing-review.md) 참조. [R2-SF 정지 전신 스윙](handoffs/r2sf-full-swing-review.md), [R2-SW 스윙](handoffs/r2sw-swing-review.md), [R2-AP8-R 회수·보행](handoffs/r2ap8-r-recovery-review.md)은 이전 단계 기록. 사용자 2차 확인 뒤 다음 범위 결정.
+1주차 전투 이력은 [R2-SFM 이동 스윙](handoffs/r2sfm-moving-swing-review.md), [R2-SF 정지 전신 스윙](handoffs/r2sf-full-swing-review.md), [R2-AP8-R 회수·보행](handoffs/r2ap8-r-recovery-review.md) 참조.
+
+## 2주차 실제 기록
+
+| 날짜 | 수행·검수 | 상태 | 커밋 |
+| --- | --- | --- | --- |
+| 11/8 | R2-ZR 공격 96셀 진단, 후면 0.46초 오른팔 회수 한 장 보정. Windows 전후 렌더와 전체 164개 검사 | 사용자 2차 확인 대기 | `c46fe0c` |
+
+현재 실행본은 [R2-ZR 후면 회수 검수](handoffs/r2zr-zombie-recovery-review.md) 참조.
 
 ## 다음 주차 기록 양식
 
