@@ -2,6 +2,7 @@
 const path = require('node:path')
 const sharp = require('sharp')
 const poses = require('./r2sf-front-right.json')
+const stationaryPoses = {...poses, ...require('./r2sf-stationary-front-right.json')}
 const walk = require('./consistent-rig.json')
 const {drawLeg, joints} = require('./consistent-walk.cjs')
 const {shiftWeight} = require('../attack-weight.cjs')
@@ -269,8 +270,8 @@ function holds(pose, sprite) {
 
 async function buildFullSwing() {
   const idle = await loadIdle()
-  const cells = Object.values(poses).map(pose => drawPose(pose, idle))
-  const contacts = Object.values(poses).map((pose, index) => holds(pose, cells[index]))
+  const cells = Object.values(stationaryPoses).map(pose => drawPose(pose, idle))
+  const contacts = Object.values(stationaryPoses).map((pose, index) => holds(pose, cells[index]))
   cells.push(idle)
   return {cells, contacts, ...grid(cells, 4)}
 }

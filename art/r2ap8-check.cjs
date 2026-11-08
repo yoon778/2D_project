@@ -350,16 +350,19 @@ async function checkFullSwing(metadata, preview) {
   }
   if (!preview) {
     const png = await read(file)
-    assert(png.equals(original(file, movingSwingBaseline)), 'approved stationary PNG bytes')
     const actual = await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject: true})
     assert.deepEqual([actual.info.width, actual.info.height], [width, height])
     assert(actual.data.equals(pixels), 'full-body stationary atlas reproduction')
   }
-  return cells
 }
 
 async function checkFrontRightSwing(metadata, preview) {
-  const standing = await checkFullSwing(metadata, preview)
+  await checkFullSwing(metadata, preview)
+  // Moving attacks still use the upper body from the previous stationary swing.
+  const standingSpec = metadata.attack
+  const oldStanding = await raw(original(`${combat}/${standingSpec.image}`, movingSwingBaseline))
+  const standing = standingSpec.frames.map(frame =>
+    cell(oldStanding, standingSpec.canvas_size[0], frame.clip_topleft))
   const moving = await buildMovingFullSwing()
   const spec = metadata.attack_walk
   assert.equal(spec.image, swingImages[1])
@@ -484,6 +487,12 @@ async function checkPlayer(preview) {
 
 async function main() {
   const preview = process.argv.includes('--preview')
+  if (process.argv.includes('--front-right')) {
+    const metadata = JSON.parse(await read(`${combat}/r2a-combat-20261106.json`))
+    await checkFrontRightSwing(metadata, preview)
+    console.log('Front-right stationary and moving swing checks passed')
+    return
+  }
   if (preview) await fs.mkdir(review, {recursive: true})
   if (!process.argv.includes('--player')) {
     const zombies = await checkZombie(preview)
