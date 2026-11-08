@@ -6,8 +6,10 @@ const source = require('./pose-source.json')
 const {buildStationaryCells} = require('../../r2sf-front-right.cjs')
 
 const size = 96
-const output = path.join(__dirname, 'poses.png')
-const review = path.resolve(__dirname, '../../../../output/review/R2-SF6-art')
+const game = process.argv.includes('--game')
+const study = path.join(__dirname, 'poses.png')
+const output = game ? path.resolve(__dirname, '../../../../game/assets/combat/r2sf6-attack-front-right.png') : study
+const review = path.resolve(__dirname, '../../../../output/review', game ? 'R2-SF6-game' : 'R2-SF6-art')
 const colors = cell => new Set(Array.from({length: cell.length / 4}, (_, i) => cell.readUInt32BE(i * 4)))
 
 function connected(cell) {
@@ -28,7 +30,9 @@ function connected(cell) {
 }
 
 async function main() {
-  const {cells, contacts, pixels, width, height} = await buildStationaryCells([null, ...source], 6)
+  const overrides = game ? require('./runtime-pose-overrides.json') : {}
+  const poses = source.map((pose, index) => ({...pose, ...overrides[index + 1]}))
+  const {cells, contacts, pixels, width, height} = await buildStationaryCells([null, ...poses], 6)
   assert.deepEqual([width, height, cells.length], [576, 96, 6])
   const approved = colors(cells[0])
   const bootRows = [[80, 42, 51], [79, 52, 62]]
@@ -48,6 +52,14 @@ async function main() {
   assert.equal(contacts.length, 5)
   assert(contacts.every(({right, left}) => right && left), 'right grip and left parcel contact')
   assert.equal(new Set(cells.map(cell => cell.toString('base64'))).size, 6)
+  if (game) {
+    const original = await sharp(study).ensureAlpha().raw().toBuffer()
+    const changed = new Set()
+    for (let p = 0; p < pixels.length; p += 4) {
+      if (pixels.readUInt32LE(p) !== original.readUInt32LE(p)) changed.add(Math.floor((p / 4 % width) / size))
+    }
+    assert.deepEqual([...changed].sort((a, b) => a - b), [2, 3], 'only rotation and hit differ from the approved study')
+  }
   const png = await sharp(pixels, {raw: {width, height, channels: 4}}).png().toBuffer()
   await fs.mkdir(review, {recursive: true})
   await sharp(png).resize(width * 2, height * 2, {kernel:'nearest'})
@@ -61,7 +73,7 @@ async function main() {
   } else {
     await fs.writeFile(output, png)
   }
-  const tips = source.map(pose => pose.tip)
+  const tips = poses.map(pose => pose.tip)
   const steps = tips.slice(1).map(([x, y], i) => Math.hypot(x - tips[i][0], y - tips[i][1]))
   console.log(JSON.stringify({width, height, pivot:[48,80], contacts, tips, steps}))
 }

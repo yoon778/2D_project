@@ -8,7 +8,7 @@ from pathlib import Path
 import pico2d.pico2d as p
 
 from player_visual import sprite_rect
-from combat import STUN_DURATION, ZOMBIE_ATTACK_DURATION
+from combat import ATTACK_HIT_TIME, STUN_DURATION, ZOMBIE_ATTACK_DURATION
 from locomotion import Locomotion, STRIDE_DISTANCE, select_facing
 
 
@@ -17,6 +17,17 @@ ZOMBIE_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r2z-zomb
 ZOMBIE_ATTACK_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r2za-zombie-attack-20261106.json"
 _ZOMBIE_RESUME_DISTANCE = 8.0
 _DISTANCE_EPSILON = 1e-9
+_STATIONARY_FRONT_RIGHT_SOURCE = "attack_stationary_front_right"
+
+
+def _locked_walk_boundary(legacy_time, hit_time):
+    # Map authored boundaries to the locked clock so exact hits and nextafter
+    # samples land on opposite sides even when float subtraction would round.
+    if legacy_time < ATTACK_HIT_TIME:
+        locked_time = legacy_time * hit_time / ATTACK_HIT_TIME
+    else:
+        locked_time = legacy_time + (hit_time - ATTACK_HIT_TIME)
+    return round(locked_time, 12)
 
 
 class CombatVisual:
@@ -48,19 +59,29 @@ class CombatVisual:
         source = self.metadata.get(name)
         return name if source is not None and source["facing"] == facing else None
 
-    def attack_frame_index(self, attack):
+    def _attack_step(self, attack, walking=False):
         if attack is None:
-            return None
-        source_name = self._attack_source(attack.facing)
-        if source_name is None:
             return None
         elapsed = attack.elapsed
         if not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed):
             return None
+        locked = attack.facing == "front_right" and getattr(attack, "stationary_front_right", False)
+        source_name = (_STATIONARY_FRONT_RIGHT_SOURCE if locked and not walking
+                       else self._attack_source(attack.facing))
+        if source_name not in self.metadata:
+            return None
         for index, frame in enumerate(self.metadata[source_name]["frames"]):
-            if frame["start"] <= elapsed < frame["end"]:
-                return index
+            start, end = frame["start"], frame["end"]
+            if locked and walking:
+                start = _locked_walk_boundary(start, attack.hit_time)
+                end = _locked_walk_boundary(end, attack.hit_time)
+            if start <= elapsed < end:
+                return source_name, index
         return None
+
+    def attack_frame_index(self, attack):
+        step = self._attack_step(attack)
+        return step[1] if step is not None else None
 
     def _draw(self, source_name, frame, foot_x, foot_y):
         image = self.images[source_name]
@@ -73,17 +94,19 @@ class CombatVisual:
                         left + width / 2, bottom + height / 2, width, height)
 
     def draw_attack(self, attack, foot_x, foot_y, walk_frame_index=None):
-        index = self.attack_frame_index(attack)
-        if index is None:
+        step = self._attack_step(attack, bool(walk_frame_index))
+        if step is None:
             return False
         if walk_frame_index is not None and (type(walk_frame_index) is not int
                                               or not 0 <= walk_frame_index <= 8):
             raise ValueError("walk_frame_index must be None or an integer from 0 to 8")
-        source_name = self._attack_source(attack.facing, bool(walk_frame_index))
-        if source_name is None:
-            return False
-        frame_index = index * 8 + walk_frame_index - 1 if walk_frame_index else index
-        self._draw(source_name, self.metadata[source_name]["frames"][frame_index], foot_x, foot_y)
+        source_name, index = step
+        if walk_frame_index:
+            source_name = self._attack_source(attack.facing, walking=True)
+            if source_name is None:
+                return False
+            index = index * 8 + walk_frame_index - 1
+        self._draw(source_name, self.metadata[source_name]["frames"][index], foot_x, foot_y)
         return True
 
     @staticmethod

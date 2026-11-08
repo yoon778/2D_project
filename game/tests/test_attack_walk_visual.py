@@ -21,7 +21,7 @@ class AttackWalkSpriteTests(unittest.TestCase):
         self.visual = CombatVisual.__new__(CombatVisual)
         self.visual.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.visual.images = {key: SimpleNamespace(h=self.visual.metadata[key]["canvas_size"][1], clip_draw=Mock())
-                              for key in ("attack", "attack_walk")}
+                              for key in ("attack", "attack_walk", "attack_stationary_front_right")}
 
     def test_all_96_fr_combinations_choose_the_right_cell_with_the_same_anchor(self):
         self.assertEqual(self.visual.metadata["attack_walk"]["canvas_size"], [768, 1152])
@@ -49,6 +49,59 @@ class AttackWalkSpriteTests(unittest.TestCase):
             with self.subTest(walk=w), self.assertRaises(ValueError):
                 self.visual.draw_attack(attack, 100, 200, w)
         self.assertFalse(self.visual.draw_attack(None, 100, 200, 8))
+
+
+    def test_locked_stationary_fr_uses_the_six_cells_and_new_boundaries(self):
+        source = self.visual.metadata["attack_stationary_front_right"]
+        image = self.visual.images["attack_stationary_front_right"]
+        self.assertEqual(source["canvas_size"], [576, 96])
+        self.assertEqual(source["image"], "r2sf6-attack-front-right.png")
+        boundaries = (0, .03, .18, .24, .30, .44, .66)
+        self.assertEqual([frame["start"] for frame in source["frames"]], list(boundaries[:-1]))
+        self.assertEqual([frame["end"] for frame in source["frames"]], list(boundaries[1:]))
+        attack = SimpleNamespace(facing="front_right", stationary_front_right=True, hit_time=.24)
+        for index, (start, end) in enumerate(zip(boundaries, boundaries[1:])):
+            for elapsed in (start, math.nextafter(end, -math.inf)):
+                with self.subTest(index=index, elapsed=elapsed):
+                    attack.elapsed = elapsed
+                    self.assertEqual(self.visual.attack_frame_index(attack), index)
+                    self.assertTrue(self.visual.draw_attack(attack, 100, 200, 0))
+                    image.clip_draw.assert_called_with(index * 96, 0, 96, 96,
+                                                       100.0, 264.0, 192.0, 192.0)
+        attack.elapsed = .66
+        self.assertIsNone(self.visual.attack_frame_index(attack))
+        self.assertFalse(self.visual.draw_attack(attack, 100, 200, 0))
+
+    def test_locked_fr_uses_legacy_walk_cells_on_the_new_clock(self):
+        boundaries = (0, .06, .12, .18, .24, .285, .33, .38, .43, .485, .54, .60, .66)
+        attack = SimpleNamespace(facing="front_right", stationary_front_right=True, hit_time=.24)
+        image = self.visual.images["attack_walk"]
+        for index, (start, end) in enumerate(zip(boundaries, boundaries[1:])):
+            for elapsed in (start, math.nextafter(end, -math.inf)):
+                for phase in (1, 8):
+                    with self.subTest(index=index, elapsed=elapsed, phase=phase):
+                        attack.elapsed = elapsed
+                        self.assertTrue(self.visual.draw_attack(attack, 100, 200, phase))
+                        image.clip_draw.assert_called_with(
+                            (phase - 1) * 96, 1152 - (index + 1) * 96, 96, 96,
+                            100.0, 264.0, 192.0, 192.0)
+        self.visual.images["attack_stationary_front_right"].clip_draw.assert_not_called()
+        attack.elapsed = .66
+        self.assertFalse(self.visual.draw_attack(attack, 100, 200, 1))
+
+    def test_locked_fr_can_resume_its_stationary_source_but_moving_start_keeps_legacy(self):
+        attack = SimpleNamespace(facing="front_right", stationary_front_right=True, hit_time=.24, elapsed=.24)
+        self.assertTrue(self.visual.draw_attack(attack, 100, 200, 4))
+        self.assertTrue(self.visual.draw_attack(attack, 100, 200, 0))
+        self.visual.images["attack_stationary_front_right"].clip_draw.assert_called_once_with(
+            288, 0, 96, 96, 100.0, 264.0, 192.0, 192.0)
+        attack.stationary_front_right = False
+        attack.elapsed = .18
+        self.assertTrue(self.visual.draw_attack(attack, 100, 200, 4))
+        self.assertTrue(self.visual.draw_attack(attack, 100, 200, 0))
+        self.visual.images["attack"].clip_draw.assert_called_once_with(
+            0, 96, 96, 96, 100.0, 264.0, 192.0, 192.0)
+        self.assertEqual(self.visual.images["attack_stationary_front_right"].clip_draw.call_count, 1)
 
 
 class AttackWalkInputTests(unittest.TestCase):
@@ -92,6 +145,27 @@ class AttackWalkInputTests(unittest.TestCase):
         for i in (0, 1, 2):
             self.assertAlmostEqual(states[i]["phase"], .37 + 1 / 64)
         self.assertAlmostEqual(states[3]["phase"], .37 + 2 / 64)
+
+    def test_stationary_click_walk_then_stop_switches_atlases_on_the_locked_clock(self):
+        sources = []
+        original = CombatVisual._draw
+
+        def draw(visual, source, frame, *args):
+            if source.startswith("attack"):
+                sources.append(source)
+            return original(visual, source, frame, *args)
+
+        with patch.object(CombatVisual, "_draw", draw):
+            _, states, choices = self.observe(
+                [("click", 760, 569)],
+                {1: [("down", main.p.SDLK_d)], 2: [("up", main.p.SDLK_d)], 3: [("quit",)]},
+                phase=.37)
+        self.assertTrue(all(state["attack"].stationary_front_right for state in states))
+        self.assertEqual([choice["walk"] for choice in choices], [0, 4, 0])
+        self.assertEqual(sources, ["attack_stationary_front_right", "attack_walk",
+                                   "attack_stationary_front_right"])
+        self.assertAlmostEqual(states[1]["phase"], .37 + 1 / 64)
+        self.assertEqual(states[2]["phase"], states[1]["phase"])
 
     def test_wall_contact_selects_stationary_attack_without_changing_phase(self):
         frames, states, choices = self.observe(

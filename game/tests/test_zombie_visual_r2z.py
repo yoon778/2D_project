@@ -176,7 +176,7 @@ class ZombiePoseTests(unittest.TestCase):
               patch.object(combat_visual.p, "SDL_SetTextureScaleMode", return_value=0)):
             visual = CombatVisual()
             self.assertEqual(visual.metadata, expected)
-            self.assertEqual(load.call_count, 18)
+            self.assertEqual(load.call_count, len(expected))
             paths = [call.args[0] for call in load.call_args_list]
             self.assertIn(str(overlay.parent / source["image"]), paths)
             self.assertIn(str(attack_overlay.parent / attack_source["image"]), paths)
@@ -186,7 +186,7 @@ class ZombiePoseTests(unittest.TestCase):
             visual.zombie_locomotion.phase = .7
             visual.reset_zombie_animation()
             self.assertEqual((visual.zombie_locomotion.phase, visual.zombie_locomotion.moving), (0, False))
-            self.assertEqual(load.call_count, 18)
+            self.assertEqual(load.call_count, len(expected))
             visual.close()
             self.assertEqual(visual.images, {})
 
@@ -222,7 +222,7 @@ class ZombieQueueTests(unittest.TestCase):
         original_load = main.p.load_image
         with patch.object(main.p, "load_image", wraps=original_load) as load:
             states = self.observe([], {1: [("lost",), ("gained",)], 3: [("down", main.p.SDLK_r)], 4: [("quit",)]})
-        self.assertEqual(load.call_count, 48)
+        self.assertEqual(load.call_count, 49)
         self.assertEqual(sum(call.args == (str(main.TRASH_CAN_PATH),) for call in load.call_args_list), 1)
         self.assertAlmostEqual(states[0]["phase"], 1.5 / 64)
         self.assertEqual(states[0]["phase"], states[1]["phase"])

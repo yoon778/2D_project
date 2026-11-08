@@ -191,18 +191,19 @@ class CombatInputTests(unittest.TestCase):
 
     def test_hold_and_duplicate_down_after_recovery_do_not_auto_repeat(self):
         _, states = self.observe([("click", 760, 569)],
-                                 {37: [("click", 760, 569)], 40: [("quit",)]}, 41)
+                                 {41: [("click", 760, 569)], 44: [("quit",)]}, 45)
         first = states[0]["attack"]
-        self.assertIsNotNone(first)
+        self.assertTrue(first.stationary_front_right)
+        self.assertIs(states[36]["attack"], first)
         self.assertTrue(all(s["attack"] is None or s["attack"] is first for s in states))
-        self.assertTrue(all(s["attack"] is None for s in states[36:]))
+        self.assertTrue(all(s["attack"] is None for s in states[40:]))
 
     def test_release_then_fresh_down_can_start_after_recovery(self):
         _, states = self.observe([("click", 760, 569)],
-                                 {37: [("release", 760, 569), ("click", 760, 569)],
-                                  40: [("quit",)]}, 41)
-        self.assertIsNotNone(states[37]["attack"])
-        self.assertIsNot(states[37]["attack"], states[0]["attack"])
+                                 {41: [("release", 760, 569), ("click", 760, 569)],
+                                  44: [("quit",)]}, 45)
+        self.assertIsNotNone(states[41]["attack"])
+        self.assertIsNot(states[41]["attack"], states[0]["attack"])
 
     def test_focus_loss_discards_queued_click_and_pauses_combat_time(self):
         _, states = self.observe([("click", 760, 569), ("lost",), ("gained",)],
