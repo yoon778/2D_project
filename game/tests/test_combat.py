@@ -37,6 +37,97 @@ class CombatTests(unittest.TestCase):
         self.assertEqual((world.zombie.x, world.zombie.y), position)
         self.assertFalse(world.start_attack())
 
+    def test_stationary_front_right_profile_requires_opt_in_and_matching_facing(self):
+        for facing, options, expected in (
+            ("front_right", {}, (False, 0.18, 0.60)),
+            ("front_right", {"stationary_front_right": True}, (True, 0.24, 0.66)),
+            ("right", {"stationary_front_right": True}, (False, 0.18, 0.60)),
+        ):
+            with self.subTest(facing=facing, options=options):
+                world = self.make_world()
+                self.assertTrue(world.start_attack(facing, **options))
+                attack = world.attack
+                self.assertEqual((attack.stationary_front_right, attack.hit_time, attack.duration), expected)
+                self.assertFalse(world.start_attack("front_right", stationary_front_right=not expected[0]))
+                self.assertIs(world.attack, attack)
+
+    def test_stationary_front_right_hits_once_and_recovers_at_066(self):
+        world = self.make_world(angle=-math.pi / 4)
+        world.start_attack(stationary_front_right=True)
+        world.update(0.239)
+        self.assertEqual(world.zombie.hp, 5)
+        self.assertFalse(world.attack._hit_done)
+        world.update(0.001)
+        self.assertEqual((world.zombie.hp, world.zombie.stun_remaining), (4, STUN_DURATION))
+        self.assertTrue(world.attack.landed)
+        self.assertAlmostEqual(world.attack.elapsed, 0.24)
+        world.update(0.419)
+        self.assertEqual(world.zombie.hp, 4)
+        self.assertAlmostEqual(world.attack.elapsed, 0.659)
+        self.assertFalse(world.start_attack())
+        world.update(0.001)
+        self.assertIsNone(world.attack)
+        self.assertTrue(world.start_attack())
+        self.assertFalse(world.attack.stationary_front_right)
+
+    def test_stationary_profile_remains_locked_through_wall_contact_and_movement(self):
+        world = CombatWorld()
+        world.player.y = 310.0
+        world.player.aim_angle = -math.pi / 4
+        world.start_attack(stationary_front_right=True)
+        world.player.aim_angle = math.pi
+        world.update(0.3, 0, 1)
+        self.assertEqual(world.player.y, 316.0)
+        world.update(0.3, 0, -1)
+        self.assertAlmostEqual(world.player.y, 298.0)
+        self.assertEqual((world.attack.angle, world.attack.facing), (-math.pi / 4, "front_right"))
+        self.assertTrue(world.attack.stationary_front_right)
+        self.assertAlmostEqual(world.attack.elapsed, 0.6)
+        world.update(0.1, 0, -1)
+        self.assertIsNone(world.attack)
+        self.assertAlmostEqual(world.player.y, 290.8)
+
+    def test_stationary_front_right_miss_is_spent_at_range_or_wall(self):
+        for distance, walls in ((80.0001, []), (60.0, [Wall(505, 145, 10, 25)])):
+            with self.subTest(distance=distance, walls=walls):
+                world = self.make_world(distance, -math.pi / 4)
+                world.walls = walls
+                world.zombie.stun_remaining = 0.24
+                world.start_attack(stationary_front_right=True)
+                world.update(0.24)
+                self.assertTrue(world.attack._hit_done)
+                self.assertFalse(world.attack.landed)
+                self.assertEqual(world.zombie.hp, 5)
+                world.walls = []
+                world.update(0.15)
+                self.assertLess(math.hypot(world.zombie.x - world.player.x, world.zombie.y - world.player.y), 80.0)
+                self.assertEqual(world.zombie.hp, 5)
+                self.assertFalse(world.attack.landed)
+
+    def test_stationary_front_right_partitioned_hit_and_lethal_recovery(self):
+        for initial_hp in (1, 5):
+            positions = []
+            for steps in ((0.659,), (0.0375, 0.198, 0.1195, 0.304)):
+                with self.subTest(initial_hp=initial_hp, steps=steps):
+                    world = self.make_world(80.0, -math.pi / 4)
+                    world.zombie.hp = initial_hp
+                    world.zombie.stun_remaining = 0.24
+                    world.start_attack(stationary_front_right=True)
+                    for dt in steps:
+                        world.update(dt, 1, -1)
+                    self.assertEqual(world.zombie.hp, initial_hp - 1)
+                    self.assertTrue(world.attack.landed)
+                    self.assertAlmostEqual(world.attack.elapsed, 0.659)
+                    if initial_hp == 1:
+                        self.assertEqual(world.result, "cleared")
+                        self.assertAlmostEqual(world.player.x - 480.0, 14.4 / math.sqrt(2))
+                    world.update(0.001, 1, -1)
+                    self.assertIsNone(world.attack)
+                    positions.append((world.player.x, world.player.y, world.zombie.x, world.zombie.y,
+                                      world.zombie.stun_remaining, world.player_invulnerable_remaining))
+            for single, split in zip(*positions):
+                self.assertAlmostEqual(single, split)
+
     def test_range_and_cone_boundaries_work_for_general_aim_angles(self):
         for aim in (0.0, math.pi / 2, math.pi, -math.pi / 2, 2 * math.tau + 0.4):
             for distance, offset, hp in (

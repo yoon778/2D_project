@@ -10,7 +10,7 @@ import time
 import pico2d.pico2d as p
 
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player
-from combat import ATTACK_HIT_TIME, CombatWorld
+from combat import CombatWorld
 from combat_visual import CombatVisual
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
@@ -146,7 +146,7 @@ class Renderer:
                 cross(*foot, TEAL, size=4)
         attack = combat.attack if combat is not None else None
         if (attack is not None and attack.facing == "front_right" and attack.landed
-                and attack.elapsed < ATTACK_HIT_TIME + HIT_MARK_DURATION):
+                and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
             x, y = world_to_screen(combat.zombie.x, combat.zombie.y)
             x -= 12
             y += 83
@@ -312,15 +312,15 @@ def run(smoke_test=False, *, show_opening=False):
                 target = mouse_target(world, renderer.combat_visual, *cursor)
             aim_player(player, *target)
             active = focused and not lost_focus
+            axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
+            axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             if pending_click is not None and active:
                 attack_target = mouse_target(world, renderer.combat_visual, *pending_click)
                 aim_player(player, *attack_target)
                 motion = renderer.player_visual.locomotion
                 facing = select_facing(player.aim_angle, motion.facing if motion._initialized else None)
-                world.start_attack(facing=facing)
+                world.start_attack(facing=facing, stationary_front_right=not (axis_x or axis_y))
                 aim_player(player, *target)
-            axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
-            axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             before = (player.x, player.y)
             zombie_before = (world.zombie.x, world.zombie.y)
             world.update(dt if active else 0.0, axis_x, axis_y)

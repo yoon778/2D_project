@@ -12,6 +12,8 @@ else:
 
 ATTACK_DURATION = 0.6
 ATTACK_HIT_TIME = 0.18
+_STATIONARY_FRONT_RIGHT_DURATION = 0.66
+_STATIONARY_FRONT_RIGHT_HIT_TIME = 0.24
 STUN_DURATION = 0.4
 ZOMBIE_ATTACK_DURATION = 0.8
 ZOMBIE_ATTACK_HIT_TIME = 0.3
@@ -63,6 +65,15 @@ class Attack:
     elapsed: float = 0.0
     _hit_done: bool = False
     landed: bool = False
+    stationary_front_right: bool = False
+
+    @property
+    def hit_time(self) -> float:
+        return _STATIONARY_FRONT_RIGHT_HIT_TIME if self.stationary_front_right else ATTACK_HIT_TIME
+
+    @property
+    def duration(self) -> float:
+        return _STATIONARY_FRONT_RIGHT_DURATION if self.stationary_front_right else ATTACK_DURATION
 
 
 class CombatWorld:
@@ -78,11 +89,12 @@ class CombatWorld:
         self.attack = None
         self.result = "playing"
 
-    def start_attack(self, facing="front_right"):
+    def start_attack(self, facing="front_right", *, stationary_front_right=False):
         self._resolve_result()
         if self.attack is not None or self.result != "playing" or self.player_hp <= 0:
             return False
-        self.attack = Attack(self.player.aim_angle, facing)
+        self.attack = Attack(self.player.aim_angle, facing,
+                             stationary_front_right=facing == "front_right" and bool(stationary_front_right))
         return True
 
     def _resolve_result(self):
@@ -166,16 +178,17 @@ class CombatWorld:
         if attack is None:
             self._move_player(dt, axis_x, axis_y, WALK_SPEED)
             return False
+        hit_time, duration = attack.hit_time, attack.duration
         end = attack.elapsed + dt
-        for boundary in (ATTACK_HIT_TIME, ATTACK_DURATION):
+        for boundary in (hit_time, duration):
             if abs(end - boundary) <= _EPSILON:
                 end = boundary
-        active_dt = min(dt, max(0.0, ATTACK_DURATION - attack.elapsed))
-        before_hit = (min(active_dt, max(0.0, ATTACK_HIT_TIME - attack.elapsed))
+        active_dt = min(dt, max(0.0, duration - attack.elapsed))
+        before_hit = (min(active_dt, max(0.0, hit_time - attack.elapsed))
                       if not attack._hit_done else active_dt)
         self._move_player(before_hit, axis_x, axis_y, 60.0)
         hit = False
-        if not attack._hit_done and end >= ATTACK_HIT_TIME:
+        if not attack._hit_done and end >= hit_time:
             attack._hit_done = True
             if self._target_in_strike(attack.angle):
                 self.zombie.hp -= 1
@@ -187,8 +200,8 @@ class CombatWorld:
         if self.result == "playing":
             self._move_player(active_dt - before_hit, axis_x, axis_y, 60.0)
             self._move_player(dt - active_dt, axis_x, axis_y, WALK_SPEED)
-        attack.elapsed = min(ATTACK_DURATION, end)
-        if attack.elapsed >= ATTACK_DURATION:
+        attack.elapsed = min(duration, end)
+        if attack.elapsed >= duration:
             self.attack = None
         return hit
 
@@ -203,7 +216,9 @@ class CombatWorld:
         while remaining > _EPSILON:
             tick = min(remaining, _TIME_STEP)
             # End ticks at combat events so partial external frames lose no time.
-            for attack, boundaries in ((self.attack, (ATTACK_HIT_TIME, ATTACK_DURATION)),
+            player_attack = self.attack
+            player_boundaries = (player_attack.hit_time, player_attack.duration) if player_attack is not None else ()
+            for attack, boundaries in ((player_attack, player_boundaries),
                     (self.zombie.attack, (ZOMBIE_ATTACK_HIT_TIME, ZOMBIE_ATTACK_DURATION))):
                 if attack is not None:
                     for boundary in boundaries:
@@ -225,8 +240,9 @@ class CombatWorld:
         if self.result != "playing":
             # 처치한 공격의 회복만 끝까지 진행하고 새 입력/이동은 중단한다.
             if self.result == "cleared" and self.attack is not None:
-                self.attack.elapsed = min(ATTACK_DURATION, self.attack.elapsed + dt)
-                if self.attack.elapsed >= ATTACK_DURATION - _EPSILON:
+                duration = self.attack.duration
+                self.attack.elapsed = min(duration, self.attack.elapsed + dt)
+                if self.attack.elapsed >= duration - _EPSILON:
                     self.attack = None
             return
         immunity = self.player_invulnerable_remaining - dt
