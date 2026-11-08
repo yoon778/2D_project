@@ -268,12 +268,15 @@ function holds(pose, sprite) {
   return {right, left}
 }
 
-async function buildFullSwing() {
+async function buildStationaryCells(poses, columns) {
   const idle = await loadIdle()
-  const cells = Object.values(stationaryPoses).map(pose => drawPose(pose, idle))
-  const contacts = Object.values(stationaryPoses).map((pose, index) => holds(pose, cells[index]))
-  cells.push(idle)
-  return {cells, contacts, ...grid(cells, 4)}
+  const cells = poses.map(pose => pose ? drawPose(pose, idle) : idle)
+  const contacts = poses.flatMap((pose, index) => pose ? [holds(pose, cells[index])] : [])
+  return {cells, contacts, ...grid(cells, columns)}
+}
+
+function buildFullSwing() {
+  return buildStationaryCells([...Object.values(stationaryPoses), null], 4)
 }
 
 async function main() {
@@ -281,4 +284,4 @@ async function main() {
   await sharp(pixels, {raw: {width, height, channels: 4}}).png().toFile(atlasPath)
 }
 if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})
-module.exports = {buildFullSwing, buildMovingFullSwing}
+module.exports = {buildFullSwing, buildMovingFullSwing, buildStationaryCells}
