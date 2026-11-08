@@ -8,7 +8,8 @@ const sourceDir=path.resolve(root,process.argv[2]||'game/assets/player');
 // Align the excluded equipment mask with the baked grip/shaft pose.
 function posedBat(source,rig){
  if(!rig.batRotation)return source;
- const {pivot,targetPivot=pivot,degrees,axisEnd,lengthScale=1}=rig.batRotation,angle=degrees*Math.PI/180;
+ const {pivot,targetPivot=pivot,degrees,axisEnd,lengthScale=1}=rig.batRotation;
+ const angle=(rig.carryBatDegrees??degrees)*Math.PI/180;
  const axis=axisEnd?[axisEnd[0]-pivot[0],axisEnd[1]-pivot[1]]:[0,1],length=Math.hypot(...axis);
  const su=axis.map(v=>v/length),c=Math.cos(angle),s=Math.sin(angle),du=[c*su[0]-s*su[1],s*su[0]+c*su[1]];
  const scale=axisEnd?lengthScale:1,result=Buffer.alloc(source.length);

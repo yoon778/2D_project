@@ -1,6 +1,6 @@
 // Seven approved views with a directional weight shift and articulated right-hand bat.
 const path = require('node:path'), sharp = require('sharp')
-const {drawLeg, joints} = require('./consistent-walk.cjs')
+const {drawLeg, joints, renderWalkAtlas} = require('./consistent-walk.cjs')
 const {shiftWeight} = require('../attack-weight.cjs')
 const ap8 = require('./r2ap8-motion.json')
 const settings = require('./r2c8-rigs.json'), walk = require('./consistent-rig.json')
@@ -48,23 +48,29 @@ function between(model,a,b,t) {
   return{elbow,wrist,handAngle,grip:[wrist[0]+c*palm[0]-sn*palm[1],wrist[1]+sn*palm[0]+c*palm[1]],dir:[Math.cos(angle),Math.sin(angle)],behind:a.behind}
 }
 function twelvePoses(model,rig,pivot,axisEnd,tuning) {
-  const keys=Array.from({length:5},(_,i)=>poseFor(model,rig,i,tuning)),angle=Math.atan2(axisEnd[1]-pivot[1],axisEnd[0]-pivot[0])+(rig.batRotation?.degrees||0)*Math.PI/180,grip=rig.batRotation?.targetPivot||model.grip,palm=[model.hand.grip[0]-model.hand.anchor[0],model.hand.grip[1]-model.hand.anchor[1]],palmLength=Math.hypot(...palm),rest={elbow:model.upper.b,wrist:[grip[0]-palm[0],grip[1]-palm[1]],grip,handAngle:0,dir:[Math.cos(angle),Math.sin(angle)],behind:model.far}
+  const sourceAngle = Math.atan2(axisEnd[1] - pivot[1], axisEnd[0] - pivot[0])
+  const swingDegrees = rig.batRotation?.degrees ?? 0
+  const angle = sourceAngle + swingDegrees * Math.PI / 180
+  const keys=Array.from({length:5},(_,i)=>poseFor(model,rig,i,tuning)),grip=rig.batRotation?.targetPivot||model.grip,palm=[model.hand.grip[0]-model.hand.anchor[0],model.hand.grip[1]-model.hand.anchor[1]],palmLength=Math.hypot(...palm),rest={elbow:model.upper.b,wrist:[grip[0]-palm[0],grip[1]-palm[1]],grip,handAngle:0,dir:[Math.cos(angle),Math.sin(angle)],behind:model.far}
   if(model.removeArm===false)rest.elbow=solve(model,grip,palm.map(v=>v/palmLength)).elbow
-  const sequence=[keys[0],between(model,keys[0],keys[1],.5),keys[1],between(model,keys[1],keys[2],.5),keys[2],between(model,keys[2],keys[3],.5),keys[3],between(model,keys[3],keys[4],model.followRecoverFraction??.5),keys[4],between(model,keys[4],rest,(.425-.37)/(.54-.37)),between(model,keys[4],rest,(.48-.37)/(.54-.37)),{...rest,original:true}]
+  // Use the carry angle at both ends of the swing, anchored to the same grip.
+  const returnAngle = sourceAngle + (rig.carryBatDegrees ?? swingDegrees) * Math.PI / 180
+  const returnPose = {...rest, dir: [Math.cos(returnAngle), Math.sin(returnAngle)]}
+  const sequence=[keys[0],between(model,keys[0],keys[1],.5),keys[1],between(model,keys[1],keys[2],.5),keys[2],between(model,keys[2],keys[3],.5),keys[3],between(model,keys[3],keys[4],model.followRecoverFraction??.5),keys[4],between(model,keys[4],returnPose,(.425-.37)/(.54-.37)),between(model,keys[4],returnPose,(.48-.37)/(.54-.37)),{...returnPose,original:true}]
   // A small recovery arc keeps the far weapon visible between occluded leg phases.
   for(const [i,degrees]of(model.returnArcDegrees||[]).entries()){const p=sequence[9+i],a=Math.atan2(p.dir[1],p.dir[0])+degrees*Math.PI/180;p.dir=[Math.cos(a),Math.sin(a)]}
   const windup = sequence[1]
-  sequence[0] = between(model, rest, keys[0], ap8.startup[0])
-  sequence[1] = between(model, rest, windup, ap8.startup[1])
+  sequence[0] = between(model, returnPose, keys[0], ap8.startup[0])
+  sequence[1] = between(model, returnPose, windup, ap8.startup[1])
   if (tuning.frontOnSwing) sequence[3].behind = false
   return sequence
 }
 async function png(b,w,h,file,scale=1) {await sharp(b,{raw:{width:w,height:h,channels:4}}).resize(w*scale,h*scale,{kernel:'nearest'}).png().toFile(file)}
 function atlas(cells,cols) {const width=cols*96,height=Math.ceil(cells.length/cols)*96,b=Buffer.alloc(width*height*4);for(let f=0;f<cells.length;f++)for(let y=0;y<96;y++)cells[f].copy(b,((Math.floor(f/cols)*96+y)*width+f%cols*96)*4,y*384,(y+1)*384);return{b,width,height}}
-async function build(facing) {
+async function build(facing, walkAtlas) {
   const model=settings[facing],rig=rigs[facing],slug=facing.replaceAll('_','-'),[left,top,width,height]=rig.sourceCell;
   const tuning = ap8[facing]
-  const src=await sharp(path.join(__dirname,'style-studies/eight-direction-consistency/turnaround-idle-64-v3.png')).extract({left,top,width,height}).ensureAlpha().raw().toBuffer(),r1=await sharp(path.join(root,`game/assets/player/r1-consistent-${slug}-20261105.png`)).ensureAlpha().raw().toBuffer();
+  const src=await sharp(path.join(__dirname,'style-studies/eight-direction-consistency/turnaround-idle-64-v3.png')).extract({left,top,width,height}).ensureAlpha().raw().toBuffer(),r1=walkAtlas ?? await sharp(path.join(root,`game/assets/player/r1-consistent-${slug}-20261105.png`)).ensureAlpha().raw().toBuffer();
   const bodyRaw=await sharp(path.join(__dirname,'consistent-parts',slug,'body.png')).ensureAlpha().raw().toBuffer();
   const parts={upper:cut(src,model.upper.mask,navy,model.repairMaterial),fore:cut(src,model.fore.mask,cuff,model.repairMaterial),hand:cut(src,model.hand.mask,skin)},legParts={};
   // Wood highlights share skin colors in the approved art; geometry owns the full bat.
@@ -89,7 +95,10 @@ async function build(facing) {
   const oldWeapon=Buffer.alloc(96*96*4);if(rig.batRotation){const r=rig.batRotation,g=r.targetPivot||r.pivot,angle=r.degrees*Math.PI/180,dx=(axisEnd[0]-r.pivot[0])*(r.lengthScale||1),dy=(axisEnd[1]-r.pivot[1])*(r.lengthScale||1);segment(oldWeapon,bat,r.pivot,axisEnd,g,[g[0]+Math.cos(angle)*dx-Math.sin(angle)*dy,g[1]+Math.sin(angle)*dx+Math.cos(angle)*dy])}else paint(oldWeapon,originalBat,(x,y)=>[x,y]);
   const restingLegs=Buffer.alloc(96*96*4),far=rig.nearLeg==='right'?'left':'right',hipBand=rig.hipOutline?[Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1])-2,Math.max(rig.legs.right.hip[1],rig.legs.left.hip[1])+5]:null;
   for(const side of[far,rig.nearLeg])over(restingLegs,drawLeg(rig,legParts,side,{...rig.legs[side],pitch:0},hipBand),80,80,8,8);
-  const idle=padded(r1,8),staticBody=Buffer.from(idle);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4,q=((y+8)*96+x+8)*4,isBat=oldWeapon[q+3];if(armMask[p+3]||isBat){if(armMask[p+3]&&core(x,y))staticBody.set([50,54,72,255],q);else if(y>=Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1]))restingLegs.copy(staticBody,q,q,q+4);else staticBody.fill(0,q,q+4)}}
+  const idle = padded(r1, 8)
+  // Extract the attack torso from the original idle so the carry change stays out of the swing.
+  const attackIdle = rig.carryBatDegrees === undefined ? idle : padded(await renderWalkAtlas(facing, {carryBatDegrees: undefined}), 8)
+  const staticBody=Buffer.from(attackIdle);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4,q=((y+8)*96+x+8)*4,isBat=oldWeapon[q+3];if(armMask[p+3]||isBat){if(armMask[p+3]&&core(x,y))staticBody.set([50,54,72,255],q);else if(y>=Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1]))restingLegs.copy(staticBody,q,q,q+4);else staticBody.fill(0,q,q+4)}}
   const shoulder = model.shoulder.map((value, i) => value + (tuning.shoulderOffset?.[i] || 0))
   const stationary = [], moving = [], layers = []
   const poses = twelvePoses({...model, shoulder}, rig, pivot, axisEnd, tuning)
@@ -131,9 +140,17 @@ async function build(facing) {
       const band = hipBand?.map(y => y + drop)
       if (pose.behind) over(frame, weapon, size, size, 0, drop)
       for (const side of [far, rig.nearLeg]) {
-        over(legs, drawLeg(rig, legParts, side, joints(rig, rig.legs[side], w), band), 80, 80, 8, 8)
+        const leg = rig.legs[side]
+        const points = joints(rig, leg, w)
+        if (tuning.walkLegJointShift) {
+          // Move the pelvis with the torso while keeping each boot on its walk-phase anchor.
+          const kneeWeight = Math.max(0, Math.min(1, (63 - points.knee[1]) / 10))
+          points.hip = shifted(points.hip)
+          points.knee = [points.knee[0] + dx * kneeWeight, points.knee[1] + dy * kneeWeight]
+        }
+        over(legs, drawLeg(rig, legParts, side, points, band, leg.walkFit), 80, 80, 8, 8)
       }
-      const leaningLegs = lean(legs, drop)
+      const leaningLegs = tuning.walkLegJointShift ? legs : lean(legs, drop)
       const ankle = tuning.ankleSeams?.[w]
       if (ankle) {
         const [x, y] = ankle, p = (y * size + x) * 4

@@ -105,8 +105,8 @@ function restoreHipOutline(pixels, band, protectedPixels, sideEdgesOnly = false)
   }
 }
 
-// Preserve the painted limb width; fit only its projected joint axis.
-function segment(target, source, sourceStart, sourceEnd, start, end) {
+// Fit the projected joint axis. The side-walk rig can restore width lost to occlusion.
+function segment(target, source, sourceStart, sourceEnd, start, end, widthScale = 1) {
   const sx = sourceEnd[0] - sourceStart[0], sy = sourceEnd[1] - sourceStart[1]
   const dx = end[0] - start[0], dy = end[1] - start[1]
   const sl = Math.hypot(sx, sy), dl = Math.hypot(dx, dy)
@@ -114,7 +114,7 @@ function segment(target, source, sourceStart, sourceEnd, start, end) {
   paint(target, source, (x, y) => {
     const px = x - start[0], py = y - start[1]
     const along = (px * du[0] + py * du[1]) * sl / dl
-    const across = -px * du[1] + py * du[0]
+    const across = (-px * du[1] + py * du[0]) / widthScale
     return [sourceStart[0] + su[0] * along - su[1] * across,
       sourceStart[1] + su[1] * along + su[0] * across]
   })
@@ -129,9 +129,9 @@ function boot(target, source, anchor, ankle, degrees) {
   })
 }
 
-function drawBat(target, source, rig, drop) {
-  if (!rig.batRotation) return translate(target, source, 0, drop)
-  const {pivot, targetPivot = pivot, degrees, axisEnd, lengthScale = 1} = rig.batRotation
+function drawBat(target, source, rotation, drop) {
+  if (!rotation) return translate(target, source, 0, drop)
+  const {pivot, targetPivot = pivot, degrees, axisEnd, lengthScale = 1} = rotation
   const grip = [targetPivot[0], targetPivot[1] + drop]
   if (!axisEnd || lengthScale === 1) return boot(target, source, pivot, grip, degrees)
   const radians = degrees * Math.PI / 180
@@ -152,14 +152,17 @@ function applyLegFacet(pixels, facet, allowedPixels) {
   }
 }
 
-function drawLeg(rig, parts, side, points, hipBand) {
+function drawLeg(rig, parts, side, points, hipBand, {widthScale = 1, shinOverlap = 0} = {}) {
   const pixels = Buffer.alloc(size * size * 4)
   const bootMaterial = legMaterial(rig, side, 'boot')
   const shinMaterial = legMaterial(rig, side, 'shin')
   const thighMaterial = legMaterial(rig, side, 'thigh')
   boot(pixels, parts[side].boot, bootMaterial.ankle, points.ankle, points.pitch)
-  segment(pixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, points.ankle)
-  segment(pixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee)
+  const shin = points.ankle.map((value, axis) => value - points.knee[axis])
+  const length = Math.hypot(...shin)
+  const shinEnd = points.ankle.map((value, axis) => value + shin[axis] * shinOverlap / length)
+  segment(pixels, parts[side].shin, shinMaterial.knee, shinMaterial.ankle, points.knee, shinEnd, widthScale)
+  segment(pixels, parts[side].thigh, thighMaterial.hip, thighMaterial.knee, points.hip, points.knee, widthScale)
   restoreLegOutline(pixels, points.hip)
   if (hipBand) restoreHipOutline(pixels, hipBand, null, true)
   return pixels
@@ -169,10 +172,12 @@ function joints(rig, leg, frame) {
   const phase = (frame + leg.phase) % 8
   const length = Math.hypot(...rig.worldFacing)
   const ground = [rig.worldFacing[0] / length, rig.worldFacing[1] / length * 0.6]
-  const travel = config.strideNative[phase], bend = config.kneeForward[phase]
+  const travel = config.strideNative[phase]
+  const bend = (rig.walkCycle?.kneeForward ?? config.kneeForward)[phase]
+  const lift = (rig.walkCycle?.swingLift ?? config.swingLift)[phase]
   const hip = [leg.hip[0], leg.hip[1] + config.bodyDrop[frame]]
   const ankle = [leg.ankle[0] + ground[0] * travel + (leg.passingOffsetX?.[phase] ?? 0),
-    leg.ankle[1] + ground[1] * travel - config.swingLift[phase] + (leg.depthOffset ?? 0)]
+    leg.ankle[1] + ground[1] * travel - lift + (leg.depthOffset ?? 0)]
   const ratio = Math.hypot(leg.knee[0] - leg.hip[0], leg.knee[1] - leg.hip[1])
     / Math.hypot(leg.ankle[0] - leg.hip[0], leg.ankle[1] - leg.hip[1])
   const knee = [hip[0] + (ankle[0] - hip[0]) * ratio + ground[0] * bend,
@@ -185,9 +190,10 @@ async function png(pixels, width, height, destination, scale = 1) {
     .resize(width * scale, height * scale, {kernel: 'nearest'}).png().toFile(destination)
 }
 
-async function bake(facing, {renderOnly = false} = {}) {
-  const rig = config.facings[facing]
-  if (!rig) throw new Error(`No approved rig for ${facing}`)
+async function bake(facing, {renderOnly = false, overrides} = {}) {
+  const approved = config.facings[facing]
+  if (!approved) throw new Error(`No approved rig for ${facing}`)
+  const rig = overrides ? {...approved, ...overrides} : approved
   const [left, top, width, height] = rig.sourceCell
   const source = await sharp(path.join(__dirname, config.master))
     .extract({left, top, width, height}).ensureAlpha().raw().toBuffer()
@@ -216,6 +222,7 @@ async function bake(facing, {renderOnly = false} = {}) {
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
   const batBehindLegs = rig.walkBatBehindLegs ?? rig.batBehindLegs
+  const carryRotation = rig.carryBatDegrees === undefined ? rig.batRotation : {...rig.batRotation, degrees: rig.carryBatDegrees}
   const heldHand = rig.hipOutline ? cut(source, rig.bodyKeepMask) : null
   const fragment = walkFragments[facing]
   for (let frame = 0; frame < 8; frame++) {
@@ -225,13 +232,13 @@ async function bake(facing, {renderOnly = false} = {}) {
       Math.max(rig.legs.right.hip[1], rig.legs.left.hip[1]) + 5 + drop] : null
     const legCoverage = hipBand ? Buffer.alloc(source.length) : null
     const batPixels = Buffer.alloc(source.length)
-    drawBat(batPixels, parts.bat, rig, drop)
+    drawBat(batPixels, parts.bat, carryRotation, drop)
     if (batBehindLegs) translate(pixels, batPixels, 0, 0)
     for (const side of [farLeg, rig.nearLeg]) {
       const leg = rig.legs[side], points = joints(rig, leg, frame)
       frameJoints[side] = points
       // Side edges separate the legs without drawing a horizontal hip cut line.
-      const legPixels = drawLeg(rig, parts, side, points, hipBand)
+      const legPixels = drawLeg(rig, parts, side, points, hipBand, leg.walkFit)
       translate(pixels, legPixels, 0, 0)
       if (legCoverage) translate(legCoverage, legPixels, 0, 0)
     }
@@ -268,7 +275,7 @@ async function bake(facing, {renderOnly = false} = {}) {
         if (originalBat[offset + 3] && !heldHand?.[offset + 3]) foreground.fill(0, offset, offset + 4)
       }
       idle = Buffer.alloc(source.length)
-      drawBat(idle, parts.bat, rig, 0)
+      drawBat(idle, parts.bat, carryRotation, 0)
       translate(idle, foreground, 0, 0)
     } else {
       const uncovered = Buffer.alloc(source.length)
@@ -284,7 +291,7 @@ async function bake(facing, {renderOnly = false} = {}) {
           uncovered.copy(idle, offset, offset, offset + 4)
         }
       }
-      drawBat(idle, parts.bat, rig, 0)
+      drawBat(idle, parts.bat, carryRotation, 0)
       translate(idle, parts.body, 0, 0)
     }
     if (rig.legFacet) applyLegFacet(idle, rig.legFacet, parts[rig.legFacet.side].thigh)
@@ -347,9 +354,9 @@ async function loadRigs() {
   }
 }
 
-async function renderWalkAtlas(facing) {
+async function renderWalkAtlas(facing, overrides) {
   await loadRigs()
-  return bake(facing, {renderOnly: true})
+  return bake(facing, {renderOnly: true, overrides})
 }
 
 async function main() {

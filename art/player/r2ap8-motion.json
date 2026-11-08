@@ -3,7 +3,7 @@
   "crouch": [0, 1, 1, 0, 0, 1, 2, 1, 1, 0, 0],
   "startup": [0.14, 0.43],
   "front": {"hitAngle": 40, "hitGrip": [-2, 0], "frontOnSwing": true, "shoulderOffset": [3, 0]},
-  "right": {"hitAngle": 9, "hitGrip": [0, 0], "ankleSeams": {"0": [44, 72], "2": [53, 69]}},
+  "right": {"hitAngle": 9, "hitGrip": [0, 0], "walkLegJointShift": true},
   "back_right": {"hitAngle": 8, "hitGrip": [-3, 0]},
   "back": {"hitAngle": 44, "hitGrip": [2, 0]},
   "back_left": {
