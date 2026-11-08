@@ -16,3 +16,11 @@
 재생성 `node art/player/r2sf-front-right.cjs`. `node art/r2ap8-check.cjs --front-right`와 게임 자동 테스트 183개 통과. 기존 전체 캐릭터 에셋 검사 `--player`는 작업 전부터 이전 오른쪽 보행 픽셀 기준에서 실패해 이번 검수에는 앞오른쪽 검사만 사용했다.
 
 비교 GIF와 타격 캡처는 `output/review/R2-SFW/native-standing.gif`, `native-timing.png`. 지휘 좌표 기록은 `after/trace.json`, 분리 캡처 비교는 `contact-pixels.json`. 사용자 2차 확인에서는 최신 게임을 열어 앞오른쪽을 조준하고 정지 상태에서 좌클릭해 준비와 타격의 무게감을 확인한다.
+
+## 사용자 2차 피드백 보정
+
+기준 `d56a265` · 적용 `5c8327c`. 준비 세 자세에 방망이 궤적을 나눠 넣어 가장 큰 방망이 끝 이동을 원본 약 50px에서 약 32px로 줄였다. 준비와 타격 자세에서 오른팔 소매의 명암을 분리했다. 타격 셀의 그립·방망이 픽셀과 공격 시점은 기준과 같다.
+
+Windows SDL 자동 재현에서 6거리 모두 179ms에 방망이와 좀비가 분리됐다. 180ms에는 36·44·79.9px에서 접촉과 체력 5→4, 80.1·90·120px에서 체력 5 유지 확인. 80.1·90px의 화면상 겹침은 기존과 같았다. 최종 에셋 재생성 검사와 전투 렌더 검사 15개 통과. 사용자 직접 조작의 무게감 재확인 대기.
+
+팔과 궤적의 전후 비교는 `output/review/R2-SFW-revision/native-unobscured.gif`. 6거리 좌표와 방망이 마스크 검사는 `output/review/R2-SFW-revision-logic/candidate.json`.
