@@ -1,6 +1,6 @@
 // Seven approved views with a directional weight shift and articulated right-hand bat.
 const path = require('node:path'), sharp = require('sharp')
-const {drawLeg, joints, renderWalkAtlas} = require('./consistent-walk.cjs')
+const {drawLeg, joints, prepareWalkMirror, renderWalkAtlas, shiftWalkJoints} = require('./consistent-walk.cjs')
 const {shiftWeight} = require('../attack-weight.cjs')
 const ap8 = require('./r2ap8-motion.json')
 const settings = require('./r2c8-rigs.json'), walk = require('./consistent-rig.json')
@@ -102,6 +102,7 @@ async function build(facing, walkAtlas) {
   const shoulder = model.shoulder.map((value, i) => value + (tuning.shoulderOffset?.[i] || 0))
   const stationary = [], moving = [], layers = []
   const poses = twelvePoses({...model, shoulder}, rig, pivot, axisEnd, tuning)
+  const mirroredLeg = await prepareWalkMirror(rig, rigs)
   if (tuning.bodyFragment) {
     clearRun(staticBody, tuning.bodyFragment)
     clearRun(upperCell, tuning.bodyFragment)
@@ -140,15 +141,15 @@ async function build(facing, walkAtlas) {
       const band = hipBand?.map(y => y + drop)
       if (pose.behind) over(frame, weapon, size, size, 0, drop)
       for (const side of [far, rig.nearLeg]) {
-        const leg = rig.legs[side]
-        const points = joints(rig, leg, w)
-        if (tuning.walkLegJointShift) {
-          // Move the pelvis with the torso while keeping each boot on its walk-phase anchor.
-          const kneeWeight = Math.max(0, Math.min(1, (63 - points.knee[1]) / 10))
-          points.hip = shifted(points.hip)
-          points.knee = [points.knee[0] + dx * kneeWeight, points.knee[1] + dy * kneeWeight]
+        if (mirroredLeg) {
+          const layer = mirroredLeg(side, w, tuning.walkLegJointShift ? weight : undefined)
+          over(legs, layer.pixels, 80, 80, 8, 8)
+        } else {
+          const leg = rig.legs[side]
+          const points = joints(rig, leg, w)
+          if (tuning.walkLegJointShift) shiftWalkJoints(points, weight)
+          over(legs, drawLeg(rig, legParts, side, points, band, leg.walkFit), 80, 80, 8, 8)
         }
-        over(legs, drawLeg(rig, legParts, side, points, band, leg.walkFit), 80, 80, 8, 8)
       }
       const leaningLegs = tuning.walkLegJointShift ? legs : lean(legs, drop)
       const ankle = tuning.ankleSeams?.[w]

@@ -13,6 +13,7 @@
     "nearLeg": "right",
     "batBehindLegs": false,
     "carryBatDegrees": 22,
+    "walkMirrorFrom": "left",
     "hipOutline": true,
     "batRotation": {"pivot": [40, 53], "degrees": -8, "axisEnd": [39.5, 69], "lengthScale": 1.125},
     "legFacet": {"side": "right", "x": [35, 36], "y": [53, 59], "from": "323648", "to": "42495f"},
@@ -147,7 +148,6 @@
     "legs": {
       "right": {
         "phase": 0,
-        "walkFit": {"shinOverlap": 2},
         "hip": [
           37,
           49
@@ -594,7 +594,6 @@
       "left": {
         "phase": 4,
         "depthOffset": -3,
-        "walkFit": {"widthScale": 1.45, "shinOverlap": 2},
         "hip": [
           44,
           49

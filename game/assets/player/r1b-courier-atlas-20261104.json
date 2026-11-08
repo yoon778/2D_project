@@ -1510,8 +1510,8 @@
         "clip_topleft": [
           26,
           10,
-          29,
-          62
+          30,
+          63
         ],
         "foot_pivot_topleft": [
           40,
@@ -1534,7 +1534,7 @@
           106,
           11,
           29,
-          61
+          62
         ],
         "foot_pivot_topleft": [
           120,
@@ -1557,7 +1557,7 @@
           186,
           10,
           29,
-          62
+          63
         ],
         "foot_pivot_topleft": [
           200,
@@ -1579,8 +1579,8 @@
         "clip_topleft": [
           266,
           10,
-          30,
-          62
+          34,
+          63
         ],
         "foot_pivot_topleft": [
           280,
@@ -1600,10 +1600,10 @@
         "name": "walk5",
         "source": "consistent_right",
         "clip_topleft": [
-          26,
+          25,
           90,
-          33,
-          62
+          38,
+          64
         ],
         "foot_pivot_topleft": [
           40,
@@ -1625,7 +1625,7 @@
         "clip_topleft": [
           106,
           91,
-          29,
+          33,
           61
         ],
         "foot_pivot_topleft": [
@@ -1649,7 +1649,7 @@
           186,
           90,
           29,
-          61
+          62
         ],
         "foot_pivot_topleft": [
           200,
@@ -1672,7 +1672,7 @@
           266,
           90,
           29,
-          61
+          62
         ],
         "foot_pivot_topleft": [
           280,
@@ -3282,7 +3282,7 @@
         320,
         240
       ],
-      "sha256": "e5738cf03e57430b45c52a0a482e9e4e3fde0fb4c662458227502e191a4b02a1",
+      "sha256": "5232098b2d3c242e076593e4d0bb40304b525b7688390f539b10fb8b24fc3a59",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,

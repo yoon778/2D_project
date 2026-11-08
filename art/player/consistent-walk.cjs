@@ -185,6 +185,57 @@ function joints(rig, leg, frame) {
   return {phase, hip, knee, ankle, pitch: config.bootPitchDegrees[phase] * ground[0]}
 }
 
+function extractLegParts(source, rig) {
+  const parts = {}
+  for (const side of ['right', 'left']) {
+    parts[side] = Object.fromEntries(['thigh', 'shin', 'boot'].map(
+      part => [part, cut(source, legMaterial(rig, side, part)[part + 'Mask'])]))
+  }
+  if (rig.legFacet) for (const part of ['thigh', 'shin']) {
+    applyLegFacet(parts[rig.legFacet.side][part], rig.legFacet)
+  }
+  return parts
+}
+
+function shiftWalkJoints(points, [dx, dy]) {
+  // Follow the torso at the hip while keeping the ankle on its walk anchor.
+  const kneeWeight = Math.max(0, Math.min(1, (63 - points.knee[1]) / 10))
+  points.hip = [points.hip[0] + dx, points.hip[1] + dy]
+  points.knee = [points.knee[0] + dx * kneeWeight, points.knee[1] + dy * kneeWeight]
+}
+
+async function prepareWalkMirror(rig, facings) {
+  if (!rig.walkMirrorFrom) return null
+  const donor = facings[rig.walkMirrorFrom]
+  const [left, top, width, height] = donor.sourceCell
+  const source = await sharp(path.join(__dirname, config.master))
+    .extract({left, top, width, height}).ensureAlpha().raw().toBuffer()
+  const parts = extractLegParts(source, donor)
+  const phaseOffset = rig.legs[rig.nearLeg].phase - donor.legs[donor.nearLeg].phase
+  const donorFar = donor.nearLeg === 'right' ? 'left' : 'right'
+  const hips = Object.values(donor.legs).map(leg => leg.hip[1])
+  const hipBand = donor.hipOutline ? [Math.min(...hips) - 2, Math.max(...hips) + 5] : null
+  const axis = config.root[0] * 2
+  return (side, frame, weight) => {
+    const donorSide = side === rig.nearLeg ? donor.nearLeg : donorFar
+    const leg = donor.legs[donorSide]
+    const donorFrame = (frame + phaseOffset + 8) % 8
+    const points = joints(donor, leg, donorFrame)
+    const drop = config.bodyDrop[donorFrame]
+    const band = hipBand?.map(y => y + drop)
+    if (weight) shiftWalkJoints(points, [-weight[0], weight[1]])
+    const donorPixels = drawLeg(donor, parts, donorSide, points, band, leg.walkFit)
+    // Reflect about the common ground pivot, then align the reflected hip in X.
+    const offset = rig.legs[side].hip[0] - (axis - leg.hip[0])
+    const reflect = x => axis - x + offset
+    const pixels = Buffer.alloc(donorPixels.length)
+    paint(pixels, donorPixels, (x, y) => [reflect(x), y])
+    for (const name of ['hip', 'knee', 'ankle']) points[name][0] = reflect(points[name][0])
+    points.pitch = -points.pitch
+    return {pixels, points}
+  }
+}
+
 async function png(pixels, width, height, destination, scale = 1) {
   await sharp(pixels, {raw: {width, height, channels: 4}})
     .resize(width * scale, height * scale, {kernel: 'nearest'}).png().toFile(destination)
@@ -212,13 +263,8 @@ async function bake(facing, {renderOnly = false, overrides} = {}) {
       .extract({left, top, width, height}).ensureAlpha().raw().toBuffer()
     parts.bat = cut(material, donor.batMask)
   }
-  for (const side of ['right', 'left']) {
-    parts[side] = Object.fromEntries(['thigh', 'shin', 'boot'].map(
-      part => [part, cut(source, legMaterial(rig, side, part)[part + 'Mask'])]))
-  }
-  if (rig.legFacet) for (const part of ['thigh', 'shin']) {
-    applyLegFacet(parts[rig.legFacet.side][part], rig.legFacet)
-  }
+  Object.assign(parts, extractLegParts(source, rig))
+  const mirroredLeg = await prepareWalkMirror(rig, config.facings)
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
   const batBehindLegs = rig.walkBatBehindLegs ?? rig.batBehindLegs
@@ -235,10 +281,11 @@ async function bake(facing, {renderOnly = false, overrides} = {}) {
     drawBat(batPixels, parts.bat, carryRotation, drop)
     if (batBehindLegs) translate(pixels, batPixels, 0, 0)
     for (const side of [farLeg, rig.nearLeg]) {
-      const leg = rig.legs[side], points = joints(rig, leg, frame)
+      const leg = rig.legs[side], mirror = mirroredLeg?.(side, frame)
+      const points = mirror?.points ?? joints(rig, leg, frame)
       frameJoints[side] = points
       // Side edges separate the legs without drawing a horizontal hip cut line.
-      const legPixels = drawLeg(rig, parts, side, points, hipBand, leg.walkFit)
+      const legPixels = mirror?.pixels ?? drawLeg(rig, parts, side, points, hipBand, leg.walkFit)
       translate(pixels, legPixels, 0, 0)
       if (legCoverage) translate(legCoverage, legPixels, 0, 0)
     }
@@ -365,5 +412,5 @@ async function main() {
   const facings = facing ? [facing] : Object.keys(config.facings)
   for (const facing of facings) await bake(facing)
 }
-module.exports = {drawLeg, joints, renderWalkAtlas}
+module.exports = {drawLeg, joints, prepareWalkMirror, renderWalkAtlas, shiftWalkJoints}
 if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})
