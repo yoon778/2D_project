@@ -1488,7 +1488,7 @@
         "clip_topleft": [
           26,
           170,
-          33,
+          29,
           63
         ],
         "foot_pivot_topleft": [
@@ -1510,7 +1510,7 @@
         "clip_topleft": [
           26,
           10,
-          33,
+          29,
           62
         ],
         "foot_pivot_topleft": [
@@ -1533,7 +1533,7 @@
         "clip_topleft": [
           106,
           11,
-          33,
+          29,
           61
         ],
         "foot_pivot_topleft": [
@@ -1556,7 +1556,7 @@
         "clip_topleft": [
           186,
           10,
-          33,
+          29,
           62
         ],
         "foot_pivot_topleft": [
@@ -1579,7 +1579,7 @@
         "clip_topleft": [
           266,
           10,
-          33,
+          30,
           62
         ],
         "foot_pivot_topleft": [
@@ -1625,8 +1625,8 @@
         "clip_topleft": [
           106,
           91,
-          33,
-          58
+          29,
+          61
         ],
         "foot_pivot_topleft": [
           120,
@@ -1648,8 +1648,8 @@
         "clip_topleft": [
           186,
           90,
-          33,
-          58
+          29,
+          61
         ],
         "foot_pivot_topleft": [
           200,
@@ -1671,8 +1671,8 @@
         "clip_topleft": [
           266,
           90,
-          33,
-          60
+          29,
+          61
         ],
         "foot_pivot_topleft": [
           280,
@@ -3282,7 +3282,7 @@
         320,
         240
       ],
-      "sha256": "7b8271755ae81562a1a4a0accb2ca7c565db266988997d4c40bfca57d40f73fd",
+      "sha256": "f35181f02db95bec5164b40af007cb6ad370306fbcc5ebd498d7f9258ee65b96",
       "generated_on": "2026-11-05",
       "grid": {
         "columns": 4,
