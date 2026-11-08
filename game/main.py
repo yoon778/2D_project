@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import math
 from pathlib import Path
 import time
 
@@ -13,6 +14,7 @@ from combat import ATTACK_HIT_TIME, CombatWorld
 from combat_visual import CombatVisual
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
+import opening
 
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720
@@ -183,8 +185,36 @@ def poll_events():
         yield event
 
 
-def run(smoke_test=False):
+def play_opening(renderer, music):
+    start = previous = time.perf_counter()
+    while True:
+        now = time.perf_counter()
+        skip = False
+        lost_focus = False
+        for event in poll_events():
+            if event.type == p.SDL_QUIT:
+                return False
+            if event.type == p.SDL_KEYDOWN and not event.key.repeat:
+                if event.key.keysym.sym == p.SDLK_ESCAPE:
+                    return False
+                if event.key.keysym.sym in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
+                    skip = True
+            if (event.type == p.SDL_WINDOWEVENT
+                    and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
+                lost_focus = True
+        elapsed = now - start
+        if skip or elapsed >= opening.DURATION:
+            return True
+        focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
+        music.update(min(now - previous, 0.05), opening=True, focused=focused and not lost_focus)
+        opening.draw(elapsed, renderer.font, renderer.player_visual, renderer.combat_visual.metadata["zombie"])
+        p.update_canvas()
+        previous = now
+
+
+def run(smoke_test=False, *, show_opening=False):
     renderer = None
+    music = None
     try:
         p.open_canvas(WINDOW_WIDTH, WINDOW_HEIGHT, sync=True)
         if not p.renderer:
@@ -196,6 +226,13 @@ def run(smoke_test=False):
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
+        if show_opening and not smoke_test:
+            from spatial_audio import BackgroundMusic
+
+            music = BackgroundMusic(BASE_DIR / "assets/audio/last-delivery.mp3")
+            music.start()
+            if not play_opening(renderer, music):
+                return
         world = CombatWorld()
         renderer.combat = world
         player, walls = world.player, world.walls
@@ -275,6 +312,10 @@ def run(smoke_test=False):
             before = (player.x, player.y)
             zombie_before = (world.zombie.x, world.zombie.y)
             world.update(dt if active else 0.0, axis_x, axis_y)
+            if music is not None:
+                zombie = world.zombie
+                distance = math.hypot(zombie.x - player.x, zombie.y - player.y) if zombie.alive else None
+                music.update(dt, distance=distance, focused=active)
             dx, dy = player.x - before[0], player.y - before[1]
             renderer.combat_visual.update_zombie(
                 world.zombie, world.zombie.x - zombie_before[0], world.zombie.y - zombie_before[1], paused=not active)
@@ -293,13 +334,20 @@ def run(smoke_test=False):
             if smoke_test and frame >= len(smoke_poses):
                 running = False
     finally:
-        if renderer is not None:
-            renderer.close()
-        p.close_canvas()
+        try:
+            if music is not None:
+                music.close()
+        finally:
+            try:
+                if renderer is not None:
+                    renderer.close()
+            finally:
+                p.close_canvas()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dead Route R2-C8 eight-direction combat sample")
     parser.add_argument("--smoke-test", action="store_true",
                         help="render three native SDL fixtures, save PNGs and exit")
-    run(parser.parse_args().smoke_test)
+    args = parser.parse_args()
+    run(args.smoke_test, show_opening=not args.smoke_test)
