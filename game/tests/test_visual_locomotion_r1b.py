@@ -32,6 +32,7 @@ class LocomotionLoopTests(unittest.TestCase):
             updates.append({
                 "aim_angle": aim_angle, "dx": dx, "dy": dy,
                 "facing": locomotion.facing, "moving": locomotion.moving,
+                "phase": locomotion.phase,
                 "frame_index": visual.frame_index,
                 "frame_count": len(visual.metadata["frames"][locomotion.facing]) - 1,
             })
@@ -124,23 +125,33 @@ class LocomotionLoopTests(unittest.TestCase):
         self.assertNotAlmostEqual(frames[1]["aim_angle"], 3 * math.pi / 4, places=5)
         self.assertTrue(all(state["frame_index"] == 0 for state in updates))
 
-    def test_backward_and_strafe_keep_aim_facing_and_send_real_axes(self):
+    def test_backward_reverses_walk_then_strafe_and_forward_continue_from_phase(self):
         frames, updates = self._run_observed(
             initial=[("motion", 1120, 521), ("down", p.SDLK_a)],
             after_draw={
-                1: [("up", p.SDLK_a), ("down", p.SDLK_w)],
-                2: [("up", p.SDLK_w)],
-                3: [("quit",)],
+                11: [("up", p.SDLK_a), ("down", p.SDLK_w)],
+                12: [("up", p.SDLK_w), ("down", p.SDLK_d)],
+                13: [("up", p.SDLK_d)],
+                14: [("down", p.SDLK_a)],
+                15: [("quit",)],
             },
+            maximum_draws=16,
         )
         self._assert_actual_displacements(frames, updates)
-        self.assertLess(updates[0]["dx"], 0)
-        self.assertEqual(updates[0]["dy"], 0)
-        self.assertEqual(updates[1]["dx"], 0)
-        self.assertGreater(updates[1]["dy"], 0)
-        self.assertEqual([state["facing"] for state in updates], ["right"] * 3)
-        self.assertEqual([state["moving"] for state in updates], [True, True, False])
-        self.assertNotAlmostEqual(frames[1]["aim_angle"], 0.0, places=5)
+        self.assertEqual([state["facing"] for state in updates], ["right"] * 15)
+        self.assertEqual([state["frame_index"] for state in updates],
+                         [8] * 5 + [7] * 5 + [6, 7, 7, 0, 7])
+        self.assertTrue(all(state["dx"] < 0 and state["dy"] == 0 for state in updates[:11]))
+        strafe, forward, stopped, restarted = updates[11:]
+        self.assertEqual(strafe["dx"], 0)
+        self.assertGreater(strafe["dy"], 0)
+        self.assertGreater(forward["dx"], 0)
+        self.assertEqual((stopped["dx"], stopped["dy"]), (0, 0))
+        self.assertLess(restarted["dx"], 0)
+        self.assertGreater(strafe["phase"], updates[10]["phase"])
+        self.assertGreater(forward["phase"], strafe["phase"])
+        self.assertEqual(stopped["phase"], forward["phase"])
+        self.assertAlmostEqual(restarted["phase"], strafe["phase"])
 
     def test_smoke_fixture_teleports_do_not_advance_locomotion(self):
         frames, updates = self._run_observed(initial=[], smoke_test=True, maximum_draws=4)

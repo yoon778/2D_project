@@ -50,7 +50,7 @@ class Locomotion:
     moving: bool = False
     _initialized: bool = field(default=False, init=False, repr=False)
 
-    def update(self, aim_angle: float, dx: float, dy: float) -> None:
+    def update(self, aim_angle: float, dx: float, dy: float, *, reverse_backstep: bool = False) -> None:
         self.moving = False
         if not _finite(aim_angle, dx, dy):
             return
@@ -62,7 +62,14 @@ class Locomotion:
         if distance > 1e-6:
             self.moving = True
             # Reduce before adding to preserve the old phase for large distances.
-            self.phase = (self.phase + (distance % STRIDE_DISTANCE) / STRIDE_DISTANCE) % 1.0
+            phase_delta = (distance % STRIDE_DISTANCE) / STRIDE_DISTANCE
+            if reverse_backstep:
+                facing_angle = next(angle for name, angle in _DIRECTIONS if name == self.facing)
+                alignment = (dx / distance) * math.cos(facing_angle) + (dy / distance) * math.sin(facing_angle)
+                # Treat roundoff at a perpendicular step as ordinary forward phase.
+                if alignment < -_ANGLE_TOLERANCE:
+                    phase_delta = -phase_delta
+            self.phase = (self.phase + phase_delta) % 1.0
             # Split distances must choose the same frame at half/full cycles.
             for boundary in (0.0, 0.5, 1.0):
                 if abs(self.phase - boundary) <= _PHASE_TOLERANCE:

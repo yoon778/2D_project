@@ -183,6 +183,57 @@ class LocomotionTests(unittest.TestCase):
         pose.update(math.pi / 4, 1e308, 0)
         self.assertEqual((pose.facing, pose.phase, pose.frame_index), ("back_right", 0.25, 1))
 
+    def test_opt_in_backstep_plays_eight_frames_in_reverse_and_wraps(self):
+        pose = Locomotion()
+        frames = []
+        for _ in range(8):
+            pose.update(0, -8, 0, reverse_backstep=True)
+            frames.append(pose.walk_frame_index(8))
+        self.assertEqual(frames, [8, 7, 6, 5, 4, 3, 2, 1])
+        self.assertEqual((pose.facing, pose.phase), ("right", 0))
+
+    def test_opt_in_front_back_switches_and_turning_at_rest_keep_phase(self):
+        pose = Locomotion()
+        pose.update(0, 16, 0, reverse_backstep=True)
+        self.assertEqual(pose.phase, .25)
+        pose.update(0, -8, 0, reverse_backstep=True)
+        self.assertEqual(pose.phase, .125)
+        pose.update(math.pi, 0, 0, reverse_backstep=True)
+        self.assertEqual((pose.facing, pose.phase, pose.walk_frame_index(8)), ("left", .125, 0))
+        pose.update(math.pi, -8, 0, reverse_backstep=True)
+        self.assertEqual(pose.phase, .25)
+        pose.update(math.pi, 8, 0, reverse_backstep=True)
+        self.assertEqual(pose.phase, .125)
+
+    def test_opt_in_forward_sideways_and_backward_for_all_eight_facings(self):
+        for facing, degrees in (("right", 0), ("back_right", 45), ("back", 90), ("back_left", 135),
+                                ("left", 180), ("front_left", -135), ("front", -90), ("front_right", -45)):
+            for offset, expected in ((0, .25), (90, .25), (-90, .25), (180, .75)):
+                with self.subTest(facing=facing, movement_offset=offset):
+                    move_angle = math.radians(degrees + offset)
+                    pose = Locomotion()
+                    pose.update(math.radians(degrees), 16 * math.cos(move_angle), 16 * math.sin(move_angle),
+                                reverse_backstep=True)
+                    self.assertEqual(pose.facing, facing)
+                    self.assertAlmostEqual(pose.phase, expected)
+
+    def test_opt_in_uses_the_facing_selected_with_hysteresis(self):
+        pose = Locomotion()
+        pose.update(0, 0, 0, reverse_backstep=True)
+        pose.update(math.radians(25), 0, -8, reverse_backstep=True)
+        self.assertEqual((pose.facing, pose.phase), ("right", .125))
+        pose.update(math.radians(28), 0, -8, reverse_backstep=True)
+        self.assertEqual((pose.facing, pose.phase), ("back_right", 0))
+
+    def test_opt_in_large_and_invalid_displacements_preserve_existing_phase(self):
+        pose = Locomotion(phase=.25)
+        pose.update(math.pi / 4, -1.2e308, -1.2e308, reverse_backstep=True)
+        self.assertEqual((pose.facing, pose.phase, pose.moving), ("back_right", .25, True))
+        for dx, dy in ((math.nan, 0), (-1.7e308, -1.7e308)):
+            with self.subTest(dx=dx, dy=dy):
+                pose.update(0, dx, dy, reverse_backstep=True)
+                self.assertEqual((pose.facing, pose.phase, pose.moving), ("back_right", .25, False))
+
 
 class WalkFrameIndexTests(unittest.TestCase):
     def test_idle_and_two_eight_frame_selection(self):

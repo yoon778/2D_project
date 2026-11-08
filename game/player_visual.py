@@ -45,7 +45,7 @@ class PlayerVisual:
             raise
 
     def update(self, aim_angle, dx, dy):
-        self.locomotion.update(aim_angle, dx, dy)
+        self.locomotion.update(aim_angle, dx, dy, reverse_backstep=True)
 
     @property
     def frame_index(self):

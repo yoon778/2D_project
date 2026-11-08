@@ -175,7 +175,7 @@ class AtlasGeometryTests(unittest.TestCase):
             visual = self.make_visual()
             for index, displacement in enumerate(self.frame_steps(facing)):
                 with self.subTest(facing=facing, frame=index):
-                    visual.update(angle, displacement, 0.0)
+                    visual.update(angle, displacement * math.cos(angle), displacement * math.sin(angle))
                     self.assertEqual(visual.locomotion.facing, facing)
                     self.assertEqual(visual.frame_index, index)
                     frame = self.metadata["frames"][facing][index]
@@ -201,7 +201,7 @@ class AtlasGeometryTests(unittest.TestCase):
                     frame = metadata["frames"][facing][index]
                     visual = self.make_visual(metadata)
                     distance = (index - 0.5) * STRIDE_DISTANCE / 8 if index else 0.0
-                    visual.update(angle, distance, 0.0)
+                    visual.update(angle, distance * math.cos(angle), distance * math.sin(angle))
                     self.assertEqual(visual.frame_index, index)
                     arguments = self.draw_arguments(visual, frame, (500.0, 300.0))
                     scale = metadata["display_height"] / frame["scale_reference_height"]
@@ -226,7 +226,9 @@ class AtlasGeometryTests(unittest.TestCase):
                 metadata = deepcopy(self.metadata)
                 visual = self.make_visual(metadata)
                 count = len(metadata["frames"][facing]) - 1
-                visual.update(angle, (index - 0.5) * STRIDE_DISTANCE / count, 0.0)
+                distance = (index - 0.5) * STRIDE_DISTANCE / count
+                visual.update(angle, distance * math.cos(angle), distance * math.sin(angle))
+                self.assertEqual(visual.frame_index, index)
                 before_state, before_metadata = asdict(visual.locomotion), deepcopy(metadata)
                 frame = metadata["frames"][facing][index]
                 first = self.draw_arguments(visual, frame, (400.0, 250.0))

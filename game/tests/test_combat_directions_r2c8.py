@@ -188,11 +188,13 @@ class DirectionInputTests(unittest.TestCase):
                     self.assertEqual(state["angle"], states[0]["angle"])
                     self.assertTrue(choice["drawn"])
                 self.assertGreater(abs(math.remainder(frames[-1]["aim_angle"] - states[0]["angle"], math.tau)), 2)
-                self.assertAlmostEqual(states[-1]["phase"], .37 + 3 / 64)
+                direction = -1 if index % 3 == 1 else 1
+                self.assertAlmostEqual(states[-1]["phase"], .37 + direction * 3 / 64)
                 self.assertAlmostEqual(math.dist((480, 180), (frames[-1]["x"], frames[-1]["y"])), 3)
 
     def test_eight_facings_wall_stop_restart_and_recovery_keep_distance_phase(self):
-        for facing, _ in DIRECTIONS:
+        vectors = dict(DIRECTIONS)
+        for facing, (_, facing_y) in DIRECTIONS:
             with self.subTest(facing=facing):
                 frames, states, choices = self.observe(
                     [click(facing, (480, 316)), ("down", main.p.SDLK_w)],
@@ -202,13 +204,17 @@ class DirectionInputTests(unittest.TestCase):
                 self.assertEqual([choice["walk"] == 0 for choice in choices[:4]], [True, False, True, False])
                 self.assertTrue(all(choice["drawn"] for choice in choices[:4]))
                 self.assertEqual(states[0]["phase"], .23)
-                self.assertAlmostEqual(states[1]["phase"], .23 + 1 / 64)
+                south_direction = -1 if facing_y > 0 else 1
+                self.assertAlmostEqual(states[1]["phase"], .23 + south_direction / 64)
                 self.assertEqual(states[1]["phase"], states[2]["phase"])
-                distance, previous = 0.0, (480, 316)
+                signed_distance, previous = 0.0, (480, 316)
                 for frame, state in zip(frames, states):
                     current = (frame["x"], frame["y"])
-                    distance += math.dist(previous, current)
-                    self.assertAlmostEqual(state["phase"], (.23 + distance / 64) % 1)
+                    dx, dy = current[0] - previous[0], current[1] - previous[1]
+                    fx, fy = vectors[state["display_facing"]]
+                    direction = -1 if dx * fx + dy * fy < 0 else 1
+                    signed_distance += direction * math.dist(previous, current)
+                    self.assertAlmostEqual(state["phase"], (.23 + signed_distance / 64) % 1)
                     previous = current
                 self.assertIsNone(states[-1]["attack"])
                 self.assertEqual({choice["attack_index"] for choice in choices
@@ -217,7 +223,7 @@ class DirectionInputTests(unittest.TestCase):
                 self.assertGreater(choices[-1]["walk"], 0)
 
     def test_eight_facings_focus_pause_and_r_clear_input_attack_and_phase(self):
-        for facing, _ in DIRECTIONS:
+        for facing, (facing_x, _) in DIRECTIONS:
             with self.subTest(facing=facing):
                 frames, states, choices = self.observe(
                     [click(facing), ("down", main.p.SDLK_d)],
@@ -228,7 +234,8 @@ class DirectionInputTests(unittest.TestCase):
                 self.assertEqual(choices[1]["walk"], 0)
                 self.assertEqual(states[0]["elapsed"], states[1]["elapsed"])
                 self.assertEqual(states[0]["phase"], states[1]["phase"])
-                self.assertAlmostEqual(states[2]["phase"], .3 + 2 / 64)
+                direction = -1 if facing_x < 0 else 1
+                self.assertAlmostEqual(states[2]["phase"], .3 + direction * 2 / 64)
                 self.assertEqual((frames[3]["x"], frames[3]["y"], states[3]["phase"]), (480, 180, 0))
                 self.assertIsNone(states[3]["attack"])
                 self.assertFalse(choices[3]["drawn"])

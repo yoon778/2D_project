@@ -100,28 +100,41 @@ class AttackWalkInputTests(unittest.TestCase):
         self.assertTrue(all(c["walk"] == 0 and c["drawn"] for c in choices))
         self.assertTrue(all(s["phase"] == .4 for s in states))
 
-    def test_forward_backward_and_strafe_advance_by_actual_distance(self):
-        for key in (main.p.SDLK_a, main.p.SDLK_s, main.p.SDLK_d):
+    def test_forward_backward_and_strafe_share_the_walk_phase_during_attack(self):
+        for key, direction in ((main.p.SDLK_a, -1), (main.p.SDLK_w, 1), (main.p.SDLK_d, 1)):
             with self.subTest(key=key):
                 _, states, choices = self.observe(
-                    [("click", 760, 569), ("down", key)], {2: [("quit",)]})
-                self.assertEqual([c["walk"] for c in choices], [1, 1])
-                self.assertAlmostEqual(states[1]["phase"], 2 / 64)
+                    [("click", 1120, 521), ("down", key)], {2: [("quit",)]})
+                walk = 8 if direction < 0 else 1
+                self.assertEqual([c["walk"] for c in choices], [walk, walk])
+                self.assertTrue(all(c["drawn"] for c in choices))
+                self.assertAlmostEqual(states[1]["phase"], (direction * 2 / 64) % 1)
 
     def test_attack_end_preserves_phase_and_returns_to_normal_walking(self):
-        frames, states, choices = self.observe(
-            [("click", 760, 569), ("down", main.p.SDLK_d)], {40: [("quit",)]}, 41, phase=.2)
-        distance = 0.0
-        previous = (480, 180)
-        for frame, state in zip(frames, states):
-            point = (frame["x"], frame["y"])
-            distance += math.dist(previous, point)
-            self.assertAlmostEqual(state["phase"], (.2 + distance / 64) % 1)
-            previous = point
-        self.assertEqual({c["attack_index"] for c in choices if c["attack_index"] is not None}, set(range(12)))
-        self.assertIsNone(states[-1]["attack"])
-        self.assertFalse(choices[-1]["drawn"])
-        self.assertGreater(choices[-1]["walk"], 0)
+        original_draw = main.PlayerVisual.draw
+        for key, direction in ((main.p.SDLK_d, 1), (main.p.SDLK_a, -1)):
+            with self.subTest(direction=direction):
+                walk_draws = []
+
+                def draw_walk(visual, *args):
+                    walk_draws.append(visual.frame_index)
+                    return original_draw(visual, *args)
+
+                with patch.object(main.PlayerVisual, "draw", draw_walk):
+                    frames, states, choices = self.observe(
+                        [("click", 1120, 521), ("down", key)], {40: [("quit",)]}, 41, phase=.2)
+                distance = 0.0
+                previous = (480, 180)
+                for frame, state in zip(frames, states):
+                    point = (frame["x"], frame["y"])
+                    distance += math.dist(previous, point)
+                    self.assertAlmostEqual(state["phase"], (.2 + direction * distance / 64) % 1)
+                    previous = point
+                self.assertEqual({c["attack_index"] for c in choices if c["attack_index"] is not None}, set(range(12)))
+                self.assertIsNone(states[-1]["attack"])
+                self.assertFalse(choices[-1]["drawn"])
+                self.assertGreater(choices[-1]["walk"], 0)
+                self.assertEqual(walk_draws[-1], choices[-1]["walk"])
 
     def test_focus_pause_and_reset_choose_static_or_normal_without_extra_phase(self):
         _, states, choices = self.observe(
