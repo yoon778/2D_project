@@ -89,6 +89,7 @@
   "back":{
     "nearArm":"right","bothBehind":true,"core":[32,27,49,45],"waistY":45,"protectFromY":58,
     "pantsRestore":[[33,44],[47,44],[49,56],[31,56]],"pantsTextureOffset":[0,0],
+    "middle":{"8":{"right":{"fraction":0.08}}},
     "arms":{
       "right":{
         "shoulder":[50,29],"elbow":[51,37],"wrist":[52,45],"tip":[53,51],"bend":1,

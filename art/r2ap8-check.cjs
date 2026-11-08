@@ -19,6 +19,7 @@ const baseline = '9d6e1d3'
 const recoveryBaseline = '0c7eb9a'
 const fullSwingBaseline = '57f13de'
 const movingSwingBaseline = 'db03c9c'
+const zombieRecoveryBaseline = '7803fc3'
 const directions = facings.filter(facing => facing !== 'front_right')
 const zombieFile = 'game/assets/zombie/r2za-zombie-attack-20261106'
 const combat = 'game/assets/combat'
@@ -60,7 +61,7 @@ function clearPixels(image, width, coords, left, top) {
 async function checkRecoveryScope(preview) {
   const atlasFile = 'game/assets/player/r1b-courier-atlas-20261104.json'
   const expectedAtlas = JSON.parse(original(atlasFile, recoveryBaseline))
-  const changed = [atlasFile, ...swingImages.map(image => `${combat}/${image}`)]
+  const changed = [atlasFile, ...swingImages.map(image => `${combat}/${image}`), zombieFile + '.png', zombieFile + '.json']
   for (const facing of Object.keys(recoveryRows)) {
     const slug = facing.replaceAll('_', '-')
     const walkFile = `game/assets/player/r1-consistent-${slug}-20261105.png`
@@ -232,6 +233,17 @@ async function checkZombie(preview) {
   const oldMeta = JSON.parse(original(zombieFile + '.json'))
   const old = await raw(original(zombieFile + '.png'))
   const result = await zombie.makeAtlas()
+  const recoveryMeta = JSON.parse(original(zombieFile + '.json', zombieRecoveryBaseline))
+  const recoveryPixels = await raw(original(zombieFile + '.png', zombieRecoveryBaseline))
+  const recoveryFrame = result.metadata.facings.back[8]
+  const [left, top] = recoveryFrame.clip_topleft
+  for (let y = top; y < top + 58; y++) {
+    const offset = (y * 640 + left) * 4
+    result.pixels.copy(recoveryPixels, offset, offset, offset + 80 * 4)
+  }
+  assert(result.pixels.equals(recoveryPixels), 'zombie recovery keeps every other cell and the boots')
+  recoveryMeta.facings.back[8].opaque_rows = recoveryFrame.opaque_rows
+  assert.deepEqual(result.metadata, recoveryMeta, 'only the back recovery mask may change')
   const baselineLayout = structuredClone(result.metadata)
   for (const facing of directions) {
     for (const [i, frame] of baselineLayout.facings[facing].entries()) {
