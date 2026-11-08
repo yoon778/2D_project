@@ -11,3 +11,5 @@
 최종 시안의 GIF는 192×192px 6프레임으로 재생된다. 타격 240ms, 종료 660ms를 인코딩 결과에서 확인했다. 미리보기는 `output/review/R2-SF6-ARM-art/joint-sheet.png`와 `swing-192.gif`에 있다. 재생성 검사는 `node art/player/swing-studies/r2sf6-arm/bake.cjs --check`로 실행한다.
 
 동일한 시안을 Windows 숨김 SDL 실행에 임시 주입했다. 239ms에는 7거리 모두 방망이가 분리됐고, 240ms에는 36·44·60·79.9px에서 접촉과 체력 5→4를 확인했다. 120·160px는 분리된 채 헛스윙, 80.1px는 화면상 겹치지만 피해가 없었다. 제품 입력 해시를 대조했다. 캡처와 결과는 `output/review/R2-SF6-ARM-logic/candidate/`에 있다.
+
+11/9 방망이 조정. 준비에서 방망이 끝을 어깨 뒤로 올리고, 회전에서 몸통 위로 지나가며, 통과에서는 다리 바깥으로 내려가도록 세 자세를 보정했다. 손잡이 위치와 240ms 타격 셀을 기준으로 재생성하고 PNG에서 바뀐 세 셀을 확인했다. 새 시안을 임시 로딩한 Windows SDL 재검수에서 7거리의 명중·헛스윙 결과가 위와 일치했다. 비교는 `output/review/R2-SF6-ARM-bat/bat-before-after.png`, 재검수는 같은 폴더의 `candidate/summary.json`에 있다.

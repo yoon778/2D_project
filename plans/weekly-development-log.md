@@ -160,6 +160,7 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/8 | [R2-SF6](r2sf6-swing-study.md) PixelLab 자세를 참고한 앞오른쪽 전신 6장 시안과 180·240ms GIF 비교. 표시 시점과 기존 에셋 재생성 검수 | 게임 적용 전 시안 선택 대기 | `6e3e49c` |
 | 11/8 | [R2-SF6 B안 적용](r2sf6-game-contract.md) 앞오른쪽 정지 240ms 타격과 전신 6자세 연결. Windows 명중·헛스윙 대조와 자동 테스트 192개 통과 | 사용자 직접 조작 확인 대기 | `224cccb`, `e579606` |
 | 11/8 | [R2-SF6-ARM](r2sf6-arm-study.md) 한 손 스윙 전신 6자세 시안. 관절점 시트·192px GIF, 시안 임시 로딩으로 7거리 타격 검수 | 게임 적용 전 시안 확인 대기 | `c3090f2` |
+| 11/9 | [R2-SF6-ARM 방망이 조정](r2sf6-arm-study.md) 준비·회전·통과 방망이 위치 보완, 시안 7거리 240ms 재검수 | 게임 적용 전 시안 확인 대기 | 이 커밋 |
 
 현재 정지 공격은 [R2-SF6 적용 검수](r2sf6-game-contract.md) 참조. [R2-SFW 정지 공격](handoffs/r2sfw-stationary-swing-review.md), [R2-RWH 좌우 허리 접합](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합), [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
 
