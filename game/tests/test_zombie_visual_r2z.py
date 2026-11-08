@@ -222,7 +222,8 @@ class ZombieQueueTests(unittest.TestCase):
         original_load = main.p.load_image
         with patch.object(main.p, "load_image", wraps=original_load) as load:
             states = self.observe([], {1: [("lost",), ("gained",)], 3: [("down", main.p.SDLK_r)], 4: [("quit",)]})
-        self.assertEqual(load.call_count, 47)
+        self.assertEqual(load.call_count, 48)
+        self.assertEqual(sum(call.args == (str(main.TRASH_CAN_PATH),) for call in load.call_args_list), 1)
         self.assertAlmostEqual(states[0]["phase"], 1.5 / 64)
         self.assertEqual(states[0]["phase"], states[1]["phase"])
         self.assertEqual(states[0]["position"], states[1]["position"])

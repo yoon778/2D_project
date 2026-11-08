@@ -61,6 +61,17 @@ class ProjectionTests(unittest.TestCase):
 
 
 class DepthOrderTests(unittest.TestCase):
+    def test_prop_uses_ground_depth_and_precedes_characters_on_ties(self):
+        prop = (365.0, 300.0)
+        for player_y, zombie_y, kinds in (
+            (301.0, 299.0, ["player", "prop", "zombie"]),
+            (299.0, 301.0, ["zombie", "prop", "player"]),
+            (300.0, 300.0, ["prop", "zombie", "player"]),
+        ):
+            with self.subTest(player_y=player_y, zombie_y=zombie_y):
+                drawn = sorted_drawables(Player(y=player_y), [], Player(y=zombie_y), prop=prop)
+                self.assertEqual([kind for kind, _ in drawn], kinds)
+
     def test_player_behind_in_front_and_on_wall_baseline(self):
         wall = Wall(400.0, 330.0, 220.0, 60.0)
         for player_y, kinds in (

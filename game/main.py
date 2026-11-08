@@ -23,6 +23,8 @@ GROUND_Y = 90.0
 GROUND_SCALE_Y = 0.60
 WALL_HEIGHT = 110
 BASE_DIR = Path(__file__).resolve().parent
+TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
+TRASH_CAN_POSITION = (365.0, 300.0)
 WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
@@ -41,13 +43,14 @@ def sdl_to_world(x, y):
     return screen_to_world(x, WINDOW_HEIGHT - 1 - y)
 
 
-def sorted_drawables(player, walls, zombie=None):
-    # Stable ties: wall before player, so the player is drawn last at equal y.
-    objects = [("wall", wall) for wall in walls]
+def sorted_drawables(player, walls, zombie=None, *, prop=None):
+    # Stable ties: the prop precedes walls and characters at the same ground y.
+    objects = [("prop", prop)] if prop is not None else []
+    objects.extend(("wall", wall) for wall in walls)
     if zombie is not None:
         objects.append(("zombie", zombie))
     objects.append(("player", player))
-    return sorted(objects, key=lambda item: -item[1].y)
+    return sorted(objects, key=lambda item: -(item[1][1] if item[0] == "prop" else item[1].y))
 
 
 def mouse_target(world, visual, mouse_x, mouse_y):
@@ -71,17 +74,22 @@ class Renderer:
         self.font = None
         self.player_visual = None
         self.combat_visual = None
+        self.trash_can = None
         self.combat = None
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
             self.player_visual = PlayerVisual()
             self.combat_visual = CombatVisual()
+            self.trash_can = p.load_image(str(TRASH_CAN_PATH))
+            if p.SDL_SetTextureScaleMode(self.trash_can.texture, p.SDL_ScaleModeNearest) != 0:
+                raise RuntimeError(f"Trash can nearest sampling failed: {p.SDL_GetError()!r}")
         except Exception:
             self.close()
             raise
 
     def close(self):
+        self.trash_can = None
         if self.combat_visual is not None:
             self.combat_visual.close()
             self.combat_visual = None
@@ -122,8 +130,12 @@ class Renderer:
         self.floor()
         foot = world_to_screen(player.x, player.y)
         combat = getattr(self, "combat", None)
-        for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None):
-            if kind == "wall":
+        for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None,
+                                            prop=TRASH_CAN_POSITION):
+            if kind == "prop":
+                x, y = world_to_screen(*actor)
+                self.trash_can.draw(x, y + self.trash_can.h, self.trash_can.w * 2, self.trash_can.h * 2)
+            elif kind == "wall":
                 self.wall(actor)
             elif kind == "zombie":
                 self.combat_visual.draw_zombie(actor, *world_to_screen(actor.x, actor.y))
