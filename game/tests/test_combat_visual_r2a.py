@@ -13,7 +13,7 @@ sys.path.insert(0, str(TEST_DIR.parent))
 
 import main
 import combat_visual
-from combat import CombatWorld
+from combat import CombatWorld, STUN_DURATION
 from combat_visual import CombatVisual, METADATA_PATH
 import test_visual_input_r1a as input_fixture
 
@@ -102,12 +102,13 @@ class CombatSpriteTests(unittest.TestCase):
             self.assertEqual(world.zombie.hp, 5 if boundary < .18 else 4)
             self.assertEqual(world.player_hp, 3)
             if boundary >= .18:
-                self.assertAlmostEqual(world.zombie.stun_remaining, .4 - (boundary - .18))
+                self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - (boundary - .18))
             self.assertFalse(world.start_attack())
             previous = boundary
         world.update(.6 - previous)
         self.assertIsNone(world.attack)
-        self.assertEqual((world.zombie.hp, world.player_hp, world.zombie.stun_remaining), (4, 3, 0.0))
+        self.assertEqual((world.zombie.hp, world.player_hp), (4, 3))
+        self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - .42)
         self.assertTrue(world.start_attack())
 
     def test_zombie_pick_uses_opaque_pixels_not_the_transparent_cell(self):
@@ -128,7 +129,7 @@ class CombatSpriteTests(unittest.TestCase):
         zombie = CombatWorld().zombie
         zombie.aim_angle = -math.pi / 4
         atlas_height = self.visual.metadata["zombie"]["canvas_size"][1]
-        for hp, stun, x, row in ((5, 0, 80, 0), (4, .4, 80, 9), (0, .4, 0, 13)):
+        for hp, stun, x, row in ((5, 0, 80, 0), (4, STUN_DURATION, 80, 9), (0, .4, 0, 13)):
             zombie.hp, zombie.stun_remaining = hp, stun
             self.visual.update_zombie(zombie, 0, 0)
             self.visual.draw_zombie(zombie, 100, 200)

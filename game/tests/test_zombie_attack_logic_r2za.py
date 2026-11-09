@@ -2,7 +2,7 @@
 import math
 import unittest
 
-from game.combat import CombatWorld
+from game.combat import CombatWorld, STUN_DURATION
 from game.core import Wall
 
 
@@ -109,7 +109,7 @@ class ZombieAttackLogicTests(unittest.TestCase):
         cancelled = world.zombie.attack
         self.assertTrue(world.start_attack())
         world.update(.18)
-        self.assertEqual((world.player_hp, world.zombie.hp, world.zombie.stun_remaining), (3, 4, .4))
+        self.assertEqual((world.player_hp, world.zombie.hp, world.zombie.stun_remaining), (3, 4, STUN_DURATION))
         self.assertIsNone(world.zombie.attack)
         self.assertFalse(cancelled._hit_done)
         world.update(.3)

@@ -13,7 +13,7 @@ sys.path.insert(0, str(TEST_DIR.parent))
 
 import main
 import combat_visual
-from combat import CombatWorld
+from combat import CombatWorld, STUN_DURATION
 from combat_visual import CombatVisual
 import test_visual_input_r1a as input_fixture
 
@@ -116,6 +116,9 @@ class ZombiePoseTests(unittest.TestCase):
                              self.visual.metadata["zombie"]["facings"]["left"]["hit"][index])
             previous = elapsed
         self.advance(world, .4 - previous)
+        self.assertEqual(self.visual._zombie_frame(world.zombie),
+                         self.visual.metadata["zombie"]["facings"]["left"]["hit"][-1])
+        self.advance(world, STUN_DURATION - .4)
         self.assertEqual(world.zombie.stun_remaining, 0)
         moved = self.advance(world, .02)
         self.assertAlmostEqual(self.visual.zombie_locomotion.phase, phase + moved / 64)
@@ -139,7 +142,7 @@ class ZombiePoseTests(unittest.TestCase):
             poses = self.visual.metadata["zombie"]["facings"][facing]
             cases = [(0, 0, poses["idle"])]
             cases += [(index + 1, 0, frame) for index, frame in enumerate(poses["walk"])]
-            cases += [(0, .4 - frame["start"], frame) for frame in poses["hit"]]
+            cases += [(0, STUN_DURATION - frame["start"], frame) for frame in poses["hit"]]
             for walk, stun, frame in cases:
                 zombie.stun_remaining = stun
                 motion = self.visual.zombie_locomotion
@@ -246,10 +249,10 @@ class ZombieQueueTests(unittest.TestCase):
     def test_real_attack_selects_all_four_hit_steps_then_resumes_chase(self):
         def setup(world):
             world.zombie.x, world.zombie.y = 520, 140
-        states = self.observe([("click", 680, 545)], {40: [("quit",)]}, 41, setup)
+        states = self.observe([("click", 680, 545)], {52: [("quit",)]}, 53, setup)
         hit = [state for state in states if state["stun"] > 0]
         self.assertEqual({state["row"] for state in hit}, {9, 10, 11, 12})
-        recoil_seen = 8 * (hit[0]["stun"] - 0.30) / 0.10
+        recoil_seen = 8 * (hit[0]["stun"] - (STUN_DURATION - 0.10)) / 0.10
         self.assertAlmostEqual(math.dist(hit[-1]["position"], hit[0]["position"]), recoil_seen)
         self.assertTrue(all(state["phase"] == hit[0]["phase"] for state in hit))
         self.assertTrue(states[-1]["moving"])

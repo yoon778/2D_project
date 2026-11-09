@@ -14,7 +14,7 @@ sys.path.insert(0, str(TEST_DIR.parent))
 
 import main
 import combat_visual
-from combat import CombatWorld
+from combat import CombatWorld, STUN_DURATION
 from combat_visual import CombatVisual, METADATA_PATH
 import test_attack_walk_visual as walk_fixture
 from test_combat_visual_r2a import combat_metadata
@@ -97,13 +97,13 @@ class DirectionSpriteTests(unittest.TestCase):
                     self.assertEqual(self.visual.attack_frame_index(world.attack), index)
                     self.assertEqual((world.player_hp, world.zombie.hp), (3, 5 if boundary < .18 else 4))
                     if boundary >= .18:
-                        self.assertAlmostEqual(world.zombie.stun_remaining, .4 - (boundary - .18))
+                        self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - (boundary - .18))
                     self.assertFalse(world.start_attack(facing))
                     previous = boundary
                 world.update(.6 - previous)
                 self.assertIsNone(world.attack)
                 self.assertEqual((world.player_hp, world.zombie.hp, world.result), (3, 4, "playing"))
-                self.assertEqual(world.zombie.stun_remaining, 0.0)
+                self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - .42)
                 self.assertTrue(world.start_attack(facing))
 
     def test_unknown_facing_and_unsupported_elapsed_do_not_draw(self):

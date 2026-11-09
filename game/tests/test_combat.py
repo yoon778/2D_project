@@ -33,7 +33,7 @@ class CombatTests(unittest.TestCase):
         world.update(0.05)
         self.assertEqual(world.zombie.hp, 4)
         self.assertTrue(world.attack.landed)
-        self.assertAlmostEqual(world.zombie.stun_remaining, 0.35)
+        self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - 0.05)
         self.assertAlmostEqual(world.zombie.x, position[0] + 4.0)
         self.assertEqual(world.zombie.y, position[1])
         self.assertFalse(world.start_attack())
@@ -70,6 +70,27 @@ class CombatTests(unittest.TestCase):
         self.assertIsNone(world.attack)
         self.assertTrue(world.start_attack())
         self.assertFalse(world.attack.stationary_front_right)
+
+    def test_player_can_step_back_before_zombie_resumes_pursuit(self):
+        world = self.make_world(angle=-math.pi / 4)
+        origin = (world.player.x, world.player.y)
+        world.start_attack(stationary_front_right=True)
+        world.update(0.66, -1, 1)
+        self.assertIsNone(world.attack)
+        self.assertEqual((world.player.x, world.player.y), origin)
+        self.assertEqual(world.zombie.hp, 4)
+        zombie_position = (world.zombie.x, world.zombie.y)
+        self.assertAlmostEqual(world.zombie.stun_remaining, 0.16)
+
+        world.update(0.16, -1, 1)
+        self.assertEqual((world.zombie.x, world.zombie.y), zombie_position)
+        gap_before = math.dist(origin, zombie_position)
+        gap_after = math.dist((world.player.x, world.player.y), zombie_position)
+        self.assertAlmostEqual(gap_after - gap_before, 14.4)
+        self.assertEqual(world.zombie.stun_remaining, 0.0)
+
+        world.update(0.02)
+        self.assertAlmostEqual(math.dist((world.zombie.x, world.zombie.y), zombie_position), 1.8)
 
     def test_stationary_profile_remains_locked_through_wall_contact_and_movement(self):
         world = CombatWorld()
@@ -241,9 +262,9 @@ class CombatTests(unittest.TestCase):
         world.attack.elapsed = 0.179
         position = (world.zombie.x, world.zombie.y)
         world.update(0.001)
-        self.assertEqual((world.zombie.hp, world.zombie.stun_remaining, world.player_hp), (4, 0.4, 3))
+        self.assertEqual((world.zombie.hp, world.zombie.stun_remaining, world.player_hp), (4, STUN_DURATION, 3))
         self.assertEqual((world.zombie.x, world.zombie.y), position)
-        world.update(0.399)
+        world.update(STUN_DURATION - 0.001)
         self.assertEqual(world.player_hp, 3)
         self.assertAlmostEqual(world.zombie.x, position[0] + 8.0)
         self.assertEqual(world.zombie.y, position[1])
@@ -262,7 +283,7 @@ class CombatTests(unittest.TestCase):
         self.assertEqual(world.zombie.x, 540.0)
         world.update(0.10)
         self.assertEqual((world.zombie.x, world.zombie.y), (544.0, 180.0))
-        self.assertAlmostEqual(world.zombie.stun_remaining, 0.30)
+        self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - 0.10)
         world.update(0.20)
         self.assertEqual((world.zombie.x, world.zombie.y), (544.0, 180.0))
 

@@ -2,7 +2,7 @@
 import math
 import unittest
 
-from game.combat import CombatWorld
+from game.combat import CombatWorld, STUN_DURATION
 from game.core import Wall
 from game.locomotion import Locomotion
 
@@ -90,7 +90,7 @@ class AttackWalkLogicTests(unittest.TestCase):
         world.zombie.y = world.player.y - 60 / math.sqrt(2)
         world.start_attack()
         self.advance(world, motion, 0.18, (-1, 1))
-        self.assertEqual((world.player_hp, world.zombie.hp, world.zombie.stun_remaining), (3, 4, 0.4))
+        self.assertEqual((world.player_hp, world.zombie.hp, world.zombie.stun_remaining), (3, 4, STUN_DURATION))
         before = (world.player.x, world.player.y, world.zombie.x, world.zombie.y,
                   world.attack.elapsed, world.player_hp, world.zombie.hp,
                   world.zombie.stun_remaining, world.player_invulnerable_remaining, motion.phase)
@@ -103,7 +103,7 @@ class AttackWalkLogicTests(unittest.TestCase):
             self.assertEqual(motion.walk_frame_index(8), 0)
         self.advance(world, motion, 0.1, (-1, 1))
         self.assertAlmostEqual(world.attack.elapsed, 0.28)
-        self.assertAlmostEqual(world.zombie.stun_remaining, 0.3)
+        self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - 0.1)
         self.assertEqual(motion.phase, before[-1])
         self.assertFalse(motion.moving)
 
@@ -115,9 +115,9 @@ class AttackWalkLogicTests(unittest.TestCase):
                 world.zombie.y = world.player.y - 60 / math.sqrt(2)
                 world.start_attack()
                 for dt, elapsed, hp, stun in ((0.179, 0.179, 5, 0.0),
-                                               (0.001, 0.18, 4, 0.4),
-                                               (0.1, 0.28, 4, 0.3),
-                                               (0.32, 0.6, 4, 0.0)):
+                                               (0.001, 0.18, 4, STUN_DURATION),
+                                               (0.1, 0.28, 4, STUN_DURATION - 0.1),
+                                               (0.32, 0.6, 4, STUN_DURATION - 0.42)):
                     self.advance(world, motion, dt, axis)
                     self.assertEqual((world.player_hp, world.zombie.hp, world.result), (3, hp, "playing"))
                     self.assertAlmostEqual(world.zombie.stun_remaining, stun)

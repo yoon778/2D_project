@@ -11,7 +11,7 @@ TEST_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(TEST_DIR))
 sys.path.insert(0, str(TEST_DIR.parent))
 
-from combat import CombatWorld, ZombieAttack
+from combat import CombatWorld, STUN_DURATION, ZombieAttack
 from combat_visual import CombatVisual
 import test_zombie_visual_r2z as zombie_fixture
 
@@ -71,7 +71,7 @@ class ZombieAttackSpriteTests(unittest.TestCase):
         self.visual.zombie_locomotion.phase = .37
         self.visual.update_zombie(zombie, 0, 0)
         self.assertEqual(self.visual._zombie_pose(zombie)[0], "zombie_attack")
-        zombie.stun_remaining = .4
+        zombie.stun_remaining = STUN_DURATION
         self.assertEqual(self.visual._zombie_pose(zombie),
                          ("zombie", self.visual.metadata["zombie"]["facings"]["front_right"]["hit"][0]))
         zombie.hp = 0
