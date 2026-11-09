@@ -37,6 +37,9 @@ def runtime_files():
         for key in {frame["source"] for frame in frames}:
             add_sprite(files, player_path.parent, player["sources"][key], empty=facing not in ("back", "back_right"))
 
+    if "sprint" in player:
+        add_sprite(files, player_path.parent, player["sprint"], empty=True)
+
     combat_path, combat = metadata_assets("combat/r2a-combat-20261106.json")
     files.add(combat_path)
     for name, source in combat.items():

@@ -482,7 +482,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.delivery = world
             renderer.player_visual.display_scale = DELIVERY_CHARACTER_SCALE
             renderer.combat_visual.display_scale = DELIVERY_CHARACTER_SCALE
-            renderer.player_visual.load_empty_hands()
+            renderer.player_visual.load_delivery_sprites()
             renderer.combat_visual.load_empty_hands()
         player, walls = world.player, world.walls
         pressed = set()
@@ -626,7 +626,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             if active and strike is None and world.result == "playing":
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
-            renderer.player_visual.update(display_angle, dx, dy)
+            renderer.player_visual.update(display_angle, dx, dy, sprinting=delivery_run and world.sprinting)
             renderer.draw(player, walls, target, focused)
             if smoke_test:
                 output = BASE_DIR.parent / "output/review/R2-C8" / f"ui-{name}.png"

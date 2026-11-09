@@ -59,7 +59,8 @@ class Locomotion:
     moving: bool = False
     _initialized: bool = field(default=False, init=False, repr=False)
 
-    def update(self, aim_angle: float, dx: float, dy: float, *, reverse_backstep: bool = False) -> None:
+    def update(self, aim_angle: float, dx: float, dy: float, *, reverse_backstep: bool = False,
+               stride_distance: float = STRIDE_DISTANCE) -> None:
         self.moving = False
         if not _finite(aim_angle, dx, dy):
             return
@@ -71,7 +72,7 @@ class Locomotion:
         if distance > 1e-6:
             self.moving = True
             # Reduce before adding to preserve the old phase for large distances.
-            phase_delta = (distance % STRIDE_DISTANCE) / STRIDE_DISTANCE
+            phase_delta = (distance % stride_distance) / stride_distance
             if reverse_backstep and is_backstep(self.facing, dx, dy):
                 phase_delta = -phase_delta
             self.phase = (self.phase + phase_delta) % 1.0

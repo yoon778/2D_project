@@ -26,8 +26,8 @@ class LocomotionLoopTests(unittest.TestCase):
         original_run = main.run
         original_world = main.CombatWorld
 
-        def update(visual, aim_angle, dx, dy):
-            original_update(visual, aim_angle, dx, dy)
+        def update(visual, aim_angle, dx, dy, **kwargs):
+            original_update(visual, aim_angle, dx, dy, **kwargs)
             locomotion = visual.locomotion
             updates.append({
                 "aim_angle": aim_angle, "dx": dx, "dy": dy,

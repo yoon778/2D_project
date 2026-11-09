@@ -15,6 +15,12 @@
     232
   ],
   "display_height": 128,
+  "sprint": {
+    "facing": "front_right",
+    "image": "r8d-sprint-front-right.png",
+    "canvas_size": [320, 160],
+    "stride_distance": 96
+  },
   "sampling": "nearest",
   "grid": {
     "columns": 3,

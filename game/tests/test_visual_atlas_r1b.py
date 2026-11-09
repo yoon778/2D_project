@@ -110,7 +110,7 @@ class AtlasGeometryTests(unittest.TestCase):
         self.assertEqual(canonical_hash({name: sources[name] for name in PRESERVED_SOURCE_HASHES}),
                          BASELINE_SOURCES)
         legacy = {key: value for key, value in metadata.items()
-                  if key not in ("sources", "frames", "edited_on", "review_status")}
+                  if key not in ("sources", "frames", "edited_on", "review_status", "sprint")}
         self.assertEqual(canonical_hash(legacy), BASELINE_LEGACY_TOP_VALUES)
         master = METADATA_PATH.parents[3] / "art/player/style-studies/eight-direction-consistency/turnaround-idle-64-v3.png"
         self.assertEqual(hashlib.sha256(master.read_bytes()).hexdigest(), APPROVED_IDLE_MASTER_SHA256)
@@ -211,6 +211,32 @@ class AtlasGeometryTests(unittest.TestCase):
                     frame["clip_topleft"][3] = max(1, frame["clip_topleft"][3] // 2)
                     changed_height = self.draw_arguments(visual, frame, (500.0, 300.0))[7]
                     self.assertAlmostEqual(changed_height / frame["clip_topleft"][3], scale, places=9)
+
+    def test_sprint_preserves_walk_phase_and_selects_both_atlases(self):
+        visual = self.make_visual()
+        visual.display_scale = 0.75
+        visual.images["sprint"] = SimpleNamespace(h=160, clip_draw=Mock())
+        visual.empty_images = {"sprint": SimpleNamespace(h=160, clip_draw=Mock())}
+        angle = -math.pi / 4
+
+        visual.update(angle, 8 / math.sqrt(2), -8 / math.sqrt(2))
+        self.assertEqual(visual.frame_index, 2)
+        visual.update(angle, 12 / math.sqrt(2), -12 / math.sqrt(2), sprinting=True)
+        self.assertTrue(visual.sprinting)
+        self.assertAlmostEqual(visual.locomotion.phase, 0.25)
+        self.assertEqual(visual.frame_index, 3)
+        for key, empty in (("images", False), ("empty_images", True)):
+            visual.draw(500, 300, empty_handed=empty)
+            getattr(visual, key)["sprint"].clip_draw.assert_called_once_with(
+                160, 80, 80, 80, 500, 348, 120, 120)
+
+        visual.update(angle, 8 / math.sqrt(2), -8 / math.sqrt(2))
+        self.assertFalse(visual.sprinting)
+        self.assertAlmostEqual(visual.locomotion.phase, 0.375)
+        self.assertEqual(visual.frame_index, 4)
+        visual.update(angle, 1e-7, -1e-7, sprinting=True)
+        self.assertFalse(visual.sprinting)
+        self.assertEqual(visual.frame_index, 0)
 
     def test_draw_translation_preserves_size_state_and_metadata(self):
         for facing, angle, index in (("front_right", -math.pi / 4, 4),

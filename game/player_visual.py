@@ -2,24 +2,30 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pico2d.pico2d as p
-from locomotion import Locomotion
+from locomotion import Locomotion, STRIDE_DISTANCE, select_facing
 
 
 METADATA_PATH = Path(__file__).resolve().parent / "assets/player/r1b-courier-atlas-20261104.json"
 PARCEL_OCCLUDED_FACINGS = {"back", "back_right"}
 
 
-def load_empty_atlas(path, canvas_size):
-    variant = path.with_stem(path.stem + "-empty")
-    image = p.load_image(str(variant))
+def load_atlas(path, canvas_size):
+    if not path.is_file():
+        raise FileNotFoundError(f"R1-B sprite source not found: {path}")
+    image = p.load_image(str(path))
     if [image.w, image.h] != canvas_size:
-        raise ValueError(f"Empty-handed sprite canvas differs from metadata: {variant}")
+        raise ValueError(f"R1-B source canvas differs from metadata: {path}")
     if p.SDL_SetTextureScaleMode(image.texture, p.SDL_ScaleModeNearest) != 0:
-        raise RuntimeError(f"Empty-handed nearest sampling failed: {p.SDL_GetError()!r}")
+        raise RuntimeError(f"R1-B nearest sampling failed: {p.SDL_GetError()!r}")
     return image
+
+
+def load_empty_atlas(path, canvas_size):
+    return load_atlas(path.with_stem(path.stem + "-empty"), canvas_size)
 
 
 def sprite_rect(foot_x, foot_y, clip, pivot, display_height):
@@ -33,6 +39,7 @@ def sprite_rect(foot_x, foot_y, clip, pivot, display_height):
 
 class PlayerVisual:
     display_scale = 1.0
+    sprinting = False
 
     def __init__(self):
         self.images = {}
@@ -49,27 +56,33 @@ class PlayerVisual:
             for source_id in active_sources:
                 source = sources[source_id]
                 path = METADATA_PATH.parent / source["image"]
-                if not path.is_file():
-                    raise FileNotFoundError(f"R1-B sprite source not found: {path}")
-                self.images[source_id] = p.load_image(str(path))
-                if [self.images[source_id].w, self.images[source_id].h] != source["canvas_size"]:
-                    raise ValueError(f"R1-B source canvas differs from metadata: {path}")
-                if p.SDL_SetTextureScaleMode(self.images[source_id].texture, p.SDL_ScaleModeNearest) != 0:
-                    raise RuntimeError(f"R1-B nearest sampling failed: {p.SDL_GetError()!r}")
+                self.images[source_id] = load_atlas(path, source["canvas_size"])
         except Exception:
             self.close()
             raise
 
-    def update(self, aim_angle, dx, dy):
-        self.locomotion.update(aim_angle, dx, dy, reverse_backstep=True)
+    def update(self, aim_angle, dx, dy, *, sprinting=False):
+        sprint = self.metadata.get("sprint")
+        previous = self.locomotion.facing if self.locomotion._initialized else None
+        use_sprint = (sprinting and sprint is not None and "sprint" in self.images and dx > 0 > dy
+                      and select_facing(aim_angle, previous) == sprint["facing"]
+                      and select_facing(math.atan2(dy, dx)) == sprint["facing"])
+        stride = sprint["stride_distance"] if use_sprint else STRIDE_DISTANCE
+        self.locomotion.update(aim_angle, dx, dy, reverse_backstep=True, stride_distance=stride)
+        self.sprinting = use_sprint and self.locomotion.moving
 
-    def load_empty_hands(self):
+    def load_delivery_sprites(self):
         sources = self.metadata["sources"]
         active = dict.fromkeys(frame["source"] for facing, frames in self.metadata["frames"].items()
                                if facing not in PARCEL_OCCLUDED_FACINGS for frame in frames)
         for key in active:
             source = sources[key]
             self.empty_images[key] = load_empty_atlas(METADATA_PATH.parent / source["image"], source["canvas_size"])
+        sprint = self.metadata.get("sprint")
+        if sprint is not None:
+            path = METADATA_PATH.parent / sprint["image"]
+            self.images["sprint"] = load_atlas(path, sprint["canvas_size"])
+            self.empty_images["sprint"] = load_empty_atlas(path, sprint["canvas_size"])
 
     @property
     def frame_index(self):
@@ -79,10 +92,11 @@ class PlayerVisual:
     def draw(self, foot_x, foot_y, *, empty_handed=False):
         frames = self.metadata["frames"][self.locomotion.facing]
         frame = frames[self.frame_index]
-        key = frame.get("source", "atlas")
+        key = "sprint" if self.sprinting else frame.get("source", "atlas")
         images = self.empty_images if empty_handed and key in self.empty_images else self.images
         image = images[key]
-        clip = frame["clip_topleft"]
+        # Sprint cells share the walking order, grid and ground pivots.
+        clip = frame["cell_topleft"] if self.sprinting else frame["clip_topleft"]
         # Keep the idle-based scale for all poses of this facing.
         reference_height = frame.get("scale_reference_height", frames[0]["clip_topleft"][3])
         shown_height = clip[3] * self.metadata["display_height"] / reference_height * self.display_scale

@@ -104,6 +104,7 @@ class CombatWorld:
         self._sprint_exhausted = False
         self._footstep_distance = 0.0
         self.sprint_step = None
+        self.sprinting = False
         self.player_invulnerable_remaining = 0.0
         self.attack = None
         self.result = "playing"
@@ -292,6 +293,7 @@ class CombatWorld:
             zombie.moved = False
             zombie.recoil_offset = (0.0, 0.0)
         self.sprint_step = None
+        self.sprinting = False
         if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
             return
         player_origin = (self.player.x, self.player.y)
@@ -346,7 +348,8 @@ class CombatWorld:
                     self._emit_noise(_SPRINT_NOISE_RANGE if sprinting else _WALK_NOISE_RANGE)
                     if sprinting:
                         self.sprint_step = (self.player.x, self.player.y)
-        if sprinting and self.player.moved:
+        self.sprinting = sprinting and self.player.moved
+        if self.sprinting:
             self.stamina = max(0.0, self.stamina - _SPRINT_DRAIN * dt)
             if self.stamina <= _STAMINA_EPSILON:
                 self.stamina = 0.0
