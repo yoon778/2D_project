@@ -105,7 +105,7 @@ async function main() {
     if (original[p + 3]) palette.add(original.toString('hex', p, p + 3))
   }
   assert.equal(palette.size, 24)
-  const states = await loadStates()
+  const states = await loadStates({legacyWalk: true})
   const changes = {}
   for (const [col, facing] of facings.entries()) {
     const {idle, walk, resume} = metadata.facings[facing]

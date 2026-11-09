@@ -9,7 +9,8 @@ const player = require('./player/r2c8-combat-assets.cjs')
 const {buildFullSwing, buildMovingFullSwing} = require('./player/r2sf-front-right.cjs')
 const {renderWalkAtlas} = require('./player/consistent-walk.cjs')
 const {bodyDrop} = require('./player/consistent-rig.json')
-const {facings} = require('./zombie/raster.cjs')
+const {facings, atlas: zombieAtlas} = require('./zombie/raster.cjs')
+const {loadStates, corpse} = require('./zombie/r2z-zombie-assets.cjs')
 const {facings: zombieRigs} = require('./zombie/r2z-rig.json')
 const zombieAttacks = require('./zombie/r2za-rigs.json')
 
@@ -485,7 +486,59 @@ async function checkPlayer(preview) {
   return report
 }
 
+async function checkCurrentAssets() {
+  async function readPixels(file, canvasSize) {
+    const {data, info} = await sharp(await read(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    assert.deepEqual([info.width, info.height], canvasSize, file)
+    return data
+  }
+
+  const metadata = JSON.parse(await read(`${combat}/r2a-combat-20261106.json`))
+  const playerDir = 'game/assets/player'
+  const walks = JSON.parse(await read(`${playerDir}/r1b-courier-atlas-20261104.json`))
+  for (const facing of facings) {
+    const sourceId = walks.frames[facing][0].source
+    const {image, canvas_size: canvasSize} = walks.sources[sourceId]
+    const pixels = await readPixels(`${playerDir}/${image}`, canvasSize)
+    assert(pixels.equals(await renderWalkAtlas(facing)), `${image} reproduces current pixels`)
+  }
+
+  for (const facing of directions) {
+    const generated = await player.build(facing)
+    for (const [key, sprites] of [['attack', generated.stationary], ['attack_walk', generated.moving]]) {
+      const source = metadata[`${key}_${facing}`]
+      assert.deepEqual(source, generated[key])
+      const sheet = await readPixels(`${combat}/${source.image}`, source.canvas_size)
+      for (const [index, frame] of source.frames.entries()) {
+        assert(cell(sheet, source.canvas_size[0], frame.clip_topleft).equals(sprites[index]),
+          `${key} ${facing} frame ${index}`)
+      }
+    }
+  }
+  for (const [source, generated] of [[metadata.attack, await buildFullSwing()],
+                                    [metadata.attack_walk, await buildMovingFullSwing()]]) {
+    const pixels = await readPixels(`${combat}/${source.image}`, source.canvas_size)
+    assert.deepEqual([generated.width, generated.height], source.canvas_size)
+    assert(pixels.equals(generated.pixels), `${source.image} reproduces current pixels`)
+  }
+  assert.equal(metadata.attack_stationary_front_right.image, 'r2sf8-swing-front-right.png')
+  execFileSync(process.execPath, ['art/player/swing-studies/r2sf6-arm/bake-swing.cjs', '--check'],
+    {cwd: root, stdio: 'inherit'})
+
+  const states = await loadStates()
+  const zombieDir = 'game/assets/zombie'
+  for (const result of [zombieAtlas(states, corpse(states.front_right)), await zombie.makeAtlas()]) {
+    const image = result.metadata.image
+    const file = image.replace(/\.png$/, '.json')
+    const pixels = await readPixels(`${zombieDir}/${image}`, result.metadata.canvas_size)
+    assert(pixels.equals(result.pixels), `${image} reproduces current pixels`)
+    assert.deepEqual(JSON.parse(await read(`${zombieDir}/${file}`)), result.metadata)
+  }
+  console.log('Current walking and combat atlases match their generators')
+}
+
 async function main() {
+  if (process.argv.includes('--current')) return checkCurrentAssets()
   const preview = process.argv.includes('--preview')
   if (process.argv.includes('--front-right')) {
     const metadata = JSON.parse(await read(`${combat}/r2a-combat-20261106.json`))

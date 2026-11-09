@@ -10,8 +10,8 @@
 - 보행은 실제 이동 거리64px/주기. 피격 경계0/.06/.14/.26/.40초, 마지막 자세는 같은 방향 정지와 RGBA 동일
 - 기존 `game/assets/combat/`의 좀비 소스를 시작 시 메모리에서 대체. 기존 파일 수정과 추가 텍스처 로드 없음
 - R2-ZA12 공격은640×960·열8방향/행12단계·96상태, 기존과 같은80셀/발점/배율/팔레트.0/.04/.08/.12/.16/.23/.30/.40/.46/.52/.64/.72/.80초 경계·발바닥 고정·마지막idle 동일. 이전64키는 새행0/2/4/6/7/9/10/11에 RGBA 보존
-- 같은 뷰의 실제 팔 부품/관절·국소 옷감 복원·팔 깊이 가림으로 제작. 새 공격1텍스처만 추가해 전체 초기 이미지47개, 매프레임/R 재로드 없음
-- R2-PLZ에서 PixelLab Scary Walk의 앞오른쪽 정규 보행 8장과 클릭 마스크를 적용함. 아래 제작 명령은 관절 보행 기준본을 재현하며, PixelLab 보행은 [적용 검수](../../../plans/handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용) 참조.
+- 같은 뷰의 실제 팔 부품/관절·국소 옷감 복원·팔 깊이 가림으로 제작. 텍스처는 시작 시 로드하며 매프레임 또는 R 재시작 시 다시 읽지 않음
+- R2-PLZ의 [승인된 앞오른쪽 보행 8셀](../../../art/zombie/studies/front-right-walk-pixellab-80.png)을 제작 명령에 포함함. 보행 복귀 자세는 관절 원본으로 재현하고, 정규 보행 8셀의 클릭 마스크는 교체한 픽셀에서 계산함
 
 원화: built-in imagegen으로 생성한 [8방향 입력](../../../art/zombie/studies/zombie-turnaround-ai-20261106.png), [프롬프트·입력 역할](../../../art/zombie/studies/imagegen-prompt.md)
 원화는1774×887, 공통등방배율5/28·실제부츠 발점 평행이동으로 native화. 방향별 키 늘이기/압축 없음
@@ -22,10 +22,10 @@
 ```powershell
 node art/zombie/r2z-zombie-assets.cjs
 node art/zombie/r2za-zombie-attack.cjs
-node art/r2ap8-check.cjs
+node art/r2ap8-check.cjs --current
 ```
 
 제작 스크립트는 새 좀비 리소스만 출력하며 기존 플레이어·전투 리소스는 수정하지 않음
-checker는 제품 리소스를 읽기 전용으로 검사하고 재현 결과는 ignored 검수 폴더에만 저장함
+`--current` 검사는 제품 리소스를 읽기 전용으로 검사함. 이전 비교용 `--preview` 출력은 로컬 검수 폴더에 저장함
 `r2za-zombie-attack.cjs`는 8방향 상체 전진이 반영된 별도 공격 아틀라스 제작용. `check-r2z.cjs`, `r2za-check.cjs`, `r2zt-check.cjs`의 동결 검사는 각각 당시 기준 커밋용
 [복귀 자세 인계](../../../plans/handoffs/r2zt-ui.md) · [현재 검수](../../../plans/handoffs/r2zt-zombie-transition-review.md)

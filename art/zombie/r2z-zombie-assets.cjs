@@ -114,16 +114,26 @@ async function sheet(cells,columns,file,scale=3){
   for(let i=0;i<cells.length;i++)for(let y=0;y<80;y++)cells[i].copy(b,((Math.floor(i/columns)*80+y)*width+i%columns*80)*4,y*320,(y+1)*320)
   await r.png(b,width,height,file,scale)
 }
-async function loadState(facing) {
+async function loadState(facing, legacyWalk = false) {
   const [left, top] = sourceConfig.facings[facing].sourceCell
   const source = await sharp(path.join(__dirname, config.master))
     .extract({left, top, width: size, height: size}).ensureAlpha().raw().toBuffer()
   const state = await build(facing, source, {writeParts: false})
   state.resume = resumePoses(state)
+  if (facing === 'front_right' && !legacyWalk) {
+    // R2-PLZ replaced only these eight walk cells, leaving the resume cells intact.
+    const {data, info} = await sharp(path.join(__dirname, 'studies/front-right-walk-pixellab-80.png'))
+      .ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    if (info.width !== size || info.height !== size * state.walk.length) {
+      throw new Error('PixelLab walk sheet must contain eight 80x80 cells in one column')
+    }
+    const frameBytes = size * size * 4
+    state.walk = state.walk.map((_, phase) => data.subarray(phase * frameBytes, (phase + 1) * frameBytes))
+  }
   return state
 }
-async function loadStates() {
-  const states = await Promise.all(r.facings.map(loadState))
+async function loadStates({legacyWalk = false} = {}) {
+  const states = await Promise.all(r.facings.map(facing => loadState(facing, legacyWalk)))
   return Object.fromEntries(r.facings.map((facing, index) => [facing, states[index]]))
 }
 async function writeComparison(facing, state, review) {

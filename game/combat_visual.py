@@ -112,14 +112,6 @@ class CombatVisual:
         self._draw(source_name, frame, foot_x, foot_y)
         return True
 
-    @staticmethod
-    def zombie_state(zombie):
-        if not zombie.alive:
-            return "dead"
-        if zombie.stun_remaining > 0:
-            return "stunned"
-        return "attacking" if zombie.attack is not None else "alive"
-
     def reset_zombie_animation(self):
         self.zombie_locomotion = Locomotion()
         self._zombie_attack = None

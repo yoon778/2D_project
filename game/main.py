@@ -386,9 +386,10 @@ def run(smoke_test=False, *, show_opening=False):
                 capture(output)
                 print(f"R2-C8 SDL capture: {output}", flush=True)
             p.update_canvas()
-            frame += 1
-            if smoke_test and frame >= len(smoke_poses):
-                running = False
+            if smoke_test:
+                frame += 1
+                if frame >= len(smoke_poses):
+                    running = False
     finally:
         try:
             if music is not None:
