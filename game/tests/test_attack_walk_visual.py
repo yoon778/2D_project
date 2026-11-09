@@ -55,7 +55,7 @@ class AttackWalkSpriteTests(unittest.TestCase):
         source = self.visual.metadata["attack_stationary_front_right"]
         image = self.visual.images["attack_stationary_front_right"]
         self.assertEqual(source["canvas_size"], [576, 96])
-        self.assertEqual(source["image"], "r2sf6-attack-front-right.png")
+        self.assertEqual(source["image"], "r2sf6-arm-attack-front-right.png")
         boundaries = (0, .03, .18, .24, .30, .44, .66)
         self.assertEqual([frame["start"] for frame in source["frames"]], list(boundaries[:-1]))
         self.assertEqual([frame["end"] for frame in source["frames"]], list(boundaries[1:]))

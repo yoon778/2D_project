@@ -8,6 +8,7 @@ const {buildStationaryCells} = require('../../r2sf-front-right.cjs')
 const root = path.resolve(__dirname, '../../../..')
 const review = path.join(root, 'output/review/R2-SF6-ARM-art')
 const output = path.join(__dirname, 'poses.png')
+const gameOutput = path.join(root, 'game/assets/combat/r2sf6-arm-attack-front-right.png')
 const cellSize = 96
 const starts = [0, 30, 180, 240, 300, 440, 660]
 const delays = starts.slice(1).map((end, index) => end - starts[index])
@@ -83,6 +84,20 @@ async function main() {
     const [wx,wy] = arm[2], [gx,gy] = arm[3]
     assert(Math.hypot(wx - gx, wy - gy) <= 4, 'grip is adjacent to wrist')
     if (index) assert.deepEqual(source[index - 1].shoulder, arm[0])
+  }
+
+  if (process.argv.includes('--game')) {
+    const approvedPng = await fs.readFile(output)
+    const approved = await sharp(approvedPng).ensureAlpha().raw().toBuffer({resolveWithObject:true})
+    assert.deepEqual([approved.info.width, approved.info.height], [width, height])
+    assert(approved.data.equals(pixels), 'approved sheet matches the generated pixels')
+    if (process.argv.includes('--check')) {
+      assert((await fs.readFile(gameOutput)).equals(approvedPng), 'game PNG matches the approved bytes')
+    } else {
+      await fs.writeFile(gameOutput, approvedPng)
+    }
+    console.log('Verified game PNG against the approved ARM sheet: ' + gameOutput)
+    return
   }
 
   const png = await raw(pixels,width,height).png().toBuffer()
