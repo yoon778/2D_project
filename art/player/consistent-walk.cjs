@@ -256,14 +256,6 @@ async function bake(facing, {renderOnly = false, overrides} = {}) {
       parts.body.fill(0, (y * size + x) * 4, (y * size + x + 1) * 4)
     }
   }
-  const carryArm = rig.carryArm && cut(parts.body, rig.carryArm.mask)
-  if (carryArm) {
-    for (let offset = 0; offset < carryArm.length; offset += 4) {
-      if (carryArm[offset + 3]) parts.body.fill(0, offset, offset + 4)
-    }
-    const {pivot, degrees} = rig.carryArm
-    boot(parts.body, carryArm, pivot, pivot, degrees)
-  }
   if (rig.batSourceFacing) {
     const donor = config.facings[rig.batSourceFacing]
     const [left, top, width, height] = donor.sourceCell
@@ -346,7 +338,7 @@ async function bake(facing, {renderOnly = false, overrides} = {}) {
       }
       idle = Buffer.from(source)
       for (let offset = 0; offset < idle.length; offset += 4) {
-        if ((originalBat[offset + 3] && !heldHand?.[offset + 3]) || carryArm?.[offset + 3]) {
+        if (originalBat[offset + 3] && !heldHand?.[offset + 3]) {
           uncovered.copy(idle, offset, offset, offset + 4)
         }
       }
