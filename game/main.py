@@ -15,6 +15,7 @@ from combat_visual import CombatVisual
 from flashlight import Flashlight, RANGE as LIGHT_RANGE
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
+from spatial_audio import ZombieAudio
 import opening
 
 WINDOW_WIDTH = 1280
@@ -316,6 +317,7 @@ def play_opening(renderer, music):
 def run(smoke_test=False, *, show_opening=False):
     renderer = None
     music = None
+    zombie_audio = None
     try:
         p.open_canvas(WINDOW_WIDTH, WINDOW_HEIGHT, sync=True)
         if not p.renderer:
@@ -334,6 +336,8 @@ def run(smoke_test=False, *, show_opening=False):
             music.start()
             if not play_opening(renderer, music):
                 return
+        if not smoke_test:
+            zombie_audio = ZombieAudio(BASE_DIR / "assets/audio")
         world = CombatWorld()
         renderer.combat = world
         player, walls = world.player, world.walls
@@ -429,13 +433,18 @@ def run(smoke_test=False, *, show_opening=False):
             elif strike is not None and strike.landed and not was_landed:
                 strength = 3
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
+            zombie = world.zombie
+            distance = math.hypot(zombie.x - player.x, zombie.y - player.y) if zombie.alive else None
+            zombie_dx, zombie_dy = zombie.x - zombie_before[0], zombie.y - zombie_before[1]
             if music is not None:
-                zombie = world.zombie
-                distance = math.hypot(zombie.x - player.x, zombie.y - player.y) if zombie.alive else None
                 music.update(dt, distance=distance, focused=active)
+            if zombie_audio is not None:
+                recoil_x, recoil_y = zombie.recoil_offset
+                zombie_audio.update(dt, distance=distance,
+                                    stride=math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y),
+                                    active=active and not reset_requested and world.result == "playing")
             dx, dy = player.x - before[0], player.y - before[1]
-            renderer.combat_visual.update_zombie(
-                world.zombie, world.zombie.x - zombie_before[0], world.zombie.y - zombie_before[1], paused=not active)
+            renderer.combat_visual.update_zombie(zombie, zombie_dx, zombie_dy, paused=not active)
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
             if active and strike is None and world.result == "playing":
@@ -454,14 +463,18 @@ def run(smoke_test=False, *, show_opening=False):
                     running = False
     finally:
         try:
-            if music is not None:
-                music.close()
+            if zombie_audio is not None:
+                zombie_audio.close()
         finally:
             try:
-                if renderer is not None:
-                    renderer.close()
+                if music is not None:
+                    music.close()
             finally:
-                p.close_canvas()
+                try:
+                    if renderer is not None:
+                        renderer.close()
+                finally:
+                    p.close_canvas()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
-"""Background music on the mixer opened by pico2d's canvas."""
+"""Background music and zombie effects on pico2d's mixer."""
+import ctypes
 import math
 from pathlib import Path
 
@@ -11,6 +12,11 @@ _NEAR_VOLUME = 8
 _NEAR_DISTANCE = 120.0
 _FAR_DISTANCE = 180.0
 _VOLUME_TIME = .25
+_HEARING_RANGE = 520.0
+_STEP_SPACING = 32.0
+_GROAN_DELAY = .4
+_GROAN_INTERVAL = 3.2
+_ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
 
 
 class BackgroundMusic:
@@ -77,3 +83,70 @@ class BackgroundMusic:
                 p.Mix_HaltMusic()
             finally:
                 p.Mix_FreeMusic(music)
+
+
+class ZombieAudio:
+    def __init__(self, directory: Path):
+        self._sounds = {}
+        self._channels = {}
+        self._step_distance = 0.0
+        self._groan_in = _GROAN_DELAY
+        if p.Mix_QuerySpec(None, None, None) <= 0:
+            return
+        for kind in _ZOMBIE_VOLUME:
+            sound = p.Mix_LoadWAV(str(directory / f"{kind}.wav").encode("utf-8"))
+            if sound:
+                self._sounds[kind] = sound
+
+    @staticmethod
+    def _playing(channel, sound):
+        if channel is None or not p.Mix_Playing(channel):
+            return False
+        # A finished effect's mixer channel may already belong to another sound.
+        current = p.Mix_GetChunk(channel)
+        return ctypes.cast(current, ctypes.c_void_p).value == ctypes.cast(sound, ctypes.c_void_p).value
+
+    def update(self, dt, *, distance, stride, active):
+        if not self._sounds:
+            return
+        if not active or distance is None or distance >= _HEARING_RANGE:
+            self.stop()
+            return
+
+        self._step_distance += stride
+        step_due = self._step_distance >= _STEP_SPACING
+        if step_due:
+            self._step_distance %= _STEP_SPACING
+        self._groan_in -= dt
+        groan_due = self._groan_in <= 0
+        if groan_due:
+            self._groan_in += _GROAN_INTERVAL
+
+        gain = 1.0 - distance / _HEARING_RANGE
+        for kind, due in (("zombie_step", step_due), ("zombie_groan", groan_due)):
+            sound = self._sounds.get(kind)
+            if sound is None:
+                continue
+            playing = self._playing(self._channels.get(kind), sound)
+            if not playing:
+                self._channels.pop(kind, None)
+            if playing or due:
+                p.Mix_VolumeChunk(sound, max(1, round(_ZOMBIE_VOLUME[kind] * gain)))
+            if due and not playing:
+                channel = p.Mix_PlayChannelTimed(-1, sound, 0, -1)
+                if channel >= 0:
+                    self._channels[kind] = channel
+
+    def stop(self):
+        for kind, channel in self._channels.items():
+            if self._playing(channel, self._sounds[kind]):
+                p.Mix_HaltChannel(channel)
+        self._channels.clear()
+        self._step_distance = 0.0
+        self._groan_in = _GROAN_DELAY
+
+    def close(self):
+        self.stop()
+        for sound in self._sounds.values():
+            p.Mix_FreeChunk(sound)
+        self._sounds.clear()
