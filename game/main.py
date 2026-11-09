@@ -1,4 +1,4 @@
-"""Dead Route R2-ZA: courier combat and telegraphed eight-direction zombie attacks."""
+"""Dead Route alley delivery, combat and flashlight rendering."""
 from __future__ import annotations
 
 import argparse
@@ -12,6 +12,7 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
+from delivery import ALLEY_PROP, DeliveryWorld
 from flashlight import Flashlight, RANGE as LIGHT_RANGE
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
@@ -60,14 +61,16 @@ def current_cursor():
     return x.value, y.value
 
 
-def sorted_drawables(player, walls, zombie=None, *, prop=None):
-    # Stable ties: the prop precedes walls and characters at the same ground y.
+def sorted_drawables(player, walls, zombie=None, *, prop=None, station=None):
+    # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
+    if station is not None:
+        objects.append(("station", station))
     objects.extend(("wall", wall) for wall in walls)
     if zombie is not None:
         objects.append(("zombie", zombie))
     objects.append(("player", player))
-    return sorted(objects, key=lambda item: -(item[1][1] if item[0] == "prop" else item[1].y))
+    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station") else item[1].y))
 
 
 def mouse_target(world, visual, mouse_x, mouse_y, light=None):
@@ -95,6 +98,7 @@ class Renderer:
         self.combat_visual = None
         self.trash_can = None
         self.combat = None
+        self.delivery = None
         self.cursor = None
         self.light = None
         self.shake_remaining = 0.0
@@ -195,6 +199,42 @@ class Renderer:
             if visible[index] and visible[index + 1]:
                 p.draw_line(*self.project(*start), *self.project(*end), *color)
 
+    def draw_station(self, position, pickup):
+        x, y = self.project(*position)
+        if pickup:
+            rectangle(x - 14, y, 28, 23, (138, 86, 47))
+            rectangle(x - 14, y + 23, 28, 8, (186, 132, 76))
+            rectangle(x - 3, y + 11, 6, 20, (226, 185, 106))
+            label = "수령"
+        else:
+            rectangle(x - 17, y, 34, 43, (37, 100, 96))
+            rectangle(x - 17, y + 43, 34, 5, (86, 155, 145))
+            rectangle(x - 11, y + 25, 22, 5, (11, 29, 34))
+            label = "배달"
+        rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
+        self.font.draw(x + 26, y + 37, label, ORANGE if pickup else TEAL)
+
+    def draw_delivery_hud(self):
+        delivery = self.delivery
+        status, guide = {
+            "waiting": ("미수령 · 0/1", "남서쪽 거점에서 택배 수령"),
+            "carrying": ("소지 중 · 0/1", "북동쪽 골목의 배송함 찾기"),
+            "delivered": ("전달 완료 · 1/1", ""),
+        }[delivery.parcel]
+        self.font.draw(24, 564, f"택배 {status}", WHITE)
+        if delivery.result != "playing":
+            success = delivery.result == "delivered"
+            title = "배달 성공" if success else "배달 실패 · 체력 소진"
+            rectangle(425, 303, 430, 112, (17, 25, 31))
+            rectangle(425, 303, 430, 112, TEAL if success else ORANGE, filled=False)
+            self.font.draw(455, 382, title, TEAL if success else ORANGE)
+            self.font.draw(455, 335, "R 다시 시작 · Esc 종료", WHITE)
+        elif delivery.can_interact() and self.light.contains(delivery.next_stop):
+            action = "택배 수령" if delivery.parcel == "waiting" else "택배 전달"
+            self.font.draw(520, 56, f"E  {action}", TEAL)
+        else:
+            self.font.draw(24, 538, guide, WHITE)
+
     def draw(self, player, walls, target, focused=True):
         p.SDL_SetRenderDrawColor(p.renderer, 0, 0, 0, 255)
         p.SDL_RenderClear(p.renderer)
@@ -208,12 +248,17 @@ class Renderer:
         foot = self.project(*origin)
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
+        delivery = self.delivery
         for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None,
-                                            prop=TRASH_CAN_POSITION):
+                                            prop=ALLEY_PROP if delivery is not None else TRASH_CAN_POSITION,
+                                            station=delivery.next_stop if delivery is not None else None):
             if kind == "prop":
                 if self.light.contains(actor):
                     x, y = self.project(*actor)
                     self.trash_can.draw(x, y + self.trash_can.h, self.trash_can.w * 2, self.trash_can.h * 2)
+            elif kind == "station":
+                if self.light.contains(actor):
+                    self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "wall":
                 self.wall(actor, outline)
             elif kind == "zombie":
@@ -246,8 +291,12 @@ class Renderer:
             tip = self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle))
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
-        self.font.draw(24, 683, "Dead Route - R4  |  마우스 손전등", WHITE)
-        self.font.draw(24, 651, "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
+        title = "Dead Route  |  골목 배달" if delivery is not None else "Dead Route  |  전투 검수"
+        controls = "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격"
+        if delivery is not None:
+            controls += " · E 수령/전달"
+        self.font.draw(24, 683, title, WHITE)
+        self.font.draw(24, 651, controls + " · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
             self.font.draw(24, 620, f"HP {combat.player_hp}/3", WHITE)
             self.font.draw(24, 592, "스태미나", WHITE)
@@ -255,7 +304,9 @@ class Renderer:
             stamina_width = round(100 * combat.stamina / MAX_STAMINA)
             if stamina_width:
                 rectangle(116, 585, stamina_width, 10, TEAL)
-            if combat.result != "playing":
+            if delivery is not None:
+                self.draw_delivery_hud()
+            elif combat.result != "playing":
                 message = "연습 좀비 처치" if combat.result == "cleared" else "쓰러짐"
                 self.font.draw(470, 365, f"{message} · R 재시작", TEAL)
         self.font.draw(24, 54, "입력 활성" if focused else "포커스 없음 · 이동 입력 초기화", WHITE)
@@ -314,10 +365,11 @@ def play_opening(renderer, music):
         previous = now
 
 
-def run(smoke_test=False, *, show_opening=False):
+def run(smoke_test=False, *, show_opening=False, practice=False):
     renderer = None
     music = None
     zombie_audio = None
+    delivery_run = not (smoke_test or practice)
     try:
         p.open_canvas(WINDOW_WIDTH, WINDOW_HEIGHT, sync=True)
         if not p.renderer:
@@ -325,7 +377,7 @@ def run(smoke_test=False, *, show_opening=False):
         if not p.renderer:
             raise RuntimeError(f"SDL renderer initialization failed: {p.SDL_GetError()!r}")
         p.hide_lattice()
-        p.SDL_SetWindowTitle(p.window, b"Dead Route - R2-ZA")
+        p.SDL_SetWindowTitle(p.window, b"Dead Route" if delivery_run else b"Dead Route - R2-ZA")
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
@@ -338,11 +390,13 @@ def run(smoke_test=False, *, show_opening=False):
                 return
         if not smoke_test:
             zombie_audio = ZombieAudio(BASE_DIR / "assets/audio")
-        world = CombatWorld()
+        world = DeliveryWorld() if delivery_run else CombatWorld()
         renderer.combat = world
+        if delivery_run:
+            renderer.delivery = world
         player, walls = world.player, world.walls
         pressed = set()
-        target = (world.zombie.x, world.zombie.y)
+        target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
         aim_player(player, *target)
         cursor = current_cursor()
         mouse_held = False
@@ -356,6 +410,7 @@ def run(smoke_test=False, *, show_opening=False):
             dt = min(now - previous, 0.05)
             previous = now
             pending_click = False
+            pending_interact = False
             reset_requested = False
             lost_focus = False
             for event in poll_events():
@@ -363,6 +418,8 @@ def run(smoke_test=False, *, show_opening=False):
                     running = False
                 elif event.type == p.SDL_KEYDOWN and not event.key.repeat:
                     key = event.key.keysym.sym
+                    if key == p.SDLK_e and key not in pressed:
+                        pending_interact = True
                     pressed.add(key)
                     if key == p.SDLK_ESCAPE:
                         running = False
@@ -383,6 +440,7 @@ def run(smoke_test=False, *, show_opening=False):
                       and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
                     pressed.clear()
                     pending_click = False
+                    pending_interact = False
                     mouse_held = False
                     lost_focus = True
             if not running:
@@ -391,6 +449,7 @@ def run(smoke_test=False, *, show_opening=False):
             if not focused:
                 pressed.clear()
                 pending_click = False
+                pending_interact = False
                 mouse_held = False
             if reset_requested:
                 world.reset()
@@ -399,10 +458,11 @@ def run(smoke_test=False, *, show_opening=False):
                 renderer.combat_visual.reset_zombie_animation()
                 pressed.clear()
                 pending_click = False
+                pending_interact = False
                 mouse_held = False
                 cursor = current_cursor()
                 renderer.light = None
-                target = (world.zombie.x, world.zombie.y)
+                target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
                 aim_player(player, *target)
             renderer.cursor = cursor
             if cursor is not None:
@@ -423,6 +483,8 @@ def run(smoke_test=False, *, show_opening=False):
             hp_before = world.player_hp
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint)
+            if delivery_run and active and pending_interact:
+                world.interact()
             if active and not reset_requested and world.result == "playing":
                 renderer.update_sprint_pulse(dt, world.sprint_step)
             else:
@@ -478,7 +540,7 @@ def run(smoke_test=False, *, show_opening=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Dead Route R2-C8 eight-direction combat sample")
+    parser = argparse.ArgumentParser(description="Dead Route alley delivery game")
     parser.add_argument("--smoke-test", action="store_true",
                         help="render three native SDL fixtures, save PNGs and exit")
     args = parser.parse_args()

@@ -38,7 +38,7 @@ class LocomotionLoopTests(unittest.TestCase):
             })
 
         def run(*args, **kwargs):
-            return original_run(smoke_test=smoke_test)
+            return original_run(smoke_test=smoke_test, practice=True)
 
         def make_world():
             world = original_world()

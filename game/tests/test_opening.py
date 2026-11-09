@@ -87,7 +87,7 @@ class OpeningTests(unittest.TestCase):
             patches.enter_context(patch.object(main.Renderer, "__init__", initialize))
             patches.enter_context(patch.object(main.Renderer, "draw", draw))
             patches.enter_context(patch.object(main.opening, "draw", draw_opening))
-            main.run(smoke_test=smoke, show_opening=True)
+            main.run(smoke_test=smoke, show_opening=True, practice=True)
         self.assertEqual(cleanup, ["canvas"] if smoke else ["music", "canvas"])
         if smoke:
             factory.assert_not_called()

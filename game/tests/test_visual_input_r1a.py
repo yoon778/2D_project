@@ -107,7 +107,7 @@ class DummyInputTests(unittest.TestCase):
             patch.object(p, "print_fps", wraps=p.print_fps) as fps_calls,
             patch.object(p, "get_events", wraps=p.get_events) as vendor_event_calls,
         ):
-            main.run(smoke_test=False)
+            main.run(smoke_test=False, practice=True)
 
         title_writes.assert_called_once_with(p.window, b"Dead Route - R2-ZA")
         fps_calls.assert_not_called()
