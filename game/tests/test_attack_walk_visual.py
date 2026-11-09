@@ -51,12 +51,12 @@ class AttackWalkSpriteTests(unittest.TestCase):
         self.assertFalse(self.visual.draw_attack(None, 100, 200, 8))
 
 
-    def test_locked_stationary_fr_uses_the_six_cells_and_new_boundaries(self):
+    def test_locked_stationary_fr_uses_eight_cells_on_the_same_attack_clock(self):
         source = self.visual.metadata["attack_stationary_front_right"]
         image = self.visual.images["attack_stationary_front_right"]
-        self.assertEqual(source["canvas_size"], [576, 96])
-        self.assertEqual(source["image"], "r2sf6-arm-attack-front-right.png")
-        boundaries = (0, .03, .18, .24, .30, .44, .66)
+        self.assertEqual(source["canvas_size"], [768, 96])
+        self.assertEqual(source["image"], "r2sf8-arm-attack-front-right.png")
+        boundaries = (0, .03, .10, .18, .24, .30, .37, .44, .66)
         self.assertEqual([frame["start"] for frame in source["frames"]], list(boundaries[:-1]))
         self.assertEqual([frame["end"] for frame in source["frames"]], list(boundaries[1:]))
         attack = SimpleNamespace(facing="front_right", stationary_front_right=True, hit_time=.24)
@@ -94,7 +94,7 @@ class AttackWalkSpriteTests(unittest.TestCase):
         self.assertTrue(self.visual.draw_attack(attack, 100, 200, 4))
         self.assertTrue(self.visual.draw_attack(attack, 100, 200, 0))
         self.visual.images["attack_stationary_front_right"].clip_draw.assert_called_once_with(
-            288, 0, 96, 96, 100.0, 264.0, 192.0, 192.0)
+            384, 0, 96, 96, 100.0, 264.0, 192.0, 192.0)
         attack.stationary_front_right = False
         attack.elapsed = .18
         self.assertTrue(self.visual.draw_attack(attack, 100, 200, 4))
