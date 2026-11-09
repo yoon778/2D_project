@@ -29,6 +29,8 @@ def add_sprite(files, directory, source, *, empty=False):
 def runtime_files():
     files = set(GAME.glob("*.py"))
     files.update((ROOT / "PRD.md", GAME / "requirements.txt", ASSETS / "props/alley-trash-can.png"))
+    files.update(ASSETS / "neighborhood" / name
+                 for name in ("ground.png", "west-house.png", "east-house.png", "fence.png"))
     files.update(ASSETS / "audio" / name for name in ("last-delivery.mp3", "zombie_step.wav", "zombie_groan.wav"))
 
     player_path, player = metadata_assets("player/r1b-courier-atlas-20261104.json")

@@ -1,4 +1,5 @@
 """Single delivery across an alley district."""
+from dataclasses import dataclass
 import math
 
 if __package__:
@@ -16,10 +17,16 @@ ZOMBIE_STARTS = (ZOMBIE_START, (485, 475), (245, 615), (785, 690),
                  (1100, 590), (955, 960), (1240, 825), (1450, 960))
 ALLEY_PROP = (265.0, 245.0)
 INTERACTION_RANGE = 42.0
-_BUILDINGS = ((88, 305, 140, 190), (310, 225, 275, 200), (690, 120, 180, 155),
+_BUILDINGS = ((690, 120, 180, 155),
               (165, 765, 330, 220), (610, 815, 270, 215), (800, 385, 205, 220),
               (1090, 100, 260, 180), (1120, 405, 270, 125),
               (1320, 615, 240, 240), (1050, 940, 285, 145))
+
+
+@dataclass
+class NeighborhoodWall(Wall):
+    texture: str
+    height: int = 110
 
 
 class DeliveryWorld(CombatWorld):
@@ -33,7 +40,12 @@ class DeliveryWorld(CombatWorld):
         super().reset()
         self.player = Player(*PLAYER_START)
         self.zombies = [Zombie(*position) for position in ZOMBIE_STARTS]
-        self.walls = [Wall(*building) for building in _BUILDINGS]
+        self.walls = [
+            NeighborhoodWall(88, 305, 140, 190, "west-house"),
+            NeighborhoodWall(310, 225, 275, 200, "east-house"),
+            NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
+            *(Wall(*building) for building in _BUILDINGS),
+        ]
         self.parcel = "waiting"
 
     @property

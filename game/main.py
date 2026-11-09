@@ -12,10 +12,10 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import ALLEY_PROP, DeliveryWorld
+from delivery import ALLEY_PROP, DeliveryWorld, NeighborhoodWall
 from flashlight import Flashlight, RANGE as LIGHT_RANGE
 from locomotion import Locomotion, select_facing
-from player_visual import PlayerVisual
+from player_visual import PlayerVisual, load_atlas
 from spatial_audio import ZombieAudio
 import opening
 
@@ -28,6 +28,8 @@ WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.75
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
+NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
+GROUND_NEUTRAL = 144
 TRASH_CAN_POSITION = (365.0, 300.0)
 WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
@@ -95,11 +97,30 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         for wall in world.walls:
             left, bottom = world_to_screen(wall.x, wall.y, camera)
             if (wall.y < zombie.y and left <= wx < left + wall.width
-                    and bottom <= wy < bottom + WALL_HEIGHT + wall.depth * GROUND_SCALE_Y):
+                    and bottom <= wy < bottom + wall_height(wall) + wall.depth * GROUND_SCALE_Y):
                 break
         else:
             return position
     return sdl_to_world(mouse_x, mouse_y, camera)
+
+
+def wall_height(wall):
+    return wall.height if isinstance(wall, NeighborhoodWall) else WALL_HEIGHT
+
+
+def wall_front_spans(wall, outline):
+    start = end = None
+    for (x, y), hit in outline:
+        if hit is wall and abs(y - wall.y) < 1e-7:
+            if start is None:
+                start = x
+            end = x
+        elif start is not None:
+            if start != end:
+                yield sorted((start, end))
+            start = end = None
+    if start is not None and start != end:
+        yield sorted((start, end))
 
 
 def rectangle(x, y, width, height, color, filled=True):
@@ -117,6 +138,8 @@ class Renderer:
         self.player_visual = None
         self.combat_visual = None
         self.trash_can = None
+        self.neighborhood_ground = None
+        self.neighborhood_walls = {}
         self.combat = None
         self.delivery = None
         self.cursor = None
@@ -140,7 +163,18 @@ class Renderer:
             self.close()
             raise
 
+    def load_neighborhood(self):
+        world_w, world_h = self.delivery.world_size
+        self.neighborhood_ground = load_atlas(NEIGHBORHOOD_PATH / "ground.png",
+                                              [round(world_w / 2), round(world_h * GROUND_SCALE_Y / 2)])
+        for wall in self.delivery.walls:
+            if isinstance(wall, NeighborhoodWall):
+                size = [round(wall.width / 2), round((wall.height + wall.depth * GROUND_SCALE_Y) / 2)]
+                self.neighborhood_walls[wall.texture] = load_atlas(NEIGHBORHOOD_PATH / f"{wall.texture}.png", size)
+
     def close(self):
+        self.neighborhood_ground = None
+        self.neighborhood_walls.clear()
         self.trash_can = None
         if self.combat_visual is not None:
             self.combat_visual.close()
@@ -212,30 +246,58 @@ class Renderer:
 
     def draw_beam(self, outline):
         points = [self.light.origin] + [point for point, _ in outline]
+        ground = self.neighborhood_ground
+        world_w, world_h = self.light.world_size
         vertices = (p.SDL_Vertex * len(points))()
         for i, point in enumerate(points):
             x, y = self.project(*point)
             strength = 1.0 - math.dist(self.light.origin, point) / LIGHT_RANGE
-            color = p.SDL_Color(round(28 + 104 * strength), round(26 + 84 * strength),
-                                round(23 + 53 * strength), 255)
-            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - 1 - y), color)
+            light_rgb = (28 + 104 * strength, 26 + 84 * strength, 23 + 53 * strength)
+            uv = p.SDL_FPoint()
+            if ground is not None:
+                light_rgb = tuple(channel * 255 / GROUND_NEUTRAL for channel in light_rgb)
+                uv = p.SDL_FPoint(max(0, min(1, point[0] / world_w)), max(0, min(1, 1 - point[1] / world_h)))
+            color = p.SDL_Color(*(round(channel) for channel in light_rgb), 255)
+            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - 1 - y), color, uv)
         indices = [index for i in range(1, len(vertices) - 1) for index in (0, i, i + 1)]
         triangles = (ctypes.c_int * len(indices))(*indices)
-        if p.SDL_RenderGeometry(p.renderer, None, vertices, len(vertices), triangles, len(indices)) != 0:
+        texture = ground.texture if ground is not None else None
+        if p.SDL_RenderGeometry(p.renderer, texture, vertices, len(vertices), triangles, len(indices)) != 0:
             raise RuntimeError(f"Flashlight geometry failed: {p.SDL_GetError()!r}")
 
     def wall(self, wall, outline):
         x, y = self.project(wall.x, wall.y)
-        rectangle(x, y, wall.width, WALL_HEIGHT, (12, 14, 18))
-        rectangle(x, y + WALL_HEIGHT, wall.width,
-                  wall.depth * GROUND_SCALE_Y, (16, 18, 22))
-        for (a, first), (b, last) in zip(outline, outline[1:]):
-            if first is wall and last is wall and abs(a[1] - wall.y) < 1e-7 and abs(b[1] - wall.y) < 1e-7:
-                start, end = sorted((self.project(*a)[0], self.project(*b)[0]))
-                rectangle(start, y, end - start, WALL_HEIGHT, (53, 47, 40))
-        rectangle(x, y, wall.width, WALL_HEIGHT, (27, 30, 36), filled=False)
-        rectangle(x, y + WALL_HEIGHT, wall.width,
-                  wall.depth * GROUND_SCALE_Y, (27, 30, 36), filled=False)
+        height = wall_height(wall)
+        depth = wall.depth * GROUND_SCALE_Y
+        spans = [(x + start - wall.x, x + end - wall.x) for start, end in wall_front_spans(wall, outline)]
+        image = self.neighborhood_walls.get(wall.texture) if isinstance(wall, NeighborhoodWall) else None
+        if image is not None:
+            self.draw_textured_wall(image, x, y, wall.width, height, depth, spans)
+            return
+        rectangle(x, y, wall.width, height, (12, 14, 18))
+        rectangle(x, y + height, wall.width, depth, (16, 18, 22))
+        for start, end in spans:
+            rectangle(start, y, end - start, height, (53, 47, 40))
+        rectangle(x, y, wall.width, height, (27, 30, 36), filled=False)
+        rectangle(x, y + height, wall.width, depth, (27, 30, 36), filled=False)
+
+    def draw_textured_wall(self, image, x, y, width, height, depth, spans):
+        total = height + depth
+        center = (x + width / 2, y + total / 2)
+        try:
+            p.SDL_SetTextureColorMod(image.texture, 48, 54, 62)
+            image.draw(*center, width, total)
+            p.SDL_SetTextureColorMod(image.texture, 178, 147, 105)
+            for start, end in spans:
+                left, right = math.ceil(start - .5), math.ceil(end - .5)
+                if left >= right:
+                    continue
+                clip = p.SDL_Rect(left, WINDOW_HEIGHT - round(y + height), right - left, height)
+                p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
+                image.draw(*center, width, total)
+        finally:
+            p.SDL_RenderSetClipRect(p.renderer, None)
+            p.SDL_SetTextureColorMod(image.texture, 255, 255, 255)
 
     def update_sprint_pulse(self, dt, position=None):
         if position is not None:
@@ -484,6 +546,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.combat_visual.display_scale = DELIVERY_CHARACTER_SCALE
             renderer.player_visual.load_delivery_sprites()
             renderer.combat_visual.load_empty_hands()
+            renderer.load_neighborhood()
         player, walls = world.player, world.walls
         pressed = set()
         target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
