@@ -15,17 +15,17 @@ const coil = {
 }
 const lead = {
   ...original[3],
-  shoulder: [41,40], right: [[41,40],[31,47],[34,42]], grip: [36,40], tip: [32,21]
+  shoulder: [41,40], right: [[41,40],[39,48],[45,43]], grip: [48,41], tip: [39,24]
 }
 const drive = {
   ...original[3],
-  head: [0,-2,1],
-  right: [[43,39],[35,39],[39,30]], grip: [41,28], tip: [51,12]
+  head: [-2,-1,1],
+  right: [[43,39],[56,42],[61,28]], grip: [63,25], tip: [69,7]
 }
 const release = {
   ...original[4],
   head: [1,0,-1],
-  shoulder: [46,34], right: [[46,34],[51,28],[57,22]], grip: [59,20], tip: [78,20]
+  shoulder: [44,39], right: [[44,39],[54,42],[62,30]], grip: [65,27], tip: [81,16]
 }
 const pass = {
   ...original[5],
