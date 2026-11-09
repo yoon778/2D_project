@@ -85,6 +85,8 @@ class Attack:
 
 
 class CombatWorld:
+    clear_on_zombie_death = True
+
     def __init__(self):
         self.reset()
 
@@ -116,12 +118,14 @@ class CombatWorld:
         if self.player_hp <= 0:
             self.result = "defeated"
             self.attack = None
-        elif not self.zombie.alive:
+        elif self.clear_on_zombie_death and not self.zombie.alive:
             self.result = "cleared"
         if self.result != "playing":
             self.zombie.attack = None
 
     def _target_in_strike(self, angle):
+        if not self.zombie.alive:
+            return False
         dx, dy = self.zombie.x - self.player.x, self.zombie.y - self.player.y
         distance = math.hypot(dx, dy)
         if distance > ATTACK_RANGE + _EPSILON:
@@ -347,8 +351,11 @@ class CombatWorld:
         immunity = self.player_invulnerable_remaining - dt
         self.player_invulnerable_remaining = immunity if immunity > _EPSILON else 0.0
         self._move_player_and_update_stamina(dt, axis_x, axis_y, walk_scale, wants_sprint)
-        self._perceive_player()
+        if self.zombie.alive:
+            self._perceive_player()
         hit = self._advance_player_attack(dt)
+        if not self.zombie.alive:
+            return
         if self.zombie.stun_remaining > 0:
             self.zombie.attack = None
         if not hit and self.result == "playing":
