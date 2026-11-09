@@ -29,6 +29,14 @@ DELIVERY_CHARACTER_SCALE = 0.75
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
+WALL_TEXTURE_SIZES = {
+    "west-house": [70, 112],
+    "east-house": [138, 115],
+    "workshop": [100, 100],
+    "fence": [50, 23],
+    "shop": [130, 103],
+    "bus-stop": [70, 50],
+}
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
 TRASH_CAN_POSITION = (365.0, 300.0)
@@ -173,8 +181,8 @@ class Renderer:
                                               [round(world_w / 2), round(world_h * GROUND_SCALE_Y / 2)])
         for wall in self.delivery.walls:
             if isinstance(wall, NeighborhoodWall) and wall.texture not in self.neighborhood_walls:
-                size = [round(wall.width / 2), round((wall.height + wall.depth * GROUND_SCALE_Y) / 2)]
-                self.neighborhood_walls[wall.texture] = load_atlas(NEIGHBORHOOD_PATH / f"{wall.texture}.png", size)
+                self.neighborhood_walls[wall.texture] = load_atlas(
+                    NEIGHBORHOOD_PATH / f"{wall.texture}.png", WALL_TEXTURE_SIZES[wall.texture])
         self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
         self.reset_streetlights()
 
@@ -400,19 +408,26 @@ class Renderer:
         rectangle(x, y + height, wall.width, depth, (27, 30, 36), filled=False)
 
     def draw_textured_wall(self, image, x, y, width, height, depth, spans):
-        total = height + depth
-        center = (x + width / 2, y + total / 2)
+        # Stretch the roof to the ground depth and keep facade features at wall height.
+        facade_px = round(height / 2)
+        center_x = x + width / 2
+        base = round(y)
+        roof_height = round(y + depth) - base
+        facade_y = base + height / 2
         try:
+            p.SDL_SetTextureColorMod(image.texture, 72, 79, 91)
+            image.clip_draw(0, facade_px, image.w, image.h - facade_px,
+                            center_x, base + height + roof_height / 2, width, roof_height)
             p.SDL_SetTextureColorMod(image.texture, 48, 54, 62)
-            image.draw(*center, width, total)
+            image.clip_draw(0, 0, image.w, facade_px, center_x, facade_y, width, height)
             p.SDL_SetTextureColorMod(image.texture, 178, 147, 105)
             for start, end in spans:
                 left, right = math.ceil(start - .5), math.ceil(end - .5)
                 if left >= right:
                     continue
-                clip = p.SDL_Rect(left, WINDOW_HEIGHT - round(y + height), right - left, height)
+                clip = p.SDL_Rect(left, WINDOW_HEIGHT - base - height, right - left, height)
                 p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
-                image.draw(*center, width, total)
+                image.clip_draw(0, 0, image.w, facade_px, center_x, facade_y, width, height)
         finally:
             p.SDL_RenderSetClipRect(p.renderer, None)
             p.SDL_SetTextureColorMod(image.texture, 255, 255, 255)

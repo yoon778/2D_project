@@ -73,7 +73,7 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(88, 305, 140, 190, "west-house"),
             NeighborhoodWall(310, 225, 275, 200, "east-house"),
             NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
-            *(Wall(*building) for building in _BUILDINGS),
+            *(NeighborhoodWall(*building, "workshop") for building in _BUILDINGS),
             *(NeighborhoodWall(x, y, 140, 190, "west-house") for x, y in _WEST_HOUSES),
             *(NeighborhoodWall(x, y, 275, 200, "east-house") for x, y in _EAST_HOUSES),
             NeighborhoodWall(1820, 1060, 260, 160, "shop"),

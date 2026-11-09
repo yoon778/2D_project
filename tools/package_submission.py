@@ -31,7 +31,7 @@ def runtime_files():
     files.update((ROOT / "PRD.md", GAME / "requirements.txt", ASSETS / "props/alley-trash-can.png"))
     files.update(ASSETS / "neighborhood" / name
                  for name in ("ground.png", "west-house.png", "east-house.png", "fence.png",
-                              "shop.png", "bus-stop.png", "streetlamp.png", "roads.json"))
+                              "shop.png", "bus-stop.png", "streetlamp.png", "workshop.png", "roads.json"))
     files.update(ASSETS / "audio" / name for name in ("last-delivery.mp3", "zombie_step.wav", "zombie_groan.wav"))
 
     player_path, player = metadata_assets("player/r1b-courier-atlas-20261104.json")
