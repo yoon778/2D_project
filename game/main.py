@@ -12,6 +12,7 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
+from flashlight import Flashlight, RANGE as LIGHT_RANGE
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
 import opening
@@ -49,6 +50,15 @@ def sdl_to_world(x, y):
     return screen_to_world(x, WINDOW_HEIGHT - 1 - y)
 
 
+def current_cursor():
+    mouse_window = p.SDL_GetMouseFocus()
+    if not mouse_window or p.SDL_GetWindowID(mouse_window) != p.SDL_GetWindowID(p.window):
+        return None
+    x, y = ctypes.c_int(), ctypes.c_int()
+    p.SDL_GetMouseState(ctypes.byref(x), ctypes.byref(y))
+    return x.value, y.value
+
+
 def sorted_drawables(player, walls, zombie=None, *, prop=None):
     # Stable ties: the prop precedes walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
@@ -59,10 +69,12 @@ def sorted_drawables(player, walls, zombie=None, *, prop=None):
     return sorted(objects, key=lambda item: -(item[1][1] if item[0] == "prop" else item[1].y))
 
 
-def mouse_target(world, visual, mouse_x, mouse_y):
-    foot = world_to_screen(world.zombie.x, world.zombie.y)
-    if visual.zombie_contains(world.zombie, *foot, mouse_x, WINDOW_HEIGHT - 1 - mouse_y):
-        return world.zombie.x, world.zombie.y
+def mouse_target(world, visual, mouse_x, mouse_y, light=None):
+    position = (world.zombie.x, world.zombie.y)
+    if light is None or light.contains(position):
+        foot = world_to_screen(*position)
+        if visual.zombie_contains(world.zombie, *foot, mouse_x, WINDOW_HEIGHT - 1 - mouse_y):
+            return position
     return sdl_to_world(mouse_x, mouse_y)
 
 
@@ -83,6 +95,7 @@ class Renderer:
         self.trash_can = None
         self.combat = None
         self.cursor = None
+        self.light = None
         self.shake_remaining = 0.0
         self.shake_strength = 0
         self.shake_offset = (0, 0)
@@ -133,28 +146,32 @@ class Renderer:
         dx, dy = self.shake_offset
         return sx + dx, sy + dy
 
-    def floor(self):
-        origin = self.project(0, 0)
-        rectangle(*origin, WORLD_WIDTH,
-                  WORLD_HEIGHT * GROUND_SCALE_Y, (42, 53, 57))
-        for x in range(0, int(WORLD_WIDTH) + 1, 80):
-            start, end = self.project(x, 0), self.project(x, WORLD_HEIGHT)
-            p.draw_line(*start, *end, 55, 68, 73)
-        for y in range(0, int(WORLD_HEIGHT) + 1, 80):
-            start, end = self.project(0, y), self.project(WORLD_WIDTH, y)
-            p.draw_line(*start, *end, 55, 68, 73)
-        rectangle(*origin, WORLD_WIDTH,
-                  WORLD_HEIGHT * GROUND_SCALE_Y, (106, 126, 133), filled=False)
+    def draw_beam(self, outline):
+        points = [self.light.origin] + [point for point, _ in outline]
+        vertices = (p.SDL_Vertex * len(points))()
+        for i, point in enumerate(points):
+            x, y = self.project(*point)
+            strength = 1.0 - math.dist(self.light.origin, point) / LIGHT_RANGE
+            color = p.SDL_Color(round(28 + 104 * strength), round(26 + 84 * strength),
+                                round(23 + 53 * strength), 255)
+            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - 1 - y), color)
+        indices = [index for i in range(1, len(vertices) - 1) for index in (0, i, i + 1)]
+        triangles = (ctypes.c_int * len(indices))(*indices)
+        if p.SDL_RenderGeometry(p.renderer, None, vertices, len(vertices), triangles, len(indices)) != 0:
+            raise RuntimeError(f"Flashlight geometry failed: {p.SDL_GetError()!r}")
 
-    def wall(self, wall):
+    def wall(self, wall, outline):
         x, y = self.project(wall.x, wall.y)
-        rectangle(x, y, wall.width, WALL_HEIGHT, (69, 84, 94))
+        rectangle(x, y, wall.width, WALL_HEIGHT, (12, 14, 18))
         rectangle(x, y + WALL_HEIGHT, wall.width,
-                  wall.depth * GROUND_SCALE_Y, (102, 122, 132))
-        rectangle(x, y, wall.width, WALL_HEIGHT, (142, 159, 165), filled=False)
+                  wall.depth * GROUND_SCALE_Y, (16, 18, 22))
+        for (a, first), (b, last) in zip(outline, outline[1:]):
+            if first is wall and last is wall and abs(a[1] - wall.y) < 1e-7 and abs(b[1] - wall.y) < 1e-7:
+                start, end = sorted((self.project(*a)[0], self.project(*b)[0]))
+                rectangle(start, y, end - start, WALL_HEIGHT, (53, 47, 40))
+        rectangle(x, y, wall.width, WALL_HEIGHT, (27, 30, 36), filled=False)
         rectangle(x, y + WALL_HEIGHT, wall.width,
-                  wall.depth * GROUND_SCALE_Y, (142, 159, 165), filled=False)
-        self.font.draw(x + 46, y + 55, "벽 높이 110px", WHITE)
+                  wall.depth * GROUND_SCALE_Y, (27, 30, 36), filled=False)
 
     def update_sprint_pulse(self, dt, position=None):
         if position is not None:
@@ -169,51 +186,58 @@ class Renderer:
         progress = 1.0 - self.sprint_pulse_remaining / SPRINT_PULSE_DURATION
         radius = 18 + progress * 32
         x, y = self.sprint_pulse
-        points = [self.project(x + radius * dx, y + radius * dy) for dx, dy in PULSE_RING]
+        points = [(x + radius * dx, y + radius * dy) for dx, dy in PULSE_RING]
         color = tuple(round(bright + (floor - bright) * progress)
-                      for bright, floor in zip(TEAL, (42, 53, 57)))
-        for start, end in zip(points, points[1:]):
-            p.draw_line(*start, *end, *color)
+                      for bright, floor in zip(TEAL, (48, 41, 34)))
+        visible = [self.light.contains(point) for point in points]
+        for index, (start, end) in enumerate(zip(points, points[1:])):
+            if visible[index] and visible[index + 1]:
+                p.draw_line(*self.project(*start), *self.project(*end), *color)
 
     def draw(self, player, walls, target, focused=True):
-        p.SDL_SetRenderDrawColor(p.renderer, 12, 19, 26, 255)
+        p.SDL_SetRenderDrawColor(p.renderer, 0, 0, 0, 255)
         p.SDL_RenderClear(p.renderer)
-        self.floor()
+        origin = (player.x, player.y)
+        aim = sdl_to_world(*self.cursor) if self.cursor is not None else target
+        dx, dy = aim[0] - origin[0], aim[1] - origin[1]
+        self.light = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls)
+        outline = self.light.outline()
+        self.draw_beam(outline)
         self.draw_sprint_pulse()
-        foot = self.project(player.x, player.y)
+        foot = self.project(*origin)
         combat = getattr(self, "combat", None)
+        attack = combat.attack if combat is not None else None
         for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None,
                                             prop=TRASH_CAN_POSITION):
             if kind == "prop":
-                x, y = self.project(*actor)
-                self.trash_can.draw(x, y + self.trash_can.h, self.trash_can.w * 2, self.trash_can.h * 2)
+                if self.light.contains(actor):
+                    x, y = self.project(*actor)
+                    self.trash_can.draw(x, y + self.trash_can.h, self.trash_can.w * 2, self.trash_can.h * 2)
             elif kind == "wall":
-                self.wall(actor)
+                self.wall(actor, outline)
             elif kind == "zombie":
+                if not self.light.contains((actor.x, actor.y)):
+                    continue
                 x, y = self.project(actor.x, actor.y)
                 self.combat_visual.draw_zombie(actor, x, y)
                 if combat.result == "playing" and actor.alive and actor.state in ZOMBIE_MARKS:
                     symbol, color = ZOMBIE_MARKS[actor.state]
                     rectangle(x + 24, y + 96, 18, 18, (16, 24, 28))
                     self.font.draw(x + 28, y + 105, symbol, color)
+                if (attack is not None and attack.facing == "front_right" and attack.landed
+                        and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
+                    x, y = x - 12, y + 83
+                    p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
+                    p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
+                    p.draw_line(x + 4, y + 2, x + 9, y + 4, *WHITE)
             else:
                 if combat is None or not self.combat_visual.draw_attack(
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index):
                     self.player_visual.draw(*foot)
                 cross(*foot, TEAL, size=4)
-        attack = combat.attack if combat is not None else None
-        if (attack is not None and attack.facing == "front_right" and attack.landed
-                and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
-            x, y = self.project(combat.zombie.x, combat.zombie.y)
-            x -= 12
-            y += 83
-            p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
-            p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
-            p.draw_line(x + 4, y + 2, x + 9, y + 4, *WHITE)
         # The cursor stays at its screen position while the world shakes.
         target_screen = (world_to_screen(*target) if self.cursor is None
                          else (self.cursor[0], WINDOW_HEIGHT - 1 - self.cursor[1]))
-        p.draw_line(*foot, *target_screen, 112, 93, 56)
         cross(*target_screen, ORANGE, size=7)
         angle = attack.angle if attack is not None else player.aim_angle
         desired = math.atan2(target[1] - player.y, target[0] - player.x)
@@ -221,10 +245,10 @@ class Renderer:
             tip = self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle))
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
-        self.font.draw(24, 683, "Dead Route - R3  |  좀비 감지 · 추격 · 수색", WHITE)
+        self.font.draw(24, 683, "Dead Route - R4  |  마우스 손전등", WHITE)
         self.font.draw(24, 651, "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
-            self.font.draw(24, 620, f"HP {combat.player_hp}/3   좀비 {combat.zombie.hp}/5", WHITE)
+            self.font.draw(24, 620, f"HP {combat.player_hp}/3", WHITE)
             self.font.draw(24, 592, "스태미나", WHITE)
             rectangle(116, 585, 100, 10, (48, 63, 71))
             stamina_width = round(100 * combat.stamina / MAX_STAMINA)
@@ -234,10 +258,6 @@ class Renderer:
                 message = "연습 좀비 처치" if combat.result == "cleared" else "쓰러짐"
                 self.font.draw(470, 365, f"{message} · R 재시작", TEAL)
         self.font.draw(24, 54, "입력 활성" if focused else "포커스 없음 · 이동 입력 초기화", WHITE)
-        self.font.draw(24, 24,
-                       f"발점 ({player.x:.1f}, {player.y:.1f})   "
-                       f"조준 지면 ({target[0]:.1f}, {target[1]:.1f})   "
-                       f"각도 {player.aim_angle:.3f} rad", WHITE)
 
 
 def capture(path):
@@ -320,7 +340,7 @@ def run(smoke_test=False, *, show_opening=False):
         pressed = set()
         target = (world.zombie.x, world.zombie.y)
         aim_player(player, *target)
-        cursor = None
+        cursor = current_cursor()
         mouse_held = False
         previous = time.perf_counter()
         frame = 0
@@ -376,12 +396,14 @@ def run(smoke_test=False, *, show_opening=False):
                 pressed.clear()
                 pending_click = False
                 mouse_held = False
-                cursor = None
+                cursor = current_cursor()
+                renderer.light = None
                 target = (world.zombie.x, world.zombie.y)
                 aim_player(player, *target)
             renderer.cursor = cursor
             if cursor is not None:
-                target = mouse_target(world, renderer.combat_visual, *cursor)
+                light = renderer.light or Flashlight((player.x, player.y), player.aim_angle, walls)
+                target = mouse_target(world, renderer.combat_visual, *cursor, light)
             active = focused and not lost_focus
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)

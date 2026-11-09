@@ -99,6 +99,7 @@ class DummyInputTests(unittest.TestCase):
             }),
             patch.object(main.time, "perf_counter", side_effect=lambda: next(clock) / 60.0),
             patch.object(p, "SDL_GetWindowFlags", return_value=p.SDL_WINDOW_INPUT_FOCUS),
+            patch.object(main, "current_cursor", return_value=None),
             patch.object(main.Renderer, "__init__", initialize),
             patch.object(main.Renderer, "draw", draw),
             patch.object(main.Renderer, "close", close),

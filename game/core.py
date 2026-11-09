@@ -94,8 +94,8 @@ def aim_player(player: Player, target_x: float, target_y: float, *, max_turn: fl
             player.aim_angle = math.remainder(player.aim_angle + math.copysign(max_turn, delta), math.tau)
 
 
-def wall_blocks(start, end, wall: Wall) -> bool:
-    """Closed ground segment versus a wall, including contact at its edge."""
+def wall_entry(start, end, wall: Wall) -> float | None:
+    """Fraction along a closed segment where it first touches a wall."""
     enter, leave = 0.0, 1.0
     epsilon = 1e-12
     for origin, delta, low, high in (
@@ -104,10 +104,14 @@ def wall_blocks(start, end, wall: Wall) -> bool:
     ):
         if abs(delta) <= epsilon:
             if origin < low - epsilon or origin > high + epsilon:
-                return False
+                return None
         else:
             first, last = sorted(((low - origin) / delta, (high - origin) / delta))
             enter, leave = max(enter, first), min(leave, last)
             if enter > leave + epsilon:
-                return False
-    return True
+                return None
+    return enter
+
+
+def wall_blocks(start, end, wall: Wall) -> bool:
+    return wall_entry(start, end, wall) is not None
