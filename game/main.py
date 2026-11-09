@@ -13,7 +13,7 @@ from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
 from delivery import ALLEY_PROP, DeliveryWorld, NeighborhoodWall
-from flashlight import Flashlight, RANGE as LIGHT_RANGE
+from flashlight import Flashlight, LightField
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import ZombieAudio
@@ -30,6 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
 GROUND_NEUTRAL = 144
+STREETLIGHT_RADIUS = 185.0
 TRASH_CAN_POSITION = (365.0, 300.0)
 WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
@@ -64,17 +65,18 @@ def current_cursor():
     return x.value, y.value
 
 
-def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None):
+def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None, lamps=()):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
     if station is not None:
         objects.append(("station", station))
+    objects.extend(("lamp", position) for position in lamps)
     objects.extend(("wall", wall) for wall in walls)
     if zombie is not None:
         objects.append(("zombie", zombie))
     objects.extend(("zombie", enemy) for enemy in zombies)
     objects.append(("player", player))
-    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station") else item[1].y))
+    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp") else item[1].y))
 
 
 def lit_zombie_columns(light, zombie, screen_origin_x):
@@ -140,6 +142,8 @@ class Renderer:
         self.trash_can = None
         self.neighborhood_ground = None
         self.neighborhood_walls = {}
+        self.streetlamp_image = None
+        self.streetlights = ()
         self.combat = None
         self.delivery = None
         self.cursor = None
@@ -168,11 +172,32 @@ class Renderer:
         self.neighborhood_ground = load_atlas(NEIGHBORHOOD_PATH / "ground.png",
                                               [round(world_w / 2), round(world_h * GROUND_SCALE_Y / 2)])
         for wall in self.delivery.walls:
-            if isinstance(wall, NeighborhoodWall):
+            if isinstance(wall, NeighborhoodWall) and wall.texture not in self.neighborhood_walls:
                 size = [round(wall.width / 2), round((wall.height + wall.depth * GROUND_SCALE_Y) / 2)]
                 self.neighborhood_walls[wall.texture] = load_atlas(NEIGHBORHOOD_PATH / f"{wall.texture}.png", size)
+        self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
+        self.reset_streetlights()
+
+    def reset_streetlights(self):
+        radius = STREETLIGHT_RADIUS
+        lights = []
+        for x, y in self.delivery.streetlights:
+            walls = [wall for wall in self.delivery.walls
+                     if x - radius <= wall.x + wall.width and wall.x <= x + radius
+                     and y - radius <= wall.y + wall.depth and wall.y <= y + radius]
+            lights.append(Flashlight((x, y), 0, walls, self.delivery.world_size,
+                                     radius=radius, half_angle=math.pi))
+        self.streetlights = tuple(lights)
+
+    def streetlights_in_view(self):
+        for light in self.streetlights:
+            x, y = self.project(*light.origin)
+            radius_y = light.radius * GROUND_SCALE_Y
+            if -light.radius <= x <= WINDOW_WIDTH + light.radius and -radius_y <= y <= WINDOW_HEIGHT + radius_y:
+                yield light
 
     def close(self):
+        self.streetlamp_image = None
         self.neighborhood_ground = None
         self.neighborhood_walls.clear()
         self.trash_can = None
@@ -244,15 +269,15 @@ class Renderer:
             self.font.draw(left + offset + 16, 75, label, color)
         self.font.draw(left, 40, "M 닫기 · 지도 확인 중 일시정지", WHITE)
 
-    def draw_beam(self, outline):
-        points = [self.light.origin] + [point for point, _ in outline]
+    def draw_ground_light(self, light, outline, edge, falloff):
+        points = [light.origin] + [point for point, _ in outline]
         ground = self.neighborhood_ground
-        world_w, world_h = self.light.world_size
+        world_w, world_h = light.world_size
         vertices = (p.SDL_Vertex * len(points))()
         for i, point in enumerate(points):
             x, y = self.project(*point)
-            strength = 1.0 - math.dist(self.light.origin, point) / LIGHT_RANGE
-            light_rgb = (28 + 104 * strength, 26 + 84 * strength, 23 + 53 * strength)
+            strength = max(0, 1.0 - math.dist(light.origin, point) / light.radius)
+            light_rgb = tuple(base + gain * strength for base, gain in zip(edge, falloff))
             uv = p.SDL_FPoint()
             if ground is not None:
                 light_rgb = tuple(channel * 255 / GROUND_NEUTRAL for channel in light_rgb)
@@ -263,13 +288,28 @@ class Renderer:
         triangles = (ctypes.c_int * len(indices))(*indices)
         texture = ground.texture if ground is not None else None
         if p.SDL_RenderGeometry(p.renderer, texture, vertices, len(vertices), triangles, len(indices)) != 0:
-            raise RuntimeError(f"Flashlight geometry failed: {p.SDL_GetError()!r}")
+            raise RuntimeError(f"Ground light geometry failed: {p.SDL_GetError()!r}")
 
-    def wall(self, wall, outline):
+    def draw_streetlight_pools(self, lamps, outlines):
+        if not lamps:
+            return
+        texture = self.neighborhood_ground.texture
+        if p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_ADD) != 0:
+            raise RuntimeError(f"Streetlight blend mode failed: {p.SDL_GetError()!r}")
+        try:
+            for lamp, outline in zip(lamps, outlines):
+                self.draw_ground_light(lamp, outline, (0, 0, 0), (108, 83, 48))
+        finally:
+            p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_BLEND)
+
+    def wall(self, wall, outlines):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
         depth = wall.depth * GROUND_SCALE_Y
-        spans = [(x + start - wall.x, x + end - wall.x) for start, end in wall_front_spans(wall, outline)]
+        if x >= WINDOW_WIDTH or x + wall.width <= 0 or y >= WINDOW_HEIGHT or y + height + depth <= 0:
+            return
+        spans = [(x + start - wall.x, x + end - wall.x) for outline in outlines
+                 for start, end in wall_front_spans(wall, outline)]
         image = self.neighborhood_walls.get(wall.texture) if isinstance(wall, NeighborhoodWall) else None
         if image is not None:
             self.draw_textured_wall(image, x, y, wall.width, height, depth, spans)
@@ -401,9 +441,14 @@ class Renderer:
         aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
         dx, dy = aim[0] - origin[0], aim[1] - origin[1]
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
-        self.light = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls, world_size)
-        outline = self.light.outline()
-        self.draw_beam(outline)
+        beam = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls, world_size)
+        lamps = tuple(self.streetlights_in_view())
+        self.light = LightField((beam, *lamps))
+        beam_outline = beam.outline()
+        lamp_outlines = tuple(lamp.outline() for lamp in lamps)
+        self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53))
+        self.draw_streetlight_pools(lamps, lamp_outlines)
+        outlines = (beam_outline, *lamp_outlines)
         self.draw_sprint_pulse()
         foot = self.project(*origin)
         combat = getattr(self, "combat", None)
@@ -412,7 +457,8 @@ class Renderer:
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
         for kind, actor in sorted_drawables(player, walls, zombies=combat.zombies if combat else (),
                                             prop=ALLEY_PROP if delivery is not None else TRASH_CAN_POSITION,
-                                            station=delivery.next_stop if delivery is not None else None):
+                                            station=delivery.next_stop if delivery is not None else None,
+                                            lamps=(lamp.origin for lamp in lamps)):
             if kind == "prop":
                 if self.light.contains(actor):
                     x, y = self.project(*actor)
@@ -420,8 +466,12 @@ class Renderer:
             elif kind == "station":
                 if self.light.contains(actor):
                     self.draw_station(actor, delivery.parcel == "waiting")
+            elif kind == "lamp":
+                x, y = self.project(*actor)
+                image = self.streetlamp_image
+                image.draw(x, y + image.h, image.w * 2, image.h * 2)
             elif kind == "wall":
-                self.wall(actor, outline)
+                self.wall(actor, outlines)
             elif kind == "zombie":
                 self.draw_lit_zombie(actor, combat, attack)
             else:
@@ -609,6 +659,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 mouse_held = False
             if reset_requested:
                 world.reset()
+                if delivery_run:
+                    renderer.reset_streetlights()
                 player, walls = world.player, world.walls
                 renderer.player_visual.locomotion = Locomotion()
                 renderer.combat_visual.reset_zombie_animation()
@@ -628,7 +680,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.follow(player)
             renderer.cursor = cursor
             if cursor is not None:
-                light = renderer.light or Flashlight((player.x, player.y), player.aim_angle, walls, world.world_size)
+                light = renderer.light
+                if light is None:
+                    beam = Flashlight((player.x, player.y), player.aim_angle, walls, world.world_size)
+                    light = LightField((beam, *renderer.streetlights_in_view()))
                 target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera, renderer.shake_offset)
             active = focused and not lost_focus and not renderer.map_open
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)

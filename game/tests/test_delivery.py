@@ -1,7 +1,8 @@
+import math
 import unittest
 
 from game.combat import ATTACK_HIT_TIME, Zombie
-from game.core import Wall
+from game.core import WALK_SPEED, Wall, move_player
 from game.delivery import DeliveryWorld, PLAYER_START, ZOMBIE_START, ZOMBIE_STARTS
 
 
@@ -23,6 +24,30 @@ class DeliveryTests(unittest.TestCase):
         world.update(0.5, 1, 0, sprint=True)
         self.assertEqual((world.player.x, world.player.y), world.destination)
         self.assertFalse(world.interact())
+
+    def test_both_town_routes_can_complete_delivery(self):
+        destination = self.world.destination
+        routes = {
+            "main road": ((145, 100), (3380, 100), destination),
+            "alleys": ((266, 145), (266, 630), (1240, 630), (1240, 900),
+                       (1660, 900), (1660, 1880), (3190, 1880), (3190, 2240), destination),
+        }
+        for name, waypoints in routes.items():
+            with self.subTest(route=name):
+                world = DeliveryWorld()
+                self.assertTrue(world.interact())
+                player = world.player
+                for x, y in waypoints:
+                    dx, dy = x - player.x, y - player.y
+                    remaining = math.hypot(dx, dy) / WALK_SPEED
+                    while remaining > 0:
+                        dt = min(remaining, 1.0)
+                        move_player(player, dx, dy, dt, world.walls, world_size=world.world_size)
+                        remaining -= dt
+                    self.assertAlmostEqual(player.x, x)
+                    self.assertAlmostEqual(player.y, y)
+                self.assertTrue(world.interact())
+                self.assertEqual(world.result, "delivered")
 
     def test_interaction_cannot_reach_through_wall(self):
         world = self.world

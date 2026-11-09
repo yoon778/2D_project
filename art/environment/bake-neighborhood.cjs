@@ -1,5 +1,5 @@
-// Dead Route R8-E pixel textures. Bake with: node art/environment/bake-neighborhood.cjs
-// The map is stored at half screen scale. Image y is 360 - world y * 0.3.
+// Dead Route R8-F pixel textures. Bake with: node art/environment/bake-neighborhood.cjs
+// The map is stored at half screen scale. Image y is 720 - world y * 0.3.
 const path = require('node:path')
 const assert = require('node:assert/strict')
 const sharp = require('sharp')
@@ -7,11 +7,11 @@ const sharp = require('sharp')
 const output = path.resolve(__dirname, '../../game/assets/neighborhood')
 const neutral = [144, 144, 144]
 
-function texture(width, height) {
-  const data = Buffer.alloc(width * height * 3)
+function texture(width, height, channels = 3) {
+  const data = Buffer.alloc(width * height * channels)
   function point(x, y, color) {
     if (x >= 0 && x < width && y >= 0 && y < height) {
-      data.set(color, (y * width + x) * 3)
+      data.set(color, (y * width + x) * channels)
     }
   }
   function rect(x, y, w, h, color) {
@@ -19,7 +19,7 @@ function texture(width, height) {
       for (let col = x; col < x + w; col++) point(col, row, color)
     }
   }
-  return {width, height, data, point, rect}
+  return {width, height, channels, data, point, rect}
 }
 
 function hash(x, y) {
@@ -52,7 +52,7 @@ function slabs(image, x, y, w, h) {
   }
 }
 
-function ground() {
+function southwestBlock() {
   const image = texture(860, 360)
   const {rect, point, width, height, data} = image
   rect(0, 0, width, height, neutral)
@@ -99,6 +99,132 @@ function ground() {
       for (let c = 0; c < 3; c++) data[offset + c] = Math.round(neutral[c] + (data[offset + c] - neutral[c]) * amount)
     }
   }
+  return image
+}
+
+function worldRect(image, left, bottom, right, top, color, strength = 0) {
+  const x = Math.round(left / 2)
+  const y = image.height - Math.round(top * .3)
+  const w = Math.round(right / 2) - x
+  const h = image.height - Math.round(bottom * .3) - y
+  if (strength) grain(image, x, y, w, h, color, strength)
+  else image.rect(x, y, w, h, color)
+}
+
+function paintRoutes(image, routes, extra, color, strength = 0) {
+  for (const {points, width, openStart} of routes) {
+    const half = width / 2 + extra
+    for (let i = 1; i < points.length; i++) {
+      const [ax, ay] = points[i - 1]
+      const [bx, by] = points[i]
+      const left = openStart && i === 1 ? ax : Math.min(ax, bx) - half
+      worldRect(image, left, Math.min(ay, by) - half,
+        Math.max(ax, bx) + half, Math.max(ay, by) + half, color, strength)
+    }
+  }
+}
+
+function ground() {
+  const image = texture(1800, 720)
+  const {rect, data, width, height} = image
+  rect(0, 0, width, height, neutral)
+  worldRect(image, 1715, 145, 3320, 2295, [116, 123, 108], 1)
+  const old = southwestBlock()
+  for (let row = 0; row < old.height; row++) {
+    const rowBytes = old.width * 3
+    old.data.copy(data, ((row + 360) * width) * 3, row * rowBytes, (row + 1) * rowBytes)
+  }
+
+  // Keep the original approach intact and start both road additions at its far edges.
+  const main = [{points: [[632, 80], [3380, 80], [3380, 2240]], width: 80, openStart: true}]
+  const alleys = [
+    {points: [[266, 543], [266, 630], [1240, 630], [1240, 900],
+      [1660, 900], [1660, 1880], [3190, 1880], [3190, 2240], [3380, 2240]], width: 68},
+    {points: [[1660, 535], [3380, 535]], width: 58},
+    {points: [[1660, 1000], [3380, 1000]], width: 60},
+    {points: [[1660, 1720], [3380, 1720]], width: 58},
+  ]
+  const approaches = [
+    {points: [[1958, 1000], [1958, 1041]], width: 40},
+    {points: [[2280, 1720], [2280, 1760]], width: 42},
+  ]
+  paintRoutes(image, [...main, ...alleys], 21, [159, 155, 139], .8)
+  paintRoutes(image, [...main, ...alleys], 4, [186, 177, 154])
+  paintRoutes(image, main, 0, [109, 113, 117], 1.5)
+  paintRoutes(image, alleys, 0, [128, 128, 118], 1.15)
+  paintRoutes(image, approaches, 0, [156, 149, 134], 1.1)
+
+  // Join the old horizontal dashes and turn them north past the corner.
+  for (let x = 12 + 8 * 43; x < 1665; x += 43) rect(x, 695, 18, 1, [191, 181, 150])
+  for (let y = 670; y > 58; y -= 26) rect(1690, y, 1, 11, [191, 181, 150])
+  return image
+}
+
+function shop() {
+  const image = house(130, 48, {
+    roof: [101, 113, 112], wall: [143, 128, 109], trim: [188, 177, 149], door: [72, 95, 91], row: 6,
+  }, 60, [])
+  const {rect} = image
+  grain(image, 1, 52, 128, 50, [138, 131, 115])
+  // Petrol-green sign and striped canopy mark the shop from the road.
+  rect(5, 53, 51, 11, [61, 90, 87])
+  rect(5, 53, 51, 1, [116, 140, 129])
+  const digits = ['110 101', '001 101', '111 111', '100 001', '111 001']
+  digits.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] === '1') rect(25 + x * 2, 54 + y * 2, 2, 2, [222, 216, 171])
+    }
+  })
+  rect(3, 65, 54, 6, [75, 118, 109])
+  rect(83, 65, 44, 6, [75, 118, 109])
+  for (const x of [5, 15, 25, 35, 45, 85, 95, 105, 115]) rect(x, 65, 4, 6, [178, 169, 137])
+  rect(3, 71, 54, 1, [58, 75, 71])
+  rect(83, 71, 44, 1, [58, 75, 71])
+  windowFrame(image, 11, 77, 43, 18, [155, 166, 148])
+  windowFrame(image, 80, 77, 39, 18, [155, 166, 148])
+  door(image, 61, 56, 17, 46, [77, 104, 101], [157, 167, 147])
+  rect(0, 102, 130, 1, [67, 75, 69])
+  return image
+}
+
+function busStop() {
+  const image = texture(70, 50)
+  const {rect} = image
+  grain(image, 0, 0, 70, 16, [102, 126, 131])
+  for (let x = 9; x < 67; x += 10) rect(x, 1, 1, 13, [79, 103, 109])
+  rect(0, 13, 70, 3, [145, 160, 149])
+  grain(image, 0, 16, 70, 34, [83, 102, 108])
+  rect(0, 17, 70, 3, [57, 77, 82])
+  rect(6, 22, 58, 1, [127, 148, 148])
+  rect(9, 29, 52, 1, [101, 128, 131])
+  rect(5, 43, 60, 5, [69, 83, 84])
+  for (const x of [1, 34, 66]) {
+    rect(x, 19, 3, 30, [46, 69, 75])
+    rect(x, 19, 1, 28, [116, 136, 136])
+  }
+  rect(9, 36, 29, 3, [153, 132, 99])
+  rect(13, 39, 2, 7, [73, 80, 79])
+  rect(32, 39, 2, 7, [73, 80, 79])
+  rect(52, 24, 10, 13, [177, 183, 154])
+  rect(54, 27, 6, 2, [63, 104, 110])
+  rect(54, 32, 5, 1, [87, 107, 103])
+  rect(0, 48, 70, 2, [58, 73, 77])
+  return image
+}
+
+function streetlamp() {
+  const image = texture(14, 54, 4)
+  const {rect} = image
+  rect(5, 8, 4, 45, [45, 59, 64, 255])
+  rect(6, 8, 1, 43, [113, 126, 121, 255])
+  rect(5, 6, 9, 3, [54, 71, 74, 255])
+  rect(10, 3, 3, 4, [104, 118, 113, 255])
+  rect(7, 1, 7, 3, [58, 76, 79, 255])
+  rect(6, 3, 8, 2, [128, 139, 125, 255])
+  rect(6, 5, 8, 2, [214, 177, 99, 255])
+  rect(8, 6, 5, 2, [255, 228, 151, 255])
+  rect(4, 50, 6, 3, [62, 77, 76, 255])
+  rect(3, 53, 8, 1, [96, 108, 99, 255])
   return image
 }
 
@@ -181,13 +307,13 @@ function fence() {
 
 async function save(name, image) {
   const file = path.join(output, name + '.png')
-  const {data, width, height} = image
+  const {data, width, height, channels} = image
   if (process.argv.includes('--check')) {
     const actual = await sharp(file).raw().toBuffer({resolveWithObject: true})
-    assert.deepEqual([actual.info.width, actual.info.height, actual.info.channels], [width, height, 3])
+    assert.deepEqual([actual.info.width, actual.info.height, actual.info.channels], [width, height, channels])
     assert(actual.data.equals(data), name + ' differs from the bake')
   } else {
-    await sharp(data, {raw: {width, height, channels: 3}}).png().toFile(file)
+    await sharp(data, {raw: {width, height, channels}}).png().toFile(file)
   }
 }
 
@@ -201,6 +327,9 @@ async function main() {
       roof: [129, 105, 98], wall: [160, 126, 111], trim: [190, 174, 150], door: [119, 91, 65], row: 6,
     }, 62, [13, 37, 96, 116])),
     save('fence', fence()),
+    save('shop', shop()),
+    save('bus-stop', busStop()),
+    save('streetlamp', streetlamp()),
   ])
   console.log('Neighborhood textures verified')
 }
