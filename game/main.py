@@ -29,6 +29,9 @@ WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
 HIT_MARK_DURATION = 0.06
+SPRINT_PULSE_DURATION = 0.24
+PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
+ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
 TURN_SPEED = math.radians(450)
 SHAKE_DURATIONS = {3: 0.08, 4: 0.10}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
@@ -83,6 +86,8 @@ class Renderer:
         self.shake_remaining = 0.0
         self.shake_strength = 0
         self.shake_offset = (0, 0)
+        self.sprint_pulse = None
+        self.sprint_pulse_remaining = 0.0
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
@@ -151,10 +156,30 @@ class Renderer:
                   wall.depth * GROUND_SCALE_Y, (142, 159, 165), filled=False)
         self.font.draw(x + 46, y + 55, "벽 높이 110px", WHITE)
 
+    def update_sprint_pulse(self, dt, position=None):
+        if position is not None:
+            self.sprint_pulse = position
+            self.sprint_pulse_remaining = SPRINT_PULSE_DURATION
+        else:
+            self.sprint_pulse_remaining = max(0.0, self.sprint_pulse_remaining - dt)
+
+    def draw_sprint_pulse(self):
+        if self.sprint_pulse_remaining <= 0:
+            return
+        progress = 1.0 - self.sprint_pulse_remaining / SPRINT_PULSE_DURATION
+        radius = 18 + progress * 32
+        x, y = self.sprint_pulse
+        points = [self.project(x + radius * dx, y + radius * dy) for dx, dy in PULSE_RING]
+        color = tuple(round(bright + (floor - bright) * progress)
+                      for bright, floor in zip(TEAL, (42, 53, 57)))
+        for start, end in zip(points, points[1:]):
+            p.draw_line(*start, *end, *color)
+
     def draw(self, player, walls, target, focused=True):
         p.SDL_SetRenderDrawColor(p.renderer, 12, 19, 26, 255)
         p.SDL_RenderClear(p.renderer)
         self.floor()
+        self.draw_sprint_pulse()
         foot = self.project(player.x, player.y)
         combat = getattr(self, "combat", None)
         for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None,
@@ -165,7 +190,12 @@ class Renderer:
             elif kind == "wall":
                 self.wall(actor)
             elif kind == "zombie":
-                self.combat_visual.draw_zombie(actor, *self.project(actor.x, actor.y))
+                x, y = self.project(actor.x, actor.y)
+                self.combat_visual.draw_zombie(actor, x, y)
+                if combat.result == "playing" and actor.alive and actor.state in ZOMBIE_MARKS:
+                    symbol, color = ZOMBIE_MARKS[actor.state]
+                    rectangle(x + 24, y + 96, 18, 18, (16, 24, 28))
+                    self.font.draw(x + 28, y + 105, symbol, color)
             else:
                 if combat is None or not self.combat_visual.draw_attack(
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index):
@@ -191,7 +221,7 @@ class Renderer:
             tip = self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle))
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
-        self.font.draw(24, 683, "Dead Route - R2-ZA  |  좀비 1마리 · 8방향 공격/걷기/피격", WHITE)
+        self.font.draw(24, 683, "Dead Route - R3  |  좀비 감지 · 추격 · 수색", WHITE)
         self.font.draw(24, 651, "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
             self.font.draw(24, 620, f"HP {combat.player_hp}/3   좀비 {combat.zombie.hp}/5", WHITE)
@@ -367,6 +397,10 @@ def run(smoke_test=False, *, show_opening=False):
             hp_before = world.player_hp
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint)
+            if active and not reset_requested and world.result == "playing":
+                renderer.update_sprint_pulse(dt, world.sprint_step)
+            else:
+                renderer.update_sprint_pulse(math.inf)
             strength = 0
             if world.player_hp < hp_before:
                 strength = 4

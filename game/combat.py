@@ -96,6 +96,7 @@ class CombatWorld:
         self.stamina = MAX_STAMINA
         self._sprint_exhausted = False
         self._footstep_distance = 0.0
+        self.sprint_step = None
         self._heard_at = None
         self._investigation_route = None
         self.player_invulnerable_remaining = 0.0
@@ -270,6 +271,7 @@ class CombatWorld:
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False):
         self.player.moved = self.zombie.moved = False
         self.zombie.recoil_offset = (0.0, 0.0)
+        self.sprint_step = None
         if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
             return
         player_origin = (self.player.x, self.player.y)
@@ -319,6 +321,8 @@ class CombatWorld:
                 if self._footstep_distance >= _FOOTSTEP_SPACING - 1e-8:
                     self._footstep_distance = max(0.0, self._footstep_distance - _FOOTSTEP_SPACING)
                     self._emit_noise(_SPRINT_NOISE_RANGE if sprinting else _WALK_NOISE_RANGE)
+                    if sprinting:
+                        self.sprint_step = (self.player.x, self.player.y)
         if sprinting and self.player.moved:
             self.stamina = max(0.0, self.stamina - _SPRINT_DRAIN * dt)
             if self.stamina <= _STAMINA_EPSILON:

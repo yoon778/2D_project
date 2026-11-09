@@ -237,13 +237,13 @@ class ZombieQueueTests(unittest.TestCase):
         self.assertAlmostEqual(states[3]["phase"], 1.5 / 64)
         self.assertEqual(states[3]["position"], states[0]["position"])
 
-    def test_real_wall_stop_preserves_phase_and_selects_idle(self):
+    def test_silent_player_behind_wall_keeps_zombie_in_idle_pose(self):
         def setup(world):
             world.player.x, world.player.y = 300, 360
             world.zombie.x, world.zombie.y = 650, 360
         states = self.observe([], {20: [("quit",)]}, 21, setup)
-        self.assertEqual(states[-1]["position"], (634, 360))
-        self.assertAlmostEqual(states[-1]["phase"], 16 / 64)
+        self.assertEqual(states[-1]["position"], (650, 360))
+        self.assertEqual(states[-1]["phase"], 0.0)
         self.assertFalse(states[-1]["moving"])
         self.assertEqual(states[-1]["row"], 0)
 
