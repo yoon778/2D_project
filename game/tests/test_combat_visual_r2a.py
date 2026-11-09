@@ -158,9 +158,16 @@ class CombatSpriteTests(unittest.TestCase):
 
 
 class CombatInputTests(unittest.TestCase):
-    def observe(self, initial, after_draw, maximum_draws=6):
+    def observe(self, initial, after_draw, maximum_draws=6, setup=None):
         states = []
         original = main.Renderer.draw
+        create_world = main.CombatWorld
+
+        def make_world():
+            world = create_world()
+            if setup:
+                setup(world)
+            return world
 
         def draw(renderer, player, walls, target, focused=True):
             original(renderer, player, walls, target, focused)
@@ -172,9 +179,11 @@ class CombatInputTests(unittest.TestCase):
                            "display_facing": renderer.player_visual.locomotion.facing,
                            "phase": renderer.player_visual.locomotion.phase,
                            "zombie": (world.zombie.x, world.zombie.y),
-                           "target": target, "hp": world.player_hp})
+                           "target": target, "hp": world.player_hp, "zombie_hp": world.zombie.hp,
+                           "shake": renderer.shake_offset, "cursor": renderer.cursor})
 
-        with patch.object(main.Renderer, "draw", draw):
+        with (patch.object(main.Renderer, "draw", draw),
+              patch.object(main, "CombatWorld", side_effect=make_world)):
             frames = input_fixture.DummyInputTests._run_events(
                 self, initial, after_draw, maximum_draws=maximum_draws)
         return frames, states
@@ -217,9 +226,42 @@ class CombatInputTests(unittest.TestCase):
         self.assertEqual(states[0]["zombie"], states[1]["zombie"])
 
     def test_back_facing_can_start_the_authored_attack(self):
-        _, states = self.observe([("click", 640, 269)], {1: [("quit",)]})
-        self.assertIsNotNone(states[0]["attack"])
-        self.assertEqual(states[0]["facing"], "back")
+        _, states = self.observe([("motion", 640, 269)],
+                                 {25: [("click", 640, 269)], 26: [("quit",)]}, 27)
+        self.assertIsNotNone(states[25]["attack"])
+        self.assertEqual(states[25]["facing"], "back")
+
+    def test_flick_and_click_hits_in_the_previously_visible_body_direction(self):
+        def setup(world):
+            world.zombie.x, world.zombie.y = 540, 180
+
+        _, states = self.observe([], {
+            1: [("motion", 160, 521), ("click", 160, 521)],
+            16: [("quit",)],
+        }, 17, setup)
+        self.assertEqual(states[1]["target"], (0, 180))
+        self.assertEqual(states[1]["cursor"], (160, 521))
+        self.assertEqual(states[1]["facing"], states[0]["display_facing"])
+        self.assertTrue(all(state["angle"] == 0 for state in states[1:]))
+        self.assertEqual(states[10]["zombie_hp"], 5)
+        self.assertEqual(states[11]["zombie_hp"], 4)
+        self.assertEqual(states[11]["shake"], (3, 0))
+
+    def test_miss_and_player_damage_trigger_distinct_shake_strengths(self):
+        _, miss = self.observe([("click", 760, 569)], {24: [("quit",)]}, 25)
+        self.assertTrue(all(state["shake"] == (0, 0) for state in miss[:14]))
+        self.assertEqual(miss[14]["shake"], (1, 0))
+        self.assertEqual(miss[-1]["zombie_hp"], 5)
+        self.assertEqual(miss[-1]["shake"], (0, 0))
+
+        def setup(world):
+            world.zombie.x, world.zombie.y = 508, 180
+
+        _, damage = self.observe([], {26: [("quit",)]}, 27, setup)
+        first_hit = next(i for i, state in enumerate(damage) if state["hp"] == 2)
+        self.assertEqual(damage[first_hit - 1]["shake"], (0, 0))
+        self.assertEqual(damage[first_hit]["shake"], (4, 0))
+        self.assertEqual(damage[-1]["shake"], (0, 0))
 
     def test_attack_keeps_angle_position_and_walk_phase_under_input(self):
         frames, states = self.observe([("click", 760, 569), ("down", main.p.SDLK_d)],

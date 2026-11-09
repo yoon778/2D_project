@@ -105,7 +105,7 @@ class AttackWalkSpriteTests(unittest.TestCase):
 
 
 class AttackWalkInputTests(unittest.TestCase):
-    def observe(self, initial, after_draw, maximum_draws=6, phase=0, wall=False):
+    def observe(self, initial, after_draw, maximum_draws=6, phase=0, wall=False, initial_aim=None):
         choices = []
         original_init, original_draw = main.Renderer.__init__, CombatVisual.draw_attack
         original_world = main.CombatWorld
@@ -124,6 +124,12 @@ class AttackWalkInputTests(unittest.TestCase):
             world = original_world()
             if wall:
                 world.player.y = 316
+            if initial_aim is not None:
+                x, y = main.sdl_to_world(*initial_aim)
+                dx, dy = x - world.player.x, y - world.player.y
+                distance = math.hypot(dx, dy)
+                world.zombie.x = world.player.x + 140 * dx / distance
+                world.zombie.y = world.player.y + 140 * dy / distance
             return world
 
         with (patch.object(main.Renderer, "__init__", initialize),
@@ -191,7 +197,8 @@ class AttackWalkInputTests(unittest.TestCase):
 
                 with patch.object(main.PlayerVisual, "draw", draw_walk):
                     frames, states, choices = self.observe(
-                        [("click", 1120, 521), ("down", key)], {40: [("quit",)]}, 41, phase=.2)
+                        [("click", 1120, 521), ("down", key)], {40: [("quit",)]}, 41,
+                        phase=.2, initial_aim=(1120, 521))
                 distance = 0.0
                 previous = (480, 180)
                 for frame, state in zip(frames, states):

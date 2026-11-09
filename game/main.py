@@ -29,6 +29,9 @@ WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
 HIT_MARK_DURATION = 0.06
+TURN_SPEED = math.radians(450)
+SHAKE_DURATIONS = {1: 0.05, 3: 0.08, 4: 0.10}
+SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
 
 
 def world_to_screen(x, y):
@@ -76,6 +79,10 @@ class Renderer:
         self.combat_visual = None
         self.trash_can = None
         self.combat = None
+        self.cursor = None
+        self.shake_remaining = 0.0
+        self.shake_strength = 0
+        self.shake_offset = (0, 0)
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
@@ -102,20 +109,40 @@ class Renderer:
                 self.font.font = None
             self.font = None
 
+    def update_shake(self, dt, strength=0):
+        if strength:
+            self.shake_strength = strength
+            self.shake_remaining = SHAKE_DURATIONS[strength]
+        else:
+            self.shake_remaining = max(0.0, self.shake_remaining - dt)
+        self.shake_offset = (0, 0)
+        if self.shake_remaining > 0:
+            duration = SHAKE_DURATIONS[self.shake_strength]
+            phase = int((duration - self.shake_remaining) / 0.014)
+            dx, dy = SHAKE_DIRECTIONS[phase % len(SHAKE_DIRECTIONS)]
+            amplitude = round(self.shake_strength * self.shake_remaining / duration)
+            self.shake_offset = (dx * amplitude, dy * amplitude)
+
+    def project(self, x, y):
+        sx, sy = world_to_screen(x, y)
+        dx, dy = self.shake_offset
+        return sx + dx, sy + dy
+
     def floor(self):
-        rectangle(GROUND_X, GROUND_Y, WORLD_WIDTH,
+        origin = self.project(0, 0)
+        rectangle(*origin, WORLD_WIDTH,
                   WORLD_HEIGHT * GROUND_SCALE_Y, (42, 53, 57))
         for x in range(0, int(WORLD_WIDTH) + 1, 80):
-            start, end = world_to_screen(x, 0), world_to_screen(x, WORLD_HEIGHT)
+            start, end = self.project(x, 0), self.project(x, WORLD_HEIGHT)
             p.draw_line(*start, *end, 55, 68, 73)
         for y in range(0, int(WORLD_HEIGHT) + 1, 80):
-            start, end = world_to_screen(0, y), world_to_screen(WORLD_WIDTH, y)
+            start, end = self.project(0, y), self.project(WORLD_WIDTH, y)
             p.draw_line(*start, *end, 55, 68, 73)
-        rectangle(GROUND_X, GROUND_Y, WORLD_WIDTH,
+        rectangle(*origin, WORLD_WIDTH,
                   WORLD_HEIGHT * GROUND_SCALE_Y, (106, 126, 133), filled=False)
 
     def wall(self, wall):
-        x, y = world_to_screen(wall.x, wall.y)
+        x, y = self.project(wall.x, wall.y)
         rectangle(x, y, wall.width, WALL_HEIGHT, (69, 84, 94))
         rectangle(x, y + WALL_HEIGHT, wall.width,
                   wall.depth * GROUND_SCALE_Y, (102, 122, 132))
@@ -128,17 +155,17 @@ class Renderer:
         p.SDL_SetRenderDrawColor(p.renderer, 12, 19, 26, 255)
         p.SDL_RenderClear(p.renderer)
         self.floor()
-        foot = world_to_screen(player.x, player.y)
+        foot = self.project(player.x, player.y)
         combat = getattr(self, "combat", None)
         for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None,
                                             prop=TRASH_CAN_POSITION):
             if kind == "prop":
-                x, y = world_to_screen(*actor)
+                x, y = self.project(*actor)
                 self.trash_can.draw(x, y + self.trash_can.h, self.trash_can.w * 2, self.trash_can.h * 2)
             elif kind == "wall":
                 self.wall(actor)
             elif kind == "zombie":
-                self.combat_visual.draw_zombie(actor, *world_to_screen(actor.x, actor.y))
+                self.combat_visual.draw_zombie(actor, *self.project(actor.x, actor.y))
             else:
                 if combat is None or not self.combat_visual.draw_attack(
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index):
@@ -147,16 +174,23 @@ class Renderer:
         attack = combat.attack if combat is not None else None
         if (attack is not None and attack.facing == "front_right" and attack.landed
                 and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
-            x, y = world_to_screen(combat.zombie.x, combat.zombie.y)
+            x, y = self.project(combat.zombie.x, combat.zombie.y)
             x -= 12
             y += 83
             p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
             p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
             p.draw_line(x + 4, y + 2, x + 9, y + 4, *WHITE)
-        # Development markers are separate from facing/frame selection.
-        target_screen = world_to_screen(*target)
+        # The cursor stays at its screen position while the world shakes.
+        target_screen = (world_to_screen(*target) if self.cursor is None
+                         else (self.cursor[0], WINDOW_HEIGHT - 1 - self.cursor[1]))
         p.draw_line(*foot, *target_screen, 112, 93, 56)
         cross(*target_screen, ORANGE, size=7)
+        angle = attack.angle if attack is not None else player.aim_angle
+        desired = math.atan2(target[1] - player.y, target[0] - player.x)
+        if abs(math.remainder(desired - angle, math.tau)) > math.radians(5):
+            tip = self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle))
+            p.draw_line(*foot, *tip, *TEAL)
+            cross(*tip, TEAL, size=2)
         self.font.draw(24, 683, "Dead Route - R2-ZA  |  좀비 1마리 · 8방향 공격/걷기/피격", WHITE)
         self.font.draw(24, 651, "WASD 이동 · 마우스 조준 · 좌클릭 8방향 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
@@ -250,6 +284,7 @@ def run(smoke_test=False, *, show_opening=False):
         player, walls = world.player, world.walls
         pressed = set()
         target = (world.zombie.x, world.zombie.y)
+        aim_player(player, *target)
         cursor = None
         mouse_held = False
         previous = time.perf_counter()
@@ -261,7 +296,7 @@ def run(smoke_test=False, *, show_opening=False):
             now = time.perf_counter()
             dt = min(now - previous, 0.05)
             previous = now
-            pending_click = None
+            pending_click = False
             reset_requested = False
             lost_focus = False
             for event in poll_events():
@@ -281,14 +316,14 @@ def run(smoke_test=False, *, show_opening=False):
                 elif event.type == p.SDL_MOUSEBUTTONDOWN and event.button.button == p.SDL_BUTTON_LEFT:
                     cursor = (event.button.x, event.button.y)
                     if not mouse_held:
-                        pending_click = cursor
+                        pending_click = True
                     mouse_held = True
                 elif event.type == p.SDL_MOUSEBUTTONUP and event.button.button == p.SDL_BUTTON_LEFT:
                     mouse_held = False
                 elif (event.type == p.SDL_WINDOWEVENT
                       and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
                     pressed.clear()
-                    pending_click = None
+                    pending_click = False
                     mouse_held = False
                     lost_focus = True
             if not running:
@@ -296,7 +331,7 @@ def run(smoke_test=False, *, show_opening=False):
             focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
             if not focused:
                 pressed.clear()
-                pending_click = None
+                pending_click = False
                 mouse_held = False
             if reset_requested:
                 world.reset()
@@ -304,26 +339,33 @@ def run(smoke_test=False, *, show_opening=False):
                 renderer.player_visual.locomotion = Locomotion()
                 renderer.combat_visual.reset_zombie_animation()
                 pressed.clear()
-                pending_click = None
+                pending_click = False
                 mouse_held = False
                 cursor = None
                 target = (world.zombie.x, world.zombie.y)
+                aim_player(player, *target)
+            renderer.cursor = cursor
             if cursor is not None:
                 target = mouse_target(world, renderer.combat_visual, *cursor)
-            aim_player(player, *target)
             active = focused and not lost_focus
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
-            if pending_click is not None and active:
-                attack_target = mouse_target(world, renderer.combat_visual, *pending_click)
-                aim_player(player, *attack_target)
+            if pending_click and active:
                 motion = renderer.player_visual.locomotion
                 facing = select_facing(player.aim_angle, motion.facing if motion._initialized else None)
                 world.start_attack(facing=facing, stationary_front_right=True)
-                aim_player(player, *target)
             before = (player.x, player.y)
             zombie_before = (world.zombie.x, world.zombie.y)
+            strike = world.attack
+            awaiting_strike = strike is not None and strike.elapsed < strike.hit_time
+            hp_before = world.player_hp
             world.update(dt if active else 0.0, axis_x, axis_y)
+            strength = 0
+            if world.player_hp < hp_before:
+                strength = 4
+            elif awaiting_strike and strike.elapsed >= strike.hit_time:
+                strength = 3 if strike.landed else 1
+            renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
             if music is not None:
                 zombie = world.zombie
                 distance = math.hypot(zombie.x - player.x, zombie.y - player.y) if zombie.alive else None
@@ -333,7 +375,8 @@ def run(smoke_test=False, *, show_opening=False):
                 world.zombie, world.zombie.x - zombie_before[0], world.zombie.y - zombie_before[1], paused=not active)
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
-            aim_player(player, *target)
+            if active and strike is None and world.result == "playing":
+                aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
             renderer.player_visual.update(display_angle, dx, dy)
             renderer.draw(player, walls, target, focused)

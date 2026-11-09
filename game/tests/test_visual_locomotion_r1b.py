@@ -117,27 +117,30 @@ class LocomotionLoopTests(unittest.TestCase):
     def test_raw_mouse_aim_changes_facing_without_quantizing_ground_aim(self):
         frames, updates = self._run_observed(
             initial=[],
-            after_draw={1: [("motion", 160, 521)], 2: [("quit",)]},
+            after_draw={1: [("motion", 160, 533)], 26: [("quit",)]},
+            maximum_draws=27,
         )
         self._assert_actual_displacements(frames, updates)
-        self.assertEqual([state["facing"] for state in updates], ["front_right", "left"])
-        self.assertAlmostEqual(frames[1]["aim_angle"], math.pi, places=9)
-        self.assertNotAlmostEqual(frames[1]["aim_angle"], 3 * math.pi / 4, places=5)
+        facings = list(dict.fromkeys(state["facing"] for state in updates))
+        self.assertEqual(facings, ["front_right", "front", "front_left", "left"])
+        self.assertAlmostEqual(frames[-1]["aim_angle"], math.atan2(-20, -480), places=9)
         self.assertTrue(all(state["frame_index"] == 0 for state in updates))
 
     def test_backward_reverses_walk_then_strafe_and_forward_continue_from_phase(self):
         frames, updates = self._run_observed(
-            initial=[("motion", 1120, 521), ("down", p.SDLK_a)],
+            initial=[("motion", 1120, 521)],
             after_draw={
-                11: [("up", p.SDLK_a), ("down", p.SDLK_w)],
-                12: [("up", p.SDLK_w), ("down", p.SDLK_d)],
-                13: [("up", p.SDLK_d)],
-                14: [("down", p.SDLK_a)],
-                15: [("quit",)],
+                6: [("down", p.SDLK_a)],
+                17: [("up", p.SDLK_a), ("down", p.SDLK_w)],
+                18: [("up", p.SDLK_w), ("down", p.SDLK_d)],
+                19: [("up", p.SDLK_d)],
+                20: [("down", p.SDLK_a)],
+                21: [("quit",)],
             },
-            maximum_draws=16,
+            maximum_draws=22,
         )
         self._assert_actual_displacements(frames, updates)
+        updates = updates[6:]
         self.assertEqual([state["facing"] for state in updates], ["right"] * 15)
         self.assertEqual([state["frame_index"] for state in updates],
                          [8] * 5 + [7] * 5 + [6, 7, 7, 0, 7])
@@ -175,11 +178,12 @@ class LocomotionLoopTests(unittest.TestCase):
         for facing, aim_events in cases:
             with self.subTest(facing=facing):
                 frames, updates = self._run_observed(
-                    initial=aim_events + [("down", p.SDLK_w)],
-                    after_draw={44: [("up", p.SDLK_w)], 45: [("quit",)]},
-                    maximum_draws=46,
+                    initial=aim_events,
+                    after_draw={24: [("down", p.SDLK_w)], 68: [("up", p.SDLK_w)], 69: [("quit",)]},
+                    maximum_draws=70,
                 )
                 self._assert_actual_displacements(frames, updates)
+                updates = updates[24:]
                 moving = updates[:44]
                 self.assertEqual(len(updates), 45)
                 self.assertTrue(all(state["facing"] == facing for state in updates))

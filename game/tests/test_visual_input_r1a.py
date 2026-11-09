@@ -163,16 +163,19 @@ class DummyInputTests(unittest.TestCase):
         self.assertAlmostEqual(frames[0]["y"], 180.0, places=7)
         self.assertFalse(frames[0]["moved"])
 
-    def test_raw_mouse_motion_changes_ground_aim_without_moving_player(self):
+    def test_mouse_target_moves_immediately_and_body_turns_180_in_point_four_seconds(self):
         frames = self._run_events(
             initial=[],
-            after_draw={1: [("motion", 160, 521)], 2: [("quit",)]},
+            after_draw={1: [("motion", 520, 473)], 25: [("quit",)]},
+            maximum_draws=26,
         )
-        self.assertEqual(len(frames), 2)
         self.assertEqual(frames[0]["_target"], (600.0, 100.0))
-        self.assertEqual(frames[1]["_target"], (0.0, 180.0))
-        self.assertAlmostEqual(frames[0]["aim_angle"], math.atan2(-80, 120), places=7)
-        self.assertAlmostEqual(frames[1]["aim_angle"], math.pi, places=7)
+        self.assertEqual(frames[1]["_target"], (360.0, 260.0))
+        start = math.atan2(-80, 120)
+        self.assertAlmostEqual(frames[0]["aim_angle"], start)
+        for index in (1, 12, 23, 24):
+            turned = math.remainder(frames[index]["aim_angle"] - start, math.tau)
+            self.assertAlmostEqual(abs(turned), math.radians(7.5 * index))
         for frame in frames:
             self.assertAlmostEqual(frame["x"], 480.0, places=7)
             self.assertAlmostEqual(frame["y"], 180.0, places=7)

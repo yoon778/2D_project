@@ -77,10 +77,18 @@ def move_player(player: Player, axis_x: float, axis_y: float,
     player.moved = (player.x, player.y) != origin
 
 
-def aim_player(player: Player, target_x: float, target_y: float) -> None:
+def aim_player(player: Player, target_x: float, target_y: float, *, max_turn: float = math.inf) -> None:
     """Aim on the ground plane without moving or changing the moved flag."""
     if not math.isfinite(target_x) or not math.isfinite(target_y):
         return
     dx, dy = target_x - player.x, target_y - player.y
     if dx != 0 or dy != 0:
-        player.aim_angle = math.atan2(dy, dx)
+        target = math.atan2(dy, dx)
+        if max_turn == math.inf:
+            player.aim_angle = target
+            return
+        delta = math.remainder(target - player.aim_angle, math.tau)
+        if abs(delta) <= max_turn:
+            player.aim_angle = target
+        else:
+            player.aim_angle = math.remainder(player.aim_angle + math.copysign(max_turn, delta), math.tau)

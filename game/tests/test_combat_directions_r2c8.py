@@ -179,15 +179,17 @@ class DirectionInputTests(unittest.TestCase):
                                                    (axis[1] < 0, main.p.SDLK_s)) if component]
                 opposite = DIRECTIONS[(index + 4) % 8][0]
                 cursor = ("motion", *click(opposite)[1:])
+                point = click(facing)
                 frames, states, choices = self.observe(
-                    [click(facing)] + [("down", key) for key in keys],
-                    {1: [cursor], 3: [("quit",)]}, phase=.37)
+                    [point] + [("down", key) for key in keys],
+                    {1: [cursor], 3: [("quit",)]}, phase=.37, initial_aim=point[1:])
                 self.assertIsNotNone(states[0]["attack"])
                 for state, choice in zip(states, choices):
                     self.assertEqual((state["facing"], state["display_facing"]), (facing, facing))
                     self.assertEqual(state["angle"], states[0]["angle"])
                     self.assertTrue(choice["drawn"])
-                self.assertGreater(abs(math.remainder(frames[-1]["aim_angle"] - states[0]["angle"], math.tau)), 2)
+                self.assertEqual(frames[-1]["aim_angle"], states[0]["angle"])
+                self.assertNotEqual(states[-1]["target"], states[0]["target"])
                 self.assertEqual(states[-1]["phase"], .37)
                 self.assertEqual((frames[-1]["x"], frames[-1]["y"]), (480, 180))
 
@@ -195,11 +197,12 @@ class DirectionInputTests(unittest.TestCase):
         vectors = dict(DIRECTIONS)
         for facing, _ in DIRECTIONS:
             with self.subTest(facing=facing):
+                point = click(facing, (480, 316))
                 frames, states, choices = self.observe(
-                    [click(facing, (480, 316)), ("down", main.p.SDLK_w)],
+                    [point, ("down", main.p.SDLK_w)],
                     {1: [("up", main.p.SDLK_w), ("down", main.p.SDLK_s)],
                      2: [("up", main.p.SDLK_s)], 3: [("down", main.p.SDLK_d)],
-                     43: [("quit",)]}, 44, phase=.23, wall=True)
+                     43: [("quit",)]}, 44, phase=.23, wall=True, initial_aim=point[1:])
                 self.assertTrue(all(choice["walk"] == 0 for choice in choices[:4]))
                 self.assertTrue(all(choice["drawn"] for choice in choices[:4]))
                 self.assertTrue(all(state["phase"] == .23 for state in states[:4]))
@@ -222,10 +225,11 @@ class DirectionInputTests(unittest.TestCase):
     def test_eight_facings_focus_pause_and_r_clear_input_attack_and_phase(self):
         for facing, _ in DIRECTIONS:
             with self.subTest(facing=facing):
+                point = click(facing)
                 frames, states, choices = self.observe(
-                    [click(facing), ("down", main.p.SDLK_d)],
+                    [point, ("down", main.p.SDLK_d)],
                     {1: [("lost",), ("gained",)], 2: [("down", main.p.SDLK_d)],
-                     3: [("down", main.p.SDLK_r)], 4: [("quit",)]}, phase=.3)
+                     3: [("down", main.p.SDLK_r)], 4: [("quit",)]}, phase=.3, initial_aim=point[1:])
                 self.assertEqual(states[0]["facing"], facing)
                 self.assertTrue(choices[0]["drawn"])
                 self.assertEqual(choices[1]["walk"], 0)
@@ -239,7 +243,8 @@ class DirectionInputTests(unittest.TestCase):
     def test_new_direction_hold_duplicate_click_and_fresh_press_after_recovery(self):
         point = click("back_left")
         _, states, choices = self.observe(
-            [point], {37: [point], 39: [("release", *point[1:]), point], 41: [("quit",)]}, 42)
+            [point], {37: [point], 39: [("release", *point[1:]), point], 41: [("quit",)]}, 42,
+            initial_aim=point[1:])
         first = states[0]["attack"]
         self.assertIsNotNone(first)
         self.assertTrue(all(state["attack"] is None for state in states[36:39]))
