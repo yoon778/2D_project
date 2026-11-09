@@ -58,7 +58,7 @@ def _waybill(font):
 
 def _courier(player_visual, foot_x, foot_y, lit):
     frame = player_visual.metadata["frames"]["front_right"][0]
-    image = player_visual.images[frame["source"]]
+    image = player_visual.images[frame.get("source", "atlas")]
     left, top, width, height = frame["clip_topleft"]
     pivot_x, pivot_y = frame["foot_pivot_topleft"]
     scale = 5

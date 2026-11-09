@@ -15,11 +15,18 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pico2d.pico2d as p
+import opening
 import player_visual
 
 
 def address(texture):
     return ctypes.cast(texture, ctypes.c_void_p).value
+
+
+def active_sources(metadata):
+    return list(dict.fromkeys(frame.get("source", "atlas")
+                              for frames in metadata["frames"].values()
+                              for frame in frames))
 
 
 @contextmanager
@@ -69,15 +76,16 @@ def track_texture_destruction():
 
 
 class MultiSourceTextureTests(unittest.TestCase):
-    def test_all_real_sources_match_canvas_and_override_linear_sampling(self):
+    def test_referenced_sources_match_canvas_and_override_linear_sampling(self):
         visual = None
         image = None
         with dummy_canvas():
             try:
                 visual = player_visual.PlayerVisual()
-                self.assertEqual(set(visual.images), set(visual.metadata["sources"]))
-                self.assertIs(visual.image, visual.images["atlas"])
-                for key in visual.metadata["sources"]:
+                sources = active_sources(visual.metadata)
+                self.assertEqual(set(visual.images), set(sources))
+                self.assertLess(len(sources), len(visual.metadata["sources"]))
+                for key in sources:
                     with self.subTest(source=key):
                         image = visual.images[key]
                         self.assertEqual(
@@ -92,6 +100,50 @@ class MultiSourceTextureTests(unittest.TestCase):
                 if visual is not None:
                     visual.close()
 
+    def test_retired_source_may_be_missing_from_current_build(self):
+        original = Path(player_visual.METADATA_PATH)
+        metadata = json.loads(original.read_text(encoding="utf-8"))
+        active = active_sources(metadata)
+        for name, source in metadata["sources"].items():
+            source["image"] = str(original.parent / source["image"]) if name in active else "missing.png"
+        with tempfile.TemporaryDirectory(prefix="dead-route-active-sources-") as directory:
+            path = Path(directory) / "player.json"
+            for data in (metadata, {key: value for key, value in metadata.items()
+                                    if key not in ("image", "canvas_size")}):
+                with self.subTest(has_legacy_atlas="image" in data):
+                    path.write_text(json.dumps(data), encoding="utf-8")
+                    with dummy_canvas(), patch.object(player_visual, "METADATA_PATH", path):
+                        visual = player_visual.PlayerVisual()
+                        try:
+                            self.assertEqual(list(visual.images), active)
+                            opening._courier(visual, 300, 150, False)
+                        finally:
+                            visual.close()
+
+    def test_legacy_single_atlas_can_draw_player_and_opening(self):
+        original = Path(player_visual.METADATA_PATH)
+        metadata = json.loads(original.read_text(encoding="utf-8"))
+        legacy = {
+            "image": str(original.parent / metadata["image"]),
+            "canvas_size": metadata["canvas_size"],
+            "display_height": metadata["display_height"],
+            "frames": {"front_right": [
+                {"clip_topleft": [0, 0, 80, 80], "foot_pivot_topleft": [40, 72]},
+                {"clip_topleft": [80, 0, 80, 80], "foot_pivot_topleft": [120, 72]},
+            ]},
+        }
+        with tempfile.TemporaryDirectory(prefix="dead-route-legacy-atlas-") as directory:
+            path = Path(directory) / "player.json"
+            path.write_text(json.dumps(legacy), encoding="utf-8")
+            with dummy_canvas(), patch.object(player_visual, "METADATA_PATH", path):
+                visual = player_visual.PlayerVisual()
+                try:
+                    self.assertEqual(list(visual.images), ["atlas"])
+                    visual.draw(300, 150)
+                    opening._courier(visual, 300, 150, False)
+                finally:
+                    visual.close()
+
     def test_close_releases_each_source_once_and_loads_no_font(self):
         visual = None
         with dummy_canvas(), track_texture_destruction() as destroyed:
@@ -99,10 +151,9 @@ class MultiSourceTextureTests(unittest.TestCase):
                 try:
                     visual = player_visual.PlayerVisual()
                     handles = {address(image.texture) for image in visual.images.values()}
-                    self.assertEqual(len(handles), len(visual.metadata["sources"]))
+                    self.assertEqual(len(handles), len(active_sources(visual.metadata)))
                     visual.close()
                     gc.collect()
-                    self.assertIsNone(visual.image)
                     self.assertFalse(visual.images)
                     self.assertEqual(set(destroyed), handles)
                     self.assertEqual(dict(destroyed), {handle: 1 for handle in handles})
@@ -120,8 +171,7 @@ class MultiSourceTextureTests(unittest.TestCase):
         for source in metadata["sources"].values():
             source["image"] = str((original_metadata.parent / source["image"]).resolve())
         metadata["image"] = str((original_metadata.parent / metadata["image"]).resolve())
-        order = ["atlas"] + [key for key in metadata["sources"] if key != "atlas"]
-        metadata["sources"] = {key: metadata["sources"][key] for key in order}
+        order = active_sources(metadata)
         failure_index = len(order) // 2
         metadata["sources"][order[failure_index]]["canvas_size"] = [1, 1]
         loaded = []
@@ -151,7 +201,7 @@ class MultiSourceTextureTests(unittest.TestCase):
     def test_middle_load_failure_releases_loaded_prefix(self):
         original_load = p.load_image
         metadata = json.loads(Path(player_visual.METADATA_PATH).read_text(encoding="utf-8"))
-        failure_attempt = len(metadata["sources"]) // 2 + 1
+        failure_attempt = len(active_sources(metadata)) // 2 + 1
         loaded, attempts = [], []
         failure = RuntimeError("middle source load failure sentinel")
 

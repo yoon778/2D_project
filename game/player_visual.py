@@ -22,15 +22,18 @@ def sprite_rect(foot_x, foot_y, clip, pivot, display_height):
 
 class PlayerVisual:
     def __init__(self):
-        self.image = None
         self.images = {}
         self.locomotion = Locomotion()
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-        sources = {"atlas": {"image": self.metadata["image"],
-                             "canvas_size": self.metadata["canvas_size"]}}
-        sources.update(self.metadata.get("sources", {}))
+        sources = {"atlas": self.metadata, **self.metadata.get("sources", {})}
+        active_sources = dict.fromkeys(
+            frame.get("source", "atlas")
+            for frames in self.metadata["frames"].values()
+            for frame in frames
+        )
         try:
-            for source_id, source in sources.items():
+            for source_id in active_sources:
+                source = sources[source_id]
                 path = METADATA_PATH.parent / source["image"]
                 if not path.is_file():
                     raise FileNotFoundError(f"R1-B sprite source not found: {path}")
@@ -39,7 +42,6 @@ class PlayerVisual:
                     raise ValueError(f"R1-B source canvas differs from metadata: {path}")
                 if p.SDL_SetTextureScaleMode(self.images[source_id].texture, p.SDL_ScaleModeNearest) != 0:
                     raise RuntimeError(f"R1-B nearest sampling failed: {p.SDL_GetError()!r}")
-            self.image = self.images["atlas"]
         except Exception:
             self.close()
             raise
@@ -70,5 +72,4 @@ class PlayerVisual:
 
     def close(self):
         # Image.__del__ alone owns the texture; never destroy it twice.
-        self.image = None
         self.images.clear()

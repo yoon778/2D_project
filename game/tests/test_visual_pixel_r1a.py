@@ -33,9 +33,11 @@ class PixelSamplingTests(unittest.TestCase):
                 # A linear default prevents passing merely because SDL defaults to nearest.
                 self.assertTrue(p.SDL_SetHint(hint, b"1"))
                 sprite = PlayerVisual()
+                frame = sprite.metadata["frames"][sprite.locomotion.facing][0]
+                texture = sprite.images[frame.get("source", "atlas")].texture
                 sampling = ctypes.c_int(-1)
                 result = p.SDL_GetTextureScaleMode(
-                    sprite.image.texture, ctypes.byref(sampling))
+                    texture, ctypes.byref(sampling))
                 self.assertEqual(result, 0, p.SDL_GetError())
                 self.assertEqual(sampling.value, p.SDL_ScaleModeNearest)
             finally:

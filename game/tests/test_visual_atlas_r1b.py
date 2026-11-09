@@ -82,7 +82,6 @@ class AtlasGeometryTests(unittest.TestCase):
                                     h=entry["canvas_size"][1], clip_draw=Mock())
             for source, entry in visual.metadata["sources"].items()
         }
-        visual.image = visual.images["atlas"]
         return visual
 
     def draw_arguments(self, visual, frame, foot):
