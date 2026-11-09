@@ -2962,13 +2962,13 @@
       "alpha_review": "Binary alpha 0/255; per-cell visible alpha bounds plus up to 2px padding"
     },
     "consistent_front_right": {
-      "image": "r1-consistent-front-right-20261105.png",
+      "image": "r1-consistent-front-right-ready.png",
       "canvas_size": [
         320,
         240
       ],
-      "sha256": "a5305407a28666f3931b5e8e83608e1a6d8ed95392b75121d9698a01b20d6943",
-      "generated_on": "2026-11-05",
+      "sha256": "b7fa7c4bfc93bfdb194f60366d33762025bd5d2cb013fbdef5861a3af520d09c",
+      "generated_on": "2026-11-09",
       "grid": {
         "columns": 4,
         "rows": 3,

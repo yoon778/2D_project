@@ -168,8 +168,8 @@ function grid(cells, columns) {
   }
   return {pixels, width, height}
 }
-async function loadIdle() {
-  const source = await sharp(walkPath)
+async function loadIdle(sourcePath = walkPath) {
+  const source = await sharp(sourcePath)
     .extract({left: 0, top: 160, width: 80, height: 80}).ensureAlpha().raw().toBuffer()
   const idle = Buffer.alloc(size * size * 4)
   for (let y = 0; y < 80; y++) {
@@ -268,8 +268,8 @@ function holds(pose, sprite) {
   return {right, left}
 }
 
-async function buildStationaryCells(poses, columns) {
-  const idle = await loadIdle()
+async function buildStationaryCells(poses, columns, idleSource) {
+  const idle = await loadIdle(idleSource)
   const cells = poses.map(pose => pose ? drawPose(pose, idle) : idle)
   const contacts = poses.flatMap((pose, index) => pose ? [holds(pose, cells[index])] : [])
   return {cells, contacts, ...grid(cells, columns)}
