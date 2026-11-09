@@ -18,6 +18,12 @@ _STATIONARY_FRONT_RIGHT_DURATION = 0.66
 _STATIONARY_FRONT_RIGHT_HIT_TIME = 0.24
 STUN_DURATION = 0.70
 BACKSTEP_SPEED = 65.0
+SPRINT_SPEED = 135.0
+MAX_STAMINA = 100.0
+_SPRINT_DRAIN = 25.0
+_STAMINA_RECOVERY = 20.0
+_SPRINT_RECOVERY_THRESHOLD = 25.0
+_STAMINA_EPSILON = 1e-8
 _HIT_RECOIL_DURATION = 0.10
 _HIT_RECOIL_DISTANCE = 8.0
 ZOMBIE_ATTACK_DURATION = 0.8
@@ -92,6 +98,8 @@ class CombatWorld:
         self.walls = [Wall(400, 330, 220, 60)]
         self.zombie = Zombie(600.0, 100.0)
         self.player_hp = 3
+        self.stamina = MAX_STAMINA
+        self._sprint_exhausted = False
         self.player_invulnerable_remaining = 0.0
         self.attack = None
         self.result = "playing"
@@ -204,7 +212,7 @@ class CombatWorld:
             self.attack = None
         return hit
 
-    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None):
+    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False):
         self.player.moved = self.zombie.moved = False
         self.zombie.recoil_offset = (0.0, 0.0)
         if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
@@ -212,7 +220,9 @@ class CombatWorld:
         player_origin = (self.player.x, self.player.y)
         zombie_origin = (self.zombie.x, self.zombie.y)
         facing = select_facing(self.player.aim_angle, facing_hint)
-        walk_scale = BACKSTEP_SPEED / WALK_SPEED if is_backstep(facing, axis_x, axis_y) else 1.0
+        backstep = is_backstep(facing, axis_x, axis_y)
+        walk_scale = BACKSTEP_SPEED / WALK_SPEED if backstep else 1.0
+        wants_sprint = sprint and not backstep and bool(axis_x or axis_y)
         remaining = min(dt, _MAX_UPDATE_DT)
         # 준비 중 추격/접촉도 진행하며 명중 tick에서는 피격을 먼저 처리한다.
         while remaining > _EPSILON:
@@ -230,14 +240,36 @@ class CombatWorld:
             for timer in (self.zombie.stun_remaining, self.player_invulnerable_remaining):
                 if timer > _EPSILON:
                     tick = min(tick, timer)
-            self._update_tick(tick, axis_x, axis_y, walk_scale)
+            if self._sprint_exhausted:
+                until_recovered = (_SPRINT_RECOVERY_THRESHOLD - self.stamina) / _STAMINA_RECOVERY
+                if until_recovered > _EPSILON:
+                    tick = min(tick, until_recovered)
+            elif wants_sprint and player_attack is None:
+                tick = min(tick, self.stamina / _SPRINT_DRAIN)
+            self._update_tick(tick, axis_x, axis_y, walk_scale, wants_sprint)
             remaining -= tick
             if self.result != "playing" and self.attack is None:
                 break
         self.player.moved = (self.player.x, self.player.y) != player_origin
         self.zombie.moved = (self.zombie.x, self.zombie.y) != zombie_origin
 
-    def _update_tick(self, dt, axis_x, axis_y, walk_scale):
+    def _move_player_and_update_stamina(self, dt, axis_x, axis_y, walk_scale, wants_sprint):
+        sprinting = wants_sprint and not self._sprint_exhausted and self.attack is None
+        if self.attack is None:
+            scale = SPRINT_SPEED / WALK_SPEED if sprinting else walk_scale
+            move_player(self.player, axis_x, axis_y, dt * scale, self.walls)
+        if sprinting and self.player.moved:
+            self.stamina = max(0.0, self.stamina - _SPRINT_DRAIN * dt)
+            if self.stamina <= _STAMINA_EPSILON:
+                self.stamina = 0.0
+                self._sprint_exhausted = True
+            return
+        self.stamina = min(MAX_STAMINA, self.stamina + _STAMINA_RECOVERY * dt)
+        if self._sprint_exhausted and self.stamina >= _SPRINT_RECOVERY_THRESHOLD - _STAMINA_EPSILON:
+            self.stamina = max(self.stamina, _SPRINT_RECOVERY_THRESHOLD)
+            self._sprint_exhausted = False
+
+    def _update_tick(self, dt, axis_x, axis_y, walk_scale, wants_sprint):
         self._resolve_result()
         if self.result != "playing":
             # 처치한 공격의 회복만 끝까지 진행하고 새 입력/이동은 중단한다.
@@ -249,8 +281,7 @@ class CombatWorld:
             return
         immunity = self.player_invulnerable_remaining - dt
         self.player_invulnerable_remaining = immunity if immunity > _EPSILON else 0.0
-        if self.attack is None:
-            move_player(self.player, axis_x, axis_y, dt * walk_scale, self.walls)
+        self._move_player_and_update_stamina(dt, axis_x, axis_y, walk_scale, wants_sprint)
         hit = self._advance_player_attack(dt)
         if self.zombie.stun_remaining > 0:
             self.zombie.attack = None

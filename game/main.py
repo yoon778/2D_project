@@ -10,7 +10,7 @@ import time
 import pico2d.pico2d as p
 
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player
-from combat import CombatWorld
+from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual
@@ -192,9 +192,14 @@ class Renderer:
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
         self.font.draw(24, 683, "Dead Route - R2-ZA  |  좀비 1마리 · 8방향 공격/걷기/피격", WHITE)
-        self.font.draw(24, 651, "WASD 이동 · 마우스 조준 · 좌클릭 8방향 공격 · R 재시작 · Esc 종료", WHITE)
+        self.font.draw(24, 651, "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
             self.font.draw(24, 620, f"HP {combat.player_hp}/3   좀비 {combat.zombie.hp}/5", WHITE)
+            self.font.draw(24, 592, "스태미나", WHITE)
+            rectangle(116, 585, 100, 10, (48, 63, 71))
+            stamina_width = round(100 * combat.stamina / MAX_STAMINA)
+            if stamina_width:
+                rectangle(116, 585, stamina_width, 10, TEAL)
             if combat.result != "playing":
                 message = "연습 좀비 처치" if combat.result == "cleared" else "쓰러짐"
                 self.font.draw(470, 365, f"{message} · R 재시작", TEAL)
@@ -360,7 +365,8 @@ def run(smoke_test=False, *, show_opening=False):
             strike = world.attack
             was_landed = strike is not None and strike.landed
             hp_before = world.player_hp
-            world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint)
+            sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
+            world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint)
             strength = 0
             if world.player_hp < hp_before:
                 strength = 4
