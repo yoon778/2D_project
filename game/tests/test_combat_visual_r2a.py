@@ -247,12 +247,10 @@ class CombatInputTests(unittest.TestCase):
         self.assertEqual(states[11]["zombie_hp"], 4)
         self.assertEqual(states[11]["shake"], (3, 0))
 
-    def test_miss_and_player_damage_trigger_distinct_shake_strengths(self):
+    def test_miss_stays_steady_and_player_damage_shakes(self):
         _, miss = self.observe([("click", 760, 569)], {24: [("quit",)]}, 25)
-        self.assertTrue(all(state["shake"] == (0, 0) for state in miss[:14]))
-        self.assertEqual(miss[14]["shake"], (1, 0))
+        self.assertTrue(all(state["shake"] == (0, 0) for state in miss))
         self.assertEqual(miss[-1]["zombie_hp"], 5)
-        self.assertEqual(miss[-1]["shake"], (0, 0))
 
         def setup(world):
             world.zombie.x, world.zombie.y = 508, 180

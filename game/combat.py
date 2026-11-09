@@ -12,9 +12,11 @@ else:
 
 ATTACK_DURATION = 0.6
 ATTACK_HIT_TIME = 0.18
+ATTACK_RANGE = 70.0
+ATTACK_HALF_ANGLE = math.radians(30)
 _STATIONARY_FRONT_RIGHT_DURATION = 0.66
 _STATIONARY_FRONT_RIGHT_HIT_TIME = 0.24
-STUN_DURATION = 0.58
+STUN_DURATION = 0.70
 BACKSTEP_SPEED = 65.0
 _HIT_RECOIL_DURATION = 0.10
 _HIT_RECOIL_DISTANCE = 8.0
@@ -114,10 +116,10 @@ class CombatWorld:
     def _target_in_strike(self, angle):
         dx, dy = self.zombie.x - self.player.x, self.zombie.y - self.player.y
         distance = math.hypot(dx, dy)
-        if distance > 80.0 + _EPSILON:
+        if distance > ATTACK_RANGE + _EPSILON:
             return False
         if distance > _EPSILON and abs(math.remainder(
-                math.atan2(dy, dx) - angle, math.tau)) > math.radians(50) + _EPSILON:
+                math.atan2(dy, dx) - angle, math.tau)) > ATTACK_HALF_ANGLE + _EPSILON:
             return False
         return not any(_wall_blocks(self.player, self.zombie, wall) for wall in self.walls)
 

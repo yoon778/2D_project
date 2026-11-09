@@ -249,7 +249,7 @@ class ZombieQueueTests(unittest.TestCase):
     def test_real_attack_selects_all_four_hit_steps_then_resumes_chase(self):
         def setup(world):
             world.zombie.x, world.zombie.y = 520, 140
-        states = self.observe([("click", 680, 545)], {52: [("quit",)]}, 53, setup)
+        states = self.observe([("click", 680, 545)], {60: [("quit",)]}, 61, setup)
         hit = [state for state in states if state["stun"] > 0]
         self.assertEqual({state["row"] for state in hit}, {9, 10, 11, 12})
         recoil_seen = 8 * (hit[0]["stun"] - (STUN_DURATION - 0.10)) / 0.10

@@ -30,7 +30,7 @@ TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
 HIT_MARK_DURATION = 0.06
 TURN_SPEED = math.radians(450)
-SHAKE_DURATIONS = {1: 0.05, 3: 0.08, 4: 0.10}
+SHAKE_DURATIONS = {3: 0.08, 4: 0.10}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
 
 
@@ -358,14 +358,14 @@ def run(smoke_test=False, *, show_opening=False):
             before = (player.x, player.y)
             zombie_before = (world.zombie.x, world.zombie.y)
             strike = world.attack
-            awaiting_strike = strike is not None and strike.elapsed < strike.hit_time
+            was_landed = strike is not None and strike.landed
             hp_before = world.player_hp
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint)
             strength = 0
             if world.player_hp < hp_before:
                 strength = 4
-            elif awaiting_strike and strike.elapsed >= strike.hit_time:
-                strength = 3 if strike.landed else 1
+            elif strike is not None and strike.landed and not was_landed:
+                strength = 3
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
             if music is not None:
                 zombie = world.zombie

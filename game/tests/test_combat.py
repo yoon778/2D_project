@@ -80,13 +80,13 @@ class CombatTests(unittest.TestCase):
         self.assertEqual((world.player.x, world.player.y), origin)
         self.assertEqual(world.zombie.hp, 4)
         zombie_position = (world.zombie.x, world.zombie.y)
-        self.assertAlmostEqual(world.zombie.stun_remaining, 0.16)
+        self.assertAlmostEqual(world.zombie.stun_remaining, 0.28)
 
-        world.update(0.16, -1, 1)
+        world.update(0.28, -1, 1)
         self.assertEqual((world.zombie.x, world.zombie.y), zombie_position)
         gap_before = math.dist(origin, zombie_position)
         gap_after = math.dist((world.player.x, world.player.y), zombie_position)
-        self.assertAlmostEqual(gap_after - gap_before, 10.4)
+        self.assertAlmostEqual(gap_after - gap_before, 18.2)
         self.assertEqual(world.zombie.stun_remaining, 0.0)
 
         world.update(0.02)
@@ -110,7 +110,7 @@ class CombatTests(unittest.TestCase):
         self.assertAlmostEqual(world.player.y, 306.4)
 
     def test_stationary_front_right_miss_is_spent_at_range_or_wall(self):
-        for distance, walls in ((80.0001, []), (60.0, [Wall(505, 145, 10, 25)])):
+        for distance, walls in ((70.0001, []), (60.0, [Wall(505, 145, 10, 25)])):
             with self.subTest(distance=distance, walls=walls):
                 world = self.make_world(distance, -math.pi / 4)
                 world.walls = walls
@@ -122,7 +122,7 @@ class CombatTests(unittest.TestCase):
                 self.assertEqual(world.zombie.hp, 5)
                 world.walls = []
                 world.update(0.15)
-                self.assertLess(math.hypot(world.zombie.x - world.player.x, world.zombie.y - world.player.y), 80.0)
+                self.assertLess(math.hypot(world.zombie.x - world.player.x, world.zombie.y - world.player.y), 70.0)
                 self.assertEqual(world.zombie.hp, 5)
                 self.assertFalse(world.attack.landed)
 
@@ -131,7 +131,7 @@ class CombatTests(unittest.TestCase):
             positions = []
             for steps in ((0.659,), (0.0375, 0.198, 0.1195, 0.304)):
                 with self.subTest(initial_hp=initial_hp, steps=steps):
-                    world = self.make_world(80.0, -math.pi / 4)
+                    world = self.make_world(70.0, -math.pi / 4)
                     world.zombie.hp = initial_hp
                     world.zombie.stun_remaining = 0.24
                     world.start_attack(stationary_front_right=True)
@@ -153,9 +153,9 @@ class CombatTests(unittest.TestCase):
     def test_range_and_cone_boundaries_work_for_general_aim_angles(self):
         for aim in (0.0, math.pi / 2, math.pi, -math.pi / 2, 2 * math.tau + 0.4):
             for distance, offset, hp in (
-                (80.0, 0.0, 4), (80.0001, 0.0, 5),
-                (60.0, math.radians(50), 4), (60.0, math.radians(50.0001), 5),
-                (60.0, math.radians(-50), 4), (60.0, math.radians(-50.0001), 5),
+                (70.0, 0.0, 4), (70.0001, 0.0, 5),
+                (60.0, math.radians(30), 4), (60.0, math.radians(30.0001), 5),
+                (60.0, math.radians(-30), 4), (60.0, math.radians(-30.0001), 5),
                 (0.0, math.pi, 4),
             ):
                 with self.subTest(aim=aim, distance=distance, offset=offset):
@@ -325,7 +325,7 @@ class CombatTests(unittest.TestCase):
         self.assertEqual(world.result, "defeated")
 
     def test_five_distinct_strikes_clear_the_zombie(self):
-        world = self.make_world()
+        world = self.make_world(50.0)
         for hit in range(1, 6):
             self.assertTrue(world.start_attack())
             self.assertFalse(world.attack.landed)
@@ -390,7 +390,7 @@ class CombatTests(unittest.TestCase):
                     world.player_hp, world.player_invulnerable_remaining, world.result), before)
 
     def test_missed_hit_is_not_rechecked_after_target_enters_range(self):
-        world = self.make_world(81.0)
+        world = self.make_world(71.0)
         world.zombie.stun_remaining = ATTACK_HIT_TIME
         world.start_attack()
         world.update(0.18)
@@ -398,12 +398,12 @@ class CombatTests(unittest.TestCase):
         self.assertTrue(world.attack._hit_done)
         self.assertFalse(world.attack.landed)
         world.update(0.18)
-        self.assertLess(world.zombie.x - world.player.x, 80.0)
+        self.assertLess(world.zombie.x - world.player.x, 70.0)
         self.assertEqual(world.zombie.hp, 5)
         self.assertFalse(world.attack.landed)
 
     def test_large_dt_checks_range_at_hit_time_not_at_recovery_end(self):
-        for distance, hp in ((80.001, 5), (80.0, 4)):
+        for distance, hp in ((70.001, 5), (70.0, 4)):
             with self.subTest(distance=distance):
                 world = self.make_world(distance)
                 world.zombie.stun_remaining = STUN_DURATION
@@ -414,7 +414,7 @@ class CombatTests(unittest.TestCase):
 
     def test_normal_dt_partitions_keep_health_timers_movement_and_recovery_consistent(self):
         cases = (
-            (80.0001, 0.18, 5, 0, 3, 4, "playing"),
+            (70.0001, 0.18, 5, 0, 3, 4, "playing"),
             (10.0, 0.18, 5, 0, 3, 4, "playing"),
             (120.0, 0.8, 5, 1, 3, 5, "playing"),
             (60.0, 0.6, 1, 1, 3, 0, "cleared"),
