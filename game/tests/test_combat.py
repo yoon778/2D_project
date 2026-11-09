@@ -238,19 +238,11 @@ class CombatTests(unittest.TestCase):
         self.assertEqual(world.result, "cleared")
         self.assertEqual((world.player.x, world.player.y, world.zombie.x, world.zombie.y), position)
 
-    def test_zombie_chases_at_90_and_stops_at_existing_wall(self):
+    def test_zombie_chases_visible_player_at_90(self):
         world = self.make_world(200.0)
         world.update(0.5)
         self.assertAlmostEqual(world.zombie.x, 635.0)
         self.assertEqual(world.zombie.y, 180.0)
-        world = CombatWorld()
-        world.player.x, world.player.y = 300.0, 360.0
-        world.zombie.x, world.zombie.y = 650.0, 360.0
-        world.update(0.5)
-        self.assertEqual((world.zombie.x, world.zombie.y), (634.0, 360.0))
-        world.update(0.5)
-        self.assertEqual((world.zombie.x, world.zombie.y), (634.0, 360.0))
-        self.assertEqual(world.player_hp, 3)
 
     def test_zombie_strikes_keep_one_second_immunity_and_defeat_stops_play(self):
         world = self.make_world(28.0)

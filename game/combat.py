@@ -3,11 +3,13 @@ from dataclasses import dataclass, field
 import math
 
 if __package__:
-    from .core import Player, Wall, move_player, PLAYER_RADIUS, WALK_SPEED
+    from .core import Player, Wall, move_player, wall_blocks, PLAYER_RADIUS, WALK_SPEED
     from .locomotion import is_backstep, select_facing
+    from .zombie_navigation import find_route
 else:
-    from core import Player, Wall, move_player, PLAYER_RADIUS, WALK_SPEED
+    from core import Player, Wall, move_player, wall_blocks, PLAYER_RADIUS, WALK_SPEED
     from locomotion import is_backstep, select_facing
+    from zombie_navigation import find_route
 
 
 ATTACK_DURATION = 0.6
@@ -31,23 +33,13 @@ ZOMBIE_ATTACK_HIT_TIME = 0.3
 _EPSILON = 1e-12
 _TIME_STEP = 0.001
 _MAX_UPDATE_DT = 10.0
-
-
-def _wall_blocks(start, end, wall):
-    enter, leave = 0.0, 1.0
-    for origin, delta, low, high in (
-        (start.x, end.x - start.x, wall.x, wall.x + wall.width),
-        (start.y, end.y - start.y, wall.y, wall.y + wall.depth),
-    ):
-        if abs(delta) <= _EPSILON:
-            if origin < low - _EPSILON or origin > high + _EPSILON:
-                return False
-        else:
-            first, last = sorted(((low - origin) / delta, (high - origin) / delta))
-            enter, leave = max(enter, first), min(leave, last)
-            if enter > leave + _EPSILON:
-                return False
-    return True
+_ZOMBIE_SIGHT_RANGE = 230.0
+_SEARCH_DURATION = 3.0
+_SEARCH_TURN_SPEED = 1.5
+_FOOTSTEP_SPACING = 36.0
+_WALK_NOISE_RANGE = 80.0
+_SPRINT_NOISE_RANGE = 260.0
+_ATTACK_NOISE_RANGE = 480.0
 
 
 @dataclass
@@ -65,6 +57,9 @@ class Zombie(Player):
     attack: ZombieAttack | None = None
     recoil_angle: float | None = None
     recoil_offset: tuple[float, float] = field(default=(0.0, 0.0), init=False)
+    state: str = "idle"
+    target: tuple[float, float] | None = None
+    search_remaining: float = 0.0
 
     @property
     def alive(self):
@@ -100,6 +95,9 @@ class CombatWorld:
         self.player_hp = 3
         self.stamina = MAX_STAMINA
         self._sprint_exhausted = False
+        self._footstep_distance = 0.0
+        self._heard_at = None
+        self._investigation_route = None
         self.player_invulnerable_remaining = 0.0
         self.attack = None
         self.result = "playing"
@@ -110,6 +108,7 @@ class CombatWorld:
             return False
         self.attack = Attack(self.player.aim_angle, facing,
                              stationary_front_right=facing == "front_right" and bool(stationary_front_right))
+        self._emit_noise(_ATTACK_NOISE_RANGE)
         return True
 
     def _resolve_result(self):
@@ -129,17 +128,70 @@ class CombatWorld:
         if distance > _EPSILON and abs(math.remainder(
                 math.atan2(dy, dx) - angle, math.tau)) > ATTACK_HALF_ANGLE + _EPSILON:
             return False
-        return not any(_wall_blocks(self.player, self.zombie, wall) for wall in self.walls)
+        return self._player_line_clear()
 
-    def _move_zombie(self, dt):
-        dx, dy = self.player.x - self.zombie.x, self.player.y - self.zombie.y
+    def _player_line_clear(self):
+        player = (self.player.x, self.player.y)
+        zombie = (self.zombie.x, self.zombie.y)
+        return not any(wall_blocks(zombie, player, wall) for wall in self.walls)
+
+    def _emit_noise(self, radius):
+        position = (self.player.x, self.player.y)
+        if math.dist(position, (self.zombie.x, self.zombie.y)) <= radius + _EPSILON:
+            self._heard_at = position
+
+    def _perceive_player(self):
+        zombie = self.zombie
+        position = (self.player.x, self.player.y)
+        if (math.dist(position, (zombie.x, zombie.y)) <= _ZOMBIE_SIGHT_RANGE + _EPSILON
+                and self._player_line_clear()):
+            zombie.state = "chase"
+            zombie.target = position
+            zombie.search_remaining = 0.0
+            self._investigation_route = None
+        elif self._heard_at is not None or zombie.state == "chase":
+            target = self._heard_at if self._heard_at is not None else zombie.target
+            if zombie.state != "investigate" or zombie.target != target:
+                self._investigation_route = None
+            zombie.state = "investigate"
+            zombie.target = target
+            zombie.search_remaining = 0.0
+        self._heard_at = None
+
+    def _move_zombie_toward(self, target, dt, *, stop_distance=0.0):
+        dx, dy = target[0] - self.zombie.x, target[1] - self.zombie.y
         distance = math.hypot(dx, dy)
-        if distance > 2 * PLAYER_RADIUS:
+        if distance > stop_distance + _EPSILON:
             self.zombie.aim_angle = math.atan2(dy, dx)
-            travel_time = min(dt, (distance - 2 * PLAYER_RADIUS) / WALK_SPEED)
+            travel_time = min(dt, (distance - stop_distance) / WALK_SPEED)
             move_player(self.zombie, dx, dy, travel_time, self.walls)
             return travel_time
         return 0.0
+
+    def _investigate_and_search(self, dt):
+        zombie = self.zombie
+        if zombie.state == "investigate":
+            if self._investigation_route is None:
+                self._investigation_route = find_route((zombie.x, zombie.y), zombie.target, self.walls)
+            route = self._investigation_route
+            while route and dt > _EPSILON:
+                waypoint = route[0]
+                dt -= self._move_zombie_toward(waypoint, dt)
+                if math.dist((zombie.x, zombie.y), waypoint) > 1e-7:
+                    return
+                route.pop(0)
+            if route:
+                return
+            zombie.state = "search"
+            zombie.search_remaining = _SEARCH_DURATION
+        if zombie.state == "search":
+            duration = min(dt, zombie.search_remaining)
+            zombie.aim_angle = math.remainder(zombie.aim_angle + duration * _SEARCH_TURN_SPEED, math.tau)
+            zombie.search_remaining -= duration
+            if zombie.search_remaining <= _EPSILON:
+                zombie.search_remaining = 0.0
+                zombie.target = None
+                zombie.state = "idle"
 
     def _zombie_target_in_strike(self, angle):
         dx, dy = self.player.x - self.zombie.x, self.player.y - self.zombie.y
@@ -149,7 +201,7 @@ class CombatWorld:
         if distance > _EPSILON and abs(math.remainder(
                 math.atan2(dy, dx) - angle, math.tau)) > math.radians(50) + _EPSILON:
             return False
-        return not any(_wall_blocks(self.zombie, self.player, wall) for wall in self.walls)
+        return self._player_line_clear()
 
     def _start_zombie_attack(self):
         angle = math.atan2(self.player.y - self.zombie.y, self.player.x - self.zombie.x)
@@ -162,8 +214,11 @@ class CombatWorld:
     def _update_zombie(self, dt):
         if dt <= _EPSILON:
             return
+        if self.zombie.attack is None and self.zombie.state != "chase":
+            self._investigate_and_search(dt)
+            return
         if self.zombie.attack is None and not self._start_zombie_attack():
-            travel_time = self._move_zombie(dt)
+            travel_time = self._move_zombie_toward(self.zombie.target, dt, stop_distance=2 * PLAYER_RADIUS)
             if not self._start_zombie_attack():
                 return
             dt -= travel_time
@@ -256,8 +311,14 @@ class CombatWorld:
     def _move_player_and_update_stamina(self, dt, axis_x, axis_y, walk_scale, wants_sprint):
         sprinting = wants_sprint and not self._sprint_exhausted and self.attack is None
         if self.attack is None:
+            origin = (self.player.x, self.player.y)
             scale = SPRINT_SPEED / WALK_SPEED if sprinting else walk_scale
             move_player(self.player, axis_x, axis_y, dt * scale, self.walls)
+            if self.player.moved:
+                self._footstep_distance += math.dist(origin, (self.player.x, self.player.y))
+                if self._footstep_distance >= _FOOTSTEP_SPACING - 1e-8:
+                    self._footstep_distance = max(0.0, self._footstep_distance - _FOOTSTEP_SPACING)
+                    self._emit_noise(_SPRINT_NOISE_RANGE if sprinting else _WALK_NOISE_RANGE)
         if sprinting and self.player.moved:
             self.stamina = max(0.0, self.stamina - _SPRINT_DRAIN * dt)
             if self.stamina <= _STAMINA_EPSILON:
@@ -282,6 +343,7 @@ class CombatWorld:
         immunity = self.player_invulnerable_remaining - dt
         self.player_invulnerable_remaining = immunity if immunity > _EPSILON else 0.0
         self._move_player_and_update_stamina(dt, axis_x, axis_y, walk_scale, wants_sprint)
+        self._perceive_player()
         hit = self._advance_player_attack(dt)
         if self.zombie.stun_remaining > 0:
             self.zombie.attack = None

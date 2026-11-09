@@ -92,3 +92,22 @@ def aim_player(player: Player, target_x: float, target_y: float, *, max_turn: fl
             player.aim_angle = target
         else:
             player.aim_angle = math.remainder(player.aim_angle + math.copysign(max_turn, delta), math.tau)
+
+
+def wall_blocks(start, end, wall: Wall) -> bool:
+    """Closed ground segment versus a wall, including contact at its edge."""
+    enter, leave = 0.0, 1.0
+    epsilon = 1e-12
+    for origin, delta, low, high in (
+        (start[0], end[0] - start[0], wall.x, wall.x + wall.width),
+        (start[1], end[1] - start[1], wall.y, wall.y + wall.depth),
+    ):
+        if abs(delta) <= epsilon:
+            if origin < low - epsilon or origin > high + epsilon:
+                return False
+        else:
+            first, last = sorted(((low - origin) / delta, (high - origin) / delta))
+            enter, leave = max(enter, first), min(leave, last)
+            if enter > leave + epsilon:
+                return False
+    return True
