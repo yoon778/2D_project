@@ -226,6 +226,12 @@ class CombatVisual:
         source, frame = self._zombie_pose(zombie)
         self._draw(source, frame, foot_x, foot_y)
 
+    def zombie_rect(self, zombie, foot_x, foot_y):
+        source_name, frame = self._zombie_pose(zombie)
+        clip = frame["clip_topleft"]
+        scale = self.metadata[source_name]["scale"] * self.display_scale
+        return sprite_rect(foot_x, foot_y, clip, frame["foot_pivot_topleft"], clip[3] * scale)
+
     def zombie_contains(self, zombie, foot_x, foot_y, screen_x, screen_y):
         """Pick the living sprite's actual opaque pixels, excluding cell padding."""
         if not zombie.alive:

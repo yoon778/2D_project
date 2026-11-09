@@ -1,4 +1,5 @@
 """Ground-plane flashlight visibility and wall-clipped beam outline."""
+from functools import cached_property
 import math
 
 if __package__:
@@ -29,6 +30,22 @@ class Flashlight:
         return not any(wall_blocks(self.origin, point, wall) for wall in self.walls)
 
     def outline(self):
+        return self._outline
+
+    def spans_at(self, y):
+        """Return lit horizontal spans at the depth of an upright sprite."""
+        if abs(y - self.origin[1]) > RANGE:
+            return ()
+        intersections = []
+        points = (self.origin, *(point for point, _ in self._outline), self.origin)
+        for (ax, ay), (bx, by) in zip(points, points[1:]):
+            if min(ay, by) <= y < max(ay, by):
+                intersections.append(ax + (bx - ax) * (y - ay) / (by - ay))
+        intersections.sort()
+        return tuple(zip(intersections[::2], intersections[1::2]))
+
+    @cached_property
+    def _outline(self):
         """Beam edge samples plus rays on both sides of every wall corner."""
         x, y = self.origin
         angles = {-HALF_ANGLE + i * 2 * HALF_ANGLE / _ARC_STEPS for i in range(_ARC_STEPS + 1)}

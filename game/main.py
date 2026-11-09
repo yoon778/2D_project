@@ -75,13 +75,30 @@ def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stati
     return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station") else item[1].y))
 
 
-def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0)):
+def lit_zombie_columns(light, zombie, screen_origin_x):
+    return tuple((math.ceil(left + screen_origin_x - 0.5), math.ceil(right + screen_origin_x - 0.5))
+                 for left, right in light.spans_at(zombie.y))
+
+
+def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0)):
+    screen_y = WINDOW_HEIGHT - 1 - mouse_y
     for zombie in sorted(world.zombies, key=lambda enemy: enemy.y):
         position = (zombie.x, zombie.y)
-        if light is None or light.contains(position):
-            foot = world_to_screen(*position, camera)
-            if visual.zombie_contains(zombie, *foot, mouse_x, WINDOW_HEIGHT - 1 - mouse_y):
-                return position
+        x, y = world_to_screen(*position, camera)
+        if not visual.zombie_contains(zombie, x + shake[0], y + shake[1], mouse_x, screen_y):
+            continue
+        if light is not None and not any(left <= mouse_x < right for left, right in
+                                         lit_zombie_columns(light, zombie, x - zombie.x + shake[0])):
+            continue
+        # A wall drawn in front can cover the upper part of a lit sprite.
+        wx, wy = mouse_x - shake[0], screen_y - shake[1]
+        for wall in world.walls:
+            left, bottom = world_to_screen(wall.x, wall.y, camera)
+            if (wall.y < zombie.y and left <= wx < left + wall.width
+                    and bottom <= wy < bottom + WALL_HEIGHT + wall.depth * GROUND_SCALE_Y):
+                break
+        else:
+            return position
     return sdl_to_world(mouse_x, mouse_y, camera)
 
 
@@ -277,6 +294,41 @@ class Renderer:
         else:
             self.font.draw(24, 538, guide, WHITE)
 
+    def draw_lit_zombie(self, zombie, combat, attack):
+        x, y = self.project(zombie.x, zombie.y)
+        columns = lit_zombie_columns(self.light, zombie, x - zombie.x)
+        if not columns:
+            return
+        left, _, width, _ = self.combat_visual.zombie_rect(zombie, x, y)
+        if not any(start < left + width and end > left for start, end in columns):
+            return
+        # Keep the projection and pixel sampling of the original sprite.
+        try:
+            for start, end in columns:
+                start, end = max(0, start), min(WINDOW_WIDTH, end)
+                if start >= end or start >= left + width or end <= left:
+                    continue
+                clip = p.SDL_Rect(start, 0, end - start, WINDOW_HEIGHT)
+                p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
+                self.combat_visual.draw_zombie(zombie, x, y)
+                if start <= x < end:
+                    self.draw_zombie_markers(zombie, combat, attack, x, y)
+        finally:
+            p.SDL_RenderSetClipRect(p.renderer, None)
+
+    def draw_zombie_markers(self, zombie, combat, attack, x, y):
+        scale = self.combat_visual.display_scale
+        if combat.result == "playing" and zombie.alive and zombie.state in ZOMBIE_MARKS:
+            symbol, color = ZOMBIE_MARKS[zombie.state]
+            rectangle(x + 24 * scale, y + 96 * scale, 18, 18, (16, 24, 28))
+            self.font.draw(x + 24 * scale + 4, y + 96 * scale + 9, symbol, color)
+        if (attack is not None and attack.facing == "front_right" and attack.hit_target is zombie
+                and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
+            x, y = x - 12 * scale, y + 83 * scale
+            p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
+            p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
+            p.draw_line(x + 4, y + 4, x + 9, y + 2, *WHITE)
+
     def draw(self, player, walls, target, focused=True):
         if self.map_open:
             self.draw_map(player)
@@ -309,21 +361,7 @@ class Renderer:
             elif kind == "wall":
                 self.wall(actor, outline)
             elif kind == "zombie":
-                if not self.light.contains((actor.x, actor.y)):
-                    continue
-                x, y = self.project(actor.x, actor.y)
-                self.combat_visual.draw_zombie(actor, x, y)
-                scale = self.combat_visual.display_scale
-                if combat.result == "playing" and actor.alive and actor.state in ZOMBIE_MARKS:
-                    symbol, color = ZOMBIE_MARKS[actor.state]
-                    rectangle(x + 24 * scale, y + 96 * scale, 18, 18, (16, 24, 28))
-                    self.font.draw(x + 24 * scale + 4, y + 96 * scale + 9, symbol, color)
-                if (attack is not None and attack.facing == "front_right" and attack.hit_target is actor
-                        and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
-                    x, y = x - 12 * scale, y + 83 * scale
-                    p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
-                    p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
-                    p.draw_line(x + 4, y + 2, x + 9, y + 4, *WHITE)
+                self.draw_lit_zombie(actor, combat, attack)
             else:
                 if combat is None or not self.combat_visual.draw_attack(
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index, **courier_style):
@@ -528,7 +566,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.cursor = cursor
             if cursor is not None:
                 light = renderer.light or Flashlight((player.x, player.y), player.aim_angle, walls, world.world_size)
-                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera)
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera, renderer.shake_offset)
             active = focused and not lost_focus and not renderer.map_open
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
@@ -578,7 +616,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             previous_camera = renderer.camera
             renderer.follow(player)
             if cursor is not None and renderer.camera != previous_camera:
-                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera)
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera, renderer.shake_offset)
             if active and strike is None and world.result == "playing":
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
