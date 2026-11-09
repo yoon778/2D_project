@@ -89,6 +89,7 @@ class Attack:
 
 class CombatWorld:
     clear_on_zombie_death = True
+    sprint_speed = SPRINT_SPEED
     world_size = (WORLD_WIDTH, WORLD_HEIGHT)
 
     def __init__(self):
@@ -336,7 +337,7 @@ class CombatWorld:
         sprinting = wants_sprint and not self._sprint_exhausted and self.attack is None
         if self.attack is None:
             origin = (self.player.x, self.player.y)
-            scale = SPRINT_SPEED / WALK_SPEED if sprinting else walk_scale
+            scale = self.sprint_speed / WALK_SPEED if sprinting else walk_scale
             move_player(self.player, axis_x, axis_y, dt * scale, self.walls, world_size=self.world_size)
             if self.player.moved:
                 self._footstep_distance += math.dist(origin, (self.player.x, self.player.y))

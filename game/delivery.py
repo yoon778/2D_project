@@ -24,6 +24,7 @@ _BUILDINGS = ((88, 305, 140, 190), (310, 225, 275, 200), (690, 120, 180, 155),
 
 class DeliveryWorld(CombatWorld):
     clear_on_zombie_death = False
+    sprint_speed = 210.0
     world_size = (1720, 1200)
     pickup = (172.0, 155.0)
     destination = (1610.0, 1080.0)

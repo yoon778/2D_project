@@ -25,6 +25,7 @@ GROUND_X = 160.0
 GROUND_Y = 90.0
 GROUND_SCALE_Y = 0.60
 WALL_HEIGHT = 110
+DELIVERY_CHARACTER_SCALE = 0.75
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 TRASH_CAN_POSITION = (365.0, 300.0)
@@ -312,13 +313,14 @@ class Renderer:
                     continue
                 x, y = self.project(actor.x, actor.y)
                 self.combat_visual.draw_zombie(actor, x, y)
+                scale = self.combat_visual.display_scale
                 if combat.result == "playing" and actor.alive and actor.state in ZOMBIE_MARKS:
                     symbol, color = ZOMBIE_MARKS[actor.state]
-                    rectangle(x + 24, y + 96, 18, 18, (16, 24, 28))
-                    self.font.draw(x + 28, y + 105, symbol, color)
+                    rectangle(x + 24 * scale, y + 96 * scale, 18, 18, (16, 24, 28))
+                    self.font.draw(x + 24 * scale + 4, y + 96 * scale + 9, symbol, color)
                 if (attack is not None and attack.facing == "front_right" and attack.hit_target is actor
                         and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
-                    x, y = x - 12, y + 83
+                    x, y = x - 12 * scale, y + 83 * scale
                     p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
                     p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
                     p.draw_line(x + 4, y + 2, x + 9, y + 4, *WHITE)
@@ -440,6 +442,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
         renderer.combat = world
         if delivery_run:
             renderer.delivery = world
+            renderer.player_visual.display_scale = DELIVERY_CHARACTER_SCALE
+            renderer.combat_visual.display_scale = DELIVERY_CHARACTER_SCALE
             renderer.player_visual.load_empty_hands()
             renderer.combat_visual.load_empty_hands()
         player, walls = world.player, world.walls

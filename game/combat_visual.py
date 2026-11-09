@@ -40,6 +40,8 @@ def _locked_walk_boundary(legacy_time, hit_time):
 
 
 class CombatVisual:
+    display_scale = 1.0
+
     def __init__(self):
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         self.metadata["zombie"] = json.loads(ZOMBIE_METADATA_PATH.read_text(encoding="utf-8"))
@@ -102,7 +104,7 @@ class CombatVisual:
     def _draw(self, source_name, frame, foot_x, foot_y, *, empty_handed=False):
         images = self.empty_images if empty_handed and source_name in self.empty_images else self.images
         image = images[source_name]
-        scale = self.metadata[source_name]["scale"]
+        scale = self.metadata[source_name]["scale"] * self.display_scale
         clip = frame["clip_topleft"]
         left, bottom, width, height = sprite_rect(
             foot_x, foot_y, clip, frame["foot_pivot_topleft"], clip[3] * scale)
@@ -230,7 +232,7 @@ class CombatVisual:
             return False
         source_name, frame = self._zombie_pose(zombie)
         source = self.metadata[source_name]
-        clip, scale = frame["clip_topleft"], source["scale"]
+        clip, scale = frame["clip_topleft"], source["scale"] * self.display_scale
         left, bottom, width, height = sprite_rect(
             foot_x, foot_y, clip, frame["foot_pivot_topleft"], clip[3] * scale)
         if not (left <= screen_x < left + width and bottom <= screen_y < bottom + height):

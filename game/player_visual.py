@@ -32,6 +32,8 @@ def sprite_rect(foot_x, foot_y, clip, pivot, display_height):
 
 
 class PlayerVisual:
+    display_scale = 1.0
+
     def __init__(self):
         self.images = {}
         self.empty_images = {}
@@ -83,7 +85,7 @@ class PlayerVisual:
         clip = frame["clip_topleft"]
         # Keep the idle-based scale for all poses of this facing.
         reference_height = frame.get("scale_reference_height", frames[0]["clip_topleft"][3])
-        shown_height = clip[3] * self.metadata["display_height"] / reference_height
+        shown_height = clip[3] * self.metadata["display_height"] / reference_height * self.display_scale
         left, bottom, width, height = sprite_rect(
             foot_x, foot_y, clip, frame["foot_pivot_topleft"], shown_height)
         src_x, src_top, src_width, src_height = clip

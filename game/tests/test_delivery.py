@@ -84,3 +84,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "investigate", "idle"])
         self.assertEqual(south.target, north.target)
         self.assertNotEqual(south.investigation_route[0], north.investigation_route[0])
+
+    def test_delivery_sprint_opens_distance_from_a_chasing_zombie(self):
+        world = self.world
+        world.player.aim_angle = 0.0
+        zombie = Zombie(world.player.x - 90, world.player.y)
+        world.zombies = [zombie]
+        world.update(1.0, 1, 0, sprint=True)
+        self.assertEqual(zombie.state, "chase")
+        self.assertAlmostEqual(world.player.x - PLAYER_START[0], 210.0)
+        self.assertAlmostEqual(world.player.x - zombie.x, 210.0)
+        self.assertLess(world.stamina, 100.0)
