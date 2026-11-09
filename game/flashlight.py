@@ -14,10 +14,11 @@ _CORNER_OFFSET = 1e-5
 
 
 class Flashlight:
-    def __init__(self, origin, angle, walls):
+    def __init__(self, origin, angle, walls, world_size=(WORLD_WIDTH, WORLD_HEIGHT)):
         self.origin = origin
         self.angle = angle
         self.walls = walls
+        self.world_size = world_size
 
     def contains(self, point):
         dx, dy = point[0] - self.origin[0], point[1] - self.origin[1]
@@ -43,7 +44,7 @@ class Flashlight:
         x, y = self.origin
         dx, dy = math.cos(angle), math.sin(angle)
         length = RANGE
-        for position, velocity, limit in ((x, dx, WORLD_WIDTH), (y, dy, WORLD_HEIGHT)):
+        for position, velocity, limit in zip(self.origin, (dx, dy), self.world_size):
             if abs(velocity) > 1e-12:
                 boundary = limit if velocity > 0 else 0.0
                 length = min(length, (boundary - position) / velocity)

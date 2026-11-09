@@ -1,7 +1,8 @@
 import unittest
 
+from game.combat import ATTACK_HIT_TIME, Zombie
 from game.core import Wall
-from game.delivery import DeliveryWorld, PLAYER_START, ZOMBIE_START
+from game.delivery import DeliveryWorld, PLAYER_START, ZOMBIE_START, ZOMBIE_STARTS
 
 
 class DeliveryTests(unittest.TestCase):
@@ -44,6 +45,8 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual((world.player.x, world.player.y), PLAYER_START)
         self.assertEqual((world.zombie.x, world.zombie.y, world.zombie.hp), (*ZOMBIE_START, 5))
         self.assertEqual((world.zombie.state, world.zombie.target), ("idle", None))
+        self.assertEqual([(zombie.x, zombie.y) for zombie in world.zombies], list(ZOMBIE_STARTS))
+        self.assertTrue(all(zombie.alive for zombie in world.zombies))
 
     def test_killing_zombie_leaves_delivery_active_and_corpse_cannot_be_hit(self):
         world = self.world
@@ -57,3 +60,27 @@ class DeliveryTests(unittest.TestCase):
         world.update(0.6)
         self.assertEqual(world.zombie.hp, 0)
         self.assertTrue(world.interact())
+
+    def test_attack_hits_only_nearest_zombie_in_reach_and_facing(self):
+        world = self.world
+        world.player.x, world.player.y, world.player.aim_angle = (1000, 1100, 0.0)
+        farther, behind, nearest = Zombie(1060, 1100), Zombie(970, 1100), Zombie(1040, 1100)
+        world.zombies = [farther, behind, nearest]
+        self.assertTrue(world.start_attack())
+        world.update(ATTACK_HIT_TIME)
+        self.assertIs(world.attack.hit_target, nearest)
+        self.assertEqual([zombie.hp for zombie in world.zombies], [5, 5, 4])
+        self.assertEqual(farther.stun_remaining, 0.0)
+        self.assertGreater(nearest.stun_remaining, 0.0)
+
+    def test_noise_is_investigated_independently_across_a_wall(self):
+        world = self.world
+        world.player.x, world.player.y = (975, 1000)
+        world.walls = [Wall(1010, 930, 40, 160)]
+        south, north, distant = Zombie(1100, 950), Zombie(1120, 1080), Zombie(1610, 1050)
+        world.zombies = [south, north, distant]
+        world.start_attack()
+        world.update(0.05)
+        self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "investigate", "idle"])
+        self.assertEqual(south.target, north.target)
+        self.assertNotEqual(south.investigation_route[0], north.investigation_route[0])

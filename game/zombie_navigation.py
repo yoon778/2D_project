@@ -38,8 +38,8 @@ def can_walk_direct(start, end, walls):
     return True
 
 
-def find_route(start, target, walls):
-    """Shortest available route through clear wall corners on the small map."""
+def find_route(start, target, walls, world_size=(WORLD_WIDTH, WORLD_HEIGHT)):
+    """Shortest available route through clear wall corners."""
     if can_walk_direct(start, target, walls):
         return [target]
 
@@ -47,8 +47,8 @@ def find_route(start, target, walls):
     nodes = [start, target]
     for wall in walls:
         nodes.extend((x, y) for x, y in _corners(wall, radius + 1)
-                     if radius <= x <= WORLD_WIDTH - radius
-                     and radius <= y <= WORLD_HEIGHT - radius
+                     if radius <= x <= world_size[0] - radius
+                     and radius <= y <= world_size[1] - radius
                      and not any(_overlaps((x, y), other) for other in walls))
 
     distances = {0: 0.0}

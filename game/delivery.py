@@ -1,4 +1,4 @@
-"""Single delivery through a small alley, using the existing combat rules."""
+"""Single delivery across an alley district."""
 import math
 
 if __package__:
@@ -11,20 +11,27 @@ else:
 
 PLAYER_START = (145.0, 145.0)
 ZOMBIE_START = (675.0, 345.0)
+ZOMBIE_STARTS = (ZOMBIE_START, (485, 475), (245, 615), (785, 690),
+                 (1020, 190), (1180, 335), (1420, 240), (1520, 490),
+                 (1100, 590), (955, 960), (1240, 825), (1450, 960))
 ALLEY_PROP = (265.0, 245.0)
 INTERACTION_RANGE = 42.0
-_BUILDINGS = ((88, 305, 140, 190), (310, 225, 275, 200), (690, 120, 180, 155))
+_BUILDINGS = ((88, 305, 140, 190), (310, 225, 275, 200), (690, 120, 180, 155),
+              (165, 765, 330, 220), (610, 815, 270, 215), (800, 385, 205, 220),
+              (1090, 100, 260, 180), (1120, 405, 270, 125),
+              (1320, 615, 240, 240), (1050, 940, 285, 145))
 
 
 class DeliveryWorld(CombatWorld):
     clear_on_zombie_death = False
+    world_size = (1720, 1200)
     pickup = (172.0, 155.0)
-    destination = (796.0, 535.0)
+    destination = (1610.0, 1080.0)
 
     def reset(self):
         super().reset()
         self.player = Player(*PLAYER_START)
-        self.zombie = Zombie(*ZOMBIE_START)
+        self.zombies = [Zombie(*position) for position in ZOMBIE_STARTS]
         self.walls = [Wall(*building) for building in _BUILDINGS]
         self.parcel = "waiting"
 
@@ -49,5 +56,6 @@ class DeliveryWorld(CombatWorld):
         else:
             self.parcel = "delivered"
             self.result = "delivered"
-            self.attack = self.zombie.attack = None
+            self.attack = None
+            self._resolve_result()
         return True

@@ -49,7 +49,7 @@ def _move_axis(start: float, other: float, delta: float, limit: float,
 
 
 def move_player(player: Player, axis_x: float, axis_y: float,
-                dt: float, walls: Sequence[Wall]) -> None:
+                dt: float, walls: Sequence[Wall], *, world_size=(WORLD_WIDTH, WORLD_HEIGHT)) -> None:
     """Move a valid ground position; invalid dt leaves it unchanged."""
     player.moved = False
     if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
@@ -67,9 +67,9 @@ def move_player(player: Player, axis_x: float, axis_y: float,
         tick = min(remaining, PLAYER_RADIUS / (2 * WALK_SPEED))
         before = (player.x, player.y)
         player.x = _move_axis(player.x, player.y, velocity_x * tick,
-                              WORLD_WIDTH, walls, True)
+                              world_size[0], walls, True)
         player.y = _move_axis(player.y, player.x, velocity_y * tick,
-                              WORLD_HEIGHT, walls, False)
+                              world_size[1], walls, False)
         remaining -= tick
         if (player.x, player.y) == before:
             # Constant input cannot escape this static contact in later ticks.
