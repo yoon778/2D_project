@@ -106,7 +106,10 @@ class CombatVisual:
             if source_name is None:
                 return False
             index = index * 8 + walk_frame_index - 1
-        self._draw(source_name, self.metadata[source_name]["frames"][index], foot_x, foot_y)
+        frame = self.metadata[source_name]["frames"][index]
+        if getattr(attack, "landed", False):
+            frame = frame.get("on_hit", frame)
+        self._draw(source_name, frame, foot_x, foot_y)
         return True
 
     @staticmethod

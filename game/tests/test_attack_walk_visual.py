@@ -54,9 +54,9 @@ class AttackWalkSpriteTests(unittest.TestCase):
     def test_locked_stationary_fr_uses_eight_cells_on_the_same_attack_clock(self):
         source = self.visual.metadata["attack_stationary_front_right"]
         image = self.visual.images["attack_stationary_front_right"]
-        self.assertEqual(source["canvas_size"], [768, 96])
-        self.assertEqual(source["image"], "r2sf8-arm-attack-front-right.png")
-        boundaries = (0, .03, .10, .18, .24, .30, .37, .44, .66)
+        self.assertEqual(source["canvas_size"], [864, 96])
+        self.assertEqual(source["image"], "r2sf8-swing-front-right.png")
+        boundaries = (0, .03, .10, .18, .24, .30, .34, .44, .66)
         self.assertEqual([frame["start"] for frame in source["frames"]], list(boundaries[:-1]))
         self.assertEqual([frame["end"] for frame in source["frames"]], list(boundaries[1:]))
         attack = SimpleNamespace(facing="front_right", stationary_front_right=True, hit_time=.24)
@@ -71,6 +71,18 @@ class AttackWalkSpriteTests(unittest.TestCase):
         attack.elapsed = .66
         self.assertIsNone(self.visual.attack_frame_index(attack))
         self.assertFalse(self.visual.draw_attack(attack, 100, 200, 0))
+
+    def test_stationary_fr_holds_contact_on_hit_and_follows_through_on_miss(self):
+        image = self.visual.images["attack_stationary_front_right"]
+        for elapsed, hit_cell, miss_cell in ((.24, 4, 4), (.30, 4, 5), (.339, 4, 5),
+                                              (.34, 8, 6), (.439, 8, 6), (.44, 7, 7)):
+            for landed, cell in ((True, hit_cell), (False, miss_cell)):
+                with self.subTest(elapsed=elapsed, landed=landed):
+                    attack = SimpleNamespace(facing="front_right", stationary_front_right=True,
+                                             elapsed=elapsed, landed=landed)
+                    self.assertTrue(self.visual.draw_attack(attack, 100, 200, 0))
+                    image.clip_draw.assert_called_with(cell * 96, 0, 96, 96,
+                                                       100.0, 264.0, 192.0, 192.0)
 
     def test_locked_fr_uses_legacy_walk_cells_on_the_new_clock(self):
         boundaries = (0, .06, .12, .18, .24, .285, .33, .38, .43, .485, .54, .60, .66)
