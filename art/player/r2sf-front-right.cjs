@@ -6,6 +6,7 @@ const stationaryPoses = {...poses, ...require('./r2sf-stationary-front-right.jso
 const walk = require('./consistent-rig.json')
 const {drawLeg, joints} = require('./consistent-walk.cjs')
 const {shiftWeight} = require('../attack-weight.cjs')
+const {removeParcel, removeWalkParcels} = require('./empty-hands.cjs')
 const size = 96
 const outline = '15141b', shade = '242633', cloth = '323648', facet = '42495f'
 const skin = 'e9af89', lightSkin = 'ffcfaa', skinShade = 'bc8060'
@@ -117,7 +118,7 @@ function redrawRestGrip(sprite, pose) {
   weapon(sprite, pose.grip, pose.tip)
   fist(sprite, pose.grip)
 }
-function drawUpper(sprite, pose, idle) {
+function drawUpper(sprite, pose, idle, empty) {
   const {torso, chest, belt, pack, shoulder, grip, tip, carry} = pose
   backpack(sprite, pack)
   limb(sprite, pose.left, [4.3,3.9,3], shade, facet)
@@ -134,7 +135,7 @@ function drawUpper(sprite, pose, idle) {
   local(sprite, outline, [c[0]-3,c[1]+2], [[-3,-2],[2,-2],[3,0],[1,3],[-3,2]])
   local(sprite, 'ef770b', [c[0]-3,c[1]+2], [[-2,-1],[1,-1],[2,0],[1,2],[-2,1]])
   local(sprite, 'ffe276', [c[0]-3,c[1]+2], [[-1,0],[1,0],[0,1],[-1,1]])
-  parcel(sprite, pose.parcel)
+  if (!empty) parcel(sprite, pose.parcel)
   fist(sprite, carry, true)
   limb(sprite, pose.right, [4.8,3.8,2.9], pose.rightCloth ?? cloth, pose.rightHighlight ?? facet)
   local(sprite, outline, shoulder, [[-4,-2],[-2,-4],[3,-3],[5,-1],[3,2],[-3,2]])
@@ -144,7 +145,7 @@ function drawUpper(sprite, pose, idle) {
   fist(sprite, grip)
   head(sprite, idle, pose.head)
 }
-function drawPose(pose, idle) {
+function drawPose(pose, idle, empty) {
   if (pose.rest) {
     const sprite = Buffer.from(idle)
     redrawRestGrip(sprite, pose)
@@ -156,7 +157,7 @@ function drawPose(pose, idle) {
     limb(sprite, pose.legs[i], i ? [4.5,4,3.5] : [5.5,4.5,4], i ? shade : cloth, i ? cloth : facet)
     boot(sprite, idle, pose.feet[i], i === 1)
   }
-  drawUpper(sprite, pose, idle)
+  drawUpper(sprite, pose, idle, empty)
   return sprite
 }
 function grid(cells, columns) {
@@ -194,13 +195,15 @@ function walkingCell(atlas, phase) {
   return cell
 }
 
-async function buildMovingFullSwing() {
+async function buildMovingFullSwing({empty = false} = {}) {
   const partsPath = path.join(__dirname, 'consistent-parts/front-right')
   const read = file => sharp(file).ensureAlpha().raw().toBuffer()
-  const atlas = await read(walkPath)
+  const original = await read(walkPath)
+  const atlas = empty ? removeWalkParcels('front_right', original, walk.bodyDrop) : original
   const idle = walkingCell(atlas, 8)
   const restBody = Buffer.alloc(idle.length)
   overlay(restBody, await read(path.join(partsPath, 'body.png')), 80, 8, 8)
+  if (empty) removeParcel('front_right', restBody, size, 8, 8)
 
   const rig = walk.facings.front_right
   const sides = ['left', 'right'], parts = {}
@@ -221,7 +224,7 @@ async function buildMovingFullSwing() {
     if (pose.weaponBehind) weapon(rear, pose.grip, pose.tip)
     const upper = pose.rest ? Buffer.from(restBody) : Buffer.alloc(idle.length)
     if (pose.rest) redrawRestGrip(upper, pose)
-    else drawUpper(upper, pose, idle)
+    else drawUpper(upper, pose, idle, empty)
     upperLayers.push({rear, upper})
 
     for (const [phase, drop] of walk.bodyDrop.entries()) {
@@ -268,15 +271,16 @@ function holds(pose, sprite) {
   return {right, left}
 }
 
-async function buildStationaryCells(poses, columns) {
+async function buildStationaryCells(poses, columns, {empty = false} = {}) {
   const idle = await loadIdle()
-  const cells = poses.map(pose => pose ? drawPose(pose, idle) : idle)
+  if (empty) removeParcel('front_right', idle, size, 8, 8)
+  const cells = poses.map(pose => pose ? drawPose(pose, idle, empty) : idle)
   const contacts = poses.flatMap((pose, index) => pose ? [holds(pose, cells[index])] : [])
   return {cells, contacts, ...grid(cells, columns)}
 }
 
-function buildFullSwing() {
-  return buildStationaryCells([...Object.values(stationaryPoses), null], 4)
+function buildFullSwing(options) {
+  return buildStationaryCells([...Object.values(stationaryPoses), null], 4, options)
 }
 
 async function main() {

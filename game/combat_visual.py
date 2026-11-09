@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pico2d.pico2d as p
 
-from player_visual import sprite_rect
+from player_visual import PARCEL_OCCLUDED_FACINGS, load_empty_atlas, sprite_rect
 from combat import ATTACK_HIT_TIME, STUN_DURATION, ZOMBIE_ATTACK_DURATION
 from locomotion import Locomotion, STRIDE_DISTANCE, select_facing
 
@@ -36,6 +36,7 @@ class CombatVisual:
         self.metadata["zombie"] = json.loads(ZOMBIE_METADATA_PATH.read_text(encoding="utf-8"))
         self.metadata["zombie_attack"] = json.loads(ZOMBIE_ATTACK_METADATA_PATH.read_text(encoding="utf-8"))
         self.images = {}
+        self.empty_images = {}
         self.reset_zombie_animation()
         try:
             for key, source in self.metadata.items():
@@ -83,8 +84,15 @@ class CombatVisual:
         step = self._attack_step(attack)
         return step[1] if step is not None else None
 
-    def _draw(self, source_name, frame, foot_x, foot_y):
-        image = self.images[source_name]
+    def load_empty_hands(self):
+        for key, source in self.metadata.items():
+            if key.startswith("attack") and source["facing"] not in PARCEL_OCCLUDED_FACINGS:
+                self.empty_images[key] = load_empty_atlas(
+                    METADATA_PATH.parent / source["image"], source["canvas_size"])
+
+    def _draw(self, source_name, frame, foot_x, foot_y, *, empty_handed=False):
+        images = self.empty_images if empty_handed and source_name in self.empty_images else self.images
+        image = images[source_name]
         scale = self.metadata[source_name]["scale"]
         clip = frame["clip_topleft"]
         left, bottom, width, height = sprite_rect(
@@ -93,7 +101,7 @@ class CombatVisual:
         image.clip_draw(x, image.h - top - h, w, h,
                         left + width / 2, bottom + height / 2, width, height)
 
-    def draw_attack(self, attack, foot_x, foot_y, walk_frame_index=None):
+    def draw_attack(self, attack, foot_x, foot_y, walk_frame_index=None, *, empty_handed=False):
         step = self._attack_step(attack, bool(walk_frame_index))
         if step is None:
             return False
@@ -109,7 +117,7 @@ class CombatVisual:
         frame = self.metadata[source_name]["frames"][index]
         if getattr(attack, "landed", False):
             frame = frame.get("on_hit", frame)
-        self._draw(source_name, frame, foot_x, foot_y)
+        self._draw(source_name, frame, foot_x, foot_y, empty_handed=empty_handed)
         return True
 
     def reset_zombie_animation(self):
@@ -214,3 +222,4 @@ class CombatVisual:
 
     def close(self):
         self.images.clear()
+        self.empty_images.clear()

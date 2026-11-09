@@ -9,6 +9,17 @@ from locomotion import Locomotion
 
 
 METADATA_PATH = Path(__file__).resolve().parent / "assets/player/r1b-courier-atlas-20261104.json"
+PARCEL_OCCLUDED_FACINGS = {"back", "back_right"}
+
+
+def load_empty_atlas(path, canvas_size):
+    variant = path.with_stem(path.stem + "-empty")
+    image = p.load_image(str(variant))
+    if [image.w, image.h] != canvas_size:
+        raise ValueError(f"Empty-handed sprite canvas differs from metadata: {variant}")
+    if p.SDL_SetTextureScaleMode(image.texture, p.SDL_ScaleModeNearest) != 0:
+        raise RuntimeError(f"Empty-handed nearest sampling failed: {p.SDL_GetError()!r}")
+    return image
 
 
 def sprite_rect(foot_x, foot_y, clip, pivot, display_height):
@@ -23,6 +34,7 @@ def sprite_rect(foot_x, foot_y, clip, pivot, display_height):
 class PlayerVisual:
     def __init__(self):
         self.images = {}
+        self.empty_images = {}
         self.locomotion = Locomotion()
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         sources = {"atlas": self.metadata, **self.metadata.get("sources", {})}
@@ -49,15 +61,25 @@ class PlayerVisual:
     def update(self, aim_angle, dx, dy):
         self.locomotion.update(aim_angle, dx, dy, reverse_backstep=True)
 
+    def load_empty_hands(self):
+        sources = self.metadata["sources"]
+        active = dict.fromkeys(frame["source"] for facing, frames in self.metadata["frames"].items()
+                               if facing not in PARCEL_OCCLUDED_FACINGS for frame in frames)
+        for key in active:
+            source = sources[key]
+            self.empty_images[key] = load_empty_atlas(METADATA_PATH.parent / source["image"], source["canvas_size"])
+
     @property
     def frame_index(self):
         frames = self.metadata["frames"][self.locomotion.facing]
         return self.locomotion.walk_frame_index(len(frames) - 1)
 
-    def draw(self, foot_x, foot_y):
+    def draw(self, foot_x, foot_y, *, empty_handed=False):
         frames = self.metadata["frames"][self.locomotion.facing]
         frame = frames[self.frame_index]
-        image = self.images[frame.get("source", "atlas")]
+        key = frame.get("source", "atlas")
+        images = self.empty_images if empty_handed and key in self.empty_images else self.images
+        image = images[key]
         clip = frame["clip_topleft"]
         # Keep the idle-based scale for all poses of this facing.
         reference_height = frame.get("scale_reference_height", frames[0]["clip_topleft"][3])
@@ -73,3 +95,4 @@ class PlayerVisual:
     def close(self):
         # Image.__del__ alone owns the texture; never destroy it twice.
         self.images.clear()
+        self.empty_images.clear()

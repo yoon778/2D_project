@@ -2,6 +2,7 @@
 const path = require('node:path'), sharp = require('sharp')
 const {drawLeg, joints, prepareWalkMirror, renderWalkAtlas, shiftWalkJoints} = require('./consistent-walk.cjs')
 const {shiftWeight} = require('../attack-weight.cjs')
+const {removeParcel, removeWalkParcels} = require('./empty-hands.cjs')
 const ap8 = require('./r2ap8-motion.json')
 const settings = require('./r2c8-rigs.json'), walk = require('./consistent-rig.json')
 const rigs = {...walk.facings, ...require('./consistent-front-back.json'), ...require('./consistent-side.json'), ...require('./consistent-diagonal.json')}
@@ -80,11 +81,13 @@ function twelvePoses(model,rig,pivot,axisEnd,tuning) {
 }
 async function png(b,w,h,file,scale=1) {await sharp(b,{raw:{width:w,height:h,channels:4}}).resize(w*scale,h*scale,{kernel:'nearest'}).png().toFile(file)}
 function atlas(cells,cols) {const width=cols*96,height=Math.ceil(cells.length/cols)*96,b=Buffer.alloc(width*height*4);for(let f=0;f<cells.length;f++)for(let y=0;y<96;y++)cells[f].copy(b,((Math.floor(f/cols)*96+y)*width+f%cols*96)*4,y*384,(y+1)*384);return{b,width,height}}
-async function build(facing, walkAtlas) {
+async function build(facing, walkAtlas, {empty = false} = {}) {
   const model=settings[facing],rig=rigs[facing],slug=facing.replaceAll('_','-'),[left,top,width,height]=rig.sourceCell;
   const tuning = ap8[facing]
   const src=await sharp(path.join(__dirname,'style-studies/eight-direction-consistency/turnaround-idle-64-v3.png')).extract({left,top,width,height}).ensureAlpha().raw().toBuffer(),r1=walkAtlas ?? await sharp(path.join(root,`game/assets/player/r1-consistent-${slug}-20261105.png`)).ensureAlpha().raw().toBuffer();
   const bodyRaw=await sharp(path.join(__dirname,'consistent-parts',slug,'body.png')).ensureAlpha().raw().toBuffer();
+  const gearSource = empty ? removeParcel(facing, Buffer.from(src), 80) : src
+  if (empty) removeParcel(facing, bodyRaw, 80)
   const parts={upper:cut(src,model.upper.mask,navy,model.repairMaterial),fore:cut(src,model.fore.mask,cuff,model.repairMaterial),hand:cut(src,model.hand.mask,skin)},legParts={};
   // Wood highlights share skin colors in the approved art; geometry owns the full bat.
   const originalBat=cut(src,rig.batMask,null),donorFacing=rig.batSourceFacing||facing,donorRig=rigs[donorFacing];
@@ -103,14 +106,16 @@ async function build(facing, walkAtlas) {
   const core=(x,y)=>x>=model.core[0]&&x<model.core[2]&&y>=model.core[1]&&y<model.core[3];
   for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4;if((armMask[p+3]||originalBat[p+3])&&upper[p+3]){if(core(x,y))upper.set([50,54,72,255],p);else upper.fill(0,p,p+4)}}
   const upperCell=Buffer.alloc(96*96*4),head=Buffer.alloc(src.length),gear=Buffer.alloc(src.length);paint(upperCell,upper,(x,y)=>[x,y]);
-  for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4;if(y<=26)src.copy(head,p,p,p+4);if(model.equipment&&x>=model.equipment[0]&&x<model.equipment[2]&&y>=model.equipment[1]&&y<model.equipment[3]&&!navy.slice(1).includes(src.subarray(p,p+3).toString('hex')))src.copy(gear,p,p,p+4)}
+  for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4;if(y<=26)src.copy(head,p,p,p+4);if(model.equipment&&x>=model.equipment[0]&&x<model.equipment[2]&&y>=model.equipment[1]&&y<model.equipment[3]&&!navy.slice(1).includes(src.subarray(p,p+3).toString('hex')))gearSource.copy(gear,p,p,p+4)}
   const headCell=Buffer.alloc(96*96*4),gearCell=Buffer.alloc(headCell.length);paint(headCell,head,(x,y)=>[x,y]);paint(gearCell,gear,(x,y)=>[x,y]);
   const oldWeapon=Buffer.alloc(96*96*4);if(rig.batRotation){const r=rig.batRotation,g=r.targetPivot||r.pivot,angle=r.degrees*Math.PI/180,dx=(axisEnd[0]-r.pivot[0])*(r.lengthScale||1),dy=(axisEnd[1]-r.pivot[1])*(r.lengthScale||1);segment(oldWeapon,bat,r.pivot,axisEnd,g,[g[0]+Math.cos(angle)*dx-Math.sin(angle)*dy,g[1]+Math.sin(angle)*dx+Math.cos(angle)*dy])}else paint(oldWeapon,originalBat,(x,y)=>[x,y]);
   const restingLegs=Buffer.alloc(96*96*4),far=rig.nearLeg==='right'?'left':'right',hipBand=rig.hipOutline?[Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1])-2,Math.max(rig.legs.right.hip[1],rig.legs.left.hip[1])+5]:null;
   for(const side of[far,rig.nearLeg])over(restingLegs,drawLeg(rig,legParts,side,{...rig.legs[side],pitch:0},hipBand),80,80,8,8);
-  const idle = padded(r1, 8)
+  const frames = empty ? removeWalkParcels(facing, r1, walk.bodyDrop) : r1
+  const idle = padded(frames, 8)
   // Extract the attack torso from the original idle so the carry change stays out of the swing.
   const attackIdle = rig.carryBatDegrees === undefined ? idle : padded(await renderWalkAtlas(facing, {carryBatDegrees: undefined}), 8)
+  if (empty && attackIdle !== idle) removeParcel(facing, attackIdle, 96, 8, 8)
   const staticBody=Buffer.from(attackIdle);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4,q=((y+8)*96+x+8)*4,isBat=oldWeapon[q+3];if(armMask[p+3]||isBat){if(armMask[p+3]&&core(x,y))staticBody.set([50,54,72,255],q);else if(y>=Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1]))restingLegs.copy(staticBody,q,q,q+4);else staticBody.fill(0,q,q+4)}}
   const shoulder = model.shoulder.map((value, i) => value + (tuning.shoulderOffset?.[i] || 0))
   const stationary = [], moving = [], layers = []
@@ -124,7 +129,7 @@ async function build(facing, walkAtlas) {
   const [forwardX, forwardY] = rig.worldFacing
   const depth = forwardY * (forwardX ? .6 : 1)
   for(let a=0;a<12;a++){
-    if(a===11){stationary.push(idle);for(let w=0;w<8;w++)moving.push(padded(r1,w));continue}
+    if(a===11){stationary.push(idle);for(let w=0;w<8;w++)moving.push(padded(frames,w));continue}
     const travel = ap8.travel[a]
     const weight = tuning.weights?.[a] || [Math.round(forwardX * travel), Math.round(depth * travel + ap8.crouch[a])]
     const [dx, dy] = weight

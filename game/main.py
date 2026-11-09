@@ -249,6 +249,7 @@ class Renderer:
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
         delivery = self.delivery
+        courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
         for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None,
                                             prop=ALLEY_PROP if delivery is not None else TRASH_CAN_POSITION,
                                             station=delivery.next_stop if delivery is not None else None):
@@ -278,8 +279,8 @@ class Renderer:
                     p.draw_line(x + 4, y + 2, x + 9, y + 4, *WHITE)
             else:
                 if combat is None or not self.combat_visual.draw_attack(
-                        combat.attack, *foot, walk_frame_index=self.player_visual.frame_index):
-                    self.player_visual.draw(*foot)
+                        combat.attack, *foot, walk_frame_index=self.player_visual.frame_index, **courier_style):
+                    self.player_visual.draw(*foot, **courier_style)
                 cross(*foot, TEAL, size=4)
         # The cursor stays at its screen position while the world shakes.
         target_screen = (world_to_screen(*target) if self.cursor is None
@@ -394,6 +395,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
         renderer.combat = world
         if delivery_run:
             renderer.delivery = world
+            renderer.player_visual.load_empty_hands()
+            renderer.combat_visual.load_empty_hands()
         player, walls = world.player, world.walls
         pressed = set()
         target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)

@@ -167,10 +167,10 @@ class AttackWalkInputTests(unittest.TestCase):
         sources = []
         original = CombatVisual._draw
 
-        def draw(visual, source, frame, *args):
+        def draw(visual, source, frame, *args, **kwargs):
             if source.startswith("attack"):
                 sources.append(source)
-            return original(visual, source, frame, *args)
+            return original(visual, source, frame, *args, **kwargs)
 
         with patch.object(CombatVisual, "_draw", draw):
             _, states, choices = self.observe(
