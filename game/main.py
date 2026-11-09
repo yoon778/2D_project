@@ -9,7 +9,7 @@ import time
 
 import pico2d.pico2d as p
 
-from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player
+from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
 from delivery import ALLEY_PROP, DeliveryWorld
@@ -595,6 +595,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 strength = 3
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
             distance = None
+            nearest_zombie = None
             stride = 0.0
             for zombie, (x, y) in zip(world.zombies, zombie_origins):
                 zombie_dx, zombie_dy = zombie.x - x, zombie.y - y
@@ -603,13 +604,18 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     enemy_distance = math.hypot(zombie.x - player.x, zombie.y - player.y)
                     if distance is None or enemy_distance < distance:
                         distance = enemy_distance
+                        nearest_zombie = zombie
                         recoil_x, recoil_y = zombie.recoil_offset
                         stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
             if music is not None:
                 music.update(dt, distance=distance, focused=active)
             if zombie_audio is not None:
-                zombie_audio.update(dt, distance=distance, stride=stride,
-                                    active=active and not reset_requested and world.result == "playing")
+                hearing_active = active and not reset_requested and world.result == "playing"
+                occluded = hearing_active and nearest_zombie is not None and any(
+                    wall_blocks((player.x, player.y), (nearest_zombie.x, nearest_zombie.y), wall)
+                    for wall in walls)
+                zombie_audio.update(dt, distance=distance, stride=stride, active=hearing_active,
+                                    occluded=occluded)
             dx, dy = player.x - before[0], player.y - before[1]
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]

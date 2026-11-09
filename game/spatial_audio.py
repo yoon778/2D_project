@@ -13,6 +13,7 @@ _NEAR_DISTANCE = 120.0
 _FAR_DISTANCE = 180.0
 _VOLUME_TIME = .25
 _HEARING_RANGE = 520.0
+_WALL_GAIN = 0.65
 _STEP_SPACING = 32.0
 _GROAN_DELAY = .4
 _GROAN_INTERVAL = 3.2
@@ -106,7 +107,7 @@ class ZombieAudio:
         current = p.Mix_GetChunk(channel)
         return ctypes.cast(current, ctypes.c_void_p).value == ctypes.cast(sound, ctypes.c_void_p).value
 
-    def update(self, dt, *, distance, stride, active):
+    def update(self, dt, *, distance, stride, active, occluded=False):
         if not self._sounds:
             return
         if not active or distance is None or distance >= _HEARING_RANGE:
@@ -123,6 +124,8 @@ class ZombieAudio:
             self._groan_in += _GROAN_INTERVAL
 
         gain = 1.0 - distance / _HEARING_RANGE
+        if occluded:
+            gain *= _WALL_GAIN
         for kind, due in (("zombie_step", step_due), ("zombie_groan", groan_due)):
             sound = self._sounds.get(kind)
             if sound is None:
