@@ -12,7 +12,7 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import ALLEY_PROP, DeliveryWorld, NeighborhoodWall
+from delivery import ALLEY_PROP, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
 from flashlight import Flashlight, LightField
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual, load_atlas
@@ -241,33 +241,111 @@ class Renderer:
     def draw_map(self, player):
         world = self.delivery
         width, height = world.world_size
-        scale = min(860 / width, 500 / height)
-        left, bottom = (WINDOW_WIDTH - width * scale) / 2, 108
-        p.SDL_SetRenderDrawColor(p.renderer, 14, 20, 23, 255)
+        scale = min(792 / width, 528 / height)
+        left = 64 + (792 - width * scale) / 2
+        bottom = 104 + (528 - height * scale) / 2
+        right = left + width * scale
+        top = bottom + height * scale
+        ink = (14, 20, 23)
+        panel = (27, 39, 41)
+        border = (91, 112, 112)
+        main_color = (170, 145, 106)
+        alley_color = (99, 132, 130)
+        building_color = (20, 30, 34)
+        landmark_color = (178, 201, 195)
+
+        def map_point(x, y):
+            return left + x * scale, bottom + y * scale
+
+        def heading(x, y, angle):
+            dx, dy = math.cos(angle), math.sin(angle)
+            tip_x, tip_y = x + 16 * dx, y + 16 * dy
+            p.draw_line(x, y, tip_x, tip_y, *WHITE)
+            for side in (-1, 1):
+                p.draw_line(tip_x, tip_y, tip_x - 6 * dx - 4 * dy * side,
+                            tip_y - 6 * dy + 4 * dx * side, *WHITE)
+            rectangle(x - 4, y - 4, 8, 8, ink)
+            rectangle(x - 2, y - 2, 4, 4, WHITE)
+
+        p.SDL_SetRenderDrawColor(p.renderer, *ink, 255)
         p.SDL_RenderClear(p.renderer)
-        rectangle(left, bottom, width * scale, height * scale, (46, 55, 57))
-        rectangle(left, bottom, width * scale, height * scale, (99, 118, 118), filled=False)
+        rectangle(left, bottom, right - left, top - bottom, (41, 56, 57))
+        for kind, color in (("alleys", alley_color), ("main", main_color)):
+            for road in TOWN_ROADS[kind]:
+                points = road["points"]
+                half_width = road["width"] / 2
+                for (ax, ay), (bx, by) in zip(points, points[1:]):
+                    west = max(0, min(ax, bx) - half_width)
+                    south = max(0, min(ay, by) - half_width)
+                    east = min(width, max(ax, bx) + half_width)
+                    north = min(height, max(ay, by) + half_width)
+                    if west < east and south < north:
+                        x, y = map_point(west, south)
+                        rectangle(x, y, (east - west) * scale, (north - south) * scale, color)
+
+        landmarks = []
+        landmark_labels = {"shop": "상점", "bus-stop": "정류장"}
         for wall in world.walls:
-            rectangle(left + wall.x * scale, bottom + wall.y * scale,
-                      wall.width * scale, wall.depth * scale, (18, 27, 30))
-            rectangle(left + wall.x * scale, bottom + wall.y * scale,
-                      wall.width * scale, wall.depth * scale, (75, 94, 94), filled=False)
-        for (x, y), color in ((world.pickup, ORANGE), (world.destination, TEAL)):
-            rectangle(left + x * scale - 4, bottom + y * scale - 4, 8, 8, color)
-        x, y = left + player.x * scale, bottom + player.y * scale
-        cross(x, y, WHITE, size=7)
-        p.draw_line(x, y, x + 16 * math.cos(player.aim_angle), y + 16 * math.sin(player.aim_angle), *WHITE)
-        self.font.draw(left, 652, "배달 구역 지도", WHITE)
-        north = left + width * scale - 12
-        self.font.draw(north - 22, 630, "N", WHITE)
-        p.draw_line(north, 623, north, 638, *WHITE)
-        p.draw_line(north - 4, 633, north, 638, *WHITE)
-        p.draw_line(north + 4, 633, north, 638, *WHITE)
-        self.font.draw(left, 75, "+ 현재 위치", WHITE)
-        for offset, label, color in ((155, "수령지", ORANGE), (290, "배송지", TEAL)):
-            rectangle(left + offset, 72, 8, 8, color)
-            self.font.draw(left + offset + 16, 75, label, color)
-        self.font.draw(left, 40, "M 닫기 · 지도 확인 중 일시정지", WHITE)
+            x, y = map_point(wall.x, wall.y)
+            w, h = wall.width * scale, wall.depth * scale
+            label = landmark_labels.get(wall.texture) if isinstance(wall, NeighborhoodWall) else None
+            rectangle(x, y, w, h, building_color)
+            rectangle(x, y, w, h, landmark_color if label else border, filled=False)
+            if label:
+                landmarks.append((label, x + w / 2, y + h))
+
+        for label, anchor_x, anchor_y in landmarks:
+            label_width = 17 * len(label) + 16
+            x = min(right - label_width - 7, anchor_x + 16)
+            y = min(top - 29, anchor_y + 10)
+            p.draw_line(anchor_x, anchor_y, x, y + 4, *landmark_color)
+            rectangle(x, y, label_width, 24, panel)
+            rectangle(x, y, label_width, 24, border, filled=False)
+            self.font.draw(x + 8, y + 12, label, landmark_color)
+
+        for position, color in ((world.pickup, ORANGE), (world.destination, TEAL)):
+            x, y = map_point(*position)
+            rectangle(x - 6, y - 6, 12, 12, ink)
+            rectangle(x - 4, y - 4, 8, 8, color)
+        heading(*map_point(player.x, player.y), player.aim_angle)
+
+        compass_x, compass_y = left + 28, top - 36
+        self.font.draw(compass_x - 4, compass_y + 18, "N", WHITE)
+        p.draw_line(compass_x, compass_y - 10, compass_x, compass_y + 8, *WHITE)
+        p.draw_line(compass_x - 4, compass_y + 2, compass_x, compass_y + 8, *WHITE)
+        p.draw_line(compass_x + 4, compass_y + 2, compass_x, compass_y + 8, *WHITE)
+        rectangle(left, bottom, right - left, top - bottom, border, filled=False)
+        self.font.draw(64, 674, "배달 구역 지도", WHITE)
+
+        side = 880
+        rectangle(side, 104, 336, 528, panel)
+        rectangle(side, 104, 336, 528, border, filled=False)
+        self.font.draw(side + 24, 602, "다음 목표", WHITE)
+        waiting = world.parcel == "waiting"
+        objective, target, accent = (
+            ("택배 수령", "주황색 수령지에서 E", ORANGE) if waiting
+            else ("택배 전달", "청록색 배송지에서 E", TEAL)
+        )
+        self.font.draw(side + 24, 566, objective, accent)
+        self.font.draw(side + 24, 532, target, WHITE)
+        p.draw_line(side + 24, 504, side + 312, 504, *border)
+        self.font.draw(side + 24, 474, "지도 범례", WHITE)
+        for y, label, color, w, h in (
+            (432, "큰길", main_color, 24, 9),
+            (394, "골목", alley_color, 24, 5),
+            (356, "건물", building_color, 18, 14),
+            (318, "상점·정류장", landmark_color, 18, 14),
+            (242, "수령지", ORANGE, 8, 8),
+            (204, "배송지", TEAL, 8, 8),
+        ):
+            rectangle(side + 36 - w / 2, y - h / 2, w, h, color)
+            self.font.draw(side + 62, y, label, WHITE)
+        heading(side + 31, 280, 0)
+        self.font.draw(side + 62, 280, "현재 위치·방향", WHITE)
+        rectangle(64, 40, 29, 27, panel)
+        rectangle(64, 40, 29, 27, border, filled=False)
+        self.font.draw(73, 54, "M", WHITE)
+        self.font.draw(105, 54, "닫기 · 지도 확인 중 일시정지", WHITE)
 
     def draw_ground_light(self, light, outline, edge, falloff):
         points = [light.origin] + [point for point, _ in outline]

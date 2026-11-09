@@ -3,7 +3,7 @@ import unittest
 
 from game.combat import ATTACK_HIT_TIME, Zombie
 from game.core import WALK_SPEED, Wall, move_player
-from game.delivery import DeliveryWorld, PLAYER_START, ZOMBIE_START, ZOMBIE_STARTS
+from game.delivery import DeliveryWorld, PLAYER_START, TOWN_ROADS, ZOMBIE_START, ZOMBIE_STARTS
 
 
 class DeliveryTests(unittest.TestCase):
@@ -26,15 +26,15 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse(world.interact())
 
     def test_both_town_routes_can_complete_delivery(self):
-        destination = self.world.destination
+        main = TOWN_ROADS["main"][0]["points"]
         routes = {
-            "main road": ((145, 100), (3380, 100), destination),
-            "alleys": ((266, 145), (266, 630), (1240, 630), (1240, 900),
-                       (1660, 900), (1660, 1880), (3190, 1880), (3190, 2240), destination),
+            "main road": ((PLAYER_START[0], main[0][1]), *main[1:]),
+            "alleys": TOWN_ROADS["alleys"][0]["points"],
         }
         for name, waypoints in routes.items():
             with self.subTest(route=name):
                 world = DeliveryWorld()
+                self.assertEqual(tuple(waypoints[-1]), world.destination)
                 self.assertTrue(world.interact())
                 player = world.player
                 for x, y in waypoints:

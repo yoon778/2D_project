@@ -1,6 +1,8 @@
 """Single delivery across the town and its connected alleys."""
 from dataclasses import dataclass
+import json
 import math
+from pathlib import Path
 
 if __package__:
     from .combat import CombatWorld, Zombie
@@ -11,6 +13,8 @@ else:
 
 
 TOWN_SIZE = (3600, 2400)
+TOWN_ROADS = json.loads((Path(__file__).resolve().parent / "assets/neighborhood/roads.json")
+                        .read_text(encoding="utf-8"))
 PLAYER_START = (145.0, 145.0)
 ZOMBIE_START = (675.0, 345.0)
 ZOMBIE_STARTS = (

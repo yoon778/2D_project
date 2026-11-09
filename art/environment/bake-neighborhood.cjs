@@ -6,6 +6,7 @@ const sharp = require('sharp')
 
 const output = path.resolve(__dirname, '../../game/assets/neighborhood')
 const neutral = [144, 144, 144]
+const roads = require('../../game/assets/neighborhood/roads.json')
 
 function texture(width, height, channels = 3) {
   const data = Buffer.alloc(width * height * channels)
@@ -112,12 +113,13 @@ function worldRect(image, left, bottom, right, top, color, strength = 0) {
 }
 
 function paintRoutes(image, routes, extra, color, strength = 0) {
-  for (const {points, width, openStart} of routes) {
-    const half = width / 2 + extra
+  for (const route of routes) {
+    const points = route.bake_start ? [route.bake_start, ...route.points.slice(1)] : route.points
+    const half = route.width / 2 + extra
     for (let i = 1; i < points.length; i++) {
       const [ax, ay] = points[i - 1]
       const [bx, by] = points[i]
-      const left = openStart && i === 1 ? ax : Math.min(ax, bx) - half
+      const left = route.open_start && i === 1 ? ax : Math.min(ax, bx) - half
       worldRect(image, left, Math.min(ay, by) - half,
         Math.max(ax, bx) + half, Math.max(ay, by) + half, color, strength)
     }
@@ -136,14 +138,7 @@ function ground() {
   }
 
   // Keep the original approach intact and start both road additions at its far edges.
-  const main = [{points: [[632, 80], [3380, 80], [3380, 2240]], width: 80, openStart: true}]
-  const alleys = [
-    {points: [[266, 543], [266, 630], [1240, 630], [1240, 900],
-      [1660, 900], [1660, 1880], [3190, 1880], [3190, 2240], [3380, 2240]], width: 68},
-    {points: [[1660, 535], [3380, 535]], width: 58},
-    {points: [[1660, 1000], [3380, 1000]], width: 60},
-    {points: [[1660, 1720], [3380, 1720]], width: 58},
-  ]
+  const {main, alleys} = roads
   const approaches = [
     {points: [[1958, 1000], [1958, 1041]], width: 40},
     {points: [[2280, 1720], [2280, 1760]], width: 42},
