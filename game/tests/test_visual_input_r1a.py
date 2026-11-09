@@ -147,8 +147,8 @@ class DummyInputTests(unittest.TestCase):
         self.assertEqual(len(frames), 4)
         for frame in frames:
             self.assertAlmostEqual(frame["x"], 480.0, places=7)
-        self.assertAlmostEqual(frames[0]["y"], 181.5, places=7)
-        self.assertAlmostEqual(frames[1]["y"], 183.0, places=7)
+        self.assertAlmostEqual(frames[0]["y"], 180.0 + 65.0 / 60, places=7)
+        self.assertAlmostEqual(frames[1]["y"], 180.0 + 2 * 65.0 / 60, places=7)
         self.assertAlmostEqual(frames[2]["y"], frames[1]["y"], places=7)
         self.assertAlmostEqual(frames[3]["y"], frames[1]["y"], places=7)
         self.assertEqual([frame["moved"] for frame in frames], [True, True, False, False])

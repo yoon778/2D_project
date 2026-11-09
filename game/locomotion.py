@@ -43,6 +43,15 @@ def select_facing(aim_angle: float, current: str | None = None) -> str:
     return closest
 
 
+def is_backstep(facing: str, dx: float, dy: float) -> bool:
+    distance = math.hypot(dx, dy)
+    if distance == 0 or not math.isfinite(distance):
+        return False
+    angle = next(angle for name, angle in _DIRECTIONS if name == facing)
+    alignment = (dx / distance) * math.cos(angle) + (dy / distance) * math.sin(angle)
+    return alignment < -_ANGLE_TOLERANCE
+
+
 @dataclass
 class Locomotion:
     facing: str = "front_right"
@@ -63,12 +72,8 @@ class Locomotion:
             self.moving = True
             # Reduce before adding to preserve the old phase for large distances.
             phase_delta = (distance % STRIDE_DISTANCE) / STRIDE_DISTANCE
-            if reverse_backstep:
-                facing_angle = next(angle for name, angle in _DIRECTIONS if name == self.facing)
-                alignment = (dx / distance) * math.cos(facing_angle) + (dy / distance) * math.sin(facing_angle)
-                # Treat roundoff at a perpendicular step as ordinary forward phase.
-                if alignment < -_ANGLE_TOLERANCE:
-                    phase_delta = -phase_delta
+            if reverse_backstep and is_backstep(self.facing, dx, dy):
+                phase_delta = -phase_delta
             self.phase = (self.phase + phase_delta) % 1.0
             # Split distances must choose the same frame at half/full cycles.
             for boundary in (0.0, 0.5, 1.0):

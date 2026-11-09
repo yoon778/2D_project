@@ -41,8 +41,9 @@ class AttackWalkLogicTests(unittest.TestCase):
                     self.assertEqual(motion.facing, "front_right")
                     self.assertAlmostEqual(motion.phase, 7.2 / 64)
                     self.assertEqual(motion.walk_frame_index(8), 0)
-                    self.assertAlmostEqual(self.advance(world, motion, 0.08, axis), 7.2)
-                    self.assertAlmostEqual(motion.phase, 14.4 / 64)
+                    resumed_distance = 5.2 if name == "backward" else 7.2
+                    self.assertAlmostEqual(self.advance(world, motion, 0.08, axis), resumed_distance)
+                    self.assertAlmostEqual(motion.phase, (7.2 + resumed_distance) / 64)
                     self.assertEqual(motion.walk_frame_index(8), 2)
 
     def test_stop_and_resume_select_idle_without_losing_the_attack_walk_phase(self):

@@ -350,16 +350,17 @@ def run(smoke_test=False, *, show_opening=False):
             active = focused and not lost_focus
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
+            motion = renderer.player_visual.locomotion
+            facing_hint = motion.facing if motion._initialized else None
             if pending_click and active:
-                motion = renderer.player_visual.locomotion
-                facing = select_facing(player.aim_angle, motion.facing if motion._initialized else None)
+                facing = select_facing(player.aim_angle, facing_hint)
                 world.start_attack(facing=facing, stationary_front_right=True)
             before = (player.x, player.y)
             zombie_before = (world.zombie.x, world.zombie.y)
             strike = world.attack
             awaiting_strike = strike is not None and strike.elapsed < strike.hit_time
             hp_before = world.player_hp
-            world.update(dt if active else 0.0, axis_x, axis_y)
+            world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint)
             strength = 0
             if world.player_hp < hp_before:
                 strength = 4

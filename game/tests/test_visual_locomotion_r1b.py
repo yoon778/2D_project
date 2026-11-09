@@ -143,7 +143,7 @@ class LocomotionLoopTests(unittest.TestCase):
         updates = updates[6:]
         self.assertEqual([state["facing"] for state in updates], ["right"] * 15)
         self.assertEqual([state["frame_index"] for state in updates],
-                         [8] * 5 + [7] * 5 + [6, 7, 7, 0, 7])
+                         [8] * 7 + [7] * 6 + [0, 7])
         self.assertTrue(all(state["dx"] < 0 and state["dy"] == 0 for state in updates[:11]))
         strafe, forward, stopped, restarted = updates[11:]
         self.assertEqual(strafe["dx"], 0)
@@ -154,7 +154,9 @@ class LocomotionLoopTests(unittest.TestCase):
         self.assertGreater(strafe["phase"], updates[10]["phase"])
         self.assertGreater(forward["phase"], strafe["phase"])
         self.assertEqual(stopped["phase"], forward["phase"])
-        self.assertAlmostEqual(restarted["phase"], strafe["phase"])
+        self.assertAlmostEqual(updates[0]["dx"], -65 / 60)
+        self.assertAlmostEqual(forward["dx"], 90 / 60)
+        self.assertAlmostEqual(restarted["phase"], strafe["phase"] + (90 - 65) / (60 * 64))
 
     def test_smoke_fixture_teleports_do_not_advance_locomotion(self):
         frames, updates = self._run_observed(initial=[], smoke_test=True, maximum_draws=4)
@@ -179,13 +181,13 @@ class LocomotionLoopTests(unittest.TestCase):
             with self.subTest(facing=facing):
                 frames, updates = self._run_observed(
                     initial=aim_events,
-                    after_draw={24: [("down", p.SDLK_w)], 68: [("up", p.SDLK_w)], 69: [("quit",)]},
-                    maximum_draws=70,
+                    after_draw={24: [("down", p.SDLK_w)], 85: [("up", p.SDLK_w)], 86: [("quit",)]},
+                    maximum_draws=87,
                 )
                 self._assert_actual_displacements(frames, updates)
                 updates = updates[24:]
-                moving = updates[:44]
-                self.assertEqual(len(updates), 45)
+                moving = updates[:-1]
+                self.assertEqual(len(updates), 62)
                 self.assertTrue(all(state["facing"] == facing for state in updates))
                 self.assertTrue(all(state["frame_count"] == 8 for state in updates))
                 self.assertTrue(all(state["moving"] for state in moving))

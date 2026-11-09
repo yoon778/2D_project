@@ -4,10 +4,10 @@ import math
 
 if __package__:
     from .core import Player, Wall, move_player, PLAYER_RADIUS, WALK_SPEED
-    from .locomotion import select_facing
+    from .locomotion import is_backstep, select_facing
 else:
     from core import Player, Wall, move_player, PLAYER_RADIUS, WALK_SPEED
-    from locomotion import select_facing
+    from locomotion import is_backstep, select_facing
 
 
 ATTACK_DURATION = 0.6
@@ -15,6 +15,7 @@ ATTACK_HIT_TIME = 0.18
 _STATIONARY_FRONT_RIGHT_DURATION = 0.66
 _STATIONARY_FRONT_RIGHT_HIT_TIME = 0.24
 STUN_DURATION = 0.58
+BACKSTEP_SPEED = 65.0
 _HIT_RECOIL_DURATION = 0.10
 _HIT_RECOIL_DISTANCE = 8.0
 ZOMBIE_ATTACK_DURATION = 0.8
@@ -173,10 +174,9 @@ class CombatWorld:
             self.zombie.attack = None
         self._resolve_result()
 
-    def _advance_player_attack(self, dt, axis_x, axis_y):
+    def _advance_player_attack(self, dt):
         attack = self.attack
         if attack is None:
-            move_player(self.player, axis_x, axis_y, dt, self.walls)
             return False
         hit_time, duration = attack.hit_time, attack.duration
         end = attack.elapsed + dt
@@ -202,13 +202,15 @@ class CombatWorld:
             self.attack = None
         return hit
 
-    def update(self, dt, axis_x=0.0, axis_y=0.0):
+    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None):
         self.player.moved = self.zombie.moved = False
         self.zombie.recoil_offset = (0.0, 0.0)
         if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
             return
         player_origin = (self.player.x, self.player.y)
         zombie_origin = (self.zombie.x, self.zombie.y)
+        facing = select_facing(self.player.aim_angle, facing_hint)
+        walk_scale = BACKSTEP_SPEED / WALK_SPEED if is_backstep(facing, axis_x, axis_y) else 1.0
         remaining = min(dt, _MAX_UPDATE_DT)
         # 준비 중 추격/접촉도 진행하며 명중 tick에서는 피격을 먼저 처리한다.
         while remaining > _EPSILON:
@@ -226,14 +228,14 @@ class CombatWorld:
             for timer in (self.zombie.stun_remaining, self.player_invulnerable_remaining):
                 if timer > _EPSILON:
                     tick = min(tick, timer)
-            self._update_tick(tick, axis_x, axis_y)
+            self._update_tick(tick, axis_x, axis_y, walk_scale)
             remaining -= tick
             if self.result != "playing" and self.attack is None:
                 break
         self.player.moved = (self.player.x, self.player.y) != player_origin
         self.zombie.moved = (self.zombie.x, self.zombie.y) != zombie_origin
 
-    def _update_tick(self, dt, axis_x, axis_y):
+    def _update_tick(self, dt, axis_x, axis_y, walk_scale):
         self._resolve_result()
         if self.result != "playing":
             # 처치한 공격의 회복만 끝까지 진행하고 새 입력/이동은 중단한다.
@@ -245,7 +247,9 @@ class CombatWorld:
             return
         immunity = self.player_invulnerable_remaining - dt
         self.player_invulnerable_remaining = immunity if immunity > _EPSILON else 0.0
-        hit = self._advance_player_attack(dt, axis_x, axis_y)
+        if self.attack is None:
+            move_player(self.player, axis_x, axis_y, dt * walk_scale, self.walls)
+        hit = self._advance_player_attack(dt)
         if self.zombie.stun_remaining > 0:
             self.zombie.attack = None
         if not hit and self.result == "playing":

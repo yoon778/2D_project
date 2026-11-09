@@ -86,7 +86,7 @@ class CombatTests(unittest.TestCase):
         self.assertEqual((world.zombie.x, world.zombie.y), zombie_position)
         gap_before = math.dist(origin, zombie_position)
         gap_after = math.dist((world.player.x, world.player.y), zombie_position)
-        self.assertAlmostEqual(gap_after - gap_before, 14.4)
+        self.assertAlmostEqual(gap_after - gap_before, 10.4)
         self.assertEqual(world.zombie.stun_remaining, 0.0)
 
         world.update(0.02)
@@ -183,6 +183,21 @@ class CombatTests(unittest.TestCase):
                 self.assertTrue(world.attack._hit_done)
                 self.assertIs(world.attack.landed, hp == 4)
 
+    def test_walking_speed_follows_body_direction_including_diagonals(self):
+        for angle, hint, axis, speed in (
+            (0, None, (1, 0), 90),
+            (math.pi, None, (1, 0), 65),
+            (0, None, (0, -1), 90),
+            (0, None, (-1, 1), 65),
+            (-math.pi / 4, None, (-1, -1), 90),
+            (math.radians(25), "right", (0, -1), 90),
+        ):
+            with self.subTest(angle=angle, hint=hint, axis=axis):
+                world = self.make_world(400.0, angle)
+                origin = (world.player.x, world.player.y)
+                world.update(0.2, *axis, facing_hint=hint)
+                self.assertAlmostEqual(math.dist(origin, (world.player.x, world.player.y)), speed * 0.2)
+
     def test_movement_rates_recovery_lock_and_attack_aim_snapshot(self):
         world = self.make_world(400.0)
         world.update(0.2, 1, 0)
@@ -200,7 +215,7 @@ class CombatTests(unittest.TestCase):
         self.assertTrue(world.start_attack("left"))
         self.assertEqual((world.attack.angle, world.attack.facing), (math.pi, "left"))
         world.update(0.8, 1, 0)
-        self.assertAlmostEqual(world.player.x, 516.0)
+        self.assertAlmostEqual(world.player.x, 511.0)
         self.assertIsNone(world.attack)
 
     def test_killing_hit_stops_play_but_finishes_the_current_recovery(self):
