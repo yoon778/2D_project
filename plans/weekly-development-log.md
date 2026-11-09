@@ -162,6 +162,7 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/8 | [R2-SF6-ARM](r2sf6-arm-study.md) 한 손 스윙 전신 6자세 시안. 관절점 시트·192px GIF, 시안 임시 로딩으로 7거리 타격 검수 | 게임 적용 전 시안 확인 대기 | `c3090f2` |
 | 11/9 | [R2-SF6-ARM 방망이 조정](r2sf6-arm-study.md) 준비·회전·통과 방망이 위치 보완, 시안 7거리 240ms 재검수 | 게임 적용 전 시안 확인 대기 | 이 커밋 |
 | 11/9 | [R2-SF6-ARM 적용](r2sf6-arm-study.md#119-하루-계획) 배트 보정판을 앞오른쪽 정지 공격에 연결. 제품 로더 Windows SDL 10장면과 게임 테스트 192개 통과 | 사용자 직접 조작 확인 대기 | `a117050` |
+| 11/9 | [R2-SF6-ARM 프레임 비교](r2sf6-arm-study.md#6장8장-재생-시간-비교) 준비·회수 2장 추가 시안, 240ms 타격·660ms 종료 확인 | 시안 비교 완료, 실행본 6장 | 이 커밋 |
 
 현재 정지 공격은 [R2-SF6-ARM 적용 검수](r2sf6-arm-study.md) 참조. [R2-SF6 B안](r2sf6-game-contract.md), [R2-SFW 정지 공격](handoffs/r2sfw-stationary-swing-review.md), [R2-RWH 좌우 허리 접합](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합), [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
 
