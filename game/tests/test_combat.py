@@ -34,7 +34,8 @@ class CombatTests(unittest.TestCase):
         self.assertEqual(world.zombie.hp, 4)
         self.assertTrue(world.attack.landed)
         self.assertAlmostEqual(world.zombie.stun_remaining, 0.35)
-        self.assertEqual((world.zombie.x, world.zombie.y), position)
+        self.assertAlmostEqual(world.zombie.x, position[0] + 4.0)
+        self.assertEqual(world.zombie.y, position[1])
         self.assertFalse(world.start_attack())
 
     def test_stationary_front_right_profile_requires_opt_in_and_matching_facing(self):
@@ -77,15 +78,15 @@ class CombatTests(unittest.TestCase):
         world.start_attack(stationary_front_right=True)
         world.player.aim_angle = math.pi
         world.update(0.3, 0, 1)
-        self.assertEqual(world.player.y, 316.0)
+        self.assertEqual(world.player.y, 310.0)
         world.update(0.3, 0, -1)
-        self.assertAlmostEqual(world.player.y, 298.0)
+        self.assertEqual(world.player.y, 310.0)
         self.assertEqual((world.attack.angle, world.attack.facing), (-math.pi / 4, "front_right"))
         self.assertTrue(world.attack.stationary_front_right)
         self.assertAlmostEqual(world.attack.elapsed, 0.6)
         world.update(0.1, 0, -1)
         self.assertIsNone(world.attack)
-        self.assertAlmostEqual(world.player.y, 290.8)
+        self.assertAlmostEqual(world.player.y, 306.4)
 
     def test_stationary_front_right_miss_is_spent_at_range_or_wall(self):
         for distance, walls in ((80.0001, []), (60.0, [Wall(505, 145, 10, 25)])):
@@ -120,7 +121,7 @@ class CombatTests(unittest.TestCase):
                     self.assertAlmostEqual(world.attack.elapsed, 0.659)
                     if initial_hp == 1:
                         self.assertEqual(world.result, "cleared")
-                        self.assertAlmostEqual(world.player.x - 480.0, 14.4 / math.sqrt(2))
+                        self.assertEqual(world.player.x, 480.0)
                     world.update(0.001, 1, -1)
                     self.assertIsNone(world.attack)
                     positions.append((world.player.x, world.player.y, world.zombie.x, world.zombie.y,
@@ -165,19 +166,20 @@ class CombatTests(unittest.TestCase):
         world = self.make_world(400.0)
         world.update(0.2, 1, 0)
         self.assertAlmostEqual(world.player.x, 498.0)
+        attack_origin = world.player.x
         self.assertTrue(world.start_attack("right"))
         world.player.aim_angle = math.pi
         world.update(0.18, 1, 0)
-        self.assertAlmostEqual(world.player.x, 508.8)
+        self.assertEqual(world.player.x, attack_origin)
         self.assertEqual((world.attack.angle, world.attack.facing), (0.0, "right"))
         self.assertFalse(world.start_attack("left"))
         world.update(0.42, 1, 0)
-        self.assertAlmostEqual(world.player.x, 534.0)
+        self.assertEqual(world.player.x, attack_origin)
         self.assertIsNone(world.attack)
         self.assertTrue(world.start_attack("left"))
         self.assertEqual((world.attack.angle, world.attack.facing), (math.pi, "left"))
         world.update(0.8, 1, 0)
-        self.assertAlmostEqual(world.player.x, 588.0)
+        self.assertAlmostEqual(world.player.x, 516.0)
         self.assertIsNone(world.attack)
 
     def test_killing_hit_stops_play_but_finishes_the_current_recovery(self):
@@ -243,11 +245,26 @@ class CombatTests(unittest.TestCase):
         self.assertEqual((world.zombie.x, world.zombie.y), position)
         world.update(0.399)
         self.assertEqual(world.player_hp, 3)
-        self.assertEqual((world.zombie.x, world.zombie.y), position)
+        self.assertAlmostEqual(world.zombie.x, position[0] + 8.0)
+        self.assertEqual(world.zombie.y, position[1])
         world.update(0.001)
         self.assertEqual((world.zombie.stun_remaining, world.player_hp), (0.0, 3))
         world.update(0.3)
         self.assertEqual(world.player_hp, 2)
+
+    def test_recoil_stops_at_wall_and_remains_inside_stun(self):
+        world = self.make_world()
+        world.walls = [Wall(558.0, 160.0, 20.0, 40.0)]
+        world.zombie.stun_remaining = ATTACK_HIT_TIME
+        world.start_attack("right")
+        world.update(ATTACK_HIT_TIME)
+        self.assertEqual(world.zombie.hp, 4)
+        self.assertEqual(world.zombie.x, 540.0)
+        world.update(0.10)
+        self.assertEqual((world.zombie.x, world.zombie.y), (544.0, 180.0))
+        self.assertAlmostEqual(world.zombie.stun_remaining, 0.30)
+        world.update(0.20)
+        self.assertEqual((world.zombie.x, world.zombie.y), (544.0, 180.0))
 
     def test_existing_stun_only_blocks_its_remaining_movement_time(self):
         world = self.make_world(100.0)
@@ -292,7 +309,7 @@ class CombatTests(unittest.TestCase):
                 world.start_attack()
                 for _ in range(count):
                     world.update(ATTACK_DURATION / count, 1, 0)
-                self.assertAlmostEqual(world.player.x, 516.0)
+                self.assertEqual(world.player.x, 480.0)
                 self.assertIsNone(world.attack)
         world = CombatWorld()
         world.player.y = 300.0
@@ -350,14 +367,14 @@ class CombatTests(unittest.TestCase):
         self.assertFalse(world.attack.landed)
 
     def test_large_dt_checks_range_at_hit_time_not_at_recovery_end(self):
-        for distance, hp in ((100.0, 5), (90.0, 4)):
+        for distance, hp in ((80.001, 5), (80.0, 4)):
             with self.subTest(distance=distance):
                 world = self.make_world(distance)
                 world.zombie.stun_remaining = STUN_DURATION
                 world.start_attack()
                 world.update(0.6, 1, 0)
                 self.assertEqual(world.zombie.hp, hp)
-                self.assertAlmostEqual(world.player.x, 516.0)
+                self.assertEqual(world.player.x, 480.0)
 
     def test_normal_dt_partitions_keep_health_timers_movement_and_recovery_consistent(self):
         cases = (

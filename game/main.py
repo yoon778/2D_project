@@ -319,7 +319,7 @@ def run(smoke_test=False, *, show_opening=False):
                 aim_player(player, *attack_target)
                 motion = renderer.player_visual.locomotion
                 facing = select_facing(player.aim_angle, motion.facing if motion._initialized else None)
-                world.start_attack(facing=facing, stationary_front_right=not (axis_x or axis_y))
+                world.start_attack(facing=facing, stationary_front_right=True)
                 aim_player(player, *target)
             before = (player.x, player.y)
             zombie_before = (world.zombie.x, world.zombie.y)

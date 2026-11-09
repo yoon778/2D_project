@@ -23,7 +23,7 @@ class AttackWalkLogicTests(unittest.TestCase):
         motion.update(angle, dx, dy)
         return math.hypot(dx, dy)
 
-    def test_direction_and_dt_partitions_keep_36px_stride_and_attack_transition_phase(self):
+    def test_attack_locks_every_movement_direction_for_all_dt_partitions(self):
         partitions = ((0.6,), (0.05,) * 12, (0.016,) * 37 + (0.008,), (0.01,) * 60)
         for name, axis in (("forward", (1, -1)), ("backward", (-1, 1)),
                            ("side_right", (1, 1)), ("side_left", (-1, -1))):
@@ -35,55 +35,53 @@ class AttackWalkLogicTests(unittest.TestCase):
                     origin = (world.player.x, world.player.y)
                     self.assertTrue(world.start_attack("front_right"))
                     distance = sum(self.advance(world, motion, dt, axis) for dt in steps)
-                    self.assertAlmostEqual(distance, 36.0)
-                    self.assertAlmostEqual(world.player.x - origin[0], axis[0] * 36 / math.sqrt(2))
-                    self.assertAlmostEqual(world.player.y - origin[1], axis[1] * 36 / math.sqrt(2))
+                    self.assertEqual(distance, 0.0)
+                    self.assertEqual((world.player.x, world.player.y), origin)
                     self.assertIsNone(world.attack)
                     self.assertEqual(motion.facing, "front_right")
-                    self.assertAlmostEqual(motion.phase, 0.675)
-                    self.assertEqual(motion.walk_frame_index(8), 6)
+                    self.assertAlmostEqual(motion.phase, 7.2 / 64)
+                    self.assertEqual(motion.walk_frame_index(8), 0)
                     self.assertAlmostEqual(self.advance(world, motion, 0.08, axis), 7.2)
-                    self.assertAlmostEqual(motion.phase, 0.7875)
-                    self.assertEqual(motion.walk_frame_index(8), 7)
+                    self.assertAlmostEqual(motion.phase, 14.4 / 64)
+                    self.assertEqual(motion.walk_frame_index(8), 2)
 
     def test_stop_and_resume_select_idle_without_losing_the_attack_walk_phase(self):
         world, motion = self.make_world(), Locomotion()
         self.advance(world, motion, 0.08, (1, 0))
         world.start_attack()
         self.advance(world, motion, 0.1, (1, -1))
-        self.assertAlmostEqual(motion.phase, 0.20625)
-        self.assertEqual(motion.walk_frame_index(8), 2)
+        self.assertAlmostEqual(motion.phase, 7.2 / 64)
+        self.assertEqual(motion.walk_frame_index(8), 0)
         self.assertEqual(self.advance(world, motion, 0.2), 0.0)
         self.assertAlmostEqual(world.attack.elapsed, 0.3)
-        self.assertAlmostEqual(motion.phase, 0.20625)
+        self.assertAlmostEqual(motion.phase, 7.2 / 64)
         self.assertEqual(motion.walk_frame_index(8), 0)
         self.advance(world, motion, 0.1, (1, -1))
-        self.assertAlmostEqual(motion.phase, 0.3)
-        self.assertEqual(motion.walk_frame_index(8), 3)
+        self.assertAlmostEqual(motion.phase, 7.2 / 64)
+        self.assertEqual(motion.walk_frame_index(8), 0)
         self.advance(world, motion, 0.2, (1, -1))
         self.assertIsNone(world.attack)
-        self.assertAlmostEqual(motion.phase, 0.4875)
-        self.assertEqual(motion.walk_frame_index(8), 4)
+        self.assertAlmostEqual(motion.phase, 7.2 / 64)
+        self.assertEqual(motion.walk_frame_index(8), 0)
 
-    def test_wall_blocked_attack_uses_actual_distance_and_resumes_from_saved_phase(self):
+    def test_attack_near_wall_resumes_from_saved_phase(self):
         world, motion = self.make_world(), Locomotion()
         world.walls = [Wall(400, 330, 220, 60)]
         world.player.y = 310.0
         self.advance(world, motion, 0.08, (1, 0))
         world.start_attack()
-        self.assertAlmostEqual(self.advance(world, motion, 0.1, (0, 1)), 6.0)
-        self.assertAlmostEqual(world.player.y, 316.0)
-        self.assertAlmostEqual(motion.phase, 0.20625)
+        self.assertEqual(self.advance(world, motion, 0.1, (0, 1)), 0.0)
+        self.assertEqual(world.player.y, 310.0)
+        self.assertAlmostEqual(motion.phase, 7.2 / 64)
         self.assertAlmostEqual(self.advance(world, motion, 0.2, (0, 1)), 0.0)
-        self.assertAlmostEqual(motion.phase, 0.20625)
+        self.assertAlmostEqual(motion.phase, 7.2 / 64)
         self.assertEqual(motion.walk_frame_index(8), 0)
         self.assertAlmostEqual(world.attack.elapsed, 0.3)
-        self.assertAlmostEqual(self.advance(world, motion, 0.1, (0, -1)), 6.0)
-        self.assertAlmostEqual(motion.phase, 0.3)
-        self.assertEqual(motion.walk_frame_index(8), 3)
-        self.advance(world, motion, 0.2, (0, -1))
+        self.assertEqual(self.advance(world, motion, 0.1, (0, -1)), 0.0)
+        self.advance(world, motion, 0.3, (0, 1))
         self.assertIsNone(world.attack)
-        self.assertAlmostEqual(motion.phase, (7.2 + 24.0) / 64)
+        self.assertEqual(world.player.y, 316.0)
+        self.assertAlmostEqual(motion.phase, (7.2 + 6.0) / 64)
 
     def test_zero_dt_focus_pause_freezes_combat_and_phase_then_resumes(self):
         world, motion = self.make_world(), Locomotion()
@@ -106,8 +104,8 @@ class AttackWalkLogicTests(unittest.TestCase):
         self.advance(world, motion, 0.1, (-1, 1))
         self.assertAlmostEqual(world.attack.elapsed, 0.28)
         self.assertAlmostEqual(world.zombie.stun_remaining, 0.3)
-        self.assertAlmostEqual(motion.phase, before[-1] + 6 / 64)
-        self.assertTrue(motion.moving)
+        self.assertEqual(motion.phase, before[-1])
+        self.assertFalse(motion.moving)
 
     def test_distance_driven_walking_preserves_hit_recovery_health_and_stun(self):
         for axis in ((0, 0), (-1, 1)):
@@ -129,7 +127,7 @@ class AttackWalkLogicTests(unittest.TestCase):
                         self.assertFalse(world.start_attack())
                     else:
                         self.assertIsNone(world.attack)
-                self.assertAlmostEqual(motion.phase, 0.0 if axis == (0, 0) else 36 / 64)
+                self.assertEqual(motion.phase, 0.0)
                 self.assertTrue(world.start_attack())
 
     def test_restart_recreates_locomotion_and_resets_world_after_zombie_strikes(self):
@@ -150,9 +148,9 @@ class AttackWalkLogicTests(unittest.TestCase):
         self.assertEqual((motion.phase, motion.moving, motion.walk_frame_index(8)), (0.0, False, 0))
         world.player.aim_angle = -math.pi / 4
         self.assertTrue(world.start_attack())
-        self.assertAlmostEqual(self.advance(world, motion, 0.1, (1, 0)), 6.0)
-        self.assertAlmostEqual(motion.phase, 6 / 64)
-        self.assertEqual(motion.walk_frame_index(8), 1)
+        self.assertEqual(self.advance(world, motion, 0.1, (1, 0)), 0.0)
+        self.assertEqual(motion.phase, 0.0)
+        self.assertEqual(motion.walk_frame_index(8), 0)
 
 
 if __name__ == "__main__":

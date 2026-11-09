@@ -136,17 +136,15 @@ class AttackWalkInputTests(unittest.TestCase):
             self.assertEqual(choice["walk"], expected)
         return frames, states, choices
 
-    def test_attack_start_stop_and_resume_keep_existing_walk_phase(self):
+    def test_attack_start_and_movement_key_changes_preserve_walk_phase(self):
         _, states, choices = self.observe(
             [("click", 760, 569), ("down", main.p.SDLK_d)],
             {1: [("up", main.p.SDLK_d)], 3: [("down", main.p.SDLK_d)], 4: [("quit",)]}, phase=.37)
-        self.assertEqual([c["walk"] for c in choices], [4, 0, 0, 4])
+        self.assertEqual([c["walk"] for c in choices], [0, 0, 0, 0])
         self.assertEqual([c["drawn"] for c in choices], [True] * 4)
-        for i in (0, 1, 2):
-            self.assertAlmostEqual(states[i]["phase"], .37 + 1 / 64)
-        self.assertAlmostEqual(states[3]["phase"], .37 + 2 / 64)
+        self.assertTrue(all(state["phase"] == .37 for state in states))
 
-    def test_stationary_click_walk_then_stop_switches_atlases_on_the_locked_clock(self):
+    def test_movement_input_keeps_the_stationary_atlas_on_the_locked_clock(self):
         sources = []
         original = CombatVisual._draw
 
@@ -161,11 +159,9 @@ class AttackWalkInputTests(unittest.TestCase):
                 {1: [("down", main.p.SDLK_d)], 2: [("up", main.p.SDLK_d)], 3: [("quit",)]},
                 phase=.37)
         self.assertTrue(all(state["attack"].stationary_front_right for state in states))
-        self.assertEqual([choice["walk"] for choice in choices], [0, 4, 0])
-        self.assertEqual(sources, ["attack_stationary_front_right", "attack_walk",
-                                   "attack_stationary_front_right"])
-        self.assertAlmostEqual(states[1]["phase"], .37 + 1 / 64)
-        self.assertEqual(states[2]["phase"], states[1]["phase"])
+        self.assertEqual([choice["walk"] for choice in choices], [0, 0, 0])
+        self.assertEqual(sources, ["attack_stationary_front_right"] * 3)
+        self.assertTrue(all(state["phase"] == .37 for state in states))
 
     def test_wall_contact_selects_stationary_attack_without_changing_phase(self):
         frames, states, choices = self.observe(
@@ -174,15 +170,14 @@ class AttackWalkInputTests(unittest.TestCase):
         self.assertTrue(all(c["walk"] == 0 and c["drawn"] for c in choices))
         self.assertTrue(all(s["phase"] == .4 for s in states))
 
-    def test_forward_backward_and_strafe_share_the_walk_phase_during_attack(self):
-        for key, direction in ((main.p.SDLK_a, -1), (main.p.SDLK_w, 1), (main.p.SDLK_d, 1)):
+    def test_forward_backward_and_strafe_inputs_leave_attack_stationary(self):
+        for key in (main.p.SDLK_a, main.p.SDLK_w, main.p.SDLK_d):
             with self.subTest(key=key):
                 _, states, choices = self.observe(
                     [("click", 1120, 521), ("down", key)], {2: [("quit",)]})
-                walk = 8 if direction < 0 else 1
-                self.assertEqual([c["walk"] for c in choices], [walk, walk])
+                self.assertEqual([c["walk"] for c in choices], [0, 0])
                 self.assertTrue(all(c["drawn"] for c in choices))
-                self.assertAlmostEqual(states[1]["phase"], (direction * 2 / 64) % 1)
+                self.assertEqual(states[1]["phase"], 0)
 
     def test_attack_end_preserves_phase_and_returns_to_normal_walking(self):
         original_draw = main.PlayerVisual.draw
@@ -218,7 +213,7 @@ class AttackWalkInputTests(unittest.TestCase):
         self.assertEqual(choices[1]["walk"], 0)
         self.assertEqual(states[0]["elapsed"], states[1]["elapsed"])
         self.assertEqual(states[0]["phase"], states[1]["phase"])
-        self.assertAlmostEqual(states[2]["phase"], .3 + 2 / 64)
+        self.assertEqual(states[2]["phase"], .3)
         self.assertEqual(states[3]["phase"], 0)
         self.assertFalse(choices[3]["drawn"])
 

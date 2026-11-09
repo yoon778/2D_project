@@ -220,13 +220,13 @@ class CombatInputTests(unittest.TestCase):
         self.assertIsNotNone(states[0]["attack"])
         self.assertEqual(states[0]["facing"], "back")
 
-    def test_attack_keeps_angle_while_actual_movement_advances_walk_phase(self):
+    def test_attack_keeps_angle_position_and_walk_phase_under_input(self):
         frames, states = self.observe([("click", 760, 569), ("down", main.p.SDLK_d)],
                                      {1: [("motion", 160, 521)], 3: [("quit",)]})
         self.assertEqual(len(states), 3)
         for i, state in enumerate(states):
-            self.assertAlmostEqual(frames[i]["x"], 481 + i)
-            self.assertAlmostEqual(state["phase"], (i + 1) / 64)
+            self.assertEqual((frames[i]["x"], frames[i]["y"]), (480, 180))
+            self.assertEqual(state["phase"], 0)
             self.assertAlmostEqual(state["angle"], math.atan2(-80, 120))
 
     def test_r_resets_world_and_visual_phase_without_reloading_assets(self):

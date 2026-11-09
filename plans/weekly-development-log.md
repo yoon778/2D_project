@@ -164,6 +164,7 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/9 | [R2-SF6-ARM 적용](r2sf6-arm-study.md#119-하루-계획) 배트 보정판을 앞오른쪽 정지 공격에 연결. 제품 로더 Windows SDL 10장면과 게임 테스트 192개 통과 | 사용자 직접 조작 확인 대기 | `a117050` |
 | 11/9 | [R2-SF6-ARM 프레임 비교](r2sf6-arm-study.md#6장8장-재생-시간-비교) 준비·회수 2장 추가 시안, 240ms 타격·660ms 종료 확인 | 시안 비교 완료, 실행본 6장 | 이 커밋 |
 | 11/9 | [R2-SF6-ARM 8장 적용](r2sf6-arm-study.md#8장-시안-적용) 앞오른쪽 정지 공격에 8장 적용, 240ms 타격·660ms 종료 검수 | Windows SDL 10장면·자동 검사 192개 통과, 사용자 2차 확인 대기 | 이 커밋 |
+| 11/9 | [R2 전투 조정](../PRD.md#전투와-이동) 공격 중 이동 잠금과 좀비 피격 밀림 8px·0.10초 적용 | 앞오른쪽 0.24초 타격·0.66초 이동 재개, 벽 충돌 검수 | 이 커밋 |
 
 현재 정지 공격은 [R2-SF6-ARM 적용 검수](r2sf6-arm-study.md) 참조. [R2-SF6 B안](r2sf6-game-contract.md), [R2-SFW 정지 공격](handoffs/r2sfw-stationary-swing-review.md), [R2-RWH 좌우 허리 접합](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합), [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
 

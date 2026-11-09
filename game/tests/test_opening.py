@@ -123,7 +123,7 @@ class OpeningTests(unittest.TestCase):
                 self.assertFalse(opening)
                 self.assertEqual(len(worlds), 1)
                 self.assertEqual(game[0][:3], (480, 180, False))
-                self.assertGreater(game[1][0], 480)
+                self.assertEqual(game[1][0], 480)
                 self.assertTrue(game[1][2])
                 self.assertEqual(game[2][:3], (480, 180, False))
                 self.assertTrue(all(not call.kwargs.get("opening") for call in music))

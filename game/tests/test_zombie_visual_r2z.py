@@ -109,7 +109,8 @@ class ZombiePoseTests(unittest.TestCase):
         previous = 0.0
         for index, elapsed in enumerate(HIT_BOUNDS[:-1]):
             self.advance(world, elapsed - previous)
-            self.assertEqual((world.zombie.x, world.zombie.y), position)
+            self.assertAlmostEqual(world.zombie.x, position[0] + min(elapsed / .10, 1) * 8)
+            self.assertEqual(world.zombie.y, position[1])
             self.assertEqual(self.visual.zombie_locomotion.phase, phase)
             self.assertEqual(self.visual._zombie_frame(world.zombie),
                              self.visual.metadata["zombie"]["facings"]["left"]["hit"][index])
@@ -248,7 +249,8 @@ class ZombieQueueTests(unittest.TestCase):
         states = self.observe([("click", 680, 545)], {40: [("quit",)]}, 41, setup)
         hit = [state for state in states if state["stun"] > 0]
         self.assertEqual({state["row"] for state in hit}, {9, 10, 11, 12})
-        self.assertTrue(all(state["position"] == hit[0]["position"] for state in hit))
+        recoil_seen = 8 * (hit[0]["stun"] - 0.30) / 0.10
+        self.assertAlmostEqual(math.dist(hit[-1]["position"], hit[0]["position"]), recoil_seen)
         self.assertTrue(all(state["phase"] == hit[0]["phase"] for state in hit))
         self.assertTrue(states[-1]["moving"])
         self.assertGreater(states[-1]["phase"], hit[0]["phase"])

@@ -1,5 +1,5 @@
 """R2-A 렌더링과 독립된 단일 좀비 전투 판정."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 
 if __package__:
@@ -15,6 +15,8 @@ ATTACK_HIT_TIME = 0.18
 _STATIONARY_FRONT_RIGHT_DURATION = 0.66
 _STATIONARY_FRONT_RIGHT_HIT_TIME = 0.24
 STUN_DURATION = 0.4
+_HIT_RECOIL_DURATION = 0.10
+_HIT_RECOIL_DISTANCE = 8.0
 ZOMBIE_ATTACK_DURATION = 0.8
 ZOMBIE_ATTACK_HIT_TIME = 0.3
 _EPSILON = 1e-12
@@ -52,6 +54,8 @@ class Zombie(Player):
     hp: int = 5
     stun_remaining: float = 0.0
     attack: ZombieAttack | None = None
+    recoil_angle: float | None = None
+    recoil_offset: tuple[float, float] = field(default=(0.0, 0.0), init=False)
 
     @property
     def alive(self):
@@ -116,10 +120,6 @@ class CombatWorld:
             return False
         return not any(_wall_blocks(self.player, self.zombie, wall) for wall in self.walls)
 
-    def _move_player(self, dt, axis_x, axis_y, speed):
-        if dt > 0:
-            move_player(self.player, axis_x, axis_y, dt * speed / WALK_SPEED, self.walls)
-
     def _move_zombie(self, dt):
         dx, dy = self.player.x - self.zombie.x, self.player.y - self.zombie.y
         distance = math.hypot(dx, dy)
@@ -176,17 +176,13 @@ class CombatWorld:
     def _advance_player_attack(self, dt, axis_x, axis_y):
         attack = self.attack
         if attack is None:
-            self._move_player(dt, axis_x, axis_y, WALK_SPEED)
+            move_player(self.player, axis_x, axis_y, dt, self.walls)
             return False
         hit_time, duration = attack.hit_time, attack.duration
         end = attack.elapsed + dt
         for boundary in (hit_time, duration):
             if abs(end - boundary) <= _EPSILON:
                 end = boundary
-        active_dt = min(dt, max(0.0, duration - attack.elapsed))
-        before_hit = (min(active_dt, max(0.0, hit_time - attack.elapsed))
-                      if not attack._hit_done else active_dt)
-        self._move_player(before_hit, axis_x, axis_y, 60.0)
         hit = False
         if not attack._hit_done and end >= hit_time:
             attack._hit_done = True
@@ -195,11 +191,12 @@ class CombatWorld:
                 attack.landed = True
                 self.zombie.stun_remaining = STUN_DURATION
                 self.zombie.attack = None
+                if self.zombie.alive:
+                    dx = self.zombie.x - self.player.x
+                    dy = self.zombie.y - self.player.y
+                    self.zombie.recoil_angle = math.atan2(dy, dx) if dx or dy else attack.angle
                 hit = True
         self._resolve_result()
-        if self.result == "playing":
-            self._move_player(active_dt - before_hit, axis_x, axis_y, 60.0)
-            self._move_player(dt - active_dt, axis_x, axis_y, WALK_SPEED)
         attack.elapsed = min(duration, end)
         if attack.elapsed >= duration:
             self.attack = None
@@ -207,6 +204,7 @@ class CombatWorld:
 
     def update(self, dt, axis_x=0.0, axis_y=0.0):
         self.player.moved = self.zombie.moved = False
+        self.zombie.recoil_offset = (0.0, 0.0)
         if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
             return
         player_origin = (self.player.x, self.player.y)
@@ -253,6 +251,18 @@ class CombatWorld:
         if not hit and self.result == "playing":
             previous_stun = self.zombie.stun_remaining
             remaining = previous_stun - dt
+            if self.zombie.recoil_angle is not None:
+                recoil_left = previous_stun - (STUN_DURATION - _HIT_RECOIL_DURATION)
+                recoil_dt = min(dt, max(0.0, recoil_left))
+                angle = self.zombie.recoil_angle
+                x, y = self.zombie.x, self.zombie.y
+                move_player(self.zombie, math.cos(angle), math.sin(angle),
+                            recoil_dt * _HIT_RECOIL_DISTANCE / (_HIT_RECOIL_DURATION * WALK_SPEED),
+                            self.walls)
+                dx, dy = self.zombie.recoil_offset
+                self.zombie.recoil_offset = (dx + (self.zombie.x - x), dy + (self.zombie.y - y))
+                if recoil_left - dt <= _EPSILON:
+                    self.zombie.recoil_angle = None
             self.zombie.stun_remaining = remaining if remaining > _EPSILON else 0.0
             if self.zombie.stun_remaining == 0:
                 self._update_zombie(max(0.0, dt - previous_stun))

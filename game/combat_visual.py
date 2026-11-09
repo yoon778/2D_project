@@ -130,6 +130,8 @@ class CombatVisual:
             return
         previous_facing = motion.facing if motion._initialized else None
         previous_phase = motion.phase
+        recoil_x, recoil_y = zombie.recoil_offset
+        dx, dy = dx - recoil_x, dy - recoil_y
         motion.update(zombie.aim_angle, dx, dy)
 
         if not can_walk:

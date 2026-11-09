@@ -169,7 +169,7 @@ class AuthoredDirectionMetadataTests(unittest.TestCase):
 class DirectionInputTests(unittest.TestCase):
     observe = walk_fixture.AttackWalkInputTests.observe
 
-    def test_eight_facings_start_render_and_lock_aim_while_moving_forward_back_or_sideways(self):
+    def test_eight_facings_start_render_and_lock_aim_and_position(self):
         for index, (facing, (dx, dy)) in enumerate(DIRECTIONS):
             with self.subTest(facing=facing):
                 axis = ((dx, dy), (-dx, -dy), (-dy, dx))[index % 3]
@@ -188,25 +188,21 @@ class DirectionInputTests(unittest.TestCase):
                     self.assertEqual(state["angle"], states[0]["angle"])
                     self.assertTrue(choice["drawn"])
                 self.assertGreater(abs(math.remainder(frames[-1]["aim_angle"] - states[0]["angle"], math.tau)), 2)
-                direction = -1 if index % 3 == 1 else 1
-                self.assertAlmostEqual(states[-1]["phase"], .37 + direction * 3 / 64)
-                self.assertAlmostEqual(math.dist((480, 180), (frames[-1]["x"], frames[-1]["y"])), 3)
+                self.assertEqual(states[-1]["phase"], .37)
+                self.assertEqual((frames[-1]["x"], frames[-1]["y"]), (480, 180))
 
-    def test_eight_facings_wall_stop_restart_and_recovery_keep_distance_phase(self):
+    def test_eight_facings_near_wall_stay_still_then_resume_walking(self):
         vectors = dict(DIRECTIONS)
-        for facing, (_, facing_y) in DIRECTIONS:
+        for facing, _ in DIRECTIONS:
             with self.subTest(facing=facing):
                 frames, states, choices = self.observe(
                     [click(facing, (480, 316)), ("down", main.p.SDLK_w)],
                     {1: [("up", main.p.SDLK_w), ("down", main.p.SDLK_s)],
                      2: [("up", main.p.SDLK_s)], 3: [("down", main.p.SDLK_d)],
-                     40: [("quit",)]}, 41, phase=.23, wall=True)
-                self.assertEqual([choice["walk"] == 0 for choice in choices[:4]], [True, False, True, False])
+                     43: [("quit",)]}, 44, phase=.23, wall=True)
+                self.assertTrue(all(choice["walk"] == 0 for choice in choices[:4]))
                 self.assertTrue(all(choice["drawn"] for choice in choices[:4]))
-                self.assertEqual(states[0]["phase"], .23)
-                south_direction = -1 if facing_y > 0 else 1
-                self.assertAlmostEqual(states[1]["phase"], .23 + south_direction / 64)
-                self.assertEqual(states[1]["phase"], states[2]["phase"])
+                self.assertTrue(all(state["phase"] == .23 for state in states[:4]))
                 signed_distance, previous = 0.0, (480, 316)
                 for frame, state in zip(frames, states):
                     current = (frame["x"], frame["y"])
@@ -217,13 +213,14 @@ class DirectionInputTests(unittest.TestCase):
                     self.assertAlmostEqual(state["phase"], (.23 + signed_distance / 64) % 1)
                     previous = current
                 self.assertIsNone(states[-1]["attack"])
+                pose_count = 8 if facing == "front_right" else 12
                 self.assertEqual({choice["attack_index"] for choice in choices
-                                  if choice["attack_index"] is not None}, set(range(12)))
+                                  if choice["attack_index"] is not None}, set(range(pose_count)))
                 self.assertFalse(choices[-1]["drawn"])
                 self.assertGreater(choices[-1]["walk"], 0)
 
     def test_eight_facings_focus_pause_and_r_clear_input_attack_and_phase(self):
-        for facing, (facing_x, _) in DIRECTIONS:
+        for facing, _ in DIRECTIONS:
             with self.subTest(facing=facing):
                 frames, states, choices = self.observe(
                     [click(facing), ("down", main.p.SDLK_d)],
@@ -234,8 +231,7 @@ class DirectionInputTests(unittest.TestCase):
                 self.assertEqual(choices[1]["walk"], 0)
                 self.assertEqual(states[0]["elapsed"], states[1]["elapsed"])
                 self.assertEqual(states[0]["phase"], states[1]["phase"])
-                direction = -1 if facing_x < 0 else 1
-                self.assertAlmostEqual(states[2]["phase"], .3 + direction * 2 / 64)
+                self.assertEqual(states[2]["phase"], .3)
                 self.assertEqual((frames[3]["x"], frames[3]["y"], states[3]["phase"]), (480, 180, 0))
                 self.assertIsNone(states[3]["attack"])
                 self.assertFalse(choices[3]["drawn"])
