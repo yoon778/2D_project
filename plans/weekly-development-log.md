@@ -170,6 +170,7 @@ stage·commit·push는 지휘만 담당, 푸시는 별도 업로드 요청 때 �
 | 11/9 | [R2 뒷걸음 속도](../PRD.md#전투와-이동) 몸 방향 기준 앞·옆 90px/s, 뒤 65px/s 적용 | 대각선·보행 자세와 Windows 공격 후 0.16초에 10.4px 후퇴 검수 | 이 커밋 |
 | 11/9 | [R2 경직과 타격 범위 조정](../PRD.md#전투와-이동) 0.70초 경직, 헛스윙 흔들림 제거, 지면 70px·전방 ±30° | Windows 69.9px 명중과 70.1px 헛스윙, 회복 뒤 0.28초 후퇴 검수 | 이 커밋 |
 | 11/9 | [R2 앞오른쪽 스윙 마무리](../PRD.md#전투와-이동) 준비 폭 확대, 명중 시 접촉 자세 유지, 헛스윙 시 반대쪽까지 회전 | Windows 69.9px 명중·70.1px 헛스윙의 0.30·0.34초 자세 분기와 0.66초 종료 확인 | 이 커밋 |
+| 11/9 | [R2 앞오른쪽 정지 한 손 스윙](../PRD.md#전투와-이동) 아래팔 연결, 몸통 선행, 어깨 위 헛스윙 마무리와 명중 회수 자세 보정 | Windows SDL 실에셋 5조건에서 0.24초 판정, 명중·헛스윙 분기와 0.66초 종료 검수. 전체 테스트 198개 통과 | 이 커밋 |
 
 현재 정지 공격은 [R2-SF6-ARM 적용 검수](r2sf6-arm-study.md) 참조. [R2-SF6 B안](r2sf6-game-contract.md), [R2-SFW 정지 공격](handoffs/r2sfw-stationary-swing-review.md), [R2-RWH 좌우 허리 접합](handoffs/r2rw-right-walk-review.md#r2-rwh-좌우-허리-접합), [R2-PLZ 좀비 보행](handoffs/r2pl-pixellab-review.md#r2-plz-좀비-앞오른쪽-보행-적용)은 이전 검수 기록.
 

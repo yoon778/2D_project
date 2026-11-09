@@ -51,12 +51,12 @@ class AttackWalkSpriteTests(unittest.TestCase):
         self.assertFalse(self.visual.draw_attack(None, 100, 200, 8))
 
 
-    def test_locked_stationary_fr_uses_eight_cells_on_the_same_attack_clock(self):
+    def test_locked_stationary_fr_uses_fourteen_poses_on_the_same_attack_clock(self):
         source = self.visual.metadata["attack_stationary_front_right"]
         image = self.visual.images["attack_stationary_front_right"]
-        self.assertEqual(source["canvas_size"], [864, 96])
+        self.assertEqual(source["canvas_size"], [1728, 96])
         self.assertEqual(source["image"], "r2sf8-swing-front-right.png")
-        boundaries = (0, .03, .10, .18, .24, .30, .34, .44, .66)
+        boundaries = (0, .03, .10, .16, .19, .215, .24, .285, .315, .34, .40, .46, .53, .60, .66)
         self.assertEqual([frame["start"] for frame in source["frames"]], list(boundaries[:-1]))
         self.assertEqual([frame["end"] for frame in source["frames"]], list(boundaries[1:]))
         attack = SimpleNamespace(facing="front_right", stationary_front_right=True, hit_time=.24)
@@ -74,8 +74,9 @@ class AttackWalkSpriteTests(unittest.TestCase):
 
     def test_stationary_fr_holds_contact_on_hit_and_follows_through_on_miss(self):
         image = self.visual.images["attack_stationary_front_right"]
-        for elapsed, hit_cell, miss_cell in ((.24, 4, 4), (.30, 4, 5), (.339, 4, 5),
-                                              (.34, 8, 6), (.439, 8, 6), (.44, 7, 7)):
+        for elapsed, hit_cell, miss_cell in ((.24, 6, 6), (.285, 6, 7), (.315, 6, 8),
+                                            (.339, 6, 8), (.34, 14, 9), (.40, 15, 10),
+                                            (.46, 16, 11), (.53, 17, 12), (.60, 13, 13)):
             for landed, cell in ((True, hit_cell), (False, miss_cell)):
                 with self.subTest(elapsed=elapsed, landed=landed):
                     attack = SimpleNamespace(facing="front_right", stationary_front_right=True,
@@ -106,7 +107,7 @@ class AttackWalkSpriteTests(unittest.TestCase):
         self.assertTrue(self.visual.draw_attack(attack, 100, 200, 4))
         self.assertTrue(self.visual.draw_attack(attack, 100, 200, 0))
         self.visual.images["attack_stationary_front_right"].clip_draw.assert_called_once_with(
-            384, 0, 96, 96, 100.0, 264.0, 192.0, 192.0)
+            576, 0, 96, 96, 100.0, 264.0, 192.0, 192.0)
         attack.stationary_front_right = False
         attack.elapsed = .18
         self.assertTrue(self.visual.draw_attack(attack, 100, 200, 4))

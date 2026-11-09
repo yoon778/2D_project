@@ -216,7 +216,7 @@ class DirectionInputTests(unittest.TestCase):
                     self.assertAlmostEqual(state["phase"], (.23 + signed_distance / 64) % 1)
                     previous = current
                 self.assertIsNone(states[-1]["attack"])
-                pose_count = 8 if facing == "front_right" else 12
+                pose_count = 14 if facing == "front_right" else 12
                 self.assertEqual({choice["attack_index"] for choice in choices
                                   if choice["attack_index"] is not None}, set(range(pose_count)))
                 self.assertFalse(choices[-1]["drawn"])
