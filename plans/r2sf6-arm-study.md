@@ -37,3 +37,9 @@ Windows 숨김 SDL에서 실제 게임 로더로 10장면을 재현했다. 명�
 앞오른쪽 정지 공격에 승인한 준비·회수 자세를 연결했다. 시작 시각은 0·30·100·180·240·300·370·440ms이며 660ms에 끝난다. 기존 여섯 자세의 픽셀과 시작 시각을 대조했다. 소스 재생성은 `node art/player/swing-studies/r2sf6-arm/bake-eight.cjs --check`로 확인한다.
 
 Windows 숨김 SDL에서 새 PNG를 실제 로딩해 10장면을 검수했다. 명중 4건에서 239ms까지 배트가 분리되고 체력 5, 240ms에 배트가 닿으며 체력 4, 659ms에 회수 자세, 660ms에 공격 종료를 확인했다. 80.1px는 화면상 겹치지만 지면 사거리 80px 밖이라 피해가 없었다. 120·160px 헛스윙, 이동 중 시작, 정지 시작 후 이동, 오른쪽 정지 공격도 대조했다. 자동 검사 192개 통과. 캡처와 타임라인은 `output/review/R2-SF6-ARM-8/runtime.json`과 같은 폴더의 거리별 하위 폴더에 있다.
+
+## 11/9 가로 스윙 재구성
+
+앞오른쪽 정지 공격의 준비 연결, 타격, 헛스윙 통과, 명중 회수를 포함한 7셀을 다시 그렸다. 발점을 고정한 채 타격에서 앞 무릎과 어깨를 전진시키고, 왼손은 상자를 받친다. 타격 직전 화면 투영 배트 각도 변화는 약 86°에서 42°로 줄었다. Cosindra의 오른손 가로 공격 설명, Mythryl의 사선 미리보기, 기존 한 손 배팅 영상 검수에서 자세를 참고했다. [Cosindra](https://cosindra.ai/motionsmith/motions/sword-slash) · [Mythryl](https://mythrylstudio.itch.io/pixel-prototype-characters-topdown) · [MLB](https://www.mlb.com/video/lavigne-on-one-handed-swing-c2523431183)
+
+이전 PNG·메타데이터·제작 스크립트는 로컬 `output/archive/front-right-swing-4b08c58/`에 보관했다. 비교 GIF와 Windows SDL 캡처는 `output/review/R2-SWING-REFERENCE/`에 있다. 근거리 포함 5조건에서 0.24초 이전 배트 분리, 명중 시 체력 감소·접촉 자세 유지, 헛스윙 시 계속 회전, 0.66초 종료를 확인했다. 70.1px에서는 화면상 겹침이 있어도 피해가 없다.
