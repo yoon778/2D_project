@@ -1,6 +1,7 @@
 """R2-C8 directional sprites; combat time belongs to CombatWorld."""
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import json
 import math
 from pathlib import Path
@@ -18,6 +19,14 @@ ZOMBIE_ATTACK_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r
 _ZOMBIE_RESUME_DISTANCE = 8.0
 _DISTANCE_EPSILON = 1e-9
 _STATIONARY_FRONT_RIGHT_SOURCE = "attack_stationary_front_right"
+
+
+@dataclass
+class ZombieMotion:
+    locomotion: Locomotion = field(default_factory=Locomotion)
+    attack: object = None
+    attack_facing: str | None = None
+    resume: tuple[float, int | None] | None = None
 
 
 def _locked_walk_boundary(legacy_time, hit_time):
@@ -121,15 +130,24 @@ class CombatVisual:
         return True
 
     def reset_zombie_animation(self):
-        self.zombie_locomotion = Locomotion()
-        self._zombie_attack = None
-        self._zombie_attack_facing = None
-        self._zombie_resume = None
+        self._primary_motion = ZombieMotion()
+        self._zombie_motions = {}
+
+    @property
+    def zombie_locomotion(self):
+        return self._primary_motion.locomotion
+
+    def _motion_for(self, zombie):
+        key = id(zombie)
+        if key not in self._zombie_motions:
+            self._zombie_motions[key] = ZombieMotion() if self._zombie_motions else self._primary_motion
+        return self._zombie_motions[key]
 
     def update_zombie(self, zombie, dx, dy, *, paused=False):
-        motion = self.zombie_locomotion
+        state = self._motion_for(zombie)
+        motion = state.locomotion
         can_walk = zombie.alive and zombie.stun_remaining <= 0 and zombie.attack is None
-        if paused and can_walk and self._zombie_resume is not None:
+        if paused and can_walk and state.resume is not None:
             return
         previous_facing = motion.facing if motion._initialized else None
         previous_phase = motion.phase
@@ -140,43 +158,44 @@ class CombatVisual:
         if not can_walk:
             attack = zombie.attack if zombie.alive and zombie.stun_remaining <= 0 else None
             if attack is not None:
-                if attack is not self._zombie_attack:
-                    self._zombie_attack_facing = (select_facing(attack.angle, previous_facing)
-                                                  if previous_facing is not None else attack.facing)
-                motion.facing = self._zombie_attack_facing
-            self._zombie_attack = attack
-            self._zombie_resume = None
+                if attack is not state.attack:
+                    state.attack_facing = (select_facing(attack.angle, previous_facing)
+                                           if previous_facing is not None else attack.facing)
+                motion.facing = state.attack_facing
+            state.attack = attack
+            state.resume = None
             motion.moving = False
             return
 
-        if self._zombie_attack is not None:
-            if self._zombie_attack.elapsed >= ZOMBIE_ATTACK_DURATION:
+        if state.attack is not None:
+            if state.attack.elapsed >= ZOMBIE_ATTACK_DURATION:
                 poses = self.metadata["zombie"]["facings"][motion.facing]
                 if poses.get("resume"):
-                    self._zombie_resume = (0.0, None)
-            self._zombie_attack = None
-        if self._zombie_resume is None:
+                    state.resume = (0.0, None)
+            state.attack = None
+        if state.resume is None:
             return
-        distance, target = self._zombie_resume
+        distance, target = state.resume
         if not motion.moving:
             if distance > 0:
-                self._zombie_resume = None
+                state.resume = None
             return
         distance += math.hypot(dx, dy)
         if distance + _DISTANCE_EPSILON >= _ZOMBIE_RESUME_DISTANCE:
-            self._zombie_resume = None
+            state.resume = None
             return
         if target is None:
             # The destination is the regular walk frame reached after 8px.
             target_phase = (previous_phase + _ZOMBIE_RESUME_DISTANCE / STRIDE_DISTANCE) % 1.0
             target = Locomotion(phase=target_phase, moving=True).walk_frame_index(8) - 1
-        self._zombie_resume = (distance, target)
+        state.resume = (distance, target)
 
     def _zombie_pose(self, zombie):
         source = self.metadata["zombie"]
         if not zombie.alive:
             return "zombie", source["frames"]["dead"]
-        poses = source["facings"][self.zombie_locomotion.facing]
+        state = self._motion_for(zombie)
+        poses = source["facings"][state.locomotion.facing]
         if zombie.stun_remaining > 0:
             # The combat clock alone determines the hit pose; no visual timer.
             for frame in poses["hit"]:
@@ -185,14 +204,14 @@ class CombatVisual:
             return "zombie", poses["hit"][-1]
         attack = zombie.attack
         if attack is not None:
-            facing = self._zombie_attack_facing if attack is self._zombie_attack else attack.facing
+            facing = state.attack_facing if attack is state.attack else attack.facing
             for frame in self.metadata["zombie_attack"]["facings"][facing]:
                 if frame["start"] <= attack.elapsed < frame["end"]:
                     return "zombie_attack", frame
-        walk = self.zombie_locomotion.walk_frame_index(8)
+        walk = state.locomotion.walk_frame_index(8)
         resume = poses.get("resume")
-        if walk and resume and self._zombie_resume is not None:
-            distance, target = self._zombie_resume
+        if walk and resume and state.resume is not None:
+            distance, target = state.resume
             if target is not None:
                 step = int(distance + _DISTANCE_EPSILON >= _ZOMBIE_RESUME_DISTANCE / 2)
                 return "zombie", resume[target][step]

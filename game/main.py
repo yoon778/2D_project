@@ -40,16 +40,16 @@ SHAKE_DURATIONS = {3: 0.08, 4: 0.10}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
 
 
-def world_to_screen(x, y):
-    return GROUND_X + x, GROUND_Y + GROUND_SCALE_Y * y
+def world_to_screen(x, y, camera=(0.0, 0.0)):
+    return GROUND_X + x - camera[0], GROUND_Y + GROUND_SCALE_Y * (y - camera[1])
 
 
-def screen_to_world(x, y):
-    return x - GROUND_X, (y - GROUND_Y) / GROUND_SCALE_Y
+def screen_to_world(x, y, camera=(0.0, 0.0)):
+    return x - GROUND_X + camera[0], (y - GROUND_Y) / GROUND_SCALE_Y + camera[1]
 
 
-def sdl_to_world(x, y):
-    return screen_to_world(x, WINDOW_HEIGHT - 1 - y)
+def sdl_to_world(x, y, camera=(0.0, 0.0)):
+    return screen_to_world(x, WINDOW_HEIGHT - 1 - y, camera)
 
 
 def current_cursor():
@@ -61,7 +61,7 @@ def current_cursor():
     return x.value, y.value
 
 
-def sorted_drawables(player, walls, zombie=None, *, prop=None, station=None):
+def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
     if station is not None:
@@ -69,17 +69,19 @@ def sorted_drawables(player, walls, zombie=None, *, prop=None, station=None):
     objects.extend(("wall", wall) for wall in walls)
     if zombie is not None:
         objects.append(("zombie", zombie))
+    objects.extend(("zombie", enemy) for enemy in zombies)
     objects.append(("player", player))
     return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station") else item[1].y))
 
 
-def mouse_target(world, visual, mouse_x, mouse_y, light=None):
-    position = (world.zombie.x, world.zombie.y)
-    if light is None or light.contains(position):
-        foot = world_to_screen(*position)
-        if visual.zombie_contains(world.zombie, *foot, mouse_x, WINDOW_HEIGHT - 1 - mouse_y):
-            return position
-    return sdl_to_world(mouse_x, mouse_y)
+def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0)):
+    for zombie in sorted(world.zombies, key=lambda enemy: enemy.y):
+        position = (zombie.x, zombie.y)
+        if light is None or light.contains(position):
+            foot = world_to_screen(*position, camera)
+            if visual.zombie_contains(zombie, *foot, mouse_x, WINDOW_HEIGHT - 1 - mouse_y):
+                return position
+    return sdl_to_world(mouse_x, mouse_y, camera)
 
 
 def rectangle(x, y, width, height, color, filled=True):
@@ -101,6 +103,8 @@ class Renderer:
         self.delivery = None
         self.cursor = None
         self.light = None
+        self.camera = (0.0, 0.0)
+        self.map_open = False
         self.shake_remaining = 0.0
         self.shake_strength = 0
         self.shake_offset = (0, 0)
@@ -147,9 +151,46 @@ class Renderer:
             self.shake_offset = (dx * amplitude, dy * amplitude)
 
     def project(self, x, y):
-        sx, sy = world_to_screen(x, y)
+        sx, sy = world_to_screen(x, y, self.camera)
         dx, dy = self.shake_offset
         return sx + dx, sy + dy
+
+    def follow(self, player):
+        if self.delivery is not None:
+            width, height = self.delivery.world_size
+            self.camera = (min(max(0.0, player.x - WORLD_WIDTH / 2), width - WORLD_WIDTH),
+                           min(max(0.0, player.y - WORLD_HEIGHT / 2), height - WORLD_HEIGHT))
+
+    def draw_map(self, player):
+        world = self.delivery
+        width, height = world.world_size
+        scale = min(860 / width, 500 / height)
+        left, bottom = (WINDOW_WIDTH - width * scale) / 2, 108
+        p.SDL_SetRenderDrawColor(p.renderer, 14, 20, 23, 255)
+        p.SDL_RenderClear(p.renderer)
+        rectangle(left, bottom, width * scale, height * scale, (46, 55, 57))
+        rectangle(left, bottom, width * scale, height * scale, (99, 118, 118), filled=False)
+        for wall in world.walls:
+            rectangle(left + wall.x * scale, bottom + wall.y * scale,
+                      wall.width * scale, wall.depth * scale, (18, 27, 30))
+            rectangle(left + wall.x * scale, bottom + wall.y * scale,
+                      wall.width * scale, wall.depth * scale, (75, 94, 94), filled=False)
+        for (x, y), color in ((world.pickup, ORANGE), (world.destination, TEAL)):
+            rectangle(left + x * scale - 4, bottom + y * scale - 4, 8, 8, color)
+        x, y = left + player.x * scale, bottom + player.y * scale
+        cross(x, y, WHITE, size=7)
+        p.draw_line(x, y, x + 16 * math.cos(player.aim_angle), y + 16 * math.sin(player.aim_angle), *WHITE)
+        self.font.draw(left, 652, "배달 구역 지도", WHITE)
+        north = left + width * scale - 12
+        self.font.draw(north - 22, 630, "N", WHITE)
+        p.draw_line(north, 623, north, 638, *WHITE)
+        p.draw_line(north - 4, 633, north, 638, *WHITE)
+        p.draw_line(north + 4, 633, north, 638, *WHITE)
+        self.font.draw(left, 75, "+ 현재 위치", WHITE)
+        for offset, label, color in ((155, "수령지", ORANGE), (290, "배송지", TEAL)):
+            rectangle(left + offset, 72, 8, 8, color)
+            self.font.draw(left + offset + 16, 75, label, color)
+        self.font.draw(left, 40, "M 닫기 · 지도 확인 중 일시정지", WHITE)
 
     def draw_beam(self, outline):
         points = [self.light.origin] + [point for point, _ in outline]
@@ -236,12 +277,16 @@ class Renderer:
             self.font.draw(24, 538, guide, WHITE)
 
     def draw(self, player, walls, target, focused=True):
+        if self.map_open:
+            self.draw_map(player)
+            return
         p.SDL_SetRenderDrawColor(p.renderer, 0, 0, 0, 255)
         p.SDL_RenderClear(p.renderer)
         origin = (player.x, player.y)
-        aim = sdl_to_world(*self.cursor) if self.cursor is not None else target
+        aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
         dx, dy = aim[0] - origin[0], aim[1] - origin[1]
-        self.light = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls)
+        world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
+        self.light = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls, world_size)
         outline = self.light.outline()
         self.draw_beam(outline)
         self.draw_sprint_pulse()
@@ -250,7 +295,7 @@ class Renderer:
         attack = combat.attack if combat is not None else None
         delivery = self.delivery
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
-        for kind, actor in sorted_drawables(player, walls, combat.zombie if combat else None,
+        for kind, actor in sorted_drawables(player, walls, zombies=combat.zombies if combat else (),
                                             prop=ALLEY_PROP if delivery is not None else TRASH_CAN_POSITION,
                                             station=delivery.next_stop if delivery is not None else None):
             if kind == "prop":
@@ -271,7 +316,7 @@ class Renderer:
                     symbol, color = ZOMBIE_MARKS[actor.state]
                     rectangle(x + 24, y + 96, 18, 18, (16, 24, 28))
                     self.font.draw(x + 28, y + 105, symbol, color)
-                if (attack is not None and attack.facing == "front_right" and attack.landed
+                if (attack is not None and attack.facing == "front_right" and attack.hit_target is actor
                         and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
                     x, y = x - 12, y + 83
                     p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
@@ -283,7 +328,7 @@ class Renderer:
                     self.player_visual.draw(*foot, **courier_style)
                 cross(*foot, TEAL, size=4)
         # The cursor stays at its screen position while the world shakes.
-        target_screen = (world_to_screen(*target) if self.cursor is None
+        target_screen = (world_to_screen(*target, self.camera) if self.cursor is None
                          else (self.cursor[0], WINDOW_HEIGHT - 1 - self.cursor[1]))
         cross(*target_screen, ORANGE, size=7)
         angle = attack.angle if attack is not None else player.aim_angle
@@ -295,7 +340,7 @@ class Renderer:
         title = "Dead Route  |  골목 배달" if delivery is not None else "Dead Route  |  전투 검수"
         controls = "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격"
         if delivery is not None:
-            controls += " · E 수령/전달"
+            controls += " · E 수령/전달 · M 지도"
         self.font.draw(24, 683, title, WHITE)
         self.font.draw(24, 651, controls + " · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
@@ -416,6 +461,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             pending_interact = False
             reset_requested = False
             lost_focus = False
+            map_toggle = False
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
@@ -423,6 +469,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     key = event.key.keysym.sym
                     if key == p.SDLK_e and key not in pressed:
                         pending_interact = True
+                    elif key == p.SDLK_m and key not in pressed:
+                        map_toggle = not map_toggle
                     pressed.add(key)
                     if key == p.SDLK_ESCAPE:
                         running = False
@@ -465,13 +513,19 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 mouse_held = False
                 cursor = current_cursor()
                 renderer.light = None
+                renderer.map_open = False
                 target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
                 aim_player(player, *target)
+            elif map_toggle and focused and not lost_focus and delivery_run and world.result == "playing":
+                renderer.map_open = not renderer.map_open
+                pressed.clear()
+                pending_click = pending_interact = mouse_held = False
+            renderer.follow(player)
             renderer.cursor = cursor
             if cursor is not None:
-                light = renderer.light or Flashlight((player.x, player.y), player.aim_angle, walls)
-                target = mouse_target(world, renderer.combat_visual, *cursor, light)
-            active = focused and not lost_focus
+                light = renderer.light or Flashlight((player.x, player.y), player.aim_angle, walls, world.world_size)
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera)
+            active = focused and not lost_focus and not renderer.map_open
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
@@ -480,7 +534,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 facing = select_facing(player.aim_angle, facing_hint)
                 world.start_attack(facing=facing, stationary_front_right=True)
             before = (player.x, player.y)
-            zombie_before = (world.zombie.x, world.zombie.y)
+            zombie_origins = [(zombie.x, zombie.y) for zombie in world.zombies]
             strike = world.attack
             was_landed = strike is not None and strike.landed
             hp_before = world.player_hp
@@ -498,20 +552,29 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             elif strike is not None and strike.landed and not was_landed:
                 strength = 3
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
-            zombie = world.zombie
-            distance = math.hypot(zombie.x - player.x, zombie.y - player.y) if zombie.alive else None
-            zombie_dx, zombie_dy = zombie.x - zombie_before[0], zombie.y - zombie_before[1]
+            distance = None
+            stride = 0.0
+            for zombie, (x, y) in zip(world.zombies, zombie_origins):
+                zombie_dx, zombie_dy = zombie.x - x, zombie.y - y
+                renderer.combat_visual.update_zombie(zombie, zombie_dx, zombie_dy, paused=not active)
+                if zombie.alive:
+                    enemy_distance = math.hypot(zombie.x - player.x, zombie.y - player.y)
+                    if distance is None or enemy_distance < distance:
+                        distance = enemy_distance
+                        recoil_x, recoil_y = zombie.recoil_offset
+                        stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
             if music is not None:
                 music.update(dt, distance=distance, focused=active)
             if zombie_audio is not None:
-                recoil_x, recoil_y = zombie.recoil_offset
-                zombie_audio.update(dt, distance=distance,
-                                    stride=math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y),
+                zombie_audio.update(dt, distance=distance, stride=stride,
                                     active=active and not reset_requested and world.result == "playing")
             dx, dy = player.x - before[0], player.y - before[1]
-            renderer.combat_visual.update_zombie(zombie, zombie_dx, zombie_dy, paused=not active)
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
+            previous_camera = renderer.camera
+            renderer.follow(player)
+            if cursor is not None and renderer.camera != previous_camera:
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera)
             if active and strike is None and world.result == "playing":
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
