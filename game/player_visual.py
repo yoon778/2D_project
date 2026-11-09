@@ -62,12 +62,14 @@ class PlayerVisual:
             raise
 
     def update(self, aim_angle, dx, dy, *, sprinting=False):
-        sprint = self.metadata.get("sprint")
-        previous = self.locomotion.facing if self.locomotion._initialized else None
-        use_sprint = (sprinting and sprint is not None and "sprint" in self.images and dx > 0 > dy
-                      and select_facing(aim_angle, previous) == sprint["facing"]
-                      and select_facing(math.atan2(dy, dx)) == sprint["facing"])
-        stride = sprint["stride_distance"] if use_sprint else STRIDE_DISTANCE
+        use_sprint = False
+        if sprinting and (dx or dy):
+            previous = self.locomotion.facing if self.locomotion._initialized else None
+            facing = select_facing(aim_angle, previous)
+            # Use a directional sprint only when the actor moves along that facing.
+            use_sprint = (f"sprint_{facing}" in self.images
+                          and select_facing(math.atan2(dy, dx)) == facing)
+        stride = self.metadata["sprint"]["stride_distance"] if use_sprint else STRIDE_DISTANCE
         self.locomotion.update(aim_angle, dx, dy, reverse_backstep=True, stride_distance=stride)
         self.sprinting = use_sprint and self.locomotion.moving
 
@@ -80,9 +82,12 @@ class PlayerVisual:
             self.empty_images[key] = load_empty_atlas(METADATA_PATH.parent / source["image"], source["canvas_size"])
         sprint = self.metadata.get("sprint")
         if sprint is not None:
-            path = METADATA_PATH.parent / sprint["image"]
-            self.images["sprint"] = load_atlas(path, sprint["canvas_size"])
-            self.empty_images["sprint"] = load_empty_atlas(path, sprint["canvas_size"])
+            for facing, filename in sprint["images"].items():
+                key = f"sprint_{facing}"
+                path = METADATA_PATH.parent / filename
+                self.images[key] = load_atlas(path, sprint["canvas_size"])
+                if facing not in PARCEL_OCCLUDED_FACINGS:
+                    self.empty_images[key] = load_empty_atlas(path, sprint["canvas_size"])
 
     @property
     def frame_index(self):
@@ -90,9 +95,10 @@ class PlayerVisual:
         return self.locomotion.walk_frame_index(len(frames) - 1)
 
     def draw(self, foot_x, foot_y, *, empty_handed=False):
-        frames = self.metadata["frames"][self.locomotion.facing]
+        facing = self.locomotion.facing
+        frames = self.metadata["frames"][facing]
         frame = frames[self.frame_index]
-        key = "sprint" if self.sprinting else frame.get("source", "atlas")
+        key = f"sprint_{facing}" if self.sprinting else frame.get("source", "atlas")
         images = self.empty_images if empty_handed and key in self.empty_images else self.images
         image = images[key]
         # Sprint cells share the walking order, grid and ground pivots.

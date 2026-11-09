@@ -16,10 +16,18 @@
   ],
   "display_height": 128,
   "sprint": {
-    "facing": "front_right",
-    "image": "r8d-sprint-front-right.png",
     "canvas_size": [320, 160],
-    "stride_distance": 96
+    "stride_distance": 96,
+    "images": {
+      "front_right": "r8d-sprint-front-right.png",
+      "front": "r8d-sprint-front.png",
+      "front_left": "r8d-sprint-front-left.png",
+      "left": "r8d-sprint-left.png",
+      "back_left": "r8d-sprint-back-left.png",
+      "back": "r8d-sprint-back.png",
+      "back_right": "r8d-sprint-back-right.png",
+      "right": "r8d-sprint-right.png"
+    }
   },
   "sampling": "nearest",
   "grid": {

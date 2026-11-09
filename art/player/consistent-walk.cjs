@@ -8,9 +8,9 @@ const {removeParcel} = require('./empty-hands.cjs')
 
 const size = config.cellSize
 const root = path.resolve(__dirname, '../..')
-const walkFragments = {
-  front_left: {phases: [3, 4, 5], columns: [[32, 67, 70], [31, 68, 70]]},
-  back_left: {phases: [0, 1, 6, 7], columns: [[47, 57, 60]]},
+const outlineFragments = {
+  front_left: {walk: [3, 4, 5], sprint: [2, 3, 5, 6], columns: [[32, 67, 70], [31, 68, 70]]},
+  back_left: {walk: [0, 1, 6, 7], sprint: [6, 7], columns: [[47, 57, 60]]},
 }
 
 function inside(x, y, polygon) {
@@ -206,7 +206,7 @@ function shiftWalkJoints(points, [dx, dy]) {
   points.knee = [points.knee[0] + dx * kneeWeight, points.knee[1] + dy * kneeWeight]
 }
 
-async function prepareWalkMirror(rig, facings) {
+async function prepareWalkMirror(rig, facings, gait) {
   if (!rig.walkMirrorFrom) return null
   const donor = facings[rig.walkMirrorFrom]
   const [left, top, width, height] = donor.sourceCell
@@ -222,8 +222,8 @@ async function prepareWalkMirror(rig, facings) {
     const donorSide = side === rig.nearLeg ? donor.nearLeg : donorFar
     const leg = donor.legs[donorSide]
     const donorFrame = (frame + phaseOffset + 8) % 8
-    const points = joints(donor, leg, donorFrame)
-    const drop = config.bodyDrop[donorFrame]
+    const points = joints(donor, leg, donorFrame, gait)
+    const drop = (gait?.bodyDrop ?? config.bodyDrop)[donorFrame]
     const band = hipBand?.map(y => y + drop)
     if (weight) shiftWalkJoints(points, [-weight[0], weight[1]])
     const donorPixels = drawLeg(donor, parts, donorSide, points, band, leg.walkFit)
@@ -276,25 +276,37 @@ async function bake(facing, {renderOnly = false, overrides, gait, empty = false}
     parts.bat = cut(material, donor.batMask)
   }
   Object.assign(parts, extractLegParts(source, rig))
-  const mirroredLeg = await prepareWalkMirror(rig, config.facings)
+  const mirroredLeg = await prepareWalkMirror(rig, config.facings, gait)
   const poses = [], poseJoints = []
   const farLeg = rig.nearLeg === 'right' ? 'left' : 'right'
   const batBehindLegs = rig.walkBatBehindLegs ?? rig.batBehindLegs
   const carryRotation = rig.carryBatDegrees === undefined ? rig.batRotation : {...rig.batRotation, degrees: rig.carryBatDegrees}
   const heldHand = rig.hipOutline ? cut(source, rig.bodyKeepMask) : null
-  const fragment = walkFragments[facing]
+  const fragment = outlineFragments[facing]
   for (let frame = 0; frame < 8; frame++) {
     const pixels = Buffer.alloc(source.length), frameJoints = {}
     const drop = (gait?.bodyDrop ?? config.bodyDrop)[frame]
     const lean = gait?.bodyLean ?? 0
-    // Shear about hip height so the head leads and the grip stays with the bat.
-    const leanOffset = y => Math.round(Math.max(0, 48 + drop - y) * lean)
+    // Hinge at the hips and move the held bat with the upper body.
+    const hinge = 48 + drop
+    const [forwardX, forwardY] = rig.worldFacing
+    const leanY = forwardX === 0 ? lean * forwardY * 0.6 : 0
+    const unlean = (x, y) => {
+      const sourceY = y < hinge ? hinge + (y - hinge) / (1 - leanY) : y
+      return [x - Math.round(Math.max(0, hinge - sourceY) * lean * forwardX), sourceY]
+    }
+    const bodySource = (x, y) => {
+      const [sourceX, sourceY] = unlean(x, y)
+      return [sourceX, sourceY - drop]
+    }
     const hipBand = rig.hipOutline ? [Math.min(rig.legs.right.hip[1], rig.legs.left.hip[1]) - 2 + drop,
       Math.max(rig.legs.right.hip[1], rig.legs.left.hip[1]) + 5 + drop] : null
     const legCoverage = hipBand ? Buffer.alloc(source.length) : null
-    const batPixels = Buffer.alloc(source.length)
-    drawBat(batPixels, parts.bat, carryRotation, drop)
-    if (batBehindLegs) paint(pixels, batPixels, (x, y) => [x - leanOffset(y), y])
+    const uprightBat = Buffer.alloc(source.length)
+    drawBat(uprightBat, parts.bat, carryRotation, drop)
+    const batPixels = lean ? Buffer.alloc(source.length) : uprightBat
+    if (lean) paint(batPixels, uprightBat, unlean)
+    if (batBehindLegs) translate(pixels, batPixels, 0, 0)
     for (const side of [farLeg, rig.nearLeg]) {
       const leg = rig.legs[side], mirror = mirroredLeg?.(side, frame)
       const points = mirror?.points ?? joints(rig, leg, frame, gait)
@@ -304,25 +316,27 @@ async function bake(facing, {renderOnly = false, overrides, gait, empty = false}
       translate(pixels, legPixels, 0, 0)
       if (legCoverage) translate(legCoverage, legPixels, 0, 0)
     }
-    if (!batBehindLegs) paint(pixels, batPixels, (x, y) => [x - leanOffset(y), y])
-    paint(pixels, parts.body, (x, y) => [x - leanOffset(y), y - drop])
+    if (!batBehindLegs) translate(pixels, batPixels, 0, 0)
+    paint(pixels, parts.body, bodySource)
     if (hipBand) {
       const protectedPixels = Buffer.alloc(source.length)
-      translate(protectedPixels, heldHand, 0, drop)
+      paint(protectedPixels, heldHand, bodySource)
+      const bodyCoverage = Buffer.alloc(source.length)
+      paint(bodyCoverage, parts.body, bodySource)
       for (let y = hipBand[0]; y <= hipBand[1]; y++) for (let x = 0; x < size; x++) {
-        const to = (y * size + x) * 4, from = ((y - drop) * size + x) * 4
-        if (batPixels[to + 3] && !parts.body[from + 3]
-          && (!batBehindLegs || !legCoverage[to + 3])) protectedPixels[to + 3] = 255
+        const offset = (y * size + x) * 4
+        if (batPixels[offset + 3] && !bodyCoverage[offset + 3]
+          && (!batBehindLegs || !legCoverage[offset + 3])) protectedPixels[offset + 3] = 255
       }
       // Fixed body pixels can own the exposed hip edge after leg compositing.
       restoreHipOutline(pixels, hipBand, protectedPixels)
     }
-    for (const [y, left, right, color] of rig.walkHipSeams?.[frame] ?? []) {
+    for (const [y, left, right, color] of (gait ? [] : rig.walkHipSeams?.[frame] ?? [])) {
       const pixel = Buffer.from(color + 'ff', 'hex')
       pixels.fill(pixel, (y * size + left) * 4, (y * size + right + 1) * 4)
     }
     // Clear only the verified outline remnants after pose compositing.
-    if (fragment?.phases.includes(frame)) {
+    if (fragment?.[gait ? 'sprint' : 'walk'].includes(frame)) {
       for (const [x, top, bottom] of fragment.columns) {
         for (let y = top + drop; y <= bottom + drop; y++) {
           const p = (y * size + x) * 4
@@ -333,7 +347,7 @@ async function bake(facing, {renderOnly = false, overrides, gait, empty = false}
     poses.push(pixels)
     poseJoints.push(frameJoints)
   }
-  if (gait) return packPoses(poses, size * 2)
+  if (gait) return {pixels: packPoses(poses, size * 2), joints: poseJoints, facing: rig.worldFacing}
   let idle = source
   if (rig.batRotation) {
     if (rig.batBehindLegs) {
@@ -422,9 +436,9 @@ async function renderWalkAtlas(facing, overrides) {
   return bake(facing, {renderOnly: true, overrides})
 }
 
-async function renderSprintAtlas(gait, empty) {
+async function renderSprintAtlas(facing, gait, empty) {
   await loadRigs()
-  return bake('front_right', {gait, empty})
+  return bake(facing, {gait, empty})
 }
 
 async function main() {

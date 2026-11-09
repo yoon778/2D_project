@@ -213,30 +213,41 @@ class AtlasGeometryTests(unittest.TestCase):
                     self.assertAlmostEqual(changed_height / frame["clip_topleft"][3], scale, places=9)
 
     def test_sprint_preserves_walk_phase_and_selects_both_atlases(self):
-        visual = self.make_visual()
-        visual.display_scale = 0.75
-        visual.images["sprint"] = SimpleNamespace(h=160, clip_draw=Mock())
-        visual.empty_images = {"sprint": SimpleNamespace(h=160, clip_draw=Mock())}
-        angle = -math.pi / 4
+        self.assertEqual(set(self.metadata["sprint"]["images"]), {facing for facing, _ in FACINGS})
+        for facing, angle in FACINGS:
+            with self.subTest(facing=facing):
+                visual = self.make_visual()
+                visual.display_scale = 0.75
+                key = f"sprint_{facing}"
+                base = visual.images[key] = SimpleNamespace(h=160, clip_draw=Mock())
+                visible_parcel = facing not in ("back", "back_right")
+                visual.empty_images = {key: SimpleNamespace(h=160, clip_draw=Mock())} if visible_parcel else {}
+                dx, dy = math.cos(angle), math.sin(angle)
 
-        visual.update(angle, 8 / math.sqrt(2), -8 / math.sqrt(2))
-        self.assertEqual(visual.frame_index, 2)
-        visual.update(angle, 12 / math.sqrt(2), -12 / math.sqrt(2), sprinting=True)
-        self.assertTrue(visual.sprinting)
-        self.assertAlmostEqual(visual.locomotion.phase, 0.25)
-        self.assertEqual(visual.frame_index, 3)
-        for key, empty in (("images", False), ("empty_images", True)):
-            visual.draw(500, 300, empty_handed=empty)
-            getattr(visual, key)["sprint"].clip_draw.assert_called_once_with(
-                160, 80, 80, 80, 500, 348, 120, 120)
+                visual.update(angle, 8 * dx, 8 * dy)
+                self.assertEqual(visual.frame_index, 2)
+                visual.update(angle, 12 * dx, 12 * dy, sprinting=True)
+                self.assertTrue(visual.sprinting)
+                self.assertAlmostEqual(visual.locomotion.phase, 0.25)
+                self.assertEqual(visual.frame_index, 3)
+                for empty in (False, True):
+                    image = visual.empty_images.get(key, base) if empty else base
+                    image.clip_draw.reset_mock()
+                    visual.draw(500, 300, empty_handed=empty)
+                    image.clip_draw.assert_called_once_with(160, 80, 80, 80, 500, 348, 120, 120)
 
-        visual.update(angle, 8 / math.sqrt(2), -8 / math.sqrt(2))
-        self.assertFalse(visual.sprinting)
-        self.assertAlmostEqual(visual.locomotion.phase, 0.375)
-        self.assertEqual(visual.frame_index, 4)
-        visual.update(angle, 1e-7, -1e-7, sprinting=True)
-        self.assertFalse(visual.sprinting)
-        self.assertEqual(visual.frame_index, 0)
+                visual.update(angle, 8 * dx, 8 * dy)
+                self.assertFalse(visual.sprinting)
+                self.assertAlmostEqual(visual.locomotion.phase, 0.375)
+                self.assertEqual(visual.frame_index, 4)
+
+                visual.update(angle, 8 * dy, -8 * dx, sprinting=True)
+                self.assertFalse(visual.sprinting)
+                self.assertAlmostEqual(visual.locomotion.phase, 0.5)
+
+                visual.update(angle, 1e-7 * dx, 1e-7 * dy, sprinting=True)
+                self.assertFalse(visual.sprinting)
+                self.assertEqual(visual.frame_index, 0)
 
     def test_draw_translation_preserves_size_state_and_metadata(self):
         for facing, angle, index in (("front_right", -math.pi / 4, 4),
