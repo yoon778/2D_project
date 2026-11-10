@@ -3,7 +3,7 @@ import unittest
 
 from game.combat import ATTACK_HIT_TIME, STUN_DURATION, Zombie, ZombieAttack
 from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player
-from game.delivery import DeliveryWorld, PLAYER_START, TOWN_ROADS, ZOMBIE_START, ZOMBIE_STARTS
+from game.delivery import DELIVERY_CONTRACTS, DeliveryWorld, PLAYER_START, TOWN_ROADS, ZOMBIE_START
 from game.flashlight import Flashlight
 
 
@@ -26,20 +26,22 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual((world.player.x, world.player.y), world.destination)
         self.assertFalse(world.interact())
 
-    def test_both_town_routes_can_complete_delivery(self):
+    def test_both_contracts_can_complete_delivery_from_town_routes(self):
         main = TOWN_ROADS["main"][0]["points"]
         detour = TOWN_ROADS["main_detour"]["points"]
-        routes = {
-            "main road with detour": ((PLAYER_START[0], main[0][1]), *main[1:-1], *detour, main[-1]),
-            "alleys": TOWN_ROADS["alleys"][0]["points"],
-        }
-        for name, waypoints in routes.items():
-            with self.subTest(route=name):
+        alleys = TOWN_ROADS["alleys"][0]["points"]
+        routes = (
+            (0, (*alleys[:5], (1660, 980), (1958, 980))),
+            (1, (*alleys[:7], (3190, 2080), (3230, 2080), (3230, 2227))),
+            (1, ((PLAYER_START[0], main[0][1]), *main[1:-1], *detour, main[-1], (3149, 2240))),
+        )
+        for index, waypoints in routes:
+            with self.subTest(contract=DELIVERY_CONTRACTS[index].name, waypoints=waypoints):
                 world = DeliveryWorld()
-                self.assertEqual(tuple(waypoints[-1]), world.destination)
+                self.assertTrue(world.select_contract(index))
                 self.assertTrue(world.interact())
                 player = world.player
-                for x, y in waypoints:
+                for x, y in (*waypoints, world.destination):
                     dx, dy = x - player.x, y - player.y
                     remaining = math.hypot(dx, dy) / WALK_SPEED
                     while remaining > 0:
@@ -50,6 +52,46 @@ class DeliveryTests(unittest.TestCase):
                     self.assertAlmostEqual(player.y, y)
                 self.assertTrue(world.interact())
                 self.assertEqual(world.result, "delivered")
+
+    def test_selecting_a_contract_resets_run_and_uses_its_own_zombies_and_destination(self):
+        world = self.world
+        self.assertTrue(world.interact())
+        self.assertFalse(world.select_contract(-1))
+        self.assertEqual(world.parcel, "carrying")
+        for index, contract in enumerate(DELIVERY_CONTRACTS):
+            self.assertTrue(world.select_contract(index))
+            self.assertIs(world.contract, contract)
+            self.assertEqual(world.parcel, "waiting")
+            self.assertEqual(world.destination, contract.destination)
+            self.assertEqual(tuple((zombie.x, zombie.y) for zombie in world.zombies), contract.zombie_starts)
+            self.assertTrue(world.interact())
+            world.player.x, world.player.y = DELIVERY_CONTRACTS[1 - index].destination
+            self.assertFalse(world.interact())
+            world.reset()
+            self.assertIs(world.contract, contract)
+
+    def test_shop_horde_is_lit_and_the_rear_house_alley_is_dark_and_narrow(self):
+        world = self.world
+        world.select_contract(0)
+        lamps = [Flashlight(position, 0, world.walls, world.world_size, radius=185, half_angle=math.pi)
+                 for position in world.streetlights]
+        shop_lamp = next(lamp for lamp in lamps if lamp.origin == (1960, 990))
+        self.assertTrue(shop_lamp.contains(world.destination))
+        self.assertEqual(sum(shop_lamp.contains((zombie.x, zombie.y)) for zombie in world.zombies), 5)
+
+        world.select_contract(1)
+        self.assertFalse(any(lamp.contains(point) for lamp in lamps
+                             for point in (world.destination, (3230, 2227))))
+        walker = Player(3000, world.destination[1])
+        move_player(walker, 0, 1, 1, world.walls, world_size=world.world_size)
+        self.assertEqual(walker.y, 2260 - PLAYER_RADIUS)
+        move_player(walker, 0, -1, 1, world.walls, world_size=world.world_size)
+        self.assertEqual(walker.y, 2200 + PLAYER_RADIUS)
+        world.interact()
+        world.player = Player(3180, 2150)
+        move_player(world.player, 0, 1, 1, world.walls, world_size=world.world_size)
+        self.assertEqual(world.player.y, 2190 - PLAYER_RADIUS)
+        self.assertFalse(world.can_interact())
 
     def test_large_street_props_block_movement_and_cast_a_shadow(self):
         world = self.world
@@ -104,7 +146,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual((world.player.x, world.player.y), PLAYER_START)
         self.assertEqual((world.zombie.x, world.zombie.y, world.zombie.hp), (*ZOMBIE_START, 5))
         self.assertEqual((world.zombie.state, world.zombie.target), ("idle", None))
-        self.assertEqual([(zombie.x, zombie.y) for zombie in world.zombies], list(ZOMBIE_STARTS))
+        self.assertEqual(tuple((zombie.x, zombie.y) for zombie in world.zombies), world.contract.zombie_starts)
         self.assertTrue(all(zombie.alive for zombie in world.zombies))
 
     def test_killing_zombie_leaves_delivery_active_and_corpse_cannot_be_hit(self):

@@ -1,4 +1,4 @@
-"""Single delivery across the town and its connected alleys."""
+"""Delivery contracts across the town and its connected alleys."""
 from dataclasses import dataclass
 import json
 import math
@@ -26,6 +26,31 @@ ZOMBIE_STARTS = (
     (3070, 1740), (2315, 1895), (2765, 2070), (3255, 2080),
 )
 INTERACTION_RANGE = 42.0
+
+
+@dataclass(frozen=True)
+class DeliveryContract:
+    name: str
+    description: str
+    destination: tuple[float, float]
+    zombie_starts: tuple[tuple[float, float], ...]
+
+
+DELIVERY_CONTRACTS = (
+    DeliveryContract(
+        "상점 앞", "가로등 아래 모여 있는 좀비 무리",
+        (1958.0, 1037.0),
+        (*ZOMBIE_STARTS[:16], (1865, 975), (1930, 950), (1978, 942),
+         (2030, 973), (2005, 1015), *ZOMBIE_STARTS[21:]),
+    ),
+    DeliveryContract(
+        "주택 뒷문", "어둡고 좁은 골목 사이의 배송지",
+        (3149.0, 2227.0),
+        (*ZOMBIE_STARTS[:-2], (2865, 2227), (3152, 2157)),
+    ),
+)
+
+
 _BUILDINGS = ((690, 145, 180, 130),
               (165, 765, 330, 220), (610, 815, 270, 215), (800, 385, 205, 220),
               (1090, 145, 260, 135), (1120, 405, 270, 125),
@@ -76,22 +101,38 @@ class DeliveryWorld(CombatWorld):
     sprint_speed = 210.0
     world_size = TOWN_SIZE
     pickup = (172.0, 155.0)
-    destination = (3380.0, 2240.0)
+    contract = DELIVERY_CONTRACTS[1]
     props = tuple(StreetProp(x, y, texture) for texture, positions in _STREET_PROPS.items() for x, y in positions)
     streetlights = (
         (240, 525), (710, 659), (1380, 890), (1620, 1200),
         (1960, 990), (2660, 110), (3290, 530), (3290, 1350),
-        (2290, 1750), (2730, 1935), (3330, 2130),
+        (2290, 1750), (2730, 1935), (3340, 2070),
     )
+
+    @property
+    def destination(self):
+        return self.contract.destination
+
+    def select_contract(self, index):
+        if not 0 <= index < len(DELIVERY_CONTRACTS):
+            return False
+        self.contract = DELIVERY_CONTRACTS[index]
+        self.reset()
+        return True
 
     def reset(self):
         super().reset()
         self.player = Player(*PLAYER_START)
-        self.zombies = [Zombie(*position) for position in ZOMBIE_STARTS]
+        self.zombies = [Zombie(*position) for position in self.contract.zombie_starts]
         self.walls = [
             NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
             NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
             NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
+            # Leave a 60px alley between the rear house wall and the fence.
+            *(NeighborhoodWall(x, 2260, 110, 12, "fence", height=38)
+              for x in (2848, 2958, 3068)),
+            NeighborhoodWall(3178, 2260, 72, 12, "fence", height=38),
+            NeighborhoodWall(3125, 2190, 85, 12, "fence", height=38),
             NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
             NeighborhoodWall(2380, 101, 112, 44, "abandoned-car", height=36),
             NeighborhoodWall(2140, 1019, 112, 44, "abandoned-car", height=36),

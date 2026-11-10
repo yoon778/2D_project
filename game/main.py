@@ -12,7 +12,7 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import TOWN_ROADS, DeliveryWorld, NeighborhoodWall
+from delivery import DELIVERY_CONTRACTS, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
 from flashlight import Flashlight, LightField
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual, load_atlas
@@ -26,6 +26,7 @@ GROUND_Y = 90.0
 GROUND_SCALE_Y = 0.60
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
+DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1}
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
@@ -257,6 +258,7 @@ class Renderer:
         self.cursor = None
         self.light = None
         self.camera = (0.0, 0.0)
+        self.choosing_delivery = False
         self.map_open = False
         self.shake_remaining = 0.0
         self.shake_strength = 0
@@ -357,6 +359,22 @@ class Renderer:
             self.camera = (min(max(0.0, player.x - WORLD_WIDTH / 2), width - WORLD_WIDTH),
                            min(max(0.0, player.y - WORLD_HEIGHT / 2), height - WORLD_HEIGHT))
 
+    def draw_delivery_selection(self):
+        p.SDL_SetRenderDrawColor(p.renderer, 14, 20, 23, 255)
+        p.SDL_RenderClear(p.renderer)
+        rectangle(342, 178, 596, 364, (27, 39, 41))
+        rectangle(342, 178, 596, 364, (91, 112, 112), filled=False)
+        self.font.draw(378, 507, "DEAD ROUTE  |  배달 선택", TEAL)
+        self.font.draw(378, 472, "이번에 전달할 택배의 목적지를 고르세요", WHITE)
+        for index, contract in enumerate(DELIVERY_CONTRACTS, start=1):
+            bottom = 360 - (index - 1) * 102
+            accent = ORANGE if index == 1 else TEAL
+            rectangle(378, bottom, 524, 80, (18, 29, 32))
+            rectangle(378, bottom, 524, 80, (91, 112, 112), filled=False)
+            self.font.draw(398, bottom + 55, f"[{index}]  {contract.name}", accent)
+            self.font.draw(398, bottom + 25, contract.description, WHITE)
+        self.font.draw(378, 216, "1 / 2 선택  ·  Esc 종료", WHITE)
+
     def draw_map(self, player):
         world = self.delivery
         width, height = world.world_size
@@ -431,6 +449,13 @@ class Renderer:
             x, y = map_point(*position)
             rectangle(x - 6, y - 6, 12, 12, ink)
             rectangle(x - 4, y - 4, 8, 8, color)
+        destination_label = world.contract.name
+        label_width = 17 * len(destination_label) + 16
+        x, y = map_point(*world.destination)
+        label_x = max(left + 4, x - label_width - 10)
+        label_y = max(bottom + 4, y - 32)
+        rectangle(label_x, label_y, label_width, 24, panel)
+        self.font.draw(label_x + 8, label_y + 12, destination_label, TEAL)
         heading(*map_point(player.x, player.y), player.aim_angle)
 
         compass_x, compass_y = left + 28, top - 36
@@ -667,17 +692,17 @@ class Renderer:
         delivery = self.delivery
         status, guide = {
             "waiting": ("미수령 · 0/1", "남서쪽 거점에서 택배 수령"),
-            "carrying": ("소지 중 · 0/1", "북동쪽 골목의 배송함 찾기"),
+            "carrying": ("소지 중 · 0/1", "M 지도에서 배송지 확인"),
             "delivered": ("전달 완료 · 1/1", ""),
         }[delivery.parcel]
-        self.font.draw(24, 564, f"택배 {status}", WHITE)
+        self.font.draw(24, 564, f"택배 {status}  |  {delivery.contract.name}", WHITE)
         if delivery.result != "playing":
             success = delivery.result == "delivered"
             title = "배달 성공" if success else "배달 실패 · 체력 소진"
             rectangle(425, 303, 430, 112, (17, 25, 31))
             rectangle(425, 303, 430, 112, TEAL if success else ORANGE, filled=False)
             self.font.draw(455, 382, title, TEAL if success else ORANGE)
-            self.font.draw(455, 335, "R 다시 시작 · Esc 종료", WHITE)
+            self.font.draw(455, 335, "R 배달 선택 · Esc 종료", WHITE)
         elif delivery.can_interact() and self.light.contains(delivery.next_stop):
             action = "택배 수령" if delivery.parcel == "waiting" else "택배 전달"
             self.font.draw(520, 56, f"E  {action}", TEAL)
@@ -714,6 +739,9 @@ class Renderer:
             self.draw_lit_region((x - 9, y, 20, 10), draw_hit)
 
     def draw(self, player, walls, target, focused=True):
+        if self.choosing_delivery:
+            self.draw_delivery_selection()
+            return
         if self.map_open:
             self.draw_map(player)
             return
@@ -780,9 +808,11 @@ class Renderer:
         title = "Dead Route  |  골목 배달" if delivery is not None else "Dead Route  |  전투 검수"
         controls = "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격"
         if delivery is not None:
-            controls += " · E 수령/전달 · M 지도"
+            controls += " · E 수령/전달 · M 지도 · R 배달 선택"
+        else:
+            controls += " · R 재시작"
         self.font.draw(24, 683, title, WHITE)
-        self.font.draw(24, 651, controls + " · R 재시작 · Esc 종료", WHITE)
+        self.font.draw(24, 651, controls + " · Esc 종료", WHITE)
         if combat is not None:
             self.font.draw(24, 620, f"HP {combat.player_hp}/3", WHITE)
             self.font.draw(24, 592, "스태미나", WHITE)
@@ -880,6 +910,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
         renderer.combat = world
         if delivery_run:
             renderer.delivery = world
+            renderer.choosing_delivery = True
             renderer.player_visual.display_scale = DELIVERY_CHARACTER_SCALE
             renderer.combat_visual.display_scale = DELIVERY_CHARACTER_SCALE
             renderer.player_visual.load_delivery_sprites()
@@ -902,6 +933,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             previous = now
             pending_click = False
             pending_interact = False
+            contract_choice = None
             reset_requested = False
             lost_focus = False
             map_toggle = False
@@ -910,14 +942,19 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     running = False
                 elif event.type == p.SDL_KEYDOWN and not event.key.repeat:
                     key = event.key.keysym.sym
+                    if key == p.SDLK_ESCAPE:
+                        running = False
+                        continue
+                    if renderer.choosing_delivery:
+                        if contract_choice is None:
+                            contract_choice = DELIVERY_KEYS.get(key)
+                        continue
                     if key == p.SDLK_e and key not in pressed:
                         pending_interact = True
                     elif key == p.SDLK_m and key not in pressed:
                         map_toggle = not map_toggle
                     pressed.add(key)
-                    if key == p.SDLK_ESCAPE:
-                        running = False
-                    elif key == p.SDLK_r:
+                    if key == p.SDLK_r:
                         reset_requested = True
                 elif event.type == p.SDL_KEYUP and not event.key.repeat:
                     pressed.discard(event.key.keysym.sym)
@@ -925,7 +962,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     cursor = (event.motion.x, event.motion.y)
                 elif event.type == p.SDL_MOUSEBUTTONDOWN and event.button.button == p.SDL_BUTTON_LEFT:
                     cursor = (event.button.x, event.button.y)
-                    if not mouse_held:
+                    if not renderer.choosing_delivery and not mouse_held:
                         pending_click = True
                     mouse_held = True
                 elif event.type == p.SDL_MOUSEBUTTONUP and event.button.button == p.SDL_BUTTON_LEFT:
@@ -945,8 +982,14 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 pending_click = False
                 pending_interact = False
                 mouse_held = False
-            if reset_requested:
-                world.reset()
+            if not focused or lost_focus:
+                contract_choice = None
+            if reset_requested or contract_choice is not None:
+                if contract_choice is not None:
+                    world.select_contract(contract_choice)
+                else:
+                    world.reset()
+                renderer.choosing_delivery = delivery_run and reset_requested
                 if delivery_run:
                     renderer.reset_streetlights()
                 player, walls = world.player, world.walls
@@ -959,12 +1002,22 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 cursor = current_cursor()
                 renderer.light = None
                 renderer.map_open = False
+                renderer.update_shake(math.inf)
+                renderer.update_sprint_pulse(math.inf)
                 target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
                 aim_player(player, *target)
             elif map_toggle and focused and not lost_focus and delivery_run and world.result == "playing":
                 renderer.map_open = not renderer.map_open
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
+            if renderer.choosing_delivery:
+                if music is not None:
+                    music.update(dt, focused=False)
+                if zombie_audio is not None:
+                    zombie_audio.update(dt, distance=None, stride=0.0, active=False)
+                renderer.draw(player, walls, target, focused)
+                p.update_canvas()
+                continue
             renderer.follow(player)
             renderer.cursor = cursor
             if cursor is not None:
@@ -973,7 +1026,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     beam = Flashlight((player.x, player.y), player.aim_angle, walls, world.world_size)
                     light = LightField((beam, *renderer.streetlights_in_view()))
                 target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera, renderer.shake_offset)
-            active = focused and not lost_focus and not renderer.map_open
+            active = focused and not lost_focus and not renderer.map_open and contract_choice is None
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
