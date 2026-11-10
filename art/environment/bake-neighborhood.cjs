@@ -524,6 +524,186 @@ function fence() {
   return image
 }
 
+function parkedCar() {
+  const image = texture(56, 31)
+  const {rect} = image
+  rect(0, 0, 56, 31, [29, 35, 38])
+  rect(2, 11, 51, 15, [79, 56, 49])
+  rect(4, 9, 12, 4, [143, 91, 73])
+  rect(12, 5, 31, 9, [131, 91, 75])
+  rect(15, 3, 25, 8, [170, 109, 84])
+  rect(17, 2, 22, 2, [187, 128, 98])
+  rect(10, 8, 8, 5, [79, 103, 108])
+  rect(14, 7, 6, 4, [105, 123, 123])
+  rect(37, 6, 6, 7, [69, 96, 104])
+  rect(39, 8, 6, 5, [104, 128, 130])
+  rect(43, 10, 9, 5, [160, 101, 77])
+  rect(48, 12, 6, 4, [183, 117, 88])
+  rect(3, 13, 51, 10, [148, 83, 66])
+  rect(3, 20, 51, 2, [117, 72, 61])
+  rect(4, 22, 48, 3, [104, 62, 54])
+  rect(6, 15, 44, 1, [182, 111, 83])
+  rect(16, 11, 23, 6, [67, 88, 94])
+  rect(17, 11, 20, 1, [132, 149, 145])
+  rect(26, 11, 2, 12, [86, 62, 56])
+  rect(37, 12, 2, 10, [86, 62, 56])
+  rect(22, 18, 3, 1, [199, 158, 123])
+  rect(33, 18, 3, 1, [199, 158, 123])
+  rect(3, 18, 4, 2, [190, 97, 75])
+  rect(49, 17, 5, 2, [226, 198, 132])
+  rect(1, 23, 8, 3, [96, 102, 100])
+  rect(49, 23, 6, 3, [117, 118, 108])
+  rect(17, 26, 22, 2, [44, 49, 49])
+  for (const x of [9, 39]) {
+    rect(x + 1, 21, 8, 9, [33, 37, 40])
+    rect(x, 23, 10, 5, [33, 37, 40])
+    rect(x + 2, 22, 6, 1, [59, 64, 65])
+    rect(x + 3, 24, 4, 4, [96, 105, 105])
+    rect(x + 4, 25, 2, 2, [144, 148, 136])
+  }
+  return image
+}
+
+function dumpster() {
+  const image = texture(30, 24)
+  const {rect} = image
+  rect(0, 0, 30, 24, [34, 46, 44])
+  grain(image, 2, 10, 26, 12, [81, 109, 94])
+  rect(2, 2, 26, 8, [105, 120, 108])
+  rect(3, 1, 24, 2, [132, 145, 123])
+  rect(2, 8, 26, 3, [68, 87, 77])
+  rect(3, 8, 24, 1, [144, 152, 124])
+  rect(14, 2, 1, 6, [74, 92, 84])
+  for (const x of [5, 10, 18, 23]) {
+    rect(x, 4, 1, 3, [83, 101, 91])
+    rect(x, 12, 1, 9, [58, 88, 75])
+  }
+  rect(9, 13, 10, 4, [172, 163, 110])
+  rect(11, 14, 6, 1, [105, 101, 77])
+  rect(4, 19, 4, 1, [129, 113, 83])
+  rect(21, 18, 4, 1, [123, 111, 87])
+  rect(3, 21, 24, 1, [62, 83, 72])
+  rect(4, 22, 4, 2, [39, 42, 43])
+  rect(22, 22, 4, 2, [39, 42, 43])
+  return image
+}
+
+
+function mailbox() {
+  const image = texture(10, 24, 4)
+  const {rect} = image
+  rect(4, 8, 3, 16, [73, 67, 57, 255])
+  rect(4, 9, 1, 14, [130, 118, 95, 255])
+  rect(2, 4, 8, 7, [64, 80, 80, 255])
+  rect(2, 3, 7, 2, [133, 146, 134, 255])
+  rect(1, 5, 8, 4, [109, 124, 116, 255])
+  rect(2, 9, 7, 1, [84, 99, 93, 255])
+  rect(8, 5, 1, 5, [57, 70, 69, 255])
+  rect(6, 1, 1, 6, [183, 91, 72, 255])
+  rect(6, 1, 3, 2, [206, 108, 85, 255])
+  return image
+}
+
+function planter() {
+  const image = texture(13, 15, 4)
+  const {rect} = image
+  rect(1, 4, 11, 5, [60, 81, 66, 255])
+  rect(3, 2, 7, 5, [77, 103, 77, 255])
+  rect(5, 0, 3, 5, [106, 128, 88, 255])
+  rect(2, 5, 3, 2, [110, 131, 92, 255])
+  rect(7, 3, 3, 2, [138, 148, 104, 255])
+  rect(8, 5, 3, 2, [95, 119, 80, 255])
+  rect(1, 8, 11, 3, [132, 87, 70, 255])
+  rect(2, 8, 9, 1, [183, 127, 95, 255])
+  rect(2, 11, 9, 3, [141, 91, 73, 255])
+  rect(3, 11, 2, 2, [160, 104, 81, 255])
+  rect(3, 14, 7, 1, [83, 62, 57, 255])
+  return image
+}
+
+function bicycle() {
+  const image = texture(23, 16, 4)
+  const {rect, point} = image
+  const tire = [47, 55, 57, 255]
+  const metal = [141, 150, 139, 255]
+  const frame = [173, 111, 81, 255]
+  for (const x of [1, 14]) {
+    rect(x + 2, 7, 5, 1, tire)
+    rect(x + 2, 15, 5, 1, tire)
+    rect(x, 9, 1, 5, tire)
+    rect(x + 8, 9, 1, 5, tire)
+    for (const y of [8, 14]) {
+      point(x + 1, y, metal)
+      point(x + 7, y, metal)
+    }
+    point(x + 4, 11, metal)
+    line(image, x + 2, 9, x + 6, 13, [86, 99, 95, 255])
+  }
+  line(image, 5, 11, 9, 5, frame)
+  line(image, 9, 5, 12, 11, frame)
+  line(image, 12, 11, 5, 11, frame)
+  line(image, 12, 11, 16, 5, frame)
+  line(image, 9, 5, 16, 5, frame)
+  line(image, 16, 5, 18, 11, metal)
+  line(image, 16, 5, 15, 2, metal)
+  rect(15, 1, 4, 1, metal)
+  rect(7, 3, 5, 1, tire)
+  point(12, 11, [215, 173, 118, 255])
+  return image
+}
+
+function trashBags() {
+  const image = texture(15, 12, 4)
+  const {rect} = image
+  rect(6, 4, 9, 7, [57, 72, 71, 255])
+  rect(8, 2, 5, 4, [73, 87, 84, 255])
+  rect(9, 0, 3, 2, [91, 106, 98, 255])
+  rect(9, 3, 3, 1, [116, 126, 112, 255])
+  rect(1, 6, 9, 5, [44, 56, 56, 255])
+  rect(2, 4, 6, 3, [66, 81, 79, 255])
+  rect(4, 2, 3, 2, [100, 111, 102, 255])
+  rect(2, 7, 3, 1, [83, 97, 91, 255])
+  rect(5, 8, 3, 1, [64, 76, 73, 255])
+  rect(12, 6, 2, 2, [84, 98, 91, 255])
+  rect(2, 11, 11, 1, [38, 48, 48, 255])
+  return image
+}
+
+function metalBin() {
+  const image = texture(13, 21, 4)
+  const {rect} = image
+  rect(2, 5, 9, 15, [113, 125, 122, 255])
+  rect(3, 8, 2, 11, [147, 154, 142, 255])
+  rect(6, 8, 1, 11, [92, 110, 109, 255])
+  rect(9, 8, 1, 11, [76, 96, 96, 255])
+  rect(2, 17, 9, 1, [95, 109, 108, 255])
+  rect(3, 20, 7, 1, [64, 79, 80, 255])
+  rect(1, 4, 11, 3, [143, 152, 143, 255])
+  rect(2, 3, 9, 1, [177, 180, 158, 255])
+  rect(1, 6, 11, 1, [81, 101, 101, 255])
+  rect(5, 1, 4, 2, [89, 108, 106, 255])
+  return image
+}
+
+function recyclingBin() {
+  const image = texture(14, 22, 4)
+  const {rect} = image
+  rect(2, 6, 10, 14, [66, 110, 113, 255])
+  rect(3, 7, 2, 12, [89, 131, 128, 255])
+  rect(10, 7, 2, 12, [46, 86, 90, 255])
+  rect(1, 3, 12, 4, [80, 126, 128, 255])
+  rect(2, 2, 10, 2, [112, 151, 143, 255])
+  rect(1, 6, 12, 1, [48, 81, 85, 255])
+  rect(3, 20, 9, 2, [49, 60, 63, 255])
+  rect(3, 20, 2, 1, [94, 105, 103, 255])
+  const mark = [171, 187, 152, 255]
+  line(image, 5, 13, 7, 10, mark)
+  line(image, 7, 10, 9, 13, mark)
+  rect(5, 14, 5, 1, mark)
+  return image
+}
+
+
 async function save(name, image) {
   const file = path.join(output, name + '.png')
   const {data, width, height, channels} = image
@@ -554,6 +734,14 @@ async function main() {
     save('workshop', workshop()),
     save('bus-stop', busStop()),
     save('streetlamp', streetlamp()),
+    save('parked-car', parkedCar()),
+    save('dumpster', dumpster()),
+    save('mailbox', mailbox()),
+    save('planter', planter()),
+    save('bicycle', bicycle()),
+    save('trash-bags', trashBags()),
+    save('metal-bin', metalBin()),
+    save('recycling-bin', recyclingBin()),
   ])
   console.log('Neighborhood textures verified')
 }

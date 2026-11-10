@@ -25,7 +25,6 @@ ZOMBIE_STARTS = (
     (2260, 932), (2930, 915), (2020, 1335), (2420, 1510),
     (3070, 1740), (2315, 1895), (2765, 2070), (3255, 2080),
 )
-ALLEY_PROP = (265.0, 245.0)
 INTERACTION_RANGE = 42.0
 _BUILDINGS = ((690, 145, 180, 130),
               (165, 765, 330, 220), (610, 815, 270, 215), (800, 385, 205, 220),
@@ -54,12 +53,31 @@ class NeighborhoodWall(Wall):
     oblique: bool = False
 
 
+@dataclass(frozen=True)
+class StreetProp:
+    x: float
+    y: float
+    texture: str
+
+
+# Group everyday objects where they belong, leaving the middle of the footpaths open.
+_STREET_PROPS = {
+    "mailbox": ((119, 278), (484, 200), (1534, 174), (1843, 612), (2122, 1968)),
+    "planter": ((184, 277), (395, 211), (554, 211), (1848, 1045), (2050, 1045), (2340, 1762)),
+    "bicycle": ((472, 173), (2110, 1038), (2190, 1767), (2930, 1980)),
+    "trash-bags": ((329, 178), (520, 173), (655, 507), (1844, 1024), (2690, 1816)),
+    "metal-bin": ((239, 248), (600, 223), (652, 522), (1690, 915), (2092, 1044), (3128, 1435)),
+    "recycling-bin": ((249, 499), (597, 238), (1500, 192), (1837, 1024), (2359, 1770), (2736, 1814)),
+}
+
+
 class DeliveryWorld(CombatWorld):
     clear_on_zombie_death = False
     sprint_speed = 210.0
     world_size = TOWN_SIZE
     pickup = (172.0, 155.0)
     destination = (3380.0, 2240.0)
+    props = tuple(StreetProp(x, y, texture) for texture, positions in _STREET_PROPS.items() for x, y in positions)
     streetlights = (
         (240, 525), (710, 659), (1380, 890), (1620, 1200),
         (1960, 990), (2660, 110), (3290, 530), (3290, 1350),
@@ -74,6 +92,10 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
             NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
             NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
+            NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
+            NeighborhoodWall(578, 458, 60, 34, "dumpster", height=28),
+            NeighborhoodWall(1768, 1008, 60, 34, "dumpster", height=28),
+            NeighborhoodWall(2668, 1775, 60, 34, "dumpster", height=28),
             *(NeighborhoodWall(*building, "workshop") for building in _BUILDINGS),
             *(NeighborhoodWall(x, y, 140, 190, "west-house") for x, y in _WEST_HOUSES),
             *(NeighborhoodWall(x, y, 275, 200, "east-house") for x, y in _EAST_HOUSES),

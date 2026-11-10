@@ -12,7 +12,7 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import ALLEY_PROP, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
+from delivery import TOWN_ROADS, DeliveryWorld, NeighborhoodWall
 from flashlight import Flashlight, LightField
 from locomotion import Locomotion, select_facing
 from player_visual import PlayerVisual, load_atlas
@@ -38,6 +38,16 @@ WALL_TEXTURE_SIZES = {
     "fence": [50, 23],
     "shop": [130, 103],
     "bus-stop": [70, 50],
+    "parked-car": [56, 31],
+    "dumpster": [30, 24],
+}
+PROP_TEXTURE_SIZES = {
+    "mailbox": [10, 24],
+    "planter": [13, 15],
+    "bicycle": [23, 16],
+    "trash-bags": [15, 12],
+    "metal-bin": [13, 21],
+    "recycling-bin": [14, 22],
 }
 HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
@@ -77,12 +87,13 @@ def current_cursor():
     return x.value, y.value
 
 
-def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None, lamps=()):
+def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None, lamps=(), street_props=()):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
     if station is not None:
         objects.append(("station", station))
     objects.extend(("lamp", position) for position in lamps)
+    objects.extend(("street-prop", decoration) for decoration in street_props)
     objects.extend(("wall", wall) for wall in walls)
     if zombie is not None:
         objects.append(("zombie", zombie))
@@ -188,6 +199,7 @@ class Renderer:
         self.trash_can = None
         self.neighborhood_ground = None
         self.neighborhood_walls = {}
+        self.street_prop_images = {}
         self.streetlamp_image = None
         self.streetlights = ()
         self.combat = None
@@ -228,6 +240,9 @@ class Renderer:
         for image in self.neighborhood_walls.values():
             if p.SDL_SetTextureBlendMode(image.texture, p.SDL_BLENDMODE_BLEND) != 0:
                 raise RuntimeError(f"Wall blend mode failed: {p.SDL_GetError()!r}")
+        self.street_prop_images = {
+            key: load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", size) for key, size in PROP_TEXTURE_SIZES.items()
+        }
         self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
         self.reset_streetlights()
 
@@ -250,6 +265,7 @@ class Renderer:
                 yield light
 
     def close(self):
+        self.street_prop_images.clear()
         self.streetlamp_image = None
         self.neighborhood_ground = None
         self.neighborhood_walls.clear()
@@ -457,6 +473,7 @@ class Renderer:
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
         facade_shade = (178, 147, 105) if image is not None else (53, 47, 40)
+        low_obstacle = textured and wall.texture in ("parked-car", "dumpster")
         roof_shade = (140, 123, 102) if image is not None else (45, 41, 38)
         for axis, boundary, offset, length, edge in (
             (1, wall.y, wall.x, wall.width, "front"),
@@ -486,6 +503,11 @@ class Renderer:
                         if oblique:
                             side_image = self.neighborhood_walls[f"{wall.texture}-side"]
                             self.draw_wall_plane(side_image, side, 0, 1, (155, 131, 103), (start, 0, end, 1))
+                    if low_obstacle and edge in ("left", "right"):
+                        # Show the end of a low obstacle when approached along the lane.
+                        band = side_band * min(1, (end - start) * 2)
+                        bounds = (0, 0, band, 1) if edge == "left" else (1 - band, 0, 1, 1)
+                        self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds)
                     self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha)
 
     def draw_wall_plane(self, image, points, top, bottom, shade, bounds=(0, 0, 1, 1), *,
@@ -543,6 +565,8 @@ class Renderer:
 
     def draw_lit_prop(self, position, image):
         x, y = self.project(*position)
+        if x + image.w <= 0 or x - image.w >= WINDOW_WIDTH or y >= WINDOW_HEIGHT or y + image.h * 2 <= 0:
+            return
         self.draw_lit_columns(position, x - image.w, image.w * 2,
                               lambda *_: image.draw(x, y + image.h, image.w * 2, image.h * 2))
 
@@ -636,11 +660,14 @@ class Renderer:
         delivery = self.delivery
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
         for kind, actor in sorted_drawables(player, walls, zombies=combat.zombies if combat else (),
-                                            prop=ALLEY_PROP if delivery is not None else TRASH_CAN_POSITION,
+                                            prop=TRASH_CAN_POSITION if delivery is None else None,
                                             station=delivery.next_stop if delivery is not None else None,
-                                            lamps=(lamp.origin for lamp in lamps)):
+                                            lamps=(lamp.origin for lamp in lamps),
+                                            street_props=delivery.props if delivery is not None else ()):
             if kind == "prop":
                 self.draw_lit_prop(actor, self.trash_can)
+            elif kind == "street-prop":
+                self.draw_lit_prop((actor.x, actor.y), self.street_prop_images[actor.texture])
             elif kind == "station":
                 self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "lamp":

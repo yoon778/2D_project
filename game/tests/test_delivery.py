@@ -2,8 +2,9 @@ import math
 import unittest
 
 from game.combat import ATTACK_HIT_TIME, Zombie
-from game.core import WALK_SPEED, Wall, move_player
+from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player
 from game.delivery import DeliveryWorld, PLAYER_START, TOWN_ROADS, ZOMBIE_START, ZOMBIE_STARTS
+from game.flashlight import Flashlight
 
 
 class DeliveryTests(unittest.TestCase):
@@ -48,6 +49,19 @@ class DeliveryTests(unittest.TestCase):
                     self.assertAlmostEqual(player.y, y)
                 self.assertTrue(world.interact())
                 self.assertEqual(world.result, "delivered")
+
+    def test_large_street_props_block_movement_and_cast_a_shadow(self):
+        world = self.world
+        for texture in ("parked-car", "dumpster"):
+            with self.subTest(texture=texture):
+                wall = next(wall for wall in world.walls if wall.texture == texture)
+                y = wall.y + wall.depth / 2
+                start = (wall.x - 40, y)
+                walker = Player(*start)
+                move_player(walker, 1, 0, 1, world.walls, world_size=world.world_size)
+                self.assertAlmostEqual(walker.x, wall.x - PLAYER_RADIUS)
+                light = Flashlight(start, 0, world.walls, world.world_size)
+                self.assertFalse(light.contains((wall.x + wall.width + 18, y)))
 
     def test_interaction_cannot_reach_through_wall(self):
         world = self.world
