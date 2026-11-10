@@ -2,8 +2,11 @@ import math
 import unittest
 
 from game.combat import ATTACK_HIT_TIME, STUN_DURATION, Zombie, ZombieAttack
-from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player
-from game.delivery import DELIVERY_CONTRACTS, DeliveryWorld, PLAYER_START, TOWN_ROADS, ZOMBIE_START
+from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player, wall_blocks
+from game.delivery import (
+    BOTTLE_FLIGHT_TIME, BOTTLE_THROW_RANGE, DELIVERY_CONTRACTS, DeliveryWorld,
+    PLAYER_START, TOWN_ROADS, ZOMBIE_START,
+)
 from game.flashlight import Flashlight
 
 
@@ -205,6 +208,75 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "investigate", "idle"])
         self.assertEqual(south.target, north.target)
         self.assertNotEqual(south.investigation_route[0], north.investigation_route[0])
+
+    def test_bottle_pickup_throw_limits_and_reset(self):
+        world = self.world
+        bottle = world.nearby_bottle
+        self.assertIsNotNone(bottle)
+        original_walls = world.walls
+        world.walls = [Wall(155, 120, 4, 30)]
+        self.assertFalse(world.pick_up_bottle())
+        world.walls = original_walls
+        self.assertFalse(world.throw_bottle((450, 145)))
+        self.assertTrue(world.interact())
+        self.assertTrue(world.pick_up_bottle())
+        self.assertEqual(world.parcel, "carrying")
+        self.assertNotIn(bottle, world.bottle_pickups)
+        self.assertFalse(world.pick_up_bottle())
+        self.assertFalse(world.throw_bottle(PLAYER_START))
+
+        world.walls = [Wall(220, 120, 50, 100)]
+        self.assertTrue(world.throw_bottle((600, 145)))
+        self.assertFalse(world.has_bottle)
+        self.assertEqual(world.bottle_flight.origin, PLAYER_START)
+        self.assertAlmostEqual(world.bottle_flight.destination[0], 220 - PLAYER_RADIUS, places=3)
+        self.assertFalse(world.throw_bottle((600, 145)))
+        world.update(0)
+        self.assertEqual(world.bottle_flight.progress, 0)
+        self.assertIsNone(world.bottle_impact)
+
+        world.reset()
+        self.assertIsNone(world.bottle_flight)
+        self.assertIsNone(world.bottle_impact)
+        self.assertFalse(world.has_bottle)
+        self.assertIn(bottle, world.bottle_pickups)
+        self.assertTrue(world.pick_up_bottle())
+        world.walls = []
+        self.assertTrue(world.throw_bottle((900, 145)))
+        self.assertEqual(math.dist(PLAYER_START, world.bottle_flight.destination), BOTTLE_THROW_RANGE)
+
+    def test_bottle_landing_draws_a_zombie_around_the_first_alley_wall_once(self):
+        world = self.world
+        self.assertTrue(world.pick_up_bottle())
+        world.player.x, world.player.y = (266, 194)
+        zombie = next(zombie for zombie in world.zombies if (zombie.x, zombie.y) == (485, 475))
+        distant = Zombie(900, 600)
+        world.zombies = [zombie, distant]
+        landing = (565, 194)
+        start = (zombie.x, zombie.y)
+        self.assertTrue(any(wall_blocks(start, landing, wall) for wall in world.walls))
+        self.assertFalse(world._player_line_clear(zombie))
+        self.assertTrue(world.throw_bottle(landing))
+
+        world.update(BOTTLE_FLIGHT_TIME - .02)
+        self.assertEqual(zombie.state, "idle")
+        self.assertIsNone(world.bottle_impact)
+        world.update(.02)
+        self.assertEqual(world.bottle_impact, landing)
+        self.assertIsNone(world.bottle_flight)
+        self.assertEqual((zombie.state, zombie.target), ("investigate", landing))
+        self.assertEqual(distant.state, "idle")
+        self.assertTrue(any(x > 585 for x, _ in zombie.investigation_route))
+
+        world.update(.01)
+        self.assertIsNone(world.bottle_impact)
+        for _ in range(20):
+            if zombie.state == "search":
+                break
+            world.update(.25)
+        self.assertEqual(zombie.state, "search")
+        self.assertAlmostEqual(math.dist((zombie.x, zombie.y), landing), 0, places=6)
+        self.assertEqual(zombie.hp, 5)
 
     def test_delivery_sprint_opens_distance_from_a_chasing_zombie(self):
         world = self.world

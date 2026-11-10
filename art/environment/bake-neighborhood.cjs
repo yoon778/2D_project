@@ -756,6 +756,25 @@ function recyclingBin() {
   return image
 }
 
+function emptyBottle() {
+  const image = texture(8, 11, 4)
+  const {rect, point} = image
+  const outline = [32, 63, 54, 255]
+  const glass = [69, 130, 105, 255]
+  const highlight = [150, 206, 170, 255]
+  rect(3, 1, 2, 4, outline)
+  rect(2, 0, 4, 2, outline)
+  rect(3, 0, 2, 1, highlight)
+  rect(2, 4, 4, 1, glass)
+  rect(1, 5, 6, 5, outline)
+  rect(2, 5, 4, 4, glass)
+  rect(2, 6, 4, 2, [185, 181, 134, 255])
+  point(2, 5, highlight)
+  point(2, 8, highlight)
+  rect(2, 10, 4, 1, outline)
+  return image
+}
+
 
 async function save(name, image) {
   const file = path.join(output, name + '.png')
@@ -796,6 +815,7 @@ async function main() {
     save('trash-bags', trashBags()),
     save('metal-bin', metalBin()),
     save('recycling-bin', recyclingBin()),
+    save('empty-bottle', emptyBottle()),
   ])
   console.log('Neighborhood textures verified')
 }

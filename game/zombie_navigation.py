@@ -24,7 +24,11 @@ def can_walk_direct(start, end, walls):
     """Test swept circle clearance, including near a rounded wall corner."""
     dx, dy = end[0] - start[0], end[1] - start[1]
     length_squared = dx * dx + dy * dy
+    west, east = min(start[0], end[0]) - PLAYER_RADIUS, max(start[0], end[0]) + PLAYER_RADIUS
+    south, north = min(start[1], end[1]) - PLAYER_RADIUS, max(start[1], end[1]) + PLAYER_RADIUS
     for wall in walls:
+        if wall.x > east or wall.x + wall.width < west or wall.y > north or wall.y + wall.depth < south:
+            continue
         if wall_blocks(start, end, wall) or _overlaps(start, wall) or _overlaps(end, wall):
             return False
         if length_squared:

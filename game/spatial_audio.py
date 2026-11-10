@@ -1,4 +1,4 @@
-"""Background music and zombie effects on pico2d's mixer."""
+"""Background music and gameplay effects on pico2d's mixer."""
 import ctypes
 import math
 from pathlib import Path
@@ -18,6 +18,7 @@ _STEP_SPACING = 32.0
 _GROAN_DELAY = .4
 _GROAN_INTERVAL = 3.2
 _ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
+_BOTTLE_SOUND = "bottle_break"
 
 
 class BackgroundMusic:
@@ -94,7 +95,7 @@ class ZombieAudio:
         self._groan_in = _GROAN_DELAY
         if p.Mix_QuerySpec(None, None, None) <= 0:
             return
-        for kind in _ZOMBIE_VOLUME:
+        for kind in (*_ZOMBIE_VOLUME, _BOTTLE_SOUND):
             sound = p.Mix_LoadWAV(str(directory / f"{kind}.wav").encode("utf-8"))
             if sound:
                 self._sounds[kind] = sound
@@ -110,8 +111,11 @@ class ZombieAudio:
     def update(self, dt, *, distance, stride, active, occluded=False):
         if not self._sounds:
             return
-        if not active or distance is None or distance >= _HEARING_RANGE:
+        if not active:
             self.stop()
+            return
+        if distance is None or distance >= _HEARING_RANGE:
+            self._stop_zombies()
             return
 
         self._step_distance += stride
@@ -140,13 +144,30 @@ class ZombieAudio:
                 if channel >= 0:
                     self._channels[kind] = channel
 
-    def stop(self):
-        for kind, channel in self._channels.items():
-            if self._playing(channel, self._sounds[kind]):
-                p.Mix_HaltChannel(channel)
-        self._channels.clear()
+    def play_bottle_break(self, distance):
+        sound = self._sounds.get(_BOTTLE_SOUND)
+        if sound is None or distance >= _HEARING_RANGE:
+            return
+        self._stop_channel(_BOTTLE_SOUND)
+        p.Mix_VolumeChunk(sound, max(1, round(82 * (1.0 - distance / _HEARING_RANGE))))
+        channel = p.Mix_PlayChannelTimed(-1, sound, 0, -1)
+        if channel >= 0:
+            self._channels[_BOTTLE_SOUND] = channel
+
+    def _stop_channel(self, kind):
+        channel = self._channels.pop(kind, None)
+        if self._playing(channel, self._sounds.get(kind)):
+            p.Mix_HaltChannel(channel)
+
+    def _stop_zombies(self):
+        for kind in _ZOMBIE_VOLUME:
+            self._stop_channel(kind)
         self._step_distance = 0.0
         self._groan_in = _GROAN_DELAY
+
+    def stop(self):
+        self._stop_zombies()
+        self._stop_channel(_BOTTLE_SOUND)
 
     def close(self):
         self.stop()

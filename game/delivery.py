@@ -6,10 +6,12 @@ from pathlib import Path
 
 if __package__:
     from .combat import CombatWorld, Zombie
-    from .core import Player, Wall, wall_blocks
+    from .core import PLAYER_RADIUS, Player, Wall, wall_blocks
+    from .zombie_navigation import can_walk_direct
 else:
     from combat import CombatWorld, Zombie
-    from core import Player, Wall, wall_blocks
+    from core import PLAYER_RADIUS, Player, Wall, wall_blocks
+    from zombie_navigation import can_walk_direct
 
 
 TOWN_SIZE = (3600, 2400)
@@ -26,6 +28,10 @@ ZOMBIE_STARTS = (
     (3070, 1740), (2315, 1895), (2765, 2070), (3255, 2080),
 )
 INTERACTION_RANGE = 42.0
+BOTTLE_THROW_RANGE = 320.0
+BOTTLE_NOISE_RANGE = 320.0
+BOTTLE_FLIGHT_TIME = 0.30
+_BOTTLE_STARTS = ((177, 127), (610, 628), (1660, 932), (3230, 2070))
 
 
 @dataclass(frozen=True)
@@ -83,6 +89,17 @@ class StreetProp:
     x: float
     y: float
     texture: str
+
+
+@dataclass
+class BottleFlight:
+    origin: tuple[float, float]
+    destination: tuple[float, float]
+    elapsed: float = 0.0
+
+    @property
+    def progress(self):
+        return min(1.0, self.elapsed / BOTTLE_FLIGHT_TIME)
 
 
 # Group everyday objects where they belong, leaving the middle of the footpaths open.
@@ -149,10 +166,88 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
         ]
         self.parcel = "waiting"
+        self.bottle_pickups = list(_BOTTLE_STARTS)
+        self.has_bottle = False
+        self.bottle_flight = None
+        self.bottle_impact = None
 
     @property
     def next_stop(self):
         return self.pickup if self.parcel == "waiting" else self.destination
+
+    @property
+    def nearby_bottle(self):
+        if self.has_bottle or self.result != "playing" or self.player_hp <= 0:
+            return None
+        origin = (self.player.x, self.player.y)
+        return min((point for point in self.bottle_pickups
+                    if math.dist(origin, point) <= INTERACTION_RANGE
+                    and not any(wall_blocks(origin, point, wall) for wall in self.walls)),
+                   key=lambda point: math.dist(origin, point), default=None)
+
+    def pick_up_bottle(self):
+        point = self.nearby_bottle
+        if point is None:
+            return False
+        self.bottle_pickups.remove(point)
+        self.has_bottle = True
+        return True
+
+    def throw_bottle(self, target):
+        if (not self.has_bottle or self.bottle_flight is not None or self.attack is not None
+                or self.result != "playing" or self.player_hp <= 0):
+            return False
+        origin = (self.player.x, self.player.y)
+        dx, dy = target[0] - origin[0], target[1] - origin[1]
+        distance = math.hypot(dx, dy)
+        if not math.isfinite(distance) or distance <= 1e-9:
+            return False
+        direction = (dx / distance, dy / distance)
+        travel = min(distance, BOTTLE_THROW_RANGE)
+        for start, heading, size in zip(origin, direction, self.world_size):
+            if heading > 0:
+                travel = min(travel, (size - PLAYER_RADIUS - start) / heading)
+            elif heading < 0:
+                travel = min(travel, (PLAYER_RADIUS - start) / heading)
+        if travel <= 1e-9:
+            return False
+
+        def landing(length):
+            return origin[0] + direction[0] * length, origin[1] + direction[1] * length
+
+        destination = landing(travel)
+        # Use zombie clearance so a bottle stopped by a wall can still be reached.
+        if not can_walk_direct(origin, destination, self.walls):
+            clear, blocked = 0.0, travel
+            for _ in range(20):
+                middle = (clear + blocked) / 2
+                if can_walk_direct(origin, landing(middle), self.walls):
+                    clear = middle
+                else:
+                    blocked = middle
+            travel = clear
+            destination = landing(travel)
+        if travel <= 1e-9:
+            return False
+        self.bottle_flight = BottleFlight(origin, destination)
+        self.has_bottle = False
+        return True
+
+    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False):
+        self.bottle_impact = None
+        super().update(dt, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint)
+        if self.result != "playing":
+            self.bottle_flight = None
+
+    def _advance_world_objects(self, dt):
+        flight = self.bottle_flight
+        if flight is None:
+            return
+        flight.elapsed += dt
+        if flight.elapsed >= BOTTLE_FLIGHT_TIME - 1e-9:
+            self.bottle_flight = None
+            self.bottle_impact = flight.destination
+            self._emit_noise(BOTTLE_NOISE_RANGE, flight.destination)
 
     def can_interact(self):
         if self.result != "playing" or self.player_hp <= 0:

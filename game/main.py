@@ -50,6 +50,7 @@ PROP_TEXTURE_SIZES = {
     "trash-bags": [15, 12],
     "metal-bin": [13, 21],
     "recycling-bin": [14, 22],
+    "empty-bottle": [8, 11],
 }
 HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
@@ -60,7 +61,7 @@ WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
 HIT_MARK_DURATION = 0.06
-SPRINT_PULSE_DURATION = 0.24
+NOISE_PULSE_DURATION = 0.24
 PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
 ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
 TURN_SPEED = math.radians(450)
@@ -89,19 +90,22 @@ def current_cursor():
     return x.value, y.value
 
 
-def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None, lamps=(), street_props=()):
+def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None, lamps=(), street_props=(),
+                     bottles=()):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
     if station is not None:
         objects.append(("station", station))
     objects.extend(("lamp", position) for position in lamps)
     objects.extend(("street-prop", decoration) for decoration in street_props)
+    objects.extend(("bottle", bottle) for bottle in bottles)
     objects.extend(("wall", wall) for wall in walls)
     if zombie is not None:
         objects.append(("zombie", zombie))
     objects.extend(("zombie", enemy) for enemy in zombies)
     objects.append(("player", player))
-    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp") else item[1].y))
+    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp", "bottle")
+                                               else item[1].y))
 
 
 def light_screen_rows(lights, project):
@@ -265,6 +269,8 @@ class Renderer:
         self.shake_offset = (0, 0)
         self.sprint_pulse = None
         self.sprint_pulse_remaining = 0.0
+        self.bottle_pulse = None
+        self.bottle_pulse_remaining = 0.0
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
@@ -620,19 +626,26 @@ class Renderer:
     def update_sprint_pulse(self, dt, position=None):
         if position is not None:
             self.sprint_pulse = position
-            self.sprint_pulse_remaining = SPRINT_PULSE_DURATION
+            self.sprint_pulse_remaining = NOISE_PULSE_DURATION
         else:
             self.sprint_pulse_remaining = max(0.0, self.sprint_pulse_remaining - dt)
 
-    def draw_sprint_pulse(self):
-        if self.sprint_pulse_remaining <= 0:
+    def update_bottle_pulse(self, dt, position=None):
+        if position is not None:
+            self.bottle_pulse = position
+            self.bottle_pulse_remaining = NOISE_PULSE_DURATION
+        else:
+            self.bottle_pulse_remaining = max(0.0, self.bottle_pulse_remaining - dt)
+
+    def draw_noise_pulse(self, position, remaining, color):
+        if remaining <= 0:
             return
-        progress = 1.0 - self.sprint_pulse_remaining / SPRINT_PULSE_DURATION
+        progress = 1.0 - remaining / NOISE_PULSE_DURATION
         radius = 18 + progress * 32
-        x, y = self.sprint_pulse
+        x, y = position
         points = [(x + radius * dx, y + radius * dy) for dx, dy in PULSE_RING]
         color = tuple(round(bright + (floor - bright) * progress)
-                      for bright, floor in zip(TEAL, (48, 41, 34)))
+                      for bright, floor in zip(color, (48, 41, 34)))
         visible = [self.light.contains(point) for point in points]
         for index, (start, end) in enumerate(zip(points, points[1:])):
             if visible[index] and visible[index + 1]:
@@ -664,8 +677,9 @@ class Renderer:
             if clipped:
                 p.SDL_RenderSetClipRect(p.renderer, None)
 
-    def draw_lit_prop(self, position, image):
+    def draw_lit_prop(self, position, image, *, lift=0):
         x, y = self.project(*position)
+        y += lift
         width, height = image.w * 2, image.h * 2
         self.draw_lit_region((x - image.w, y, width, height), lambda: image.draw(x, y + image.h, width, height))
 
@@ -708,6 +722,11 @@ class Renderer:
             self.font.draw(520, 56, f"E  {action}", TEAL)
         else:
             self.font.draw(24, 538, guide, WHITE)
+        if delivery.result == "playing":
+            bottle_hint = "빈 병 1/1  ·  Q 던지기" if delivery.has_bottle else "빈 병 0/1"
+            if delivery.nearby_bottle is not None:
+                bottle_hint += "  ·  F 줍기"
+            self.font.draw(24, 512, bottle_hint, TEAL if delivery.has_bottle else WHITE)
 
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
@@ -767,21 +786,35 @@ class Renderer:
         self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53))
         self.draw_streetlight_pools(lamps, lamp_outlines)
         outlines = (beam_outline, *lamp_outlines)
-        self.draw_sprint_pulse()
+        self.draw_noise_pulse(self.sprint_pulse, self.sprint_pulse_remaining, TEAL)
+        self.draw_noise_pulse(self.bottle_pulse, self.bottle_pulse_remaining, ORANGE)
         foot = self.project(*origin)
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
         delivery = self.delivery
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
+        bottles = []
+        if delivery is not None:
+            bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
+            flight = delivery.bottle_flight
+            if flight is not None:
+                progress = flight.progress
+                x, y = (start + (end - start) * progress for start, end in zip(flight.origin, flight.destination))
+                lift = (1 - progress) * (18 + 88 * progress)
+                bottles.append((x, y, lift))
         for kind, actor in sorted_drawables(player, walls, zombies=combat.zombies if combat else (),
                                             prop=TRASH_CAN_POSITION if delivery is None else None,
                                             station=delivery.next_stop if delivery is not None else None,
                                             lamps=(lamp.origin for lamp in lamps),
-                                            street_props=delivery.props if delivery is not None else ()):
+                                            street_props=delivery.props if delivery is not None else (),
+                                            bottles=bottles):
             if kind == "prop":
                 self.draw_lit_prop(actor, self.trash_can)
             elif kind == "street-prop":
                 self.draw_lit_prop((actor.x, actor.y), self.street_prop_images[actor.texture])
+            elif kind == "bottle":
+                x, y, lift = actor
+                self.draw_lit_prop((x, y), self.street_prop_images["empty-bottle"], lift=lift)
             elif kind == "station":
                 self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "lamp":
@@ -933,6 +966,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             previous = now
             pending_click = False
             pending_interact = False
+            pending_bottle_pickup = False
+            pending_bottle_throw = False
             contract_choice = None
             reset_requested = False
             lost_focus = False
@@ -951,6 +986,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         continue
                     if key == p.SDLK_e and key not in pressed:
                         pending_interact = True
+                    elif delivery_run and key == p.SDLK_f and key not in pressed:
+                        pending_bottle_pickup = True
+                    elif delivery_run and key == p.SDLK_q and key not in pressed:
+                        pending_bottle_throw = True
                     elif key == p.SDLK_m and key not in pressed:
                         map_toggle = not map_toggle
                     pressed.add(key)
@@ -1004,12 +1043,14 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 renderer.map_open = False
                 renderer.update_shake(math.inf)
                 renderer.update_sprint_pulse(math.inf)
+                renderer.update_bottle_pulse(math.inf)
                 target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
                 aim_player(player, *target)
             elif map_toggle and focused and not lost_focus and delivery_run and world.result == "playing":
                 renderer.map_open = not renderer.map_open
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
+                pending_bottle_pickup = pending_bottle_throw = False
             if renderer.choosing_delivery:
                 if music is not None:
                     music.update(dt, focused=False)
@@ -1034,6 +1075,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             if pending_click and active:
                 facing = select_facing(player.aim_angle, facing_hint)
                 world.start_attack(facing=facing, stationary_front_right=True)
+            if delivery_run and active:
+                if pending_bottle_pickup:
+                    world.pick_up_bottle()
+                if pending_bottle_throw:
+                    throw_target = sdl_to_world(*cursor, renderer.camera) if cursor is not None else target
+                    world.throw_bottle(throw_target)
             before = (player.x, player.y)
             zombie_origins = [(zombie.x, zombie.y) for zombie in world.zombies]
             strike = world.attack
@@ -1041,6 +1088,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             hp_before = world.player_hp
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint)
+            bottle_impact = world.bottle_impact if delivery_run and active else None
+            renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
             if delivery_run and active and pending_interact:
                 world.interact()
             if active and not reset_requested and world.result == "playing":
@@ -1075,6 +1124,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     for wall in walls)
                 zombie_audio.update(dt, distance=distance, stride=stride, active=hearing_active,
                                     occluded=occluded)
+                if bottle_impact is not None:
+                    zombie_audio.play_bottle_break(math.dist((player.x, player.y), bottle_impact))
             dx, dy = player.x - before[0], player.y - before[1]
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]

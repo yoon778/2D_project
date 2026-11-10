@@ -152,8 +152,9 @@ class CombatWorld:
         origin = (zombie.x, zombie.y)
         return not any(wall_blocks(origin, player, wall) for wall in self.walls)
 
-    def _emit_noise(self, radius):
-        position = (self.player.x, self.player.y)
+    def _emit_noise(self, radius, position=None):
+        if position is None:
+            position = (self.player.x, self.player.y)
         for zombie in self.zombies:
             if zombie.alive and math.dist(position, (zombie.x, zombie.y)) <= radius + _EPSILON:
                 zombie.heard_at = position
@@ -356,6 +357,9 @@ class CombatWorld:
             self.stamina = max(self.stamina, _SPRINT_RECOVERY_THRESHOLD)
             self._sprint_exhausted = False
 
+    def _advance_world_objects(self, dt):
+        """Advance mode-specific objects before zombies react to their sounds."""
+
     def _update_tick(self, dt, axis_x, axis_y, walk_scale, wants_sprint):
         self._resolve_result()
         if self.result != "playing":
@@ -369,6 +373,7 @@ class CombatWorld:
         immunity = self.player_invulnerable_remaining - dt
         self.player_invulnerable_remaining = immunity if immunity > _EPSILON else 0.0
         self._move_player_and_update_stamina(dt, axis_x, axis_y, walk_scale, wants_sprint)
+        self._advance_world_objects(dt)
         for zombie in self.zombies:
             if zombie.alive:
                 self._perceive_player(zombie)
