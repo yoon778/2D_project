@@ -184,15 +184,16 @@ function ground() {
   }
 
   // Keep the original approach intact and start both road additions at its far edges.
-  const {main, alleys} = roads
+  const {main, alleys, main_detour} = roads
+  const pavedAlleys = [...alleys, main_detour]
   const approaches = [
     {points: [[1958, 1000], [1958, 1041]], width: 40},
     {points: [[2280, 1720], [2280, 1760]], width: 42},
   ]
-  paintRoutes(image, [...main, ...alleys], 21, [159, 155, 139], .8)
-  paintRoutes(image, [...main, ...alleys], 4, [186, 177, 154])
+  paintRoutes(image, [...main, ...pavedAlleys], 21, [159, 155, 139], .8)
+  paintRoutes(image, [...main, ...pavedAlleys], 4, [186, 177, 154])
   paintRoutes(image, main, 0, [109, 113, 117], 1.5)
-  paintRoutes(image, alleys, 0, [128, 128, 118], 1.15)
+  paintRoutes(image, pavedAlleys, 0, [128, 128, 118], 1.15)
   paintRoutes(image, approaches, 0, [156, 149, 134], 1.1)
 
   // Join the old horizontal dashes and turn them north past the corner.
@@ -564,6 +565,58 @@ function parkedCar() {
   return image
 }
 
+function abandonedCar() {
+  const image = parkedCar()
+  const {data, point, rect} = image
+  const fadedPaint = new Map([
+    ['79,56,49', [56, 69, 73]],
+    ['143,91,73', [104, 129, 133]],
+    ['131,91,75', [91, 115, 121]],
+    ['170,109,84', [122, 147, 148]],
+    ['187,128,98', [156, 174, 166]],
+    ['160,101,77', [107, 136, 140]],
+    ['183,117,88', [138, 157, 155]],
+    ['148,83,66', [94, 116, 125]],
+    ['117,72,61', [74, 94, 99]],
+    ['104,62,54', [67, 81, 84]],
+    ['182,111,83', [129, 150, 153]],
+    ['86,62,56', [60, 78, 82]],
+  ])
+  for (let offset = 0; offset < data.length; offset += 3) {
+    const color = fadedPaint.get(data.subarray(offset, offset + 3).join(','))
+    if (color) data.set(color, offset)
+  }
+
+  const rust = [130, 85, 60]
+  const rustEdge = [162, 109, 75]
+  rect(20, 5, 8, 1, rust)
+  rect(22, 6, 7, 1, rust)
+  rect(24, 7, 3, 1, rustEdge)
+  rect(6, 18, 8, 2, rust)
+  rect(9, 20, 7, 1, rustEdge)
+  rect(18, 22, 7, 2, rust)
+  rect(21, 21, 3, 1, rustEdge)
+  rect(44, 12, 4, 1, rust)
+  rect(46, 13, 5, 1, rustEdge)
+  rect(47, 20, 5, 1, rust)
+
+  const hole = [34, 45, 51]
+  const shard = [172, 182, 168]
+  rect(19, 12, 6, 3, hole)
+  rect(20, 15, 4, 1, hole)
+  point(18, 12, shard)
+  point(19, 13, shard)
+  point(20, 14, shard)
+  point(24, 15, shard)
+  rect(31, 13, 4, 3, hole)
+  point(32, 12, shard)
+  point(34, 14, shard)
+  line(image, 39, 9, 42, 11, shard)
+  point(43, 10, shard)
+  rect(51, 17, 3, 1, [72, 75, 70])
+  return image
+}
+
 function dumpster() {
   const image = texture(30, 24)
   const {rect} = image
@@ -735,6 +788,7 @@ async function main() {
     save('bus-stop', busStop()),
     save('streetlamp', streetlamp()),
     save('parked-car', parkedCar()),
+    save('abandoned-car', abandonedCar()),
     save('dumpster', dumpster()),
     save('mailbox', mailbox()),
     save('planter', planter()),

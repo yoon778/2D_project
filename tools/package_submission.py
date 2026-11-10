@@ -33,7 +33,7 @@ def runtime_files():
                  for name in ("ground.png", "west-house.png", "east-house.png", "fence.png",
                               "shop.png", "bus-stop.png", "streetlamp.png", "workshop.png",
                               "west-house-side.png", "east-house-side.png", "roads.json",
-                              "parked-car.png", "dumpster.png", "mailbox.png", "planter.png",
+                              "parked-car.png", "abandoned-car.png", "dumpster.png", "mailbox.png", "planter.png",
                               "bicycle.png", "trash-bags.png", "metal-bin.png", "recycling-bin.png"))
     files.update(ASSETS / "audio" / name for name in ("last-delivery.mp3", "zombie_step.wav", "zombie_groan.wav"))
 

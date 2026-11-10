@@ -39,6 +39,7 @@ WALL_TEXTURE_SIZES = {
     "shop": [130, 103],
     "bus-stop": [70, 50],
     "parked-car": [56, 31],
+    "abandoned-car": [56, 31],
     "dumpster": [30, 24],
 }
 PROP_TEXTURE_SIZES = {
@@ -320,6 +321,7 @@ class Renderer:
         border = (91, 112, 112)
         main_color = (170, 145, 106)
         alley_color = (99, 132, 130)
+        wreck_color = (177, 101, 77)
         building_color = (20, 30, 34)
         landmark_color = (178, 201, 195)
 
@@ -339,8 +341,10 @@ class Renderer:
         p.SDL_SetRenderDrawColor(p.renderer, *ink, 255)
         p.SDL_RenderClear(p.renderer)
         rectangle(left, bottom, right - left, top - bottom, (41, 56, 57))
-        for kind, color in (("alleys", alley_color), ("main", main_color)):
-            for road in TOWN_ROADS[kind]:
+        for roads, color in ((TOWN_ROADS["alleys"], alley_color),
+                             (TOWN_ROADS["main"], main_color),
+                             ((TOWN_ROADS["main_detour"],), alley_color)):
+            for road in roads:
                 points = road["points"]
                 half_width = road["width"] / 2
                 for (ax, ay), (bx, by) in zip(points, points[1:]):
@@ -357,8 +361,10 @@ class Renderer:
         for wall in world.walls:
             x, y = map_point(wall.x, wall.y)
             w, h = wall.width * scale, wall.depth * scale
-            label = landmark_labels.get(wall.texture) if isinstance(wall, NeighborhoodWall) else None
-            rectangle(x, y, w, h, building_color)
+            texture = getattr(wall, "texture", None)
+            label = landmark_labels.get(texture)
+            fill = wreck_color if texture == "abandoned-car" else building_color
+            rectangle(x, y, w, h, fill)
             rectangle(x, y, w, h, landmark_color if label else border, filled=False)
             if label:
                 landmarks.append((label, x + w / 2, y + h))
@@ -406,6 +412,7 @@ class Renderer:
             (318, "상점·정류장", landmark_color, 18, 14),
             (242, "수령지", ORANGE, 8, 8),
             (204, "배송지", TEAL, 8, 8),
+            (166, "폐차", wreck_color, 18, 8),
         ):
             rectangle(side + 36 - w / 2, y - h / 2, w, h, color)
             self.font.draw(side + 62, y, label, WHITE)
@@ -473,7 +480,7 @@ class Renderer:
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
         facade_shade = (178, 147, 105) if image is not None else (53, 47, 40)
-        low_obstacle = textured and wall.texture in ("parked-car", "dumpster")
+        low_obstacle = textured and wall.texture in ("parked-car", "abandoned-car", "dumpster")
         roof_shade = (140, 123, 102) if image is not None else (45, 41, 38)
         for axis, boundary, offset, length, edge in (
             (1, wall.y, wall.x, wall.width, "front"),

@@ -93,6 +93,11 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
             NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
             NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
+            NeighborhoodWall(2380, 101, 112, 44, "abandoned-car", height=36),
+            NeighborhoodWall(2140, 1019, 112, 44, "abandoned-car", height=36),
+            # The wrecks cut across the eastern road. The house side has a narrow bypass.
+            NeighborhoodWall(3332, 730, 112, 44, "abandoned-car", height=36),
+            NeighborhoodWall(3468, 752, 112, 44, "abandoned-car", height=36),
             NeighborhoodWall(578, 458, 60, 34, "dumpster", height=28),
             NeighborhoodWall(1768, 1008, 60, 34, "dumpster", height=28),
             NeighborhoodWall(2668, 1775, 60, 34, "dumpster", height=28),

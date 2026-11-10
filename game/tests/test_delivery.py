@@ -28,8 +28,9 @@ class DeliveryTests(unittest.TestCase):
 
     def test_both_town_routes_can_complete_delivery(self):
         main = TOWN_ROADS["main"][0]["points"]
+        detour = TOWN_ROADS["main_detour"]["points"]
         routes = {
-            "main road": ((PLAYER_START[0], main[0][1]), *main[1:]),
+            "main road with detour": ((PLAYER_START[0], main[0][1]), *main[1:-1], *detour, main[-1]),
             "alleys": TOWN_ROADS["alleys"][0]["points"],
         }
         for name, waypoints in routes.items():
@@ -52,7 +53,7 @@ class DeliveryTests(unittest.TestCase):
 
     def test_large_street_props_block_movement_and_cast_a_shadow(self):
         world = self.world
-        for texture in ("parked-car", "dumpster"):
+        for texture in ("parked-car", "dumpster", "abandoned-car"):
             with self.subTest(texture=texture):
                 wall = next(wall for wall in world.walls if wall.texture == texture)
                 y = wall.y + wall.depth / 2
@@ -62,6 +63,25 @@ class DeliveryTests(unittest.TestCase):
                 self.assertAlmostEqual(walker.x, wall.x - PLAYER_RADIUS)
                 light = Flashlight(start, 0, world.walls, world.world_size)
                 self.assertFalse(light.contains((wall.x + wall.width + 18, y)))
+
+    def test_wreck_closes_the_entire_main_road_to_direct_travel(self):
+        world = self.world
+        road = TOWN_ROADS["main"][0]
+        road_x = road["points"][1][0]
+        half_width = road["width"] / 2
+        start, end = TOWN_ROADS["main_detour"]["points"][::3]
+        for x in (road_x - half_width, road_x, road_x + half_width):
+            with self.subTest(x=x):
+                player = Player(x, start[1])
+                move_player(player, 0, 1, (end[1] - start[1]) / WALK_SPEED,
+                            world.walls, world_size=world.world_size)
+                self.assertAlmostEqual(player.y, 730 - PLAYER_RADIUS)
+        for x in (3456, world.world_size[0] - PLAYER_RADIUS):
+            with self.subTest(east_margin=x):
+                player = Player(x, start[1])
+                move_player(player, 0, 1, (end[1] - start[1]) / WALK_SPEED,
+                            world.walls, world_size=world.world_size)
+                self.assertLess(player.y, 752)
 
     def test_interaction_cannot_reach_through_wall(self):
         world = self.world
