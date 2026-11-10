@@ -701,8 +701,9 @@ class Renderer:
                 self.font.draw(left + 4, bottom + 9, symbol, color)
 
             self.draw_lit_region((left, bottom - 2, 19, 23), draw_status)
-        if (attack is not None and attack.facing == "front_right" and attack.hit_target is zombie
-                and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
+        if (attack is not None and attack.facing == "front_right"
+                and attack.elapsed < attack.hit_time + HIT_MARK_DURATION
+                and any(target is zombie for target in attack.hit_targets)):
             x, y = x - 12 * scale, y + 83 * scale
 
             def draw_hit():

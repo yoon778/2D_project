@@ -76,7 +76,7 @@ class Attack:
     _hit_done: bool = False
     landed: bool = False
     stationary_front_right: bool = False
-    hit_target: Zombie | None = field(default=None, init=False)
+    hit_targets: tuple[Zombie, ...] = field(default=(), init=False)
 
     @property
     def hit_time(self) -> float:
@@ -133,22 +133,19 @@ class CombatWorld:
             for zombie in self.zombies:
                 zombie.attack = None
 
-    def _strike_target(self, angle):
-        nearest = None
-        reach = ATTACK_RANGE + _EPSILON
+    def _strike_targets(self, angle):
         for zombie in self.zombies:
             if not zombie.alive:
                 continue
             dx, dy = zombie.x - self.player.x, zombie.y - self.player.y
             distance = math.hypot(dx, dy)
-            if distance > reach or (nearest is not None and distance == reach):
+            if distance > ATTACK_RANGE + _EPSILON:
                 continue
             if distance > _EPSILON and abs(math.remainder(
                     math.atan2(dy, dx) - angle, math.tau)) > ATTACK_HALF_ANGLE + _EPSILON:
                 continue
             if self._player_line_clear(zombie):
-                nearest, reach = zombie, distance
-        return nearest
+                yield zombie
 
     def _player_line_clear(self, zombie):
         player = (self.player.x, self.player.y)
@@ -261,20 +258,19 @@ class CombatWorld:
     def _advance_player_attack(self, dt):
         attack = self.attack
         if attack is None:
-            return False
+            return ()
         hit_time, duration = attack.hit_time, attack.duration
         end = attack.elapsed + dt
         for boundary in (hit_time, duration):
             if abs(end - boundary) <= _EPSILON:
                 end = boundary
-        hit = None
+        hits = ()
         if not attack._hit_done and end >= hit_time:
             attack._hit_done = True
-            hit = self._strike_target(attack.angle)
-            if hit is not None:
+            hits = attack.hit_targets = tuple(self._strike_targets(attack.angle))
+            attack.landed = bool(hits)
+            for hit in hits:
                 hit.hp -= 1
-                attack.landed = True
-                attack.hit_target = hit
                 hit.stun_remaining = STUN_DURATION
                 hit.attack = None
                 if hit.alive:
@@ -285,7 +281,7 @@ class CombatWorld:
         attack.elapsed = min(duration, end)
         if attack.elapsed >= duration:
             self.attack = None
-        return hit
+        return hits
 
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False):
         self.player.moved = False
@@ -376,11 +372,11 @@ class CombatWorld:
         for zombie in self.zombies:
             if zombie.alive:
                 self._perceive_player(zombie)
-        hit = self._advance_player_attack(dt)
+        hits = self._advance_player_attack(dt)
         for zombie in self.zombies:
             if self.result != "playing":
                 break
-            if zombie.alive and zombie is not hit:
+            if zombie.alive and (not hits or not any(zombie is hit for hit in hits)):
                 self._advance_zombie(zombie, dt)
                 if self.player_hp <= 0:
                     self._resolve_result()

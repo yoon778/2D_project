@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from game.combat import ATTACK_HIT_TIME, Zombie
+from game.combat import ATTACK_HIT_TIME, STUN_DURATION, Zombie, ZombieAttack
 from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player
 from game.delivery import DeliveryWorld, PLAYER_START, TOWN_ROADS, ZOMBIE_START, ZOMBIE_STARTS
 from game.flashlight import Flashlight
@@ -120,17 +120,37 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(world.zombie.hp, 0)
         self.assertTrue(world.interact())
 
-    def test_attack_hits_only_nearest_zombie_in_reach_and_facing(self):
+    def test_one_swing_hits_each_eligible_zombie_once_at_the_same_time(self):
         world = self.world
         world.player.x, world.player.y, world.player.aim_angle = (1000, 1100, 0.0)
-        farther, behind, nearest = Zombie(1060, 1100), Zombie(970, 1100), Zombie(1040, 1100)
-        world.zombies = [farther, behind, nearest]
+        world.walls = [Wall(1020, 1110, 5, 25)]
+        farther = Zombie(1062, 1087, attack=ZombieAttack(math.pi, "left"))
+        nearer = Zombie(1042, 1101, attack=ZombieAttack(math.pi, "left"))
+        excluded = [
+            Zombie(1100, 1100, stun_remaining=STUN_DURATION),  # Out of reach
+            Zombie(1030, 1054, stun_remaining=STUN_DURATION),  # Outside the swing angle
+            Zombie(1050, 1129, stun_remaining=STUN_DURATION),  # Behind the wall
+            Zombie(1035, 1094, hp=0),
+        ]
+        world.zombies = [farther, *excluded, nearer]
         self.assertTrue(world.start_attack())
-        world.update(ATTACK_HIT_TIME)
-        self.assertIs(world.attack.hit_target, nearest)
-        self.assertEqual([zombie.hp for zombie in world.zombies], [5, 5, 4])
-        self.assertEqual(farther.stun_remaining, 0.0)
-        self.assertGreater(nearest.stun_remaining, 0.0)
+        world.update(ATTACK_HIT_TIME - 0.01)
+        self.assertEqual((farther.hp, nearer.hp), (5, 5))
+        self.assertIsNotNone(farther.attack)
+        self.assertIsNotNone(nearer.attack)
+
+        world.update(0.01)
+        self.assertTrue(world.attack.landed)
+        self.assertEqual(len(world.attack.hit_targets), 2)
+        self.assertIs(world.attack.hit_targets[0], farther)
+        self.assertIs(world.attack.hit_targets[1], nearer)
+        for zombie in (farther, nearer):
+            self.assertEqual(zombie.hp, 4)
+            self.assertEqual(zombie.stun_remaining, STUN_DURATION)
+            self.assertIsNone(zombie.attack)
+
+        world.update(0.05)
+        self.assertEqual([zombie.hp for zombie in world.zombies], [4, 5, 5, 5, 0, 4])
 
     def test_noise_is_investigated_independently_across_a_wall(self):
         world = self.world
