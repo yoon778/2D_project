@@ -25,7 +25,7 @@ GROUND_X = 160.0
 GROUND_Y = 90.0
 GROUND_SCALE_Y = 0.60
 WALL_HEIGHT = 110
-DELIVERY_CHARACTER_SCALE = 0.6375
+DELIVERY_CHARACTER_SCALE = 0.60
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
@@ -40,6 +40,7 @@ WALL_TEXTURE_SIZES = {
     "bus-stop": [70, 50],
 }
 HOUSE_FOUNDATION_HEIGHT = 8
+ROOF_LIGHT_BAND = 24
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
 TRASH_CAN_POSITION = (365.0, 300.0)
@@ -90,9 +91,9 @@ def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stati
     return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp") else item[1].y))
 
 
-def lit_zombie_columns(light, zombie, screen_origin_x):
+def lit_sprite_columns(light, depth, screen_origin_x):
     return tuple((math.ceil(left + screen_origin_x - 0.5), math.ceil(right + screen_origin_x - 0.5))
-                 for left, right in light.spans_at(zombie.y))
+                 for left, right in light.spans_at(depth))
 
 
 def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0)):
@@ -103,7 +104,7 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         if not visual.zombie_contains(zombie, x + shake[0], y + shake[1], mouse_x, screen_y):
             continue
         if light is not None and not any(left <= mouse_x < right for left, right in
-                                         lit_zombie_columns(light, zombie, x - zombie.x + shake[0])):
+                                         lit_sprite_columns(light, zombie.y, x - zombie.x + shake[0])):
             continue
         # A wall drawn in front can cover the upper part of a lit sprite.
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
@@ -150,9 +151,7 @@ def wall_covers(wall, left, bottom, x, y):
                for plane in house_planes(wall, left, bottom))
 
 
-def wall_edge_spans(wall, outline, *, side=False):
-    axis = 0 if side else 1
-    boundary = wall.x + wall.width if side else wall.y
+def wall_edge_spans(wall, outline, axis, boundary):
     start = end = None
     for point, hit in outline:
         if hit is wall and abs(point[axis] - boundary) < 1e-7:
@@ -166,6 +165,10 @@ def wall_edge_spans(wall, outline, *, side=False):
             start = end = None
     if start is not None and start != end:
         yield sorted((start, end))
+
+
+def quad(x, y, width, height):
+    return ((x, y), (x + width, y), (x + width, y + height), (x, y + height))
 
 
 def rectangle(x, y, width, height, color, filled=True):
@@ -222,6 +225,9 @@ class Renderer:
                 key = f"{wall.texture}-side"
                 if key not in self.neighborhood_walls:
                     self.neighborhood_walls[key] = load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", WALL_TEXTURE_SIZES[key])
+        for image in self.neighborhood_walls.values():
+            if p.SDL_SetTextureBlendMode(image.texture, p.SDL_BLENDMODE_BLEND) != 0:
+                raise RuntimeError(f"Wall blend mode failed: {p.SDL_GetError()!r}")
         self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
         self.reset_streetlights()
 
@@ -433,90 +439,70 @@ class Renderer:
         depth = wall.depth * GROUND_SCALE_Y
         if x >= WINDOW_WIDTH or x + wall.width <= 0 or y >= WINDOW_HEIGHT or y + height + depth <= 0:
             return
-        spans = [(x + start - wall.x, x + end - wall.x) for outline in outlines
-                 for start, end in wall_edge_spans(wall, outline)]
-        image = self.neighborhood_walls.get(wall.texture) if isinstance(wall, NeighborhoodWall) else None
-        if image is not None and wall.oblique:
-            self.draw_oblique_house(wall, image, x, y, outlines, spans)
-            return
-        if image is not None:
-            self.draw_textured_wall(image, x, y, wall.width, height, depth, spans)
-            return
-        rectangle(x, y, wall.width, height, (12, 14, 18))
-        rectangle(x, y + height, wall.width, depth, (16, 18, 22))
-        for start, end in spans:
-            rectangle(start, y, end - start, height, (53, 47, 40))
-        rectangle(x, y, wall.width, height, (27, 30, 36), filled=False)
-        rectangle(x, y + height, wall.width, depth, (27, 30, 36), filled=False)
 
-    def draw_oblique_house(self, wall, image, x, y, outlines, front_spans):
-        front, side, roof = house_planes(wall, x, y)
-        side_image = self.neighborhood_walls[f"{wall.texture}-side"]
-        seam = (image.h - round(wall.height / 2)) / image.h
-        depth = wall.depth * GROUND_SCALE_Y
-        for base_height, shade in ((depth + HOUSE_FOUNDATION_HEIGHT, (24, 28, 31)),
-                                   (HOUSE_FOUNDATION_HEIGHT, (40, 43, 44))):
-            right, top = x + wall.width, y + base_height
-            base = ((x, y), (right, y), (right, top), (x, top))
-            self.draw_house_plane(None, base, 0, 1, shade)
-        side_x, rear_x = side[0][0], side[1][0]
-        slope = (rear_x - side_x) / wall.depth
-        side_spans = [(side_x + (start - wall.y) * slope, side_x + (end - wall.y) * slope)
-                      for outline in outlines for start, end in wall_edge_spans(wall, outline, side=True)]
-        self.draw_house_plane(image, roof, 0, seam, (99, 109, 124))
-        self.draw_house_plane(image, front, seam, 1, (60, 65, 74), front_spans, (178, 147, 105))
-        self.draw_house_plane(side_image, side, 0, 1, (90, 99, 109), side_spans, (155, 131, 103))
+        textured = isinstance(wall, NeighborhoodWall)
+        image = self.neighborhood_walls.get(wall.texture) if textured else None
+        oblique = image is not None and wall.oblique
+        if oblique:
+            front, side, roof = house_planes(wall, x, y)
+            foundation = quad(x, y, wall.width, depth + HOUSE_FOUNDATION_HEIGHT)
+            for plane in (foundation, front, side, roof):
+                self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0))
+        else:
+            front = quad(x, y, wall.width, height)
+            roof = quad(x, y + height, wall.width, depth)
+            self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0))
 
-    def draw_house_plane(self, image, points, top, bottom, shade, spans=(), lit=None):
-        uv = ((0, bottom), (1, bottom), (1, top), (0, top))
-        vertices = (p.SDL_Vertex * 4)(*(
-            p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - y), p.SDL_Color(*shade, 255), p.SDL_FPoint(*coord))
-            for (x, y), coord in zip(points, uv)))
+        seam = (image.h - round(height / 2)) / image.h if image is not None else 0.5
+        front_band = min(1, ROOF_LIGHT_BAND / depth)
+        side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
+        facade_shade = (178, 147, 105) if image is not None else (53, 47, 40)
+        roof_shade = (140, 123, 102) if image is not None else (45, 41, 38)
+        for axis, boundary, offset, length, edge in (
+            (1, wall.y, wall.x, wall.width, "front"),
+            (1, wall.y + wall.depth, wall.x, wall.width, "back"),
+            (0, wall.x, wall.y, wall.depth, "left"),
+            (0, wall.x + wall.width, wall.y, wall.depth, "right"),
+        ):
+            for outline in outlines:
+                for low, high in wall_edge_spans(wall, outline, axis, boundary):
+                    start = max(0, (low - offset) / length)
+                    end = min(1, (high - offset) / length)
+                    if start >= end:
+                        continue
+                    if edge == "front":
+                        self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1))
+                        roof_bounds = (start, 0, end, front_band)
+                        roof_alpha = (255, 255, 0, 0)
+                    elif edge == "back":
+                        roof_bounds = (start, 1 - front_band, end, 1)
+                        roof_alpha = (0, 0, 255, 255)
+                    elif edge == "left":
+                        roof_bounds = (0, start, side_band, end)
+                        roof_alpha = (255, 0, 0, 255)
+                    else:
+                        roof_bounds = (1 - side_band, start, 1, end)
+                        roof_alpha = (0, 255, 255, 0)
+                        if oblique:
+                            side_image = self.neighborhood_walls[f"{wall.texture}-side"]
+                            self.draw_wall_plane(side_image, side, 0, 1, (155, 131, 103), (start, 0, end, 1))
+                    self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha)
+
+    def draw_wall_plane(self, image, points, top, bottom, shade, bounds=(0, 0, 1, 1), *,
+                        alpha=(255, 255, 255, 255)):
+        left, near, right, far = bounds
+        a, b, c, d = points
+        vertices = (p.SDL_Vertex * 4)()
+        for i, (u, v) in enumerate(((left, near), (right, near), (right, far), (left, far))):
+            # Crop in surface coordinates so diagonal edges and texture pixels stay aligned.
+            x, y = ((1 - v) * (a[axis] + u * (b[axis] - a[axis]))
+                    + v * (d[axis] + u * (c[axis] - d[axis])) for axis in (0, 1))
+            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - y), p.SDL_Color(*shade, alpha[i]),
+                                       p.SDL_FPoint(u, bottom + v * (top - bottom)))
         triangles = (ctypes.c_int * 6)(0, 1, 2, 0, 2, 3)
         texture = image.texture if image is not None else None
-
-        def draw():
-            if p.SDL_RenderGeometry(p.renderer, texture, vertices, 4, triangles, 6) != 0:
-                raise RuntimeError(f"House geometry failed: {p.SDL_GetError()!r}")
-
-        draw()
-        if spans:
-            for vertex in vertices:
-                vertex.color = p.SDL_Color(*lit, 255)
-            try:
-                for start, end in spans:
-                    left, right = math.ceil(start - .5), math.ceil(end - .5)
-                    if left < right:
-                        clip = p.SDL_Rect(left, 0, right - left, WINDOW_HEIGHT)
-                        p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
-                        draw()
-            finally:
-                p.SDL_RenderSetClipRect(p.renderer, None)
-
-    def draw_textured_wall(self, image, x, y, width, height, depth, spans):
-        # Stretch the roof to the ground depth and keep facade features at wall height.
-        facade_px = round(height / 2)
-        center_x = x + width / 2
-        base = round(y)
-        roof_height = round(y + depth) - base
-        facade_y = base + height / 2
-        try:
-            p.SDL_SetTextureColorMod(image.texture, 72, 79, 91)
-            image.clip_draw(0, facade_px, image.w, image.h - facade_px,
-                            center_x, base + height + roof_height / 2, width, roof_height)
-            p.SDL_SetTextureColorMod(image.texture, 48, 54, 62)
-            image.clip_draw(0, 0, image.w, facade_px, center_x, facade_y, width, height)
-            p.SDL_SetTextureColorMod(image.texture, 178, 147, 105)
-            for start, end in spans:
-                left, right = math.ceil(start - .5), math.ceil(end - .5)
-                if left >= right:
-                    continue
-                clip = p.SDL_Rect(left, WINDOW_HEIGHT - base - height, right - left, height)
-                p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
-                image.clip_draw(0, 0, image.w, facade_px, center_x, facade_y, width, height)
-        finally:
-            p.SDL_RenderSetClipRect(p.renderer, None)
-            p.SDL_SetTextureColorMod(image.texture, 255, 255, 255)
+        if p.SDL_RenderGeometry(p.renderer, texture, vertices, 4, triangles, 6) != 0:
+            raise RuntimeError(f"Wall geometry failed: {p.SDL_GetError()!r}")
 
     def update_sprint_pulse(self, dt, position=None):
         if position is not None:
@@ -539,20 +525,45 @@ class Renderer:
             if visible[index] and visible[index + 1]:
                 p.draw_line(*self.project(*start), *self.project(*end), *color)
 
+    def draw_lit_columns(self, position, left, width, draw):
+        x, _ = self.project(*position)
+        columns = lit_sprite_columns(self.light, position[1], x - position[0])
+        columns = [(max(0, start), min(WINDOW_WIDTH, end)) for start, end in columns
+                   if start < left + width and end > left]
+        if not columns:
+            return
+        try:
+            for start, end in columns:
+                if start < end:
+                    clip = p.SDL_Rect(start, 0, end - start, WINDOW_HEIGHT)
+                    p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
+                    draw(start, end)
+        finally:
+            p.SDL_RenderSetClipRect(p.renderer, None)
+
+    def draw_lit_prop(self, position, image):
+        x, y = self.project(*position)
+        self.draw_lit_columns(position, x - image.w, image.w * 2,
+                              lambda *_: image.draw(x, y + image.h, image.w * 2, image.h * 2))
+
     def draw_station(self, position, pickup):
         x, y = self.project(*position)
-        if pickup:
-            rectangle(x - 14, y, 28, 23, (138, 86, 47))
-            rectangle(x - 14, y + 23, 28, 8, (186, 132, 76))
-            rectangle(x - 3, y + 11, 6, 20, (226, 185, 106))
-            label = "수령"
-        else:
-            rectangle(x - 17, y, 34, 43, (37, 100, 96))
-            rectangle(x - 17, y + 43, 34, 5, (86, 155, 145))
-            rectangle(x - 11, y + 25, 22, 5, (11, 29, 34))
-            label = "배달"
-        rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
-        self.font.draw(x + 26, y + 37, label, ORANGE if pickup else TEAL)
+
+        def draw_box(*_):
+            if pickup:
+                rectangle(x - 14, y, 28, 23, (138, 86, 47))
+                rectangle(x - 14, y + 23, 28, 8, (186, 132, 76))
+                rectangle(x - 3, y + 11, 6, 20, (226, 185, 106))
+            else:
+                rectangle(x - 17, y, 34, 43, (37, 100, 96))
+                rectangle(x - 17, y + 43, 34, 5, (86, 155, 145))
+                rectangle(x - 11, y + 25, 22, 5, (11, 29, 34))
+
+        half_width = 14 if pickup else 17
+        self.draw_lit_columns(position, x - half_width, half_width * 2 + 1, draw_box)
+        if self.light.contains(position):
+            rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
+            self.font.draw(x + 26, y + 37, "수령" if pickup else "배달", ORANGE if pickup else TEAL)
 
     def draw_delivery_hud(self):
         delivery = self.delivery
@@ -576,26 +587,16 @@ class Renderer:
             self.font.draw(24, 538, guide, WHITE)
 
     def draw_lit_zombie(self, zombie, combat, attack):
-        x, y = self.project(zombie.x, zombie.y)
-        columns = lit_zombie_columns(self.light, zombie, x - zombie.x)
-        if not columns:
-            return
+        position = (zombie.x, zombie.y)
+        x, y = self.project(*position)
         left, _, width, _ = self.combat_visual.zombie_rect(zombie, x, y)
-        if not any(start < left + width and end > left for start, end in columns):
-            return
-        # Keep the projection and pixel sampling of the original sprite.
-        try:
-            for start, end in columns:
-                start, end = max(0, start), min(WINDOW_WIDTH, end)
-                if start >= end or start >= left + width or end <= left:
-                    continue
-                clip = p.SDL_Rect(start, 0, end - start, WINDOW_HEIGHT)
-                p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
-                self.combat_visual.draw_zombie(zombie, x, y)
-                if start <= x < end:
-                    self.draw_zombie_markers(zombie, combat, attack, x, y)
-        finally:
-            p.SDL_RenderSetClipRect(p.renderer, None)
+
+        def draw_sprite(start, end):
+            self.combat_visual.draw_zombie(zombie, x, y)
+            if start <= x < end:
+                self.draw_zombie_markers(zombie, combat, attack, x, y)
+
+        self.draw_lit_columns(position, left, width, draw_sprite)
 
     def draw_zombie_markers(self, zombie, combat, attack, x, y):
         scale = self.combat_visual.display_scale
@@ -639,16 +640,11 @@ class Renderer:
                                             station=delivery.next_stop if delivery is not None else None,
                                             lamps=(lamp.origin for lamp in lamps)):
             if kind == "prop":
-                if self.light.contains(actor):
-                    x, y = self.project(*actor)
-                    self.trash_can.draw(x, y + self.trash_can.h, self.trash_can.w * 2, self.trash_can.h * 2)
+                self.draw_lit_prop(actor, self.trash_can)
             elif kind == "station":
-                if self.light.contains(actor):
-                    self.draw_station(actor, delivery.parcel == "waiting")
+                self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "lamp":
-                x, y = self.project(*actor)
-                image = self.streetlamp_image
-                image.draw(x, y + image.h, image.w * 2, image.h * 2)
+                self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "wall":
                 self.wall(actor, outlines)
             elif kind == "zombie":
