@@ -419,8 +419,10 @@ class Renderer:
                              ((TOWN_ROADS["main_detour"],), alley_color)):
             for road in roads:
                 points = road["points"]
-                half_width = road["width"] / 2
-                for (ax, ay), (bx, by) in zip(points, points[1:]):
+                segments = [(a, b, road["width"]) for a, b in zip(points, points[1:])]
+                segments.extend((point, point, road["width"] + 10) for point in road.get("junctions", ()))
+                for (ax, ay), (bx, by), road_width in segments:
+                    half_width = road_width / 2
                     west = max(0, min(ax, bx) - half_width)
                     south = max(0, min(ay, by) - half_width)
                     east = min(width, max(ax, bx) + half_width)

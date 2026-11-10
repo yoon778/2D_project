@@ -76,11 +76,27 @@ function southwestBlock() {
   rect(216, 291, 1, 22, [174, 168, 150])
   rect(241, 291, 1, 22, [124, 122, 110])
 
-  slabs(image, 0, 313, 369, 11)
-  grain(image, 0, 324, 369, 25, [109, 113, 117], 1.5)
-  rect(0, 324, 369, 1, [199, 192, 169])
-  rect(0, 325, 369, 1, [129, 124, 113])
-  rect(0, 348, 369, 1, [151, 149, 137])
+  const mainRoad = roads.main[0]
+  const center = mainRoad.points[0][1]
+  const northEdge = height - Math.round((center + mainRoad.width / 2) * .3)
+  const southEdge = height - Math.round((center - mainRoad.width / 2) * .3)
+  const startAlley = roads.alleys[0]
+  const [, mouthY] = startAlley.junctions[0]
+  const mouthTop = height - Math.round((mouthY + startAlley.width / 2 + 5) * .3)
+  // The hand-drawn alley flares by 10 world pixels before it meets the sidewalk.
+  for (let y = mouthTop; y < northEdge - 11; y++) {
+    const extra = Math.min(5, y - mouthTop + 1)
+    const west = 114 - Math.floor(extra / 2)
+    const east = west + 40 + extra
+    grain(image, west, y, east - west + 1, 1, [149, 146, 135], 1.5)
+    point(west, y, [178, 168, 148])
+    point(east, y, [111, 111, 102])
+  }
+  slabs(image, 0, northEdge - 11, 369, 11)
+  grain(image, 0, northEdge, 369, southEdge - northEdge, [109, 113, 117], 1.5)
+  rect(0, northEdge, 369, 1, [199, 192, 169])
+  rect(0, northEdge + 1, 369, 1, [129, 124, 113])
+  rect(0, southEdge - 1, 369, 1, [151, 149, 137])
   for (let x = 12; x < 360; x += 43) rect(x, 335, 18, 1, [191, 181, 150])
   for (const x of [38, 103, 251]) {
     rect(x, 328, 7, 1, [99, 104, 110])
@@ -122,6 +138,10 @@ function paintRoutes(image, routes, extra, color, strength = 0) {
       const left = route.open_start && i === 1 ? ax : Math.min(ax, bx) - half
       worldRect(image, left, Math.min(ay, by) - half,
         Math.max(ax, bx) + half, Math.max(ay, by) + half, color, strength)
+    }
+    const junctionHalf = half + 5
+    for (const [x, y] of route.junctions ?? []) {
+      worldRect(image, x - junctionHalf, y - junctionHalf, x + junctionHalf, y + junctionHalf, color, strength)
     }
   }
 }
@@ -183,9 +203,11 @@ function ground() {
     old.data.copy(data, ((row + 360) * width) * 3, row * rowBytes, (row + 1) * rowBytes)
   }
 
-  // Keep the original approach intact and start both road additions at its far edges.
+  // Continue the original approach with the same road width past its far edges.
   const {main, alleys, main_detour} = roads
-  const pavedAlleys = [...alleys, main_detour]
+  const [startAlley, ...otherAlleys] = alleys
+  // The first alley mouth is painted in the southwest block above.
+  const pavedAlleys = [{...startAlley, junctions: startAlley.junctions.slice(1)}, ...otherAlleys, main_detour]
   const approaches = [
     {points: [[1958, 1000], [1958, 1041]], width: 40},
     {points: [[2280, 1720], [2280, 1760]], width: 42},

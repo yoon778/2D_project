@@ -112,21 +112,18 @@ class DeliveryTests(unittest.TestCase):
     def test_wreck_closes_the_entire_main_road_to_direct_travel(self):
         world = self.world
         road = TOWN_ROADS["main"][0]
+        self.assertEqual(road["width"], 100)
         road_x = road["points"][1][0]
-        half_width = road["width"] / 2
+        west_edge = int(road_x - road["width"] / 2)
+        east_limit = int(world.world_size[0] - PLAYER_RADIUS)
         start, end = TOWN_ROADS["main_detour"]["points"][::3]
-        for x in (road_x - half_width, road_x, road_x + half_width):
+        # Check both paved edges, the gap between cars and the east map margin.
+        for x in range(west_edge, east_limit + 1):
             with self.subTest(x=x):
                 player = Player(x, start[1])
                 move_player(player, 0, 1, (end[1] - start[1]) / WALK_SPEED,
                             world.walls, world_size=world.world_size)
-                self.assertAlmostEqual(player.y, 730 - PLAYER_RADIUS)
-        for x in (3456, world.world_size[0] - PLAYER_RADIUS):
-            with self.subTest(east_margin=x):
-                player = Player(x, start[1])
-                move_player(player, 0, 1, (end[1] - start[1]) / WALK_SPEED,
-                            world.walls, world_size=world.world_size)
-                self.assertLess(player.y, 752)
+                self.assertLess(player.y, end[1])
 
     def test_interaction_cannot_reach_through_wall(self):
         world = self.world
