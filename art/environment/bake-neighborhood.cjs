@@ -466,6 +466,38 @@ function house(width, roofHeight, palette, doorX, windows) {
 }
 
 
+function houseSide(wall, trim, masonry) {
+  const image = texture(56, 55)
+  const {width, rect} = image
+  if (masonry) {
+    brick(image, 0, 55, wall)
+  } else {
+    grain(image, 0, 0, width, 55, wall)
+    for (let y = 5; y < 50; y += 5) {
+      rect(0, y, width, 1, shade(wall, -22))
+      rect(0, y + 1, width, 1, shade(wall, 10))
+    }
+  }
+  rect(0, 0, width, 2, shade(trim, -14))
+  rect(0, 2, width, 3, shade(wall, -31))
+  rect(0, 50, width, 5, [93, 98, 89])
+  rect(0, 50, width, 1, [126, 125, 110])
+  rect(0, 3, 1, 47, shade(trim, -34))
+  rect(width - 2, 4, 2, 46, shade(wall, -25))
+  windowFrame(image, 28, 18, 12, 15, shade(trim, -13))
+  if (masonry) {
+    rect(46, 5, 2, 43, [84, 87, 80])
+    rect(45, 5, 1, 42, [134, 132, 114])
+    rect(43, 47, 5, 2, [79, 85, 79])
+  } else {
+    rect(7, 30, 6, 7, [96, 105, 97])
+    rect(8, 30, 4, 2, [155, 162, 147])
+    rect(11, 37, 1, 11, [108, 114, 105])
+  }
+  return image
+}
+
+
 function fence() {
   const image = texture(50, 23)
   const {rect} = image
@@ -515,6 +547,8 @@ async function main() {
       roof: [145, 109, 98], wall: [157, 126, 110], trim: [195, 179, 152],
       door: [111, 90, 69], chimney: [159, 125, 106], tile: 'clay', windowWidth: 17,
     }, 62, [13, 37, 96, 116])),
+    save('west-house-side', houseSide([138, 146, 128], [204, 193, 162], false)),
+    save('east-house-side', houseSide([142, 113, 100], [195, 179, 152], true)),
     save('fence', fence()),
     save('shop', shop()),
     save('workshop', workshop()),

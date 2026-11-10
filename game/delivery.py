@@ -51,6 +51,7 @@ _EAST_HOUSES = (
 class NeighborhoodWall(Wall):
     texture: str
     height: int = 110
+    oblique: bool = False
 
 
 class DeliveryWorld(CombatWorld):
@@ -70,8 +71,8 @@ class DeliveryWorld(CombatWorld):
         self.player = Player(*PLAYER_START)
         self.zombies = [Zombie(*position) for position in ZOMBIE_STARTS]
         self.walls = [
-            NeighborhoodWall(88, 305, 140, 190, "west-house"),
-            NeighborhoodWall(310, 225, 275, 200, "east-house"),
+            NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
+            NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
             NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
             *(NeighborhoodWall(*building, "workshop") for building in _BUILDINGS),
             *(NeighborhoodWall(x, y, 140, 190, "west-house") for x, y in _WEST_HOUSES),

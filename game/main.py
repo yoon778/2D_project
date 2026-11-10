@@ -32,11 +32,14 @@ NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
 WALL_TEXTURE_SIZES = {
     "west-house": [70, 112],
     "east-house": [138, 115],
+    "west-house-side": [56, 55],
+    "east-house-side": [56, 55],
     "workshop": [100, 100],
     "fence": [50, 23],
     "shop": [130, 103],
     "bus-stop": [70, 50],
 }
+HOUSE_FOUNDATION_HEIGHT = 8
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
 TRASH_CAN_POSITION = (365.0, 300.0)
@@ -106,8 +109,7 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
         for wall in world.walls:
             left, bottom = world_to_screen(wall.x, wall.y, camera)
-            if (wall.y < zombie.y and left <= wx < left + wall.width
-                    and bottom <= wy < bottom + wall_height(wall) + wall.depth * GROUND_SCALE_Y):
+            if wall.y < zombie.y and wall_covers(wall, left, bottom, wx, wy):
                 break
         else:
             return position
@@ -118,13 +120,46 @@ def wall_height(wall):
     return wall.height if isinstance(wall, NeighborhoodWall) else WALL_HEIGHT
 
 
-def wall_front_spans(wall, outline):
+def house_planes(wall, x, y):
+    depth = wall.depth * GROUND_SCALE_Y
+    inset = round(min(wall.width * .26, depth * .42))
+    near_right = x + wall.width - inset
+    far_right = x + wall.width
+    top = y + wall.height
+    return (
+        ((x, y), (near_right, y), (near_right, top), (x, top)),
+        ((near_right, y), (far_right, y + depth), (far_right, top + depth), (near_right, top)),
+        ((x, top), (near_right, top), (far_right, top + depth), (x + inset, top + depth)),
+    )
+
+
+def wall_covers(wall, left, bottom, x, y):
+    oblique = isinstance(wall, NeighborhoodWall) and wall.oblique
+    if oblique:
+        # SDL fills triangles at the pixel center.
+        x, y = x + .5, y + .5
+    if not (left <= x < left + wall.width and bottom <= y < bottom + wall_height(wall) + wall.depth * GROUND_SCALE_Y):
+        return False
+    if not oblique:
+        return True
+    if y < bottom + wall.depth * GROUND_SCALE_Y + HOUSE_FOUNDATION_HEIGHT:
+        return True
+    # The projected house planes are convex and ordered counterclockwise.
+    return any(all((bx - ax) * (y - ay) >= (by - ay) * (x - ax)
+                   for (ax, ay), (bx, by) in zip(plane, (*plane[1:], plane[0])))
+               for plane in house_planes(wall, left, bottom))
+
+
+def wall_edge_spans(wall, outline, *, side=False):
+    axis = 0 if side else 1
+    boundary = wall.x + wall.width if side else wall.y
     start = end = None
-    for (x, y), hit in outline:
-        if hit is wall and abs(y - wall.y) < 1e-7:
+    for point, hit in outline:
+        if hit is wall and abs(point[axis] - boundary) < 1e-7:
+            position = point[1 - axis]
             if start is None:
-                start = x
-            end = x
+                start = position
+            end = position
         elif start is not None:
             if start != end:
                 yield sorted((start, end))
@@ -183,6 +218,10 @@ class Renderer:
             if isinstance(wall, NeighborhoodWall) and wall.texture not in self.neighborhood_walls:
                 self.neighborhood_walls[wall.texture] = load_atlas(
                     NEIGHBORHOOD_PATH / f"{wall.texture}.png", WALL_TEXTURE_SIZES[wall.texture])
+            if isinstance(wall, NeighborhoodWall) and wall.oblique:
+                key = f"{wall.texture}-side"
+                if key not in self.neighborhood_walls:
+                    self.neighborhood_walls[key] = load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", WALL_TEXTURE_SIZES[key])
         self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
         self.reset_streetlights()
 
@@ -395,8 +434,11 @@ class Renderer:
         if x >= WINDOW_WIDTH or x + wall.width <= 0 or y >= WINDOW_HEIGHT or y + height + depth <= 0:
             return
         spans = [(x + start - wall.x, x + end - wall.x) for outline in outlines
-                 for start, end in wall_front_spans(wall, outline)]
+                 for start, end in wall_edge_spans(wall, outline)]
         image = self.neighborhood_walls.get(wall.texture) if isinstance(wall, NeighborhoodWall) else None
+        if image is not None and wall.oblique:
+            self.draw_oblique_house(wall, image, x, y, outlines, spans)
+            return
         if image is not None:
             self.draw_textured_wall(image, x, y, wall.width, height, depth, spans)
             return
@@ -406,6 +448,50 @@ class Renderer:
             rectangle(start, y, end - start, height, (53, 47, 40))
         rectangle(x, y, wall.width, height, (27, 30, 36), filled=False)
         rectangle(x, y + height, wall.width, depth, (27, 30, 36), filled=False)
+
+    def draw_oblique_house(self, wall, image, x, y, outlines, front_spans):
+        front, side, roof = house_planes(wall, x, y)
+        side_image = self.neighborhood_walls[f"{wall.texture}-side"]
+        seam = (image.h - round(wall.height / 2)) / image.h
+        depth = wall.depth * GROUND_SCALE_Y
+        for base_height, shade in ((depth + HOUSE_FOUNDATION_HEIGHT, (24, 28, 31)),
+                                   (HOUSE_FOUNDATION_HEIGHT, (40, 43, 44))):
+            right, top = x + wall.width, y + base_height
+            base = ((x, y), (right, y), (right, top), (x, top))
+            self.draw_house_plane(None, base, 0, 1, shade)
+        side_x, rear_x = side[0][0], side[1][0]
+        slope = (rear_x - side_x) / wall.depth
+        side_spans = [(side_x + (start - wall.y) * slope, side_x + (end - wall.y) * slope)
+                      for outline in outlines for start, end in wall_edge_spans(wall, outline, side=True)]
+        self.draw_house_plane(image, roof, 0, seam, (99, 109, 124))
+        self.draw_house_plane(image, front, seam, 1, (60, 65, 74), front_spans, (178, 147, 105))
+        self.draw_house_plane(side_image, side, 0, 1, (90, 99, 109), side_spans, (155, 131, 103))
+
+    def draw_house_plane(self, image, points, top, bottom, shade, spans=(), lit=None):
+        uv = ((0, bottom), (1, bottom), (1, top), (0, top))
+        vertices = (p.SDL_Vertex * 4)(*(
+            p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - y), p.SDL_Color(*shade, 255), p.SDL_FPoint(*coord))
+            for (x, y), coord in zip(points, uv)))
+        triangles = (ctypes.c_int * 6)(0, 1, 2, 0, 2, 3)
+        texture = image.texture if image is not None else None
+
+        def draw():
+            if p.SDL_RenderGeometry(p.renderer, texture, vertices, 4, triangles, 6) != 0:
+                raise RuntimeError(f"House geometry failed: {p.SDL_GetError()!r}")
+
+        draw()
+        if spans:
+            for vertex in vertices:
+                vertex.color = p.SDL_Color(*lit, 255)
+            try:
+                for start, end in spans:
+                    left, right = math.ceil(start - .5), math.ceil(end - .5)
+                    if left < right:
+                        clip = p.SDL_Rect(left, 0, right - left, WINDOW_HEIGHT)
+                        p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
+                        draw()
+            finally:
+                p.SDL_RenderSetClipRect(p.renderer, None)
 
     def draw_textured_wall(self, image, x, y, width, height, depth, spans):
         # Stretch the roof to the ground depth and keep facade features at wall height.
