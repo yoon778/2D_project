@@ -15,6 +15,7 @@ import main
 import combat_visual
 from combat import CombatWorld, STUN_DURATION
 from combat_visual import CombatVisual, METADATA_PATH
+from flashlight import Flashlight, LightField
 import test_visual_input_r1a as input_fixture
 
 
@@ -28,10 +29,10 @@ def combat_metadata():
     return metadata
 
 
-def zombie_body_point(visual, zombie, foot):
+def zombie_body_point(visual, zombie, foot, target_row=35):
     frame = visual._zombie_frame(zombie)
     scale = visual.metadata["zombie"]["scale"]
-    row = min(map(int, frame["opaque_rows"]), key=lambda value: abs(value - 35))
+    row = min(map(int, frame["opaque_rows"]), key=lambda value: abs(value - target_row))
     start, end = max(frame["opaque_rows"][str(row)], key=lambda span: span[1] - span[0])
     left, bottom, _, _ = combat_visual.sprite_rect(
         *foot, frame["clip_topleft"], frame["foot_pivot_topleft"], frame["clip_topleft"][3] * scale)
@@ -125,6 +126,29 @@ class CombatSpriteTests(unittest.TestCase):
         world.zombie.hp = 0
         self.assertEqual(main.mouse_target(world, self.visual, *sdl), main.sdl_to_world(*sdl))
 
+    def test_diagonal_light_clips_different_rows_at_the_same_x_for_drawing_and_picking(self):
+        world = CombatWorld()
+        world.walls = []
+        world.zombie.x, world.zombie.y = 470, 260
+        beam = Flashlight((200, 100), math.pi / 4, [])
+        light = LightField((beam,))
+        visual = SimpleNamespace(zombie_contains=Mock(return_value=True))
+        camera, shake = (120, 40), (3, -2)
+
+        def project(x, y):
+            sx, sy = main.world_to_screen(x, y, camera)
+            return sx + shake[0], sy + shake[1]
+
+        rows = main.light_screen_rows(light.lights, project)
+        x, y = map(round, project(470, 260))
+        near_row = main.WINDOW_HEIGHT - 1 - y
+        far_row = near_row - 42
+        self.assertTrue(any(left <= x < right for left, right in rows[near_row]))
+        self.assertFalse(any(left <= x < right for left, right in rows[far_row]))
+        self.assertEqual(main.mouse_target(world, visual, x, near_row, light, camera, shake), (470, 260))
+        self.assertEqual(main.mouse_target(world, visual, x, far_row, light, camera, shake),
+                         main.sdl_to_world(x, far_row, camera))
+
     def test_zombie_stun_and_dead_states_use_separate_authored_cells(self):
         zombie = CombatWorld().zombie
         zombie.aim_angle = -math.pi / 4
@@ -193,7 +217,8 @@ class CombatInputTests(unittest.TestCase):
         visual.metadata = combat_metadata()
         visual.reset_zombie_animation()
         world = CombatWorld()
-        x, y = zombie_body_point(visual, world.zombie, main.world_to_screen(world.zombie.x, world.zombie.y))
+        foot = main.world_to_screen(world.zombie.x, world.zombie.y)
+        x, y = zombie_body_point(visual, world.zombie, foot, target_row=63)
         _, states = self.observe([("click", round(x), round(main.WINDOW_HEIGHT - 1 - y))], {1: [("quit",)]})
         self.assertIsNotNone(states[0]["attack"])
         self.assertEqual(states[0]["target"], (600, 100))

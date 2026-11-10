@@ -103,9 +103,34 @@ def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stati
     return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp") else item[1].y))
 
 
-def lit_sprite_columns(light, depth, screen_origin_x):
-    return tuple((math.ceil(left + screen_origin_x - 0.5), math.ceil(right + screen_origin_x - 0.5))
-                 for left, right in light.spans_at(depth))
+def light_screen_rows(lights, project):
+    """Rasterize the same projected outlines used by the ground light."""
+    rows = [[] for _ in range(WINDOW_HEIGHT)]
+    for light in lights:
+        points = [project(*point) for point in (light.origin, *(point for point, _ in light.outline()))]
+        crossings = {}
+        for (ax, ay), (bx, by) in zip(points, (*points[1:], points[0])):
+            ay, by = WINDOW_HEIGHT - 1 - ay, WINDOW_HEIGHT - 1 - by
+            start = max(0, math.ceil(min(ay, by) - .5))
+            end = min(WINDOW_HEIGHT, math.ceil(max(ay, by) - .5))
+            if start >= end:
+                continue
+            slope = (bx - ax) / (by - ay)
+            for row in range(start, end):
+                x = math.ceil(ax + (row + .5 - ay) * slope - .5)
+                crossings.setdefault(row, []).append(max(0, min(WINDOW_WIDTH, x)))
+        for row, edges in crossings.items():
+            edges.sort()
+            rows[row].extend((left, right) for left, right in zip(edges[::2], edges[1::2]) if left < right)
+    for row, spans in enumerate(rows):
+        merged = []
+        for left, right in sorted(spans):
+            if merged and left <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], right))
+            else:
+                merged.append((left, right))
+        rows[row] = merged
+    return rows
 
 
 def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0)):
@@ -115,9 +140,10 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         x, y = world_to_screen(*position, camera)
         if not visual.zombie_contains(zombie, x + shake[0], y + shake[1], mouse_x, screen_y):
             continue
-        if light is not None and not any(left <= mouse_x < right for left, right in
-                                         lit_sprite_columns(light, zombie.y, x - zombie.x + shake[0])):
-            continue
+        if light is not None:
+            world_x, depth = screen_to_world(mouse_x + .5 - shake[0], screen_y - .5 - shake[1], camera)
+            if not any(left <= world_x < right for left, right in light.spans_at(depth)):
+                continue
         # A wall drawn in front can cover the upper part of a lit sprite.
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
         for wall in world.walls:
@@ -181,6 +207,29 @@ def wall_edge_spans(wall, outline, axis, boundary):
 
 def quad(x, y, width, height):
     return ((x, y), (x + width, y), (x + width, y + height), (x, y + height))
+
+
+def clip_wall_plane(points, bounds, mask):
+    # Each wall face is a parallelogram. Clip in its UV space to keep the texture aligned.
+    (ax, ay), (bx, by), _, (dx, dy) = points
+    ux, uy, vx, vy = bx - ax, by - ay, dx - ax, dy - ay
+    determinant = ux * vy - uy * vx
+    polygon = [(((x - ax) * vy - (y - ay) * vx) / determinant,
+                (ux * (y - ay) - uy * (x - ax)) / determinant) for x, y in mask]
+    left, near, right, far = bounds
+    for axis, limit, sign in ((0, left, 1), (0, right, -1), (1, near, 1), (1, far, -1)):
+        if not polygon:
+            break
+        clipped = []
+        for a, b in zip((polygon[-1], *polygon[:-1]), polygon):
+            start, end = (a[axis] - limit) * sign, (b[axis] - limit) * sign
+            if (start < 0) != (end < 0):
+                t = start / (start - end)
+                clipped.append(tuple(x + (y - x) * t for x, y in zip(a, b)))
+            if end >= 0:
+                clipped.append(b)
+        polygon = clipped
+    return polygon
 
 
 def rectangle(x, y, width, height, color, filled=True):
@@ -456,7 +505,7 @@ class Renderer:
         finally:
             p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_BLEND)
 
-    def wall(self, wall, outlines):
+    def wall(self, wall, outlines, beam_mask=None):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
         depth = wall.depth * GROUND_SCALE_Y
@@ -488,14 +537,15 @@ class Renderer:
             (0, wall.x, wall.y, wall.depth, "left"),
             (0, wall.x + wall.width, wall.y, wall.depth, "right"),
         ):
-            for outline in outlines:
+            for index, outline in enumerate(outlines):
+                mask = beam_mask if index == 0 else None
                 for low, high in wall_edge_spans(wall, outline, axis, boundary):
                     start = max(0, (low - offset) / length)
                     end = min(1, (high - offset) / length)
                     if start >= end:
                         continue
                     if edge == "front":
-                        self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1))
+                        self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), mask=mask)
                         roof_bounds = (start, 0, end, front_band)
                         roof_alpha = (255, 255, 0, 0)
                     elif edge == "back":
@@ -509,28 +559,37 @@ class Renderer:
                         roof_alpha = (0, 255, 255, 0)
                         if oblique:
                             side_image = self.neighborhood_walls[f"{wall.texture}-side"]
-                            self.draw_wall_plane(side_image, side, 0, 1, (155, 131, 103), (start, 0, end, 1))
+                            self.draw_wall_plane(side_image, side, 0, 1, (155, 131, 103), (start, 0, end, 1), mask=mask)
                     if low_obstacle and edge in ("left", "right"):
                         # Show the end of a low obstacle when approached along the lane.
                         band = side_band * min(1, (end - start) * 2)
                         bounds = (0, 0, band, 1) if edge == "left" else (1 - band, 0, 1, 1)
-                        self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds)
-                    self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha)
+                        self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, mask=mask)
+                    self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha, mask=mask)
 
     def draw_wall_plane(self, image, points, top, bottom, shade, bounds=(0, 0, 1, 1), *,
-                        alpha=(255, 255, 255, 255)):
+                        alpha=(255, 255, 255, 255), mask=None):
         left, near, right, far = bounds
         a, b, c, d = points
-        vertices = (p.SDL_Vertex * 4)()
-        for i, (u, v) in enumerate(((left, near), (right, near), (right, far), (left, far))):
+        coords = (clip_wall_plane(points, bounds, mask) if mask is not None else
+                  ((left, near), (right, near), (right, far), (left, far)))
+        if len(coords) < 3:
+            return
+        vertices = (p.SDL_Vertex * len(coords))()
+        for i, (u, v) in enumerate(coords):
             # Crop in surface coordinates so diagonal edges and texture pixels stay aligned.
+            u, v = max(left, min(right, u)), max(near, min(far, v))
             x, y = ((1 - v) * (a[axis] + u * (b[axis] - a[axis]))
                     + v * (d[axis] + u * (c[axis] - d[axis])) for axis in (0, 1))
-            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - y), p.SDL_Color(*shade, alpha[i]),
+            s, t = (u - left) / (right - left), (v - near) / (far - near)
+            opacity = round((1 - t) * ((1 - s) * alpha[0] + s * alpha[1])
+                            + t * (s * alpha[2] + (1 - s) * alpha[3]))
+            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - y), p.SDL_Color(*shade, opacity),
                                        p.SDL_FPoint(u, bottom + v * (top - bottom)))
-        triangles = (ctypes.c_int * 6)(0, 1, 2, 0, 2, 3)
+        indices = [index for i in range(1, len(coords) - 1) for index in (0, i, i + 1)]
+        triangles = (ctypes.c_int * len(indices))(*indices)
         texture = image.texture if image is not None else None
-        if p.SDL_RenderGeometry(p.renderer, texture, vertices, 4, triangles, 6) != 0:
+        if p.SDL_RenderGeometry(p.renderer, texture, vertices, len(vertices), triangles, len(indices)) != 0:
             raise RuntimeError(f"Wall geometry failed: {p.SDL_GetError()!r}")
 
     def update_sprint_pulse(self, dt, position=None):
@@ -554,33 +613,41 @@ class Renderer:
             if visible[index] and visible[index + 1]:
                 p.draw_line(*self.project(*start), *self.project(*end), *color)
 
-    def draw_lit_columns(self, position, left, width, draw):
-        x, _ = self.project(*position)
-        columns = lit_sprite_columns(self.light, position[1], x - position[0])
-        columns = [(max(0, start), min(WINDOW_WIDTH, end)) for start, end in columns
-                   if start < left + width and end > left]
-        if not columns:
+    def draw_lit_region(self, bounds, draw):
+        left, bottom, width, height = bounds
+        right = min(WINDOW_WIDTH, math.ceil(left + width))
+        left = max(0, math.floor(left))
+        top = max(0, math.floor(WINDOW_HEIGHT - bottom - height - 1))
+        end = min(WINDOW_HEIGHT, math.ceil(WINDOW_HEIGHT - bottom))
+        if left >= right or top >= end:
             return
+        clipped = False
+        previous, first = (), top
         try:
-            for start, end in columns:
-                if start < end:
-                    clip = p.SDL_Rect(start, 0, end - start, WINDOW_HEIGHT)
+            for row in range(top, end + 1):
+                spans = tuple((max(left, a), min(right, b)) for a, b in self.light_rows[row]
+                              if a < right and b > left) if row < end else ()
+                if spans == previous:
+                    continue
+                for start, stop in previous:
+                    clip = p.SDL_Rect(start, first, stop - start, row - first)
                     p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
-                    draw(start, end)
+                    clipped = True
+                    draw()
+                previous, first = spans, row
         finally:
-            p.SDL_RenderSetClipRect(p.renderer, None)
+            if clipped:
+                p.SDL_RenderSetClipRect(p.renderer, None)
 
     def draw_lit_prop(self, position, image):
         x, y = self.project(*position)
-        if x + image.w <= 0 or x - image.w >= WINDOW_WIDTH or y >= WINDOW_HEIGHT or y + image.h * 2 <= 0:
-            return
-        self.draw_lit_columns(position, x - image.w, image.w * 2,
-                              lambda *_: image.draw(x, y + image.h, image.w * 2, image.h * 2))
+        width, height = image.w * 2, image.h * 2
+        self.draw_lit_region((x - image.w, y, width, height), lambda: image.draw(x, y + image.h, width, height))
 
     def draw_station(self, position, pickup):
         x, y = self.project(*position)
 
-        def draw_box(*_):
+        def draw_box():
             if pickup:
                 rectangle(x - 14, y, 28, 23, (138, 86, 47))
                 rectangle(x - 14, y + 23, 28, 8, (186, 132, 76))
@@ -591,7 +658,7 @@ class Renderer:
                 rectangle(x - 11, y + 25, 22, 5, (11, 29, 34))
 
         half_width = 14 if pickup else 17
-        self.draw_lit_columns(position, x - half_width, half_width * 2 + 1, draw_box)
+        self.draw_lit_region((x - half_width, y, half_width * 2 + 1, 32 if pickup else 49), draw_box)
         if self.light.contains(position):
             rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
             self.font.draw(x + 26, y + 37, "수령" if pickup else "배달", ORANGE if pickup else TEAL)
@@ -618,29 +685,32 @@ class Renderer:
             self.font.draw(24, 538, guide, WHITE)
 
     def draw_lit_zombie(self, zombie, combat, attack):
-        position = (zombie.x, zombie.y)
-        x, y = self.project(*position)
-        left, _, width, _ = self.combat_visual.zombie_rect(zombie, x, y)
-
-        def draw_sprite(start, end):
-            self.combat_visual.draw_zombie(zombie, x, y)
-            if start <= x < end:
-                self.draw_zombie_markers(zombie, combat, attack, x, y)
-
-        self.draw_lit_columns(position, left, width, draw_sprite)
+        x, y = self.project(zombie.x, zombie.y)
+        bounds = self.combat_visual.zombie_rect(zombie, x, y)
+        self.draw_lit_region(bounds, lambda: self.combat_visual.draw_zombie(zombie, x, y))
+        self.draw_zombie_markers(zombie, combat, attack, x, y)
 
     def draw_zombie_markers(self, zombie, combat, attack, x, y):
         scale = self.combat_visual.display_scale
         if combat.result == "playing" and zombie.alive and zombie.state in ZOMBIE_MARKS:
             symbol, color = ZOMBIE_MARKS[zombie.state]
-            rectangle(x + 24 * scale, y + 96 * scale, 18, 18, (16, 24, 28))
-            self.font.draw(x + 24 * scale + 4, y + 96 * scale + 9, symbol, color)
+            left, bottom = x + 24 * scale, y + 96 * scale
+
+            def draw_status():
+                rectangle(left, bottom, 18, 18, (16, 24, 28))
+                self.font.draw(left + 4, bottom + 9, symbol, color)
+
+            self.draw_lit_region((left, bottom - 2, 19, 23), draw_status)
         if (attack is not None and attack.facing == "front_right" and attack.hit_target is zombie
                 and attack.elapsed < attack.hit_time + HIT_MARK_DURATION):
             x, y = x - 12 * scale, y + 83 * scale
-            p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
-            p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
-            p.draw_line(x + 4, y + 4, x + 9, y + 2, *WHITE)
+
+            def draw_hit():
+                p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
+                p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
+                p.draw_line(x + 4, y + 4, x + 9, y + 2, *WHITE)
+
+            self.draw_lit_region((x - 9, y, 20, 10), draw_hit)
 
     def draw(self, player, walls, target, focused=True):
         if self.map_open:
@@ -655,7 +725,15 @@ class Renderer:
         beam = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls, world_size)
         lamps = tuple(self.streetlights_in_view())
         self.light = LightField((beam, *lamps))
+        self.light_rows = light_screen_rows(self.light.lights, self.project)
         beam_outline = beam.outline()
+        # The ground cone ends at a wall's foot. Use the beam's shape before that collision
+        # to clip the visible face, while the hit outline still selects which face gets light.
+        open_beam = Flashlight(origin, beam.angle, (), world_size)
+        beam_mask = []
+        for point in (origin, *(point for point, _ in open_beam.outline())):
+            x, y = self.project(*point)
+            beam_mask.append((x, y + 1))
         lamp_outlines = tuple(lamp.outline() for lamp in lamps)
         self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53))
         self.draw_streetlight_pools(lamps, lamp_outlines)
@@ -680,7 +758,7 @@ class Renderer:
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "wall":
-                self.wall(actor, outlines)
+                self.wall(actor, outlines, beam_mask)
             elif kind == "zombie":
                 self.draw_lit_zombie(actor, combat, attack)
             else:
