@@ -209,6 +209,48 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(south.target, north.target)
         self.assertNotEqual(south.investigation_route[0], north.investigation_route[0])
 
+    def test_quiet_steps_do_not_alert_a_zombie_behind_a_wall(self):
+        for sneak, expected in ((True, "idle"), (False, "investigate")):
+            with self.subTest(sneak=sneak):
+                world = DeliveryWorld()
+                world.player = Player(150, 100, 0)
+                world.walls = [Wall(110, 130, 220, 5)]
+                world.zombies = [Zombie(186, 160)]
+                world.update(0.8, 1, 0, sneak=sneak)
+                self.assertEqual(world.zombie.state, expected)
+                if sneak:
+                    self.assertIsNone(world.zombie.target)
+
+    def test_sneaking_is_55_pixels_per_second_in_all_directions_and_still_visible(self):
+        for axis_x, axis_y in ((1, 0), (-1, 0), (-1, 1)):
+            with self.subTest(direction=(axis_x, axis_y)):
+                world = DeliveryWorld()
+                world.player = Player(500, 500, 0)
+                world.walls = []
+                world.zombies = [Zombie(500, 670)]
+                world.update(1.0, axis_x, axis_y, sprint=True, sneak=True)
+                self.assertAlmostEqual(math.dist((500, 500), (world.player.x, world.player.y)), 55)
+                self.assertTrue(world.sneaking)
+                self.assertFalse(world.sprinting)
+                self.assertIsNone(world.sprint_step)
+                self.assertEqual(world.stamina, 100)
+                self.assertEqual(world.zombie.state, "chase")
+                world.update(0, axis_x, axis_y, sneak=True)
+                self.assertFalse(world.sneaking)
+
+    def test_quiet_distance_is_not_carried_into_the_next_audible_step(self):
+        world = self.world
+        world.player = Player(150, 100, 0)
+        world.walls = [Wall(110, 130, 220, 5)]
+        world.zombies = [Zombie(240, 160)]
+        world.update(20 / WALK_SPEED, 1, 0)
+        world.update(1, 1, 0, sneak=True)
+        world.update(15 / WALK_SPEED, 1, 0)
+        self.assertEqual(world.zombie.state, "idle")
+        world.update(1 / WALK_SPEED, 1, 0)
+        self.assertEqual(world.zombie.state, "investigate")
+        self.assertAlmostEqual(world.zombie.target[0], 241)
+
     def test_bottle_pickup_throw_limits_and_reset(self):
         world = self.world
         bottle = world.nearby_bottle

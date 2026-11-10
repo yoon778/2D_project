@@ -20,6 +20,7 @@ _STATIONARY_FRONT_RIGHT_DURATION = 0.66
 _STATIONARY_FRONT_RIGHT_HIT_TIME = 0.24
 STUN_DURATION = 0.70
 BACKSTEP_SPEED = 65.0
+SNEAK_SPEED = 55.0
 SPRINT_SPEED = 135.0
 MAX_STAMINA = 100.0
 _SPRINT_DRAIN = 25.0
@@ -105,6 +106,7 @@ class CombatWorld:
         self._footstep_distance = 0.0
         self.sprint_step = None
         self.sprinting = False
+        self.sneaking = False
         self.player_invulnerable_remaining = 0.0
         self.attack = None
         self.result = "playing"
@@ -284,21 +286,23 @@ class CombatWorld:
             self.attack = None
         return hits
 
-    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False):
+    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.player.moved = False
         for zombie in self.zombies:
             zombie.moved = False
             zombie.recoil_offset = (0.0, 0.0)
         self.sprint_step = None
         self.sprinting = False
+        self.sneaking = False
         if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
             return
         player_origin = (self.player.x, self.player.y)
         zombie_origins = [(zombie.x, zombie.y) for zombie in self.zombies]
         facing = select_facing(self.player.aim_angle, facing_hint)
         backstep = is_backstep(facing, axis_x, axis_y)
-        walk_scale = BACKSTEP_SPEED / WALK_SPEED if backstep else 1.0
-        wants_sprint = sprint and not backstep and bool(axis_x or axis_y)
+        walk_speed = BACKSTEP_SPEED if backstep else WALK_SPEED
+        walk_scale = (SNEAK_SPEED if sneak else walk_speed) / WALK_SPEED
+        wants_sprint = sprint and not sneak and not backstep and bool(axis_x or axis_y)
         remaining = min(dt, _MAX_UPDATE_DT)
         # 준비 중 추격/접촉도 진행하며 명중 tick에서는 피격을 먼저 처리한다.
         while remaining > _EPSILON:
@@ -324,21 +328,22 @@ class CombatWorld:
                     tick = min(tick, until_recovered)
             elif wants_sprint and player_attack is None:
                 tick = min(tick, self.stamina / _SPRINT_DRAIN)
-            self._update_tick(tick, axis_x, axis_y, walk_scale, wants_sprint)
+            self._update_tick(tick, axis_x, axis_y, walk_scale, wants_sprint, sneak)
             remaining -= tick
             if self.result != "playing" and self.attack is None:
                 break
         self.player.moved = (self.player.x, self.player.y) != player_origin
+        self.sneaking = bool(sneak and self.player.moved)
         for zombie, origin in zip(self.zombies, zombie_origins):
             zombie.moved = (zombie.x, zombie.y) != origin
 
-    def _move_player_and_update_stamina(self, dt, axis_x, axis_y, walk_scale, wants_sprint):
+    def _move_player_and_update_stamina(self, dt, axis_x, axis_y, walk_scale, wants_sprint, sneak):
         sprinting = wants_sprint and not self._sprint_exhausted and self.attack is None
         if self.attack is None:
             origin = (self.player.x, self.player.y)
             scale = self.sprint_speed / WALK_SPEED if sprinting else walk_scale
             move_player(self.player, axis_x, axis_y, dt * scale, self.walls, world_size=self.world_size)
-            if self.player.moved:
+            if self.player.moved and not sneak:
                 self._footstep_distance += math.dist(origin, (self.player.x, self.player.y))
                 if self._footstep_distance >= _FOOTSTEP_SPACING - 1e-8:
                     self._footstep_distance = max(0.0, self._footstep_distance - _FOOTSTEP_SPACING)
@@ -360,7 +365,7 @@ class CombatWorld:
     def _advance_world_objects(self, dt):
         """Advance mode-specific objects before zombies react to their sounds."""
 
-    def _update_tick(self, dt, axis_x, axis_y, walk_scale, wants_sprint):
+    def _update_tick(self, dt, axis_x, axis_y, walk_scale, wants_sprint, sneak):
         self._resolve_result()
         if self.result != "playing":
             # 처치한 공격의 회복만 끝까지 진행하고 새 입력/이동은 중단한다.
@@ -372,7 +377,7 @@ class CombatWorld:
             return
         immunity = self.player_invulnerable_remaining - dt
         self.player_invulnerable_remaining = immunity if immunity > _EPSILON else 0.0
-        self._move_player_and_update_stamina(dt, axis_x, axis_y, walk_scale, wants_sprint)
+        self._move_player_and_update_stamina(dt, axis_x, axis_y, walk_scale, wants_sprint, sneak)
         self._advance_world_objects(dt)
         for zombie in self.zombies:
             if zombie.alive:

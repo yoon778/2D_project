@@ -839,7 +839,7 @@ class Renderer:
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
         title = "Dead Route  |  골목 배달" if delivery is not None else "Dead Route  |  전투 검수"
-        controls = "WASD 이동 · Shift 달리기 · 마우스 조준 · 좌클릭 공격"
+        controls = "WASD 이동 · Shift 달리기 · Ctrl 잠행 · 마우스 조준 · 좌클릭 공격"
         if delivery is not None:
             controls += " · E 수령/전달 · M 지도 · R 배달 선택"
         else:
@@ -853,6 +853,8 @@ class Renderer:
             stamina_width = round(100 * combat.stamina / MAX_STAMINA)
             if stamina_width:
                 rectangle(116, 585, stamina_width, 10, TEAL)
+            if combat.sneaking:
+                self.font.draw(236, 592, "잠행 · 발소리 없음", TEAL)
             if delivery is not None:
                 self.draw_delivery_hud()
             elif combat.result != "playing":
@@ -1087,7 +1089,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             was_landed = strike is not None and strike.landed
             hp_before = world.player_hp
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
-            world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint)
+            sneak = p.SDLK_LCTRL in pressed or p.SDLK_RCTRL in pressed
+            world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
             if delivery_run and active and pending_interact:

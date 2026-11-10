@@ -233,9 +233,9 @@ class DeliveryWorld(CombatWorld):
         self.has_bottle = False
         return True
 
-    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False):
+    def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.bottle_impact = None
-        super().update(dt, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint)
+        super().update(dt, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
         if self.result != "playing":
             self.bottle_flight = None
 
