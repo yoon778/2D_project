@@ -350,6 +350,7 @@ class Renderer:
             raise
 
     def load_neighborhood(self):
+        self.combat_visual.load_zombie_appearances()
         world_w, world_h = self.delivery.world_size
         self.neighborhood_ground = load_atlas(NEIGHBORHOOD_PATH / "ground.png",
                                               [round(world_w / 2), round(world_h * GROUND_SCALE_Y / 2)])

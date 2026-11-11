@@ -5,11 +5,11 @@ import math
 from pathlib import Path
 
 if __package__:
-    from .combat import ATTACK_RANGE, CombatWorld, Zombie
+    from .combat import ATTACK_RANGE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from .core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from .zombie_navigation import can_walk_direct
 else:
-    from combat import ATTACK_RANGE, CombatWorld, Zombie
+    from combat import ATTACK_RANGE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from zombie_navigation import can_walk_direct
 
@@ -146,8 +146,11 @@ class DeliveryWorld(CombatWorld):
     def reset(self):
         super().reset()
         self.player = Player(*PLAYER_START)
-        self.zombies = [Zombie(*position, aim_angle=0.0) if position == _REAR_ALLEY_GUARD else Zombie(*position)
-                        for position in self.contract.zombie_starts]
+        self.zombies = [
+            Zombie(*position, aim_angle=0.0 if position == _REAR_ALLEY_GUARD else Player.aim_angle,
+                   appearance=ZOMBIE_APPEARANCES[index % len(ZOMBIE_APPEARANCES)])
+            for index, position in enumerate(self.contract.zombie_starts)
+        ]
         self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38)
         self.gate_position = (self.gate.x + self.gate.width / 2, self.gate.y + self.gate.depth / 2)
         self.walls = [

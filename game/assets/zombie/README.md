@@ -17,6 +17,8 @@
 원화는1774×887, 공통등방배율5/28·실제부츠 발점 평행이동으로 native화. 방향별 키 늘이기/압축 없음
 같은 방향 원화의 바지/부츠를 분리해 양발관절을 연결하고 가려진 재질을 복원함. 플레이어는 스타일/카메라 기준이며 좀비에 플레이어 장비를 재사용하지 않음
 
+`maintenance-*`와 `resident-*`는 시설 관리원·주택가 주민 외형임. 각 233개 기본 자세와 96개 공격 자세를 기존 아틀라스의 색면에 맞춰 제작함. 동일 알파·셀·발점이므로 기존 JSON을 공유함. `node art/zombie/bake-zombie-variants.cjs`로 재생성 가능
+
 제작 설정/스크립트는 `art/zombie/`, 런타임은 이 폴더의PNG/JSON만 필요함. 제작 의존성Node.js+sharp, 실행 의존성은 `game/requirements.txt`
 
 ```powershell

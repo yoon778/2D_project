@@ -58,6 +58,8 @@ def runtime_files():
         path, source = metadata_assets(f"zombie/{name}")
         files.add(path)
         add_sprite(files, path.parent, source)
+    files.update(ASSETS / "zombie" / f"{appearance}-{atlas}.png"
+                 for appearance in ("maintenance", "resident") for atlas in ("base", "attack"))
     return files
 
 

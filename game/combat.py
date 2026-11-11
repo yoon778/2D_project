@@ -31,6 +31,7 @@ _HIT_RECOIL_DURATION = 0.10
 _HIT_RECOIL_DISTANCE = 8.0
 ZOMBIE_ATTACK_DURATION = 0.8
 ZOMBIE_ATTACK_HIT_TIME = 0.3
+ZOMBIE_APPEARANCES = ("classic", "maintenance", "resident")
 _EPSILON = 1e-12
 _TIME_STEP = 0.001
 _MAX_UPDATE_DT = 10.0
@@ -65,6 +66,7 @@ class Zombie(Player):
     search_remaining: float = 0.0
     heard_at: tuple[float, float] | None = None
     investigation_route: list[tuple[float, float]] | None = None
+    appearance: str = "classic"
 
     @property
     def alive(self):

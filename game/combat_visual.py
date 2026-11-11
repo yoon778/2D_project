@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pico2d.pico2d as p
 
-from player_visual import PARCEL_OCCLUDED_FACINGS, load_empty_atlas, sprite_rect
-from combat import ATTACK_HIT_TIME, STUN_DURATION, ZOMBIE_ATTACK_DURATION
+from player_visual import PARCEL_OCCLUDED_FACINGS, load_atlas, load_empty_atlas, sprite_rect
+from combat import ATTACK_HIT_TIME, STUN_DURATION, ZOMBIE_APPEARANCES, ZOMBIE_ATTACK_DURATION
 from locomotion import Locomotion, STRIDE_DISTANCE, select_facing
 
 
@@ -63,6 +63,22 @@ class CombatVisual:
         except Exception:
             self.close()
             raise
+
+    def load_zombie_appearances(self):
+        """Load the delivery atlases once and reuse the original pose data."""
+        if f"{ZOMBIE_APPEARANCES[1]}_zombie" in self.images:
+            return
+        images = {}
+        metadata = {}
+        for appearance in ZOMBIE_APPEARANCES[1:]:
+            for source, suffix in (("zombie", "base"), ("zombie_attack", "attack")):
+                key = f"{appearance}_{source}"
+                layout = self.metadata[source]
+                path = ZOMBIE_METADATA_PATH.parent / f"{appearance}-{suffix}.png"
+                images[key] = load_atlas(path, layout["canvas_size"])
+                metadata[key] = layout
+        self.images.update(images)
+        self.metadata.update(metadata)
 
     def _attack_source(self, facing, walking=False):
         name = "attack_walk" if walking else "attack"
@@ -193,31 +209,34 @@ class CombatVisual:
         state.resume = (distance, target)
 
     def _zombie_pose(self, zombie):
-        source = self.metadata["zombie"]
+        prefix = "" if zombie.appearance == "classic" else f"{zombie.appearance}_"
+        base_name = f"{prefix}zombie"
+        source = self.metadata[base_name]
         if not zombie.alive:
-            return "zombie", source["frames"]["dead"]
+            return base_name, source["frames"]["dead"]
         state = self._motion_for(zombie)
         poses = source["facings"][state.locomotion.facing]
         if zombie.stun_remaining > 0:
             # The combat clock alone determines the hit pose; no visual timer.
             for frame in poses["hit"]:
                 if zombie.stun_remaining > STUN_DURATION - frame["end"]:
-                    return "zombie", frame
-            return "zombie", poses["hit"][-1]
+                    return base_name, frame
+            return base_name, poses["hit"][-1]
         attack = zombie.attack
         if attack is not None:
+            attack_name = f"{prefix}zombie_attack"
             facing = state.attack_facing if attack is state.attack else attack.facing
-            for frame in self.metadata["zombie_attack"]["facings"][facing]:
+            for frame in self.metadata[attack_name]["facings"][facing]:
                 if frame["start"] <= attack.elapsed < frame["end"]:
-                    return "zombie_attack", frame
+                    return attack_name, frame
         walk = state.locomotion.walk_frame_index(8)
         resume = poses.get("resume")
         if walk and resume and state.resume is not None:
             distance, target = state.resume
             if target is not None:
                 step = int(distance + _DISTANCE_EPSILON >= _ZOMBIE_RESUME_DISTANCE / 2)
-                return "zombie", resume[target][step]
-        return "zombie", poses["walk"][walk - 1] if walk else poses["idle"]
+                return base_name, resume[target][step]
+        return base_name, poses["walk"][walk - 1] if walk else poses["idle"]
 
     def _zombie_frame(self, zombie):
         return self._zombie_pose(zombie)[1]

@@ -69,6 +69,8 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual(world.parcel, "waiting")
             self.assertEqual(world.destination, contract.destination)
             self.assertEqual(tuple((zombie.x, zombie.y) for zombie in world.zombies), contract.zombie_starts)
+            appearances = [zombie.appearance for zombie in world.zombies]
+            self.assertCountEqual(appearances, ["classic", "maintenance", "resident"] * 8)
             self.assertTrue(world.interact())
             world.player.x, world.player.y = DELIVERY_CONTRACTS[1 - index].destination
             self.assertFalse(world.can_interact())
@@ -76,6 +78,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual((world.parcel, world.result), ("carrying", "playing"))
             world.reset()
             self.assertIs(world.contract, contract)
+            self.assertEqual([zombie.appearance for zombie in world.zombies], appearances)
 
     def test_shop_horde_is_lit_and_the_rear_house_alley_is_dark_and_narrow(self):
         world = self.world
@@ -84,7 +87,9 @@ class DeliveryTests(unittest.TestCase):
                  for position in world.streetlights]
         shop_lamp = next(lamp for lamp in lamps if lamp.origin == (1960, 990))
         self.assertTrue(shop_lamp.contains(world.destination))
-        self.assertEqual(sum(shop_lamp.contains((zombie.x, zombie.y)) for zombie in world.zombies), 5)
+        shop_zombies = [zombie for zombie in world.zombies if shop_lamp.contains((zombie.x, zombie.y))]
+        self.assertEqual(len(shop_zombies), 5)
+        self.assertEqual({zombie.appearance for zombie in shop_zombies}, {"classic", "maintenance", "resident"})
 
         world.select_contract(1)
         self.assertFalse(any(lamp.contains(point) for lamp in lamps

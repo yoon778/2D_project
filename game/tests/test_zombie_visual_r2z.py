@@ -13,7 +13,7 @@ sys.path.insert(0, str(TEST_DIR.parent))
 
 import main
 import combat_visual
-from combat import CombatWorld, STUN_DURATION
+from combat import CombatWorld, STUN_DURATION, Zombie, ZombieAttack
 from combat_visual import CombatVisual
 import test_visual_input_r1a as input_fixture
 
@@ -193,6 +193,51 @@ class ZombiePoseTests(unittest.TestCase):
             self.assertEqual(load.call_count, len(expected))
             visual.close()
             self.assertEqual(visual.images, {})
+
+    def test_delivery_appearances_load_once_and_use_the_same_pose_data(self):
+        def mock_atlas(path, canvas_size):
+            return SimpleNamespace(h=canvas_size[1], clip_draw=Mock())
+
+        visual = self.visual
+        with patch.object(combat_visual, "load_atlas", side_effect=mock_atlas) as load:
+            visual.load_zombie_appearances()
+            for appearance in ("maintenance", "resident"):
+                base_key = f"{appearance}_zombie"
+                attack_key = f"{appearance}_zombie_attack"
+                self.assertIs(visual.metadata[base_key], visual.metadata["zombie"])
+                self.assertIs(visual.metadata[attack_key], visual.metadata["zombie_attack"])
+                for facing, angle in FACINGS:
+                    with self.subTest(appearance=appearance, facing=facing):
+                        visual.reset_zombie_animation()
+                        zombie = Zombie(300, 300, angle, appearance=appearance)
+                        poses = visual.metadata["zombie"]["facings"][facing]
+                        visual.update_zombie(zombie, 9, 0)
+                        self.assertEqual(visual._zombie_pose(zombie), (base_key, poses["walk"][1]))
+                        zombie.stun_remaining = STUN_DURATION
+                        self.assertEqual(visual._zombie_pose(zombie), (base_key, poses["hit"][0]))
+                        zombie.stun_remaining = 0
+                        zombie.attack = ZombieAttack(angle, facing, .3)
+                        frame = visual.metadata["zombie_attack"]["facings"][facing][6]
+                        self.assertEqual(visual._zombie_pose(zombie), (attack_key, frame))
+                        visual.draw_zombie(zombie, 100, 200)
+                        visual.images[attack_key].clip_draw.assert_called()
+                        zombie.hp = 0
+                        self.assertEqual(visual._zombie_pose(zombie),
+                                         (base_key, visual.metadata["zombie"]["frames"]["dead"]))
+            visual.reset_zombie_animation()
+            visual.load_zombie_appearances()
+            self.assertEqual(load.call_count, 4)
+
+    def test_delivery_appearance_atlases_keep_original_alpha(self):
+        for atlas, metadata_path in (("base", combat_visual.ZOMBIE_METADATA_PATH),
+                                     ("attack", combat_visual.ZOMBIE_ATTACK_METADATA_PATH)):
+            source = json.loads(metadata_path.read_text(encoding="utf-8"))
+            original = main.load_wall_alpha(metadata_path.parent / source["image"])
+            for appearance in ("maintenance", "resident"):
+                with self.subTest(appearance=appearance, atlas=atlas):
+                    variant = metadata_path.parent / f"{appearance}-{atlas}.png"
+                    self.assertTrue(main.load_wall_alpha(variant) == original,
+                                    "Variants must keep the original pixel-picking mask")
 
 
 class ZombieQueueTests(unittest.TestCase):
