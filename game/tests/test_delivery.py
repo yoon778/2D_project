@@ -293,6 +293,83 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "idle"])
         self.assertEqual(world.zombie.target, (975, 1000))
 
+    def test_sprint_collision_alarms_each_car_once_and_reset_rearms_it(self):
+        world = self.world
+        for _ in range(2):
+            cars = [wall for wall in world.walls if wall.texture in ("parked-car", "abandoned-car")]
+            self.assertEqual(len(cars), 5)
+            world.walls = cars
+            world.zombies = []
+            for car in cars:
+                with self.subTest(car=(car.x, car.y)):
+                    x = car.x + car.width / 2
+                    world.player = Player(x, car.y - 20, math.pi / 2)
+                    world.update(0.04, 0, 1, sprint=True)
+                    self.assertEqual(world.vehicle_alarm, (x, car.y - PLAYER_RADIUS))
+                    world.update(0.04, 0, 1, sprint=True)
+                    self.assertIsNone(world.vehicle_alarm)
+            world.reset()
+            self.assertIsNone(world.vehicle_alarm)
+
+    def test_vehicle_alarm_reaches_zombies_behind_the_car_up_to_520_pixels(self):
+        world = self.world
+        car = next(wall for wall in world.walls if wall.texture == "parked-car")
+        world.walls = [car]
+        world.player = Player(350, 120, 0)
+        source = (car.x - PLAYER_RADIUS, 120)
+        world.zombies = [Zombie(source[0] + distance, 120) for distance in (520, 521)]
+        world.update(0.04, 1, 0, sprint=True)
+        self.assertEqual(world.vehicle_alarm, source)
+        self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "idle"])
+        self.assertEqual(world.zombie.target, source)
+        self.assertFalse(world._player_line_clear(world.zombie))
+
+    def test_vehicle_alarm_requires_a_blocked_sprint_or_a_bat_hit(self):
+        for case in ("walk", "sneak", "backstep", "exhausted", "parallel", "no input", "wall first"):
+            with self.subTest(case=case):
+                world = DeliveryWorld()
+                car = next(wall for wall in world.walls if wall.texture == "parked-car")
+                world.walls = [car]
+                world.zombies = []
+                world.player = Player(350, 120, math.pi if case == "backstep" else 0)
+                axis = (1, 0)
+                if case == "exhausted":
+                    world.stamina, world._sprint_exhausted = 0, True
+                elif case == "parallel":
+                    world.player = Player(car.x - PLAYER_RADIUS, 120, math.pi / 2)
+                    axis = (0, 1)
+                elif case == "no input":
+                    axis = (0, 0)
+                elif case == "wall first":
+                    world.walls.insert(0, Wall(366, 99, 2, 44))
+                world.update(0.15, *axis, sprint=case != "walk", sneak=case == "sneak")
+                self.assertIsNone(world.vehicle_alarm)
+
+    def test_bat_checks_vehicle_range_and_cover_on_the_locked_impact_ray(self):
+        for case in ("hit", "short", "off aim", "wall first"):
+            with self.subTest(case=case):
+                world = DeliveryWorld()
+                car = next(wall for wall in world.walls if wall.texture == "parked-car")
+                world.walls = [car]
+                world.zombies = []
+                angle = math.pi / 2 if case == "off aim" else 0
+                world.player = Player(299 if case == "short" else 300, 120,
+                                      angle)
+                if case == "wall first":
+                    world.walls.append(Wall(350, 100, 5, 40))
+                self.assertTrue(world.start_attack(stationary_front_right=True))
+                world.player.aim_angle = math.pi
+                world.update(0.239)
+                self.assertIsNone(world.vehicle_alarm)
+                world.update(0.001)
+                self.assertEqual(world.vehicle_alarm, (356, 120) if case == "hit" else None)
+                self.assertFalse(world.attack.landed)
+                world.update(0.42)
+                world.player.aim_angle = angle
+                self.assertTrue(world.start_attack())
+                world.update(ATTACK_HIT_TIME)
+                self.assertIsNone(world.vehicle_alarm)
+
     def test_sneaking_is_55_pixels_per_second_in_all_directions_and_still_visible(self):
         for axis_x, axis_y in ((1, 0), (-1, 0), (-1, 1)):
             with self.subTest(direction=(axis_x, axis_y)):

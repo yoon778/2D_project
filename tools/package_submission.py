@@ -36,7 +36,7 @@ def runtime_files():
                               "parked-car.png", "abandoned-car.png", "dumpster.png", "mailbox.png", "planter.png",
                               "bicycle.png", "trash-bags.png", "metal-bin.png", "recycling-bin.png", "empty-bottle.png"))
     files.update(ASSETS / "audio" / name for name in ("last-delivery.mp3", "zombie_step.wav", "zombie_groan.wav",
-                                                     "bottle_break.wav", "gate_open.wav"))
+                                                     "bottle_break.wav", "gate_open.wav", "vehicle_alarm.wav"))
 
     player_path, player = metadata_assets("player/r1b-courier-atlas-20261104.json")
     files.add(player_path)

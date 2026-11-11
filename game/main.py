@@ -75,6 +75,7 @@ MAP_BUILDING = (20, 30, 34)
 MAP_LANDMARK = (178, 201, 195)
 HIT_MARK_DURATION = 0.06
 NOISE_PULSE_DURATION = 0.24
+VEHICLE_ALARM_DURATION = 1.2
 PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
 ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
 TURN_SPEED = math.radians(450)
@@ -332,6 +333,8 @@ class Renderer:
         self.sprint_pulse_remaining = 0.0
         self.bottle_pulse = None
         self.bottle_pulse_remaining = 0.0
+        self.vehicle_alarm = None
+        self.vehicle_alarm_remaining = 0.0
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
@@ -726,10 +729,19 @@ class Renderer:
         else:
             self.bottle_pulse_remaining = max(0.0, self.bottle_pulse_remaining - dt)
 
-    def draw_noise_pulse(self, position, remaining, color):
+    def update_vehicle_alarm(self, dt, position=None):
+        if position is not None:
+            self.vehicle_alarm = position
+            self.vehicle_alarm_remaining = VEHICLE_ALARM_DURATION
+        else:
+            self.vehicle_alarm_remaining = max(0.0, self.vehicle_alarm_remaining - dt)
+            if not self.vehicle_alarm_remaining:
+                self.vehicle_alarm = None
+
+    def draw_noise_pulse(self, position, remaining, color, *, duration=NOISE_PULSE_DURATION):
         if remaining <= 0:
             return
-        progress = 1.0 - remaining / NOISE_PULSE_DURATION
+        progress = 1.0 - remaining / duration
         radius = 18 + progress * 32
         x, y = position
         points = [(x + radius * dx, y + radius * dy) for dx, dy in PULSE_RING]
@@ -824,6 +836,8 @@ class Renderer:
             if delivery.nearby_bottle is not None:
                 bottle_hint += "  ·  F 줍기"
             self.font.draw(24, 512, bottle_hint, TEAL if delivery.has_bottle else WHITE)
+            if self.vehicle_alarm_remaining > 0:
+                self.font.draw(24, 486, "차량 경보", ORANGE)
 
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
@@ -912,6 +926,8 @@ class Renderer:
         outlines = (beam_outline, *lamp_outlines)
         self.draw_noise_pulse(self.sprint_pulse, self.sprint_pulse_remaining, TEAL)
         self.draw_noise_pulse(self.bottle_pulse, self.bottle_pulse_remaining, ORANGE)
+        self.draw_noise_pulse(self.vehicle_alarm, self.vehicle_alarm_remaining, ORANGE,
+                              duration=VEHICLE_ALARM_DURATION)
         foot = self.project(*origin)
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
@@ -1176,6 +1192,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 renderer.update_shake(math.inf)
                 renderer.update_sprint_pulse(math.inf)
                 renderer.update_bottle_pulse(math.inf)
+                renderer.update_vehicle_alarm(math.inf)
                 target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
                 aim_player(player, *target)
             elif map_toggle and focused and not lost_focus and delivery_run and world.result == "playing":
@@ -1231,10 +1248,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 gate_opened = gate_was_closed and world.gate is None
                 if gate_opened:
                     renderer.reset_streetlights()
-            if active and not reset_requested and world.result == "playing":
-                renderer.update_sprint_pulse(dt, world.sprint_step)
-            else:
-                renderer.update_sprint_pulse(math.inf)
+            hearing_active = active and not reset_requested and world.result == "playing"
+            renderer.update_sprint_pulse(dt if hearing_active else math.inf,
+                                         world.sprint_step if hearing_active else None)
+            vehicle_alarm = world.vehicle_alarm if delivery_run and hearing_active else None
+            renderer.update_vehicle_alarm(dt if hearing_active else math.inf, vehicle_alarm)
             strength = 0
             if world.player_hp < hp_before:
                 strength = 4
@@ -1257,7 +1275,6 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             if music is not None:
                 music.update(dt, distance=distance, focused=active)
             if zombie_audio is not None:
-                hearing_active = active and not reset_requested and world.result == "playing"
                 occluded = hearing_active and nearest_zombie is not None and any(
                     wall_blocks((player.x, player.y), (nearest_zombie.x, nearest_zombie.y), wall)
                     for wall in walls)
@@ -1267,6 +1284,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     zombie_audio.play_bottle_break(math.dist((player.x, player.y), bottle_impact))
                 if gate_opened:
                     zombie_audio.play_gate_open(math.dist((player.x, player.y), world.gate_position))
+                if vehicle_alarm is not None:
+                    zombie_audio.play_vehicle_alarm(math.dist((player.x, player.y), vehicle_alarm))
             dx, dy = player.x - before[0], player.y - before[1]
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]

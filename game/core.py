@@ -1,5 +1,5 @@
 """R1-A ground movement; independent of rendering and SDL."""
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 import math
 
@@ -28,8 +28,9 @@ class Player:
 
 
 def _move_axis(start: float, other: float, delta: float, limit: float,
-               walls: Sequence[Wall], horizontal: bool) -> float:
+               walls: Sequence[Wall], horizontal: bool) -> tuple[float, Wall | None]:
     target = max(PLAYER_RADIUS, min(limit - PLAYER_RADIUS, start + delta))
+    blocker = None
     for wall in walls:
         low, size, across, span = (
             (wall.x, wall.width, wall.y, wall.depth) if horizontal
@@ -41,15 +42,16 @@ def _move_axis(start: float, other: float, delta: float, limit: float,
         # Sweep to circle/rectangle contact, including the rounded corners.
         reach = math.sqrt(PLAYER_RADIUS ** 2 - separation ** 2)
         near, far = low - reach, low + size + reach
-        if delta > 0 and start <= near:
-            target = min(target, near)
-        elif delta < 0 and start >= far:
-            target = max(target, far)
-    return target
+        if delta > 0 and start <= near < target:
+            target, blocker = near, wall
+        elif delta < 0 and start >= far > target:
+            target, blocker = far, wall
+    return target, blocker
 
 
 def move_player(player: Player, axis_x: float, axis_y: float,
-                dt: float, walls: Sequence[Wall], *, world_size=(WORLD_WIDTH, WORLD_HEIGHT)) -> None:
+                dt: float, walls: Sequence[Wall], *, world_size=(WORLD_WIDTH, WORLD_HEIGHT),
+                on_collision: Callable[[Wall], None] | None = None) -> None:
     """Move a valid ground position; invalid dt leaves it unchanged."""
     player.moved = False
     if not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
@@ -66,10 +68,15 @@ def move_player(player: Player, axis_x: float, axis_y: float,
         # Short axis sweeps retain sliding behavior even for a long update.
         tick = min(remaining, PLAYER_RADIUS / (2 * WALK_SPEED))
         before = (player.x, player.y)
-        player.x = _move_axis(player.x, player.y, velocity_x * tick,
-                              world_size[0], walls, True)
-        player.y = _move_axis(player.y, player.x, velocity_y * tick,
-                              world_size[1], walls, False)
+        player.x, x_blocker = _move_axis(player.x, player.y, velocity_x * tick,
+                                        world_size[0], walls, True)
+        player.y, y_blocker = _move_axis(player.y, player.x, velocity_y * tick,
+                                        world_size[1], walls, False)
+        if on_collision is not None:
+            if x_blocker is not None:
+                on_collision(x_blocker)
+            if y_blocker is not None and y_blocker is not x_blocker:
+                on_collision(y_blocker)
         remaining -= tick
         if (player.x, player.y) == before:
             # Constant input cannot escape this static contact in later ticks.

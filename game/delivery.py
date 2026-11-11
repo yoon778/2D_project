@@ -5,12 +5,12 @@ import math
 from pathlib import Path
 
 if __package__:
-    from .combat import CombatWorld, Zombie
-    from .core import PLAYER_RADIUS, Player, Wall, wall_blocks
+    from .combat import ATTACK_RANGE, CombatWorld, Zombie
+    from .core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from .zombie_navigation import can_walk_direct
 else:
-    from combat import CombatWorld, Zombie
-    from core import PLAYER_RADIUS, Player, Wall, wall_blocks
+    from combat import ATTACK_RANGE, CombatWorld, Zombie
+    from core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from zombie_navigation import can_walk_direct
 
 
@@ -29,6 +29,8 @@ ZOMBIE_STARTS = (
 )
 INTERACTION_RANGE = 42.0
 GATE_NOISE_RANGE = 230.0
+VEHICLE_ALARM_RANGE = 520.0
+_VEHICLE_TEXTURES = ("parked-car", "abandoned-car")
 BOTTLE_THROW_RANGE = 320.0
 BOTTLE_NOISE_RANGE = 320.0
 BOTTLE_FLIGHT_TIME = 0.30
@@ -179,6 +181,8 @@ class DeliveryWorld(CombatWorld):
         self.has_bottle = False
         self.bottle_flight = None
         self.bottle_impact = None
+        self.vehicle_alarm = None
+        self._triggered_vehicle_alarms = set()
 
     @property
     def next_stop(self):
@@ -244,9 +248,44 @@ class DeliveryWorld(CombatWorld):
 
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.bottle_impact = None
+        self.vehicle_alarm = None
         super().update(dt, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
         if self.result != "playing":
             self.bottle_flight = None
+
+    def _can_trigger_vehicle_alarm(self, wall):
+        return (isinstance(wall, NeighborhoodWall) and wall.texture in _VEHICLE_TEXTURES
+                and (wall.x, wall.y) not in self._triggered_vehicle_alarms)
+
+    def _trigger_vehicle_alarm(self, wall, position):
+        self._triggered_vehicle_alarms.add((wall.x, wall.y))
+        self.vehicle_alarm = position
+        self._emit_noise(VEHICLE_ALARM_RANGE, position)
+
+    def _on_sprint_collision(self, wall):
+        if self._can_trigger_vehicle_alarm(wall):
+            self._trigger_vehicle_alarm(wall, (self.player.x, self.player.y))
+
+    def _on_attack_impact(self, angle):
+        origin = self.player.x, self.player.y
+        dx, dy = ATTACK_RANGE * math.cos(angle), ATTACK_RANGE * math.sin(angle)
+        end = origin[0] + dx, origin[1] + dy
+        closest, entry = None, math.inf
+        for wall in self.walls:
+            fraction = wall_entry(origin, end, wall)
+            if fraction is not None and fraction < entry:
+                closest, entry = wall, fraction
+        if not self._can_trigger_vehicle_alarm(closest):
+            return
+        # Keep the investigation point on the approachable side of the vehicle.
+        radius = PLAYER_RADIUS
+        padded = Wall(closest.x - radius, closest.y - radius,
+                      closest.width + 2 * radius, closest.depth + 2 * radius)
+        fraction = wall_entry(origin, end, padded)
+        position = (origin[0] + dx * fraction, origin[1] + dy * fraction)
+        if not can_walk_direct(origin, position, self.walls):
+            position = origin
+        self._trigger_vehicle_alarm(closest, position)
 
     def _advance_world_objects(self, dt):
         flight = self.bottle_flight

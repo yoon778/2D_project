@@ -20,7 +20,8 @@ _GROAN_INTERVAL = 3.2
 _ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
 _BOTTLE_SOUND = "bottle_break"
 _GATE_SOUND = "gate_open"
-_EFFECT_VOLUME = {_BOTTLE_SOUND: 82, _GATE_SOUND: 72}
+_VEHICLE_SOUND = "vehicle_alarm"
+_EFFECT_VOLUME = {_BOTTLE_SOUND: 82, _GATE_SOUND: 72, _VEHICLE_SOUND: 76}
 
 
 class BackgroundMusic:
@@ -151,6 +152,9 @@ class ZombieAudio:
 
     def play_gate_open(self, distance):
         self._play_effect(_GATE_SOUND, distance)
+
+    def play_vehicle_alarm(self, distance):
+        self._play_effect(_VEHICLE_SOUND, distance)
 
     def _play_effect(self, kind, distance):
         sound = self._sounds.get(kind)

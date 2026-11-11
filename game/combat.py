@@ -279,6 +279,7 @@ class CombatWorld:
         hits = ()
         if not attack._hit_done and end >= hit_time:
             attack._hit_done = True
+            self._on_attack_impact(attack.angle)
             hits = attack.hit_targets = tuple(self._strike_targets(attack.angle))
             attack.landed = bool(hits)
             for hit in hits:
@@ -294,6 +295,9 @@ class CombatWorld:
         if attack.elapsed >= duration:
             self.attack = None
         return hits
+
+    def _on_attack_impact(self, angle):
+        """Handle mode-specific objects when the swing reaches its contact frame."""
 
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.player.moved = False
@@ -366,7 +370,8 @@ class CombatWorld:
         if self.attack is None:
             origin = (self.player.x, self.player.y)
             scale = self.sprint_speed / WALK_SPEED if sprinting else walk_scale
-            move_player(self.player, axis_x, axis_y, dt * scale, self.walls, world_size=self.world_size)
+            move_player(self.player, axis_x, axis_y, dt * scale, self.walls, world_size=self.world_size,
+                        on_collision=self._on_sprint_collision if sprinting else None)
             if self.player.moved:
                 self._advance_footsteps(math.dist(origin, (self.player.x, self.player.y)), sprinting, sneak)
         self.sprinting = sprinting and self.player.moved
@@ -380,6 +385,9 @@ class CombatWorld:
         if self._sprint_exhausted and self.stamina >= _SPRINT_RECOVERY_THRESHOLD - _STAMINA_EPSILON:
             self.stamina = max(self.stamina, _SPRINT_RECOVERY_THRESHOLD)
             self._sprint_exhausted = False
+
+    def _on_sprint_collision(self, wall):
+        """Handle the obstacle that actually clipped the player's sprint."""
 
     def _advance_world_objects(self, dt):
         """Advance mode-specific objects before zombies react to their sounds."""
