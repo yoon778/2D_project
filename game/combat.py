@@ -35,6 +35,7 @@ _EPSILON = 1e-12
 _TIME_STEP = 0.001
 _MAX_UPDATE_DT = 10.0
 _ZOMBIE_SIGHT_RANGE = 230.0
+_ZOMBIE_NEAR_DETECTION_RANGE = 32.0
 _SEARCH_DURATION = 3.0
 _SEARCH_TURN_SPEED = 1.5
 _FOOTSTEP_SPACING = 36.0
@@ -91,6 +92,7 @@ class Attack:
 class CombatWorld:
     clear_on_zombie_death = True
     sprint_speed = SPRINT_SPEED
+    zombie_sight_half_angle = math.pi
     world_size = (WORLD_WIDTH, WORLD_HEIGHT)
 
     def __init__(self):
@@ -163,7 +165,12 @@ class CombatWorld:
 
     def _perceive_player(self, zombie):
         position = (self.player.x, self.player.y)
-        if (math.dist(position, (zombie.x, zombie.y)) <= _ZOMBIE_SIGHT_RANGE + _EPSILON
+        dx, dy = self.player.x - zombie.x, self.player.y - zombie.y
+        distance = math.hypot(dx, dy)
+        if (distance <= _ZOMBIE_SIGHT_RANGE + _EPSILON
+                and (zombie.state == "chase" or distance <= _ZOMBIE_NEAR_DETECTION_RANGE + _EPSILON
+                     or abs(math.remainder(math.atan2(dy, dx) - zombie.aim_angle, math.tau))
+                     <= self.zombie_sight_half_angle + _EPSILON)
                 and self._player_line_clear(zombie)):
             zombie.state = "chase"
             zombie.target = position

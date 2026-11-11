@@ -723,6 +723,9 @@ class Renderer:
             action = "택배 수령" if delivery.parcel == "waiting" else "택배 전달"
             self.font.draw(520, 56, f"E  {action}", TEAL)
         else:
+            if (delivery.parcel == "carrying" and delivery.contract is DELIVERY_CONTRACTS[1]
+                    and math.dist((delivery.player.x, delivery.player.y), delivery.destination) <= 300):
+                guide = "Q로 병을 던져 유인 · Ctrl 잠행" if delivery.has_bottle else "좀비가 등을 보이면 Ctrl로 통과"
             self.font.draw(24, 538, guide, WHITE)
         if delivery.result == "playing":
             bottle_hint = "빈 병 1/1  ·  Q 던지기" if delivery.has_bottle else "빈 병 0/1"

@@ -32,6 +32,7 @@ BOTTLE_THROW_RANGE = 320.0
 BOTTLE_NOISE_RANGE = 320.0
 BOTTLE_FLIGHT_TIME = 0.30
 _BOTTLE_STARTS = ((177, 127), (610, 628), (1660, 932), (3230, 2070))
+_REAR_ALLEY_GUARD = (3180, 2227)
 
 
 @dataclass(frozen=True)
@@ -52,7 +53,7 @@ DELIVERY_CONTRACTS = (
     DeliveryContract(
         "주택 뒷문", "어둡고 좁은 골목 사이의 배송지",
         (3149.0, 2227.0),
-        (*ZOMBIE_STARTS[:-2], (2865, 2227), (3152, 2157)),
+        (*ZOMBIE_STARTS[:-2], (2865, 2227), _REAR_ALLEY_GUARD),
     ),
 )
 
@@ -116,6 +117,7 @@ _STREET_PROPS = {
 class DeliveryWorld(CombatWorld):
     clear_on_zombie_death = False
     sprint_speed = 210.0
+    zombie_sight_half_angle = math.pi / 3
     world_size = TOWN_SIZE
     pickup = (172.0, 155.0)
     contract = DELIVERY_CONTRACTS[1]
@@ -140,7 +142,8 @@ class DeliveryWorld(CombatWorld):
     def reset(self):
         super().reset()
         self.player = Player(*PLAYER_START)
-        self.zombies = [Zombie(*position) for position in self.contract.zombie_starts]
+        self.zombies = [Zombie(*position, aim_angle=0.0) if position == _REAR_ALLEY_GUARD else Zombie(*position)
+                        for position in self.contract.zombie_starts]
         self.walls = [
             NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
             NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),

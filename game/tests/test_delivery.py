@@ -224,7 +224,7 @@ class DeliveryTests(unittest.TestCase):
                 world = DeliveryWorld()
                 world.player = Player(500, 500, 0)
                 world.walls = []
-                world.zombies = [Zombie(500, 670)]
+                world.zombies = [Zombie(500, 670, aim_angle=-math.pi / 2)]
                 world.update(1.0, axis_x, axis_y, sprint=True, sneak=True)
                 self.assertAlmostEqual(math.dist((500, 500), (world.player.x, world.player.y)), 55)
                 self.assertTrue(world.sneaking)
@@ -234,6 +234,62 @@ class DeliveryTests(unittest.TestCase):
                 self.assertEqual(world.zombie.state, "chase")
                 world.update(0, axis_x, axis_y, sneak=True)
                 self.assertFalse(world.sneaking)
+
+    def test_zombie_uses_facing_range_and_walls_to_discover_player(self):
+        cases = (
+            (60, 230, False, "chase"),
+            (-60, 230, False, "chase"),
+            (60.1, 230, False, "idle"),
+            (0, 230.1, False, "idle"),
+            (180, 32, False, "chase"),
+            (180, 32.1, False, "idle"),
+            (180, 32, True, "idle"),
+        )
+        for angle, distance, blocked, expected in cases:
+            with self.subTest(angle=angle, distance=distance, blocked=blocked):
+                world = DeliveryWorld()
+                angle = math.radians(angle)
+                world.player = Player(500 + distance * math.cos(angle), 500 + distance * math.sin(angle))
+                world.zombies = [Zombie(500, 500, aim_angle=0)]
+                world.walls = [Wall(484, 490, 4, 20)] if blocked else []
+                world.update(0.001)
+                self.assertEqual(world.zombie.state, expected)
+
+    def test_existing_chase_ignores_facing_but_reacquisition_needs_it(self):
+        world = self.world
+        world.player = Player(400, 500)
+        world.zombies = [Zombie(500, 500, aim_angle=0, state="chase", target=(400, 500))]
+        world.walls = []
+        world.update(0.001)
+        self.assertEqual(world.zombie.state, "chase")
+
+        world.walls = [Wall(448, 490, 4, 20)]
+        world.update(0.001)
+        self.assertEqual(world.zombie.state, "investigate")
+
+        world.walls.clear()
+        world.zombie.aim_angle = 0
+        world.update(0.001)
+        self.assertEqual(world.zombie.state, "investigate")
+        world.zombie.aim_angle = math.pi
+        world.update(0.001)
+        self.assertEqual(world.zombie.state, "chase")
+
+    def test_bottle_turns_guard_away_from_sneaking_player(self):
+        world = self.world
+        world.player = Player(500, 500)
+        world.zombies = [Zombie(650, 500, aim_angle=0)]
+        world.walls = []
+        world.bottle_pickups = [(500, 500)]
+        self.assertTrue(world.pick_up_bottle())
+
+        world.update(0.5, 0, 1, sneak=True)
+        self.assertEqual(world.zombie.state, "idle")
+        self.assertTrue(world.throw_bottle((780, 640)))
+        world.update(BOTTLE_FLIGHT_TIME + 0.05, 0, 1, sneak=True)
+
+        self.assertEqual((world.zombie.state, world.zombie.target), ("investigate", (780, 640)))
+        self.assertAlmostEqual(world.zombie.aim_angle, math.atan2(140, 130))
 
     def test_quiet_distance_is_not_carried_into_the_next_audible_step(self):
         world = self.world
