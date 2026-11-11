@@ -17,7 +17,9 @@ class DeliveryTests(unittest.TestCase):
     def test_requires_pickup_and_reaches_success_only_at_destination(self):
         world = self.world
         world.player.x, world.player.y = world.destination
-        self.assertFalse(world.interact())
+        self.assertFalse(world.can_interact())
+        world.interact()
+        self.assertEqual((world.parcel, world.result), ("waiting", "playing"))
         world.player.x, world.player.y = PLAYER_START
         self.assertTrue(world.interact())
         self.assertEqual(world.parcel, "carrying")
@@ -69,7 +71,9 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual(tuple((zombie.x, zombie.y) for zombie in world.zombies), contract.zombie_starts)
             self.assertTrue(world.interact())
             world.player.x, world.player.y = DELIVERY_CONTRACTS[1 - index].destination
-            self.assertFalse(world.interact())
+            self.assertFalse(world.can_interact())
+            world.interact()
+            self.assertEqual((world.parcel, world.result), ("carrying", "playing"))
             world.reset()
             self.assertIs(world.contract, contract)
 
@@ -130,6 +134,55 @@ class DeliveryTests(unittest.TestCase):
         world.walls = [Wall(155, 135, 4, 40)]
         self.assertFalse(world.interact())
         self.assertEqual(world.parcel, "waiting")
+
+    def test_iron_gate_opens_once_and_unblocks_the_rear_alley(self):
+        world = self.world
+        self.assertTrue(world.interact())
+        walls, gate = world.walls, world.gate
+        approach, exit_point = (3165, 2160), (3165, 2227)
+        world.player = Player(3165, 2153)
+        self.assertFalse(world.interact())
+        world.player = Player(*approach)
+        blocker = Wall(3155, 2175, 20, 4)
+        walls.append(blocker)
+        self.assertFalse(world.interact())
+        walls.remove(blocker)
+
+        move_player(world.player, 0, 1, 1, walls, world_size=world.world_size)
+        self.assertEqual(world.player.y, gate.y - PLAYER_RADIUS)
+        self.assertTrue(wall_blocks(approach, exit_point, gate))
+        guard = next(zombie for zombie in world.zombies if (zombie.x, zombie.y) == (3180, 2227))
+        far = Zombie(3396, 2196, aim_angle=0.0)
+        world.zombies = [guard, far]
+        self.assertTrue(world.can_open_gate())
+        self.assertTrue(world.interact())
+        self.assertIs(world.walls, walls)
+        self.assertIsNone(world.gate)
+        self.assertNotIn(gate, walls)
+        self.assertEqual(guard.heard_at, world.gate_position)
+        self.assertIsNone(far.heard_at)
+        world.update(0.001)
+        self.assertEqual((guard.state, guard.target), ("investigate", world.gate_position))
+        self.assertFalse(world.interact())
+        self.assertIsNone(guard.heard_at)
+
+        move_player(world.player, 0, 1, (exit_point[1] - world.player.y) / WALK_SPEED,
+                    walls, world_size=world.world_size)
+        self.assertAlmostEqual(world.player.y, exit_point[1])
+        self.assertTrue(world.interact())
+        self.assertEqual(world.result, "delivered")
+        world.reset()
+        self.assertIn(world.gate, world.walls)
+        self.assertTrue(wall_blocks(approach, exit_point, world.gate))
+
+    def test_delivery_takes_priority_when_both_gate_and_back_door_are_in_reach(self):
+        world = self.world
+        self.assertTrue(world.interact())
+        world.player = Player(3155, 2218)
+        self.assertTrue(world.can_open_gate())
+        self.assertTrue(world.interact())
+        self.assertEqual(world.result, "delivered")
+        self.assertIn(world.gate, world.walls)
 
     def test_zero_health_overrides_delivery_and_reset_restores_run(self):
         world = self.world
@@ -206,7 +259,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(south.target, north.target)
         self.assertNotEqual(south.investigation_route[0], north.investigation_route[0])
 
-    def test_quiet_steps_do_not_alert_a_zombie_behind_a_wall(self):
+    def test_quiet_steps_do_not_alert_a_zombie_outside_their_reduced_range(self):
         for sneak, expected in ((True, "idle"), (False, "investigate")):
             with self.subTest(sneak=sneak):
                 world = DeliveryWorld()
@@ -217,6 +270,28 @@ class DeliveryTests(unittest.TestCase):
                 self.assertEqual(world.zombie.state, expected)
                 if sneak:
                     self.assertIsNone(world.zombie.target)
+
+    def test_quiet_step_can_alert_a_close_zombie_behind_a_wall(self):
+        world = self.world
+        world.player = Player(150, 100, 0)
+        world.walls = [Wall(110, 117, 220, 4)]
+        world.zombies = [Zombie(186, 139), Zombie(186, 141)]
+        world.update(35 / 55, 1, 0, sneak=True)
+        self.assertEqual([zombie.state for zombie in world.zombies], ["idle", "idle"])
+        world.update(1 / 55, 1, 0, sneak=True)
+        self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "idle"])
+        self.assertAlmostEqual(world.zombie.target[0], 186)
+        self.assertEqual(world.zombie.target[1], 100)
+
+    def test_attack_noise_reaches_400_pixels_across_a_wall(self):
+        world = self.world
+        world.player = Player(975, 1000)
+        world.walls = [Wall(1010, 930, 40, 160)]
+        world.zombies = [Zombie(1375, 1000), Zombie(1376, 1000)]
+        self.assertTrue(world.start_attack())
+        world.update(0.01)
+        self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "idle"])
+        self.assertEqual(world.zombie.target, (975, 1000))
 
     def test_sneaking_is_55_pixels_per_second_in_all_directions_and_still_visible(self):
         for axis_x, axis_y in ((1, 0), (-1, 0), (-1, 1)):

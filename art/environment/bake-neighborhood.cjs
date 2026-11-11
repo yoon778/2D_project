@@ -556,6 +556,31 @@ function fence() {
   return image
 }
 
+function ironGate() {
+  const image = texture(25, 23)
+  const {rect, point} = image
+  grain(image, 0, 0, 25, 23, [130, 145, 148], 1.4)
+  rect(0, 0, 25, 2, [178, 183, 174])
+  rect(0, 3, 25, 2, [76, 90, 91])
+  rect(0, 21, 25, 2, [69, 81, 81])
+  for (const x of [4, 7, 10, 14, 17, 20]) {
+    rect(x, 5, 1, 16, [103, 119, 121])
+    rect(x + 1, 5, 1, 16, [150, 161, 159])
+  }
+  for (const [left, right] of [[3, 11], [21, 13]]) {
+    line(image, left, 18, right, 8, [82, 99, 98])
+    line(image, left, 17, right, 7, [159, 170, 163])
+  }
+  for (const x of [0, 12, 23]) rect(x, 4, 2, 19, [67, 82, 82])
+  for (const x of [0, 24]) {
+    rect(x, 0, 1, 22, [158, 158, 145])
+    for (const y of [6, 17]) point(x, y, [204, 179, 137])
+  }
+  rect(10, 12, 6, 3, [79, 75, 61])
+  rect(11, 12, 3, 1, [188, 154, 109])
+  return image
+}
+
 function parkedCar() {
   const image = propTexture(56, 31)
   const {rect} = image
@@ -832,6 +857,7 @@ async function main() {
     save('west-house-side', houseSide([138, 146, 128], [204, 193, 162], false)),
     save('east-house-side', houseSide([142, 113, 100], [195, 179, 152], true)),
     save('fence', fence()),
+    save('iron-gate', ironGate()),
     save('shop', shop()),
     save('workshop', workshop()),
     save('bus-stop', busStop()),

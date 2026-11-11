@@ -19,6 +19,8 @@ _GROAN_DELAY = .4
 _GROAN_INTERVAL = 3.2
 _ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
 _BOTTLE_SOUND = "bottle_break"
+_GATE_SOUND = "gate_open"
+_EFFECT_VOLUME = {_BOTTLE_SOUND: 82, _GATE_SOUND: 72}
 
 
 class BackgroundMusic:
@@ -95,7 +97,7 @@ class ZombieAudio:
         self._groan_in = _GROAN_DELAY
         if p.Mix_QuerySpec(None, None, None) <= 0:
             return
-        for kind in (*_ZOMBIE_VOLUME, _BOTTLE_SOUND):
+        for kind in (*_ZOMBIE_VOLUME, *_EFFECT_VOLUME):
             sound = p.Mix_LoadWAV(str(directory / f"{kind}.wav").encode("utf-8"))
             if sound:
                 self._sounds[kind] = sound
@@ -145,14 +147,21 @@ class ZombieAudio:
                     self._channels[kind] = channel
 
     def play_bottle_break(self, distance):
-        sound = self._sounds.get(_BOTTLE_SOUND)
+        self._play_effect(_BOTTLE_SOUND, distance)
+
+    def play_gate_open(self, distance):
+        self._play_effect(_GATE_SOUND, distance)
+
+    def _play_effect(self, kind, distance):
+        sound = self._sounds.get(kind)
         if sound is None or distance >= _HEARING_RANGE:
             return
-        self._stop_channel(_BOTTLE_SOUND)
-        p.Mix_VolumeChunk(sound, max(1, round(82 * (1.0 - distance / _HEARING_RANGE))))
+        self._stop_channel(kind)
+        gain = 1.0 - distance / _HEARING_RANGE
+        p.Mix_VolumeChunk(sound, max(1, round(_EFFECT_VOLUME[kind] * gain)))
         channel = p.Mix_PlayChannelTimed(-1, sound, 0, -1)
         if channel >= 0:
-            self._channels[_BOTTLE_SOUND] = channel
+            self._channels[kind] = channel
 
     def _stop_channel(self, kind):
         channel = self._channels.pop(kind, None)
@@ -167,7 +176,8 @@ class ZombieAudio:
 
     def stop(self):
         self._stop_zombies()
-        self._stop_channel(_BOTTLE_SOUND)
+        for kind in _EFFECT_VOLUME:
+            self._stop_channel(kind)
 
     def close(self):
         self.stop()

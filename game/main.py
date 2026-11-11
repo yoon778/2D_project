@@ -37,6 +37,7 @@ WALL_TEXTURE_SIZES = {
     "east-house-side": [56, 55],
     "workshop": [100, 100],
     "fence": [50, 23],
+    "iron-gate": [25, 23],
     "shop": [130, 103],
     "bus-stop": [70, 50],
     "parked-car": [56, 31],
@@ -68,6 +69,8 @@ MAP_BORDER = (91, 112, 112)
 MAP_ROAD = (170, 145, 106)
 MAP_ALLEY = (99, 132, 130)
 MAP_WRECK = (177, 101, 77)
+MAP_CLOSED_GATE = (204, 150, 104)
+MAP_OPEN_GATE = (122, 188, 153)
 MAP_BUILDING = (20, 30, 34)
 MAP_LANDMARK = (178, 201, 195)
 HIT_MARK_DURATION = 0.06
@@ -450,6 +453,9 @@ class Renderer:
         for x, color, label in ((496, ORANGE, "수령지"), (608, TEAL, "배송지")):
             rectangle(x, 65, 8, 8, color)
             self.font.draw(x + 16, 69, label, WHITE)
+        if contract is DELIVERY_CONTRACTS[1]:
+            rectangle(720, 67, 10, 4, MAP_CLOSED_GATE)
+            self.font.draw(736, 69, "철문", WHITE)
 
     @staticmethod
     def draw_map_heading(x, y, angle):
@@ -525,6 +531,11 @@ class Renderer:
         label_y = max(bottom + 4, y - 32)
         rectangle(label_x, label_y, label_width, 24, MAP_PANEL)
         self.font.draw(label_x + 8, label_y + 12, destination_label, TEAL)
+        if contract is DELIVERY_CONTRACTS[1]:
+            gate_x, gate_y = map_point(*world.gate_position)
+            gate_closed = player is None or world.gate is not None
+            rectangle(gate_x - 5, gate_y - 7, 10, 4, MAP_INK)
+            rectangle(gate_x - 4, gate_y - 6, 8, 2, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
         if player is not None:
             self.draw_map_heading(*map_point(player.x, player.y), player.aim_angle)
 
@@ -566,6 +577,10 @@ class Renderer:
         ):
             rectangle(side + 36 - w / 2, y - h / 2, w, h, color)
             self.font.draw(side + 62, y, label, WHITE)
+        if world.contract is DELIVERY_CONTRACTS[1]:
+            gate_closed = world.gate is not None
+            rectangle(side + 24, 126, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
+            self.font.draw(side + 62, 128, "철문 · 닫힘" if gate_closed else "철문 · 열림", WHITE)
         self.draw_map_heading(side + 31, 280, 0)
         self.font.draw(side + 62, 280, "현재 위치·방향", WHITE)
         rectangle(64, 40, 29, 27, MAP_PANEL)
@@ -780,6 +795,7 @@ class Renderer:
 
     def draw_delivery_hud(self):
         delivery = self.delivery
+        parcel_in_reach = delivery.can_interact()
         status, guide = {
             "waiting": ("미수령 · 0/1", "남서쪽 거점에서 택배 수령"),
             "carrying": ("소지 중 · 0/1", "M 지도에서 배송지 확인"),
@@ -793,10 +809,12 @@ class Renderer:
             rectangle(425, 303, 430, 112, TEAL if success else ORANGE, filled=False)
             self.font.draw(455, 382, title, TEAL if success else ORANGE)
             self.font.draw(455, 335, "R 배달 선택 · Esc 종료", WHITE)
-        elif delivery.can_interact() and self.light.contains(delivery.next_stop):
+        elif parcel_in_reach and self.light.contains(delivery.next_stop):
             action = "택배 수령" if delivery.parcel == "waiting" else "택배 전달"
             self.font.draw(520, 56, f"E  {action}", TEAL)
         else:
+            if not parcel_in_reach and delivery.can_open_gate():
+                self.font.draw(520, 56, "E  철문 열기 · 소음", ORANGE)
             if (delivery.parcel == "carrying" and delivery.contract is DELIVERY_CONTRACTS[1]
                     and math.dist((delivery.player.x, delivery.player.y), delivery.destination) <= 300):
                 guide = "Q로 병을 던져 유인 · Ctrl 잠행" if delivery.has_bottle else "좀비가 등을 보이면 Ctrl로 통과"
@@ -947,7 +965,7 @@ class Renderer:
         title = "Dead Route  |  골목 배달" if delivery is not None else "Dead Route  |  전투 검수"
         controls = "WASD 이동 · Shift 달리기 · Ctrl 잠행 · 마우스 조준 · 좌클릭 공격"
         if delivery is not None:
-            controls += " · E 수령/전달 · M 지도 · R 배달 선택"
+            controls += " · E 상호작용 · M 지도 · R 배달 선택"
         else:
             controls += " · R 재시작"
         self.font.draw(24, 683, title, WHITE)
@@ -960,7 +978,7 @@ class Renderer:
             if stamina_width:
                 rectangle(116, 585, stamina_width, 10, TEAL)
             if combat.sneaking:
-                self.font.draw(236, 592, "잠행 · 발소리 없음", TEAL)
+                self.font.draw(236, 592, "잠행 · 작은 발소리", TEAL)
             if delivery is not None:
                 self.draw_delivery_hud()
             elif combat.result != "playing":
@@ -1206,8 +1224,13 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
+            gate_opened = False
             if delivery_run and active and pending_interact:
+                gate_was_closed = world.gate is not None
                 world.interact()
+                gate_opened = gate_was_closed and world.gate is None
+                if gate_opened:
+                    renderer.reset_streetlights()
             if active and not reset_requested and world.result == "playing":
                 renderer.update_sprint_pulse(dt, world.sprint_step)
             else:
@@ -1242,6 +1265,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                                     occluded=occluded)
                 if bottle_impact is not None:
                     zombie_audio.play_bottle_break(math.dist((player.x, player.y), bottle_impact))
+                if gate_opened:
+                    zombie_audio.play_gate_open(math.dist((player.x, player.y), world.gate_position))
             dx, dy = player.x - before[0], player.y - before[1]
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]

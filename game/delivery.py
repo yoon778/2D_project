@@ -28,6 +28,7 @@ ZOMBIE_STARTS = (
     (3070, 1740), (2315, 1895), (2765, 2070), (3255, 2080),
 )
 INTERACTION_RANGE = 42.0
+GATE_NOISE_RANGE = 230.0
 BOTTLE_THROW_RANGE = 320.0
 BOTTLE_NOISE_RANGE = 320.0
 BOTTLE_FLIGHT_TIME = 0.30
@@ -145,6 +146,8 @@ class DeliveryWorld(CombatWorld):
         self.player = Player(*PLAYER_START)
         self.zombies = [Zombie(*position, aim_angle=0.0) if position == _REAR_ALLEY_GUARD else Zombie(*position)
                         for position in self.contract.zombie_starts]
+        self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38)
+        self.gate_position = (self.gate.x + self.gate.width / 2, self.gate.y + self.gate.depth / 2)
         self.walls = [
             NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
             NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
@@ -153,7 +156,9 @@ class DeliveryWorld(CombatWorld):
             *(NeighborhoodWall(x, 2260, 110, 12, "fence", height=38)
               for x in (2848, 2958, 3068)),
             NeighborhoodWall(3178, 2260, 72, 12, "fence", height=38),
-            NeighborhoodWall(3125, 2190, 85, 12, "fence", height=38),
+            NeighborhoodWall(3125, 2190, 15, 12, "fence", height=38),
+            self.gate,
+            NeighborhoodWall(3190, 2190, 20, 12, "fence", height=38),
             NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
             NeighborhoodWall(2380, 101, 112, 44, "abandoned-car", height=36),
             NeighborhoodWall(2140, 1019, 112, 44, "abandoned-car", height=36),
@@ -261,10 +266,23 @@ class DeliveryWorld(CombatWorld):
         return (math.dist(origin, stop) <= INTERACTION_RANGE
                 and not any(wall_blocks(origin, stop, wall) for wall in self.walls))
 
+    def can_open_gate(self):
+        if self.gate is None or self.result != "playing" or self.player_hp <= 0:
+            return False
+        origin = (self.player.x, self.player.y)
+        return (math.dist(origin, self.gate_position) <= INTERACTION_RANGE
+                and not any(wall_blocks(origin, self.gate_position, wall)
+                            for wall in self.walls if wall is not self.gate))
+
     def interact(self):
         self._resolve_result()
         if not self.can_interact():
-            return False
+            if not self.can_open_gate():
+                return False
+            self.walls.remove(self.gate)
+            self.gate = None
+            self._emit_noise(GATE_NOISE_RANGE, self.gate_position)
+            return True
         if self.parcel == "waiting":
             self.parcel = "carrying"
         else:

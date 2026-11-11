@@ -39,9 +39,10 @@ _ZOMBIE_NEAR_DETECTION_RANGE = 32.0
 _SEARCH_DURATION = 3.0
 _SEARCH_TURN_SPEED = 1.5
 _FOOTSTEP_SPACING = 36.0
+_SNEAK_NOISE_RANGE = 40.0
 _WALK_NOISE_RANGE = 80.0
 _SPRINT_NOISE_RANGE = 260.0
-_ATTACK_NOISE_RANGE = 480.0
+_ATTACK_NOISE_RANGE = 400.0
 
 
 @dataclass
@@ -106,6 +107,7 @@ class CombatWorld:
         self.stamina = MAX_STAMINA
         self._sprint_exhausted = False
         self._footstep_distance = 0.0
+        self._sneak_step_distance = 0.0
         self.sprint_step = None
         self.sprinting = False
         self.sneaking = False
@@ -344,19 +346,29 @@ class CombatWorld:
         for zombie, origin in zip(self.zombies, zombie_origins):
             zombie.moved = (zombie.x, zombie.y) != origin
 
+    def _advance_footsteps(self, distance, sprinting, sneak):
+        distance += self._sneak_step_distance if sneak else self._footstep_distance
+        stepped = distance >= _FOOTSTEP_SPACING - 1e-8
+        if stepped:
+            distance = max(0.0, distance - _FOOTSTEP_SPACING)
+        if sneak:
+            self._sneak_step_distance = distance
+        else:
+            self._footstep_distance = distance
+        if stepped:
+            radius = _SPRINT_NOISE_RANGE if sprinting else _WALK_NOISE_RANGE
+            self._emit_noise(_SNEAK_NOISE_RANGE if sneak else radius)
+            if sprinting:
+                self.sprint_step = (self.player.x, self.player.y)
+
     def _move_player_and_update_stamina(self, dt, axis_x, axis_y, walk_scale, wants_sprint, sneak):
         sprinting = wants_sprint and not self._sprint_exhausted and self.attack is None
         if self.attack is None:
             origin = (self.player.x, self.player.y)
             scale = self.sprint_speed / WALK_SPEED if sprinting else walk_scale
             move_player(self.player, axis_x, axis_y, dt * scale, self.walls, world_size=self.world_size)
-            if self.player.moved and not sneak:
-                self._footstep_distance += math.dist(origin, (self.player.x, self.player.y))
-                if self._footstep_distance >= _FOOTSTEP_SPACING - 1e-8:
-                    self._footstep_distance = max(0.0, self._footstep_distance - _FOOTSTEP_SPACING)
-                    self._emit_noise(_SPRINT_NOISE_RANGE if sprinting else _WALK_NOISE_RANGE)
-                    if sprinting:
-                        self.sprint_step = (self.player.x, self.player.y)
+            if self.player.moved:
+                self._advance_footsteps(math.dist(origin, (self.player.x, self.player.y)), sprinting, sneak)
         self.sprinting = sprinting and self.player.moved
         if self.sprinting:
             self.stamina = max(0.0, self.stamina - _SPRINT_DRAIN * dt)
