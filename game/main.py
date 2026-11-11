@@ -56,6 +56,7 @@ HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
+ZOMBIE_LIGHT_DEPTH_SCALE = 0.35
 TRASH_CAN_POSITION = (365.0, 300.0)
 WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
@@ -108,34 +109,46 @@ def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stati
                                                else item[1].y))
 
 
-def light_screen_rows(lights, project):
-    """Rasterize the same projected outlines used by the ground light."""
-    rows = [[] for _ in range(WINDOW_HEIGHT)]
-    for light in lights:
-        points = [project(*point) for point in (light.origin, *(point for point, _ in light.outline()))]
-        crossings = {}
-        for (ax, ay), (bx, by) in zip(points, (*points[1:], points[0])):
-            ay, by = WINDOW_HEIGHT - 1 - ay, WINDOW_HEIGHT - 1 - by
-            start = max(0, math.ceil(min(ay, by) - .5))
-            end = min(WINDOW_HEIGHT, math.ceil(max(ay, by) - .5))
-            if start >= end:
-                continue
-            slope = (bx - ax) / (by - ay)
-            for row in range(start, end):
-                x = math.ceil(ax + (row + .5 - ay) * slope - .5)
-                crossings.setdefault(row, []).append(max(0, min(WINDOW_WIDTH, x)))
-        for row, edges in crossings.items():
-            edges.sort()
-            rows[row].extend((left, right) for left, right in zip(edges[::2], edges[1::2]) if left < right)
-    for row, spans in enumerate(rows):
-        merged = []
-        for left, right in sorted(spans):
-            if merged and left <= merged[-1][1]:
-                merged[-1] = (merged[-1][0], max(merged[-1][1], right))
-            else:
-                merged.append((left, right))
-        rows[row] = merged
+def merge_light_spans(spans):
+    merged = []
+    for left, right in sorted(spans):
+        if merged and left <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], right))
+        else:
+            merged.append((left, right))
+    return merged
+
+
+def light_source_rows(light, project):
+    """Rasterize a single projected outline so its wall shadow stays with its light."""
+    points = [project(*point) for point in (light.origin, *(point for point, _ in light.outline()))]
+    crossings = {}
+    for (ax, ay), (bx, by) in zip(points, (*points[1:], points[0])):
+        ay, by = WINDOW_HEIGHT - 1 - ay, WINDOW_HEIGHT - 1 - by
+        start = max(0, math.ceil(min(ay, by) - .5))
+        end = min(WINDOW_HEIGHT, math.ceil(max(ay, by) - .5))
+        if start >= end:
+            continue
+        slope = (bx - ax) / (by - ay)
+        for row in range(start, end):
+            x = math.ceil(ax + (row + .5 - ay) * slope - .5)
+            crossings.setdefault(row, []).append(max(0, min(WINDOW_WIDTH, x)))
+    rows = {}
+    for row, edges in crossings.items():
+        edges.sort()
+        rows[row] = tuple((left, right) for left, right in zip(edges[::2], edges[1::2]) if left < right)
     return rows
+
+
+def combined_light_rows(sources):
+    return [merge_light_spans(span for rows in sources for span in rows.get(row, ()))
+            for row in range(WINDOW_HEIGHT)]
+
+
+def zombie_light_row(row, foot_y):
+    # A standing sprite's height only partially contributes to its ground depth.
+    foot_row = WINDOW_HEIGHT - 1 - foot_y
+    return math.floor(foot_row + (row + .5 - foot_row) * ZOMBIE_LIGHT_DEPTH_SCALE)
 
 
 def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0)):
@@ -146,8 +159,12 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         if not visual.zombie_contains(zombie, x + shake[0], y + shake[1], mouse_x, screen_y):
             continue
         if light is not None:
-            world_x, depth = screen_to_world(mouse_x + .5 - shake[0], screen_y - .5 - shake[1], camera)
-            if not any(left <= world_x < right for left, right in light.spans_at(depth)):
+            sample = zombie_light_row(mouse_y, y + shake[1])
+            world_x, depth = screen_to_world(mouse_x + .5 - shake[0],
+                                              WINDOW_HEIGHT - 1.5 - sample - shake[1], camera)
+            if not any(any(left <= world_x < right for left, right in source.spans_at(zombie.y))
+                       and any(left <= world_x < right for left, right in source.spans_at(depth))
+                       for source in light.lights):
                 continue
         # A wall drawn in front can cover the upper part of a lit sprite.
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
@@ -653,7 +670,7 @@ class Renderer:
             if visible[index] and visible[index + 1]:
                 p.draw_line(*self.project(*start), *self.project(*end), *color)
 
-    def draw_lit_region(self, bounds, draw):
+    def draw_lit_region(self, bounds, draw, *, row_spans=None):
         left, bottom, width, height = bounds
         right = min(WINDOW_WIDTH, math.ceil(left + width))
         left = max(0, math.floor(left))
@@ -661,11 +678,13 @@ class Renderer:
         end = min(WINDOW_HEIGHT, math.ceil(WINDOW_HEIGHT - bottom))
         if left >= right or top >= end:
             return
+        if row_spans is None:
+            row_spans = self.light_rows.__getitem__
         clipped = False
         previous, first = (), top
         try:
             for row in range(top, end + 1):
-                spans = tuple((max(left, a), min(right, b)) for a, b in self.light_rows[row]
+                spans = tuple((max(left, a), min(right, b)) for a, b in row_spans(row)
                               if a < right and b > left) if row < end else ()
                 if spans == previous:
                     continue
@@ -736,10 +755,36 @@ class Renderer:
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
         bounds = self.combat_visual.zombie_rect(zombie, x, y)
-        self.draw_lit_region(bounds, lambda: self.combat_visual.draw_zombie(zombie, x, y))
-        self.draw_zombie_markers(zombie, combat, attack, x, y)
+        row_spans = None
+        if zombie.alive:
+            left, _, width, _ = bounds
+            if left + width <= 0 or left >= WINDOW_WIDTH:
+                return
+            origin_x = x - zombie.x
+            sources = []
+            for light, rows in self.light_sources:
+                columns = [(math.ceil(a + origin_x - .5), math.ceil(b + origin_x - .5))
+                           for a, b in light.spans_at(zombie.y)]
+                if columns:
+                    sources.append((rows, columns))
+            if not sources:
+                return
 
-    def draw_zombie_markers(self, zombie, combat, attack, x, y):
+            def zombie_row_spans(row):
+                sample = zombie_light_row(row, y)
+                spans = []
+                for rows, columns in sources:
+                    for a, b in rows.get(sample, ()):
+                        spans.extend((max(a, start), min(b, end)) for start, end in columns
+                                     if a < end and start < b)
+                return merge_light_spans(spans)
+
+            row_spans = zombie_row_spans
+
+        self.draw_lit_region(bounds, lambda: self.combat_visual.draw_zombie(zombie, x, y), row_spans=row_spans)
+        self.draw_zombie_markers(zombie, combat, attack, x, y, row_spans=row_spans)
+
+    def draw_zombie_markers(self, zombie, combat, attack, x, y, *, row_spans=None):
         scale = self.combat_visual.display_scale
         if combat.result == "playing" and zombie.alive and zombie.state in ZOMBIE_MARKS:
             symbol, color = ZOMBIE_MARKS[zombie.state]
@@ -749,7 +794,7 @@ class Renderer:
                 rectangle(left, bottom, 18, 18, (16, 24, 28))
                 self.font.draw(left + 4, bottom + 9, symbol, color)
 
-            self.draw_lit_region((left, bottom - 2, 19, 23), draw_status)
+            self.draw_lit_region((left, bottom - 2, 19, 23), draw_status, row_spans=row_spans)
         if (attack is not None and attack.facing == "front_right"
                 and attack.elapsed < attack.hit_time + HIT_MARK_DURATION
                 and any(target is zombie for target in attack.hit_targets)):
@@ -760,7 +805,7 @@ class Renderer:
                 p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
                 p.draw_line(x + 4, y + 4, x + 9, y + 2, *WHITE)
 
-            self.draw_lit_region((x - 9, y, 20, 10), draw_hit)
+            self.draw_lit_region((x - 9, y, 20, 10), draw_hit, row_spans=row_spans)
 
     def draw(self, player, walls, target, focused=True):
         if self.choosing_delivery:
@@ -778,7 +823,8 @@ class Renderer:
         beam = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls, world_size)
         lamps = tuple(self.streetlights_in_view())
         self.light = LightField((beam, *lamps))
-        self.light_rows = light_screen_rows(self.light.lights, self.project)
+        self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in self.light.lights)
+        self.light_rows = combined_light_rows([rows for _, rows in self.light_sources])
         beam_outline = beam.outline()
         # The ground cone ends at a wall's foot. Use the beam's shape before that collision
         # to clip the visible face, while the hit outline still selects which face gets light.

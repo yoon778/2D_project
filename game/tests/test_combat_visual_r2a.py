@@ -15,6 +15,7 @@ import main
 import combat_visual
 from combat import CombatWorld, STUN_DURATION
 from combat_visual import CombatVisual, METADATA_PATH
+from core import Wall
 from flashlight import Flashlight, LightField
 import test_visual_input_r1a as input_fixture
 
@@ -129,7 +130,7 @@ class CombatSpriteTests(unittest.TestCase):
     def test_diagonal_light_clips_different_rows_at_the_same_x_for_drawing_and_picking(self):
         world = CombatWorld()
         world.walls = []
-        world.zombie.x, world.zombie.y = 470, 260
+        world.zombie.x, world.zombie.y = 489, 260
         beam = Flashlight((200, 100), math.pi / 4, [])
         light = LightField((beam,))
         visual = SimpleNamespace(zombie_contains=Mock(return_value=True))
@@ -139,15 +140,28 @@ class CombatSpriteTests(unittest.TestCase):
             sx, sy = main.world_to_screen(x, y, camera)
             return sx + shake[0], sy + shake[1]
 
-        rows = main.light_screen_rows(light.lights, project)
-        x, y = map(round, project(470, 260))
+        rows = main.light_source_rows(beam, project)
+        x, y = map(round, project(489, 260))
         near_row = main.WINDOW_HEIGHT - 1 - y
         far_row = near_row - 42
-        self.assertTrue(any(left <= x < right for left, right in rows[near_row]))
-        self.assertFalse(any(left <= x < right for left, right in rows[far_row]))
-        self.assertEqual(main.mouse_target(world, visual, x, near_row, light, camera, shake), (470, 260))
+        self.assertTrue(any(left <= x < right for left, right in rows[main.zombie_light_row(near_row, y)]))
+        self.assertFalse(any(left <= x < right for left, right in rows.get(main.zombie_light_row(far_row, y), ())))
+        self.assertEqual(main.mouse_target(world, visual, x, near_row, light, camera, shake), (489, 260))
         self.assertEqual(main.mouse_target(world, visual, x, far_row, light, camera, shake),
                          main.sdl_to_world(x, far_row, camera))
+
+    def test_head_can_be_picked_in_a_horizontal_beam_and_stays_hidden_by_wall(self):
+        world = CombatWorld()
+        world.zombie.x, world.zombie.y = 300, 300
+        visual = SimpleNamespace(zombie_contains=Mock(return_value=True))
+        x, foot_y = map(round, main.world_to_screen(300, 300))
+        head_row = main.WINDOW_HEIGHT - 1 - (foot_y + 70)
+        world.walls = []
+        light = LightField((Flashlight((200, 300), 0, world.walls),))
+        self.assertEqual(main.mouse_target(world, visual, x, head_row, light), (300, 300))
+        world.walls = [Wall(245, 286, 12, 28)]
+        light = LightField((Flashlight((200, 300), 0, world.walls),))
+        self.assertEqual(main.mouse_target(world, visual, x, head_row, light), main.sdl_to_world(x, head_row))
 
     def test_zombie_stun_and_dead_states_use_separate_authored_cells(self):
         zombie = CombatWorld().zombie
