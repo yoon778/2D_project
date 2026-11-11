@@ -39,19 +39,20 @@ _REAR_ALLEY_GUARD = (3180, 2227)
 class DeliveryContract:
     name: str
     description: str
+    difficulty: str
     destination: tuple[float, float]
     zombie_starts: tuple[tuple[float, float], ...]
 
 
 DELIVERY_CONTRACTS = (
     DeliveryContract(
-        "상점 앞", "가로등 아래 모여 있는 좀비 무리",
+        "상점 앞", "가로등 아래 모여 있는 좀비 무리", "보통",
         (1958.0, 1037.0),
         (*ZOMBIE_STARTS[:16], (1865, 975), (1930, 950), (1978, 942),
          (2030, 973), (2005, 1015), *ZOMBIE_STARTS[21:]),
     ),
     DeliveryContract(
-        "주택 뒷문", "어둡고 좁은 골목 사이의 배송지",
+        "주택 뒷문", "어둡고 좁은 골목 사이의 배송지", "어려움",
         (3149.0, 2227.0),
         (*ZOMBIE_STARTS[:-2], (2865, 2227), _REAR_ALLEY_GUARD),
     ),

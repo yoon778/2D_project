@@ -61,6 +61,14 @@ TRASH_CAN_POSITION = (365.0, 300.0)
 WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
+MAP_INK = (14, 20, 23)
+MAP_PANEL = (27, 39, 41)
+MAP_BORDER = (91, 112, 112)
+MAP_ROAD = (170, 145, 106)
+MAP_ALLEY = (99, 132, 130)
+MAP_WRECK = (177, 101, 77)
+MAP_BUILDING = (20, 30, 34)
+MAP_LANDMARK = (178, 201, 195)
 HIT_MARK_DURATION = 0.06
 NOISE_PULSE_DURATION = 0.24
 PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
@@ -280,6 +288,7 @@ class Renderer:
         self.light = None
         self.camera = (0.0, 0.0)
         self.choosing_delivery = False
+        self.delivery_preview = 0
         self.map_open = False
         self.shake_remaining = 0.0
         self.shake_strength = 0
@@ -383,57 +392,57 @@ class Renderer:
                            min(max(0.0, player.y - WORLD_HEIGHT / 2), height - WORLD_HEIGHT))
 
     def draw_delivery_selection(self):
-        p.SDL_SetRenderDrawColor(p.renderer, 14, 20, 23, 255)
+        p.SDL_SetRenderDrawColor(p.renderer, *MAP_INK, 255)
         p.SDL_RenderClear(p.renderer)
-        rectangle(342, 178, 596, 364, (27, 39, 41))
-        rectangle(342, 178, 596, 364, (91, 112, 112), filled=False)
-        self.font.draw(378, 507, "DEAD ROUTE  |  배달 선택", TEAL)
-        self.font.draw(378, 472, "이번에 전달할 택배의 목적지를 고르세요", WHITE)
-        for index, contract in enumerate(DELIVERY_CONTRACTS, start=1):
-            bottom = 360 - (index - 1) * 102
-            accent = ORANGE if index == 1 else TEAL
-            rectangle(378, bottom, 524, 80, (18, 29, 32))
-            rectangle(378, bottom, 524, 80, (91, 112, 112), filled=False)
-            self.font.draw(398, bottom + 55, f"[{index}]  {contract.name}", accent)
-            self.font.draw(398, bottom + 25, contract.description, WHITE)
-        self.font.draw(378, 216, "1 / 2 선택  ·  Esc 종료", WHITE)
+        self.font.draw(64, 672, "DEAD ROUTE  |  배달 선택", TEAL)
+        rectangle(64, 104, 378, 528, MAP_PANEL)
+        rectangle(64, 104, 378, 528, MAP_BORDER, filled=False)
+        for index, contract in enumerate(DELIVERY_CONTRACTS):
+            bottom = 486 - index * 126
+            selected = index == self.delivery_preview
+            accent = TEAL if selected else MAP_BORDER
+            rectangle(82, bottom, 342, 106, (38, 56, 56) if selected else (18, 29, 32))
+            rectangle(82, bottom, 342, 106, accent, filled=False)
+            self.font.draw(100, bottom + 77, f"[{index + 1}]  {contract.name}", TEAL if selected else WHITE)
+            self.font.draw(100, bottom + 49, f"난이도 · {contract.difficulty}", ORANGE)
+            self.font.draw(100, bottom + 22, contract.description, WHITE)
+        self.font.draw(100, 213, "1 / 2  미리보기", WHITE)
+        self.font.draw(100, 170, "Enter  배달 시작  ·  Esc  종료", TEAL)
 
-    def draw_map(self, player):
+        contract = DELIVERY_CONTRACTS[self.delivery_preview]
+        self.font.draw(496, 610, f"{contract.name} 지도", WHITE)
+        self.draw_town_map(contract, 496, 104, 720, 480)
+        for x, color, label in ((496, ORANGE, "수령지"), (608, TEAL, "배송지")):
+            rectangle(x, 65, 8, 8, color)
+            self.font.draw(x + 16, 69, label, WHITE)
+
+    @staticmethod
+    def draw_map_heading(x, y, angle):
+        dx, dy = math.cos(angle), math.sin(angle)
+        tip_x, tip_y = x + 16 * dx, y + 16 * dy
+        p.draw_line(x, y, tip_x, tip_y, *WHITE)
+        for side in (-1, 1):
+            p.draw_line(tip_x, tip_y, tip_x - 6 * dx - 4 * dy * side,
+                        tip_y - 6 * dy + 4 * dx * side, *WHITE)
+        rectangle(x - 4, y - 4, 8, 8, MAP_INK)
+        rectangle(x - 2, y - 2, 4, 4, WHITE)
+
+    def draw_town_map(self, contract, x, y, viewport_width, viewport_height, player=None):
         world = self.delivery
         width, height = world.world_size
-        scale = min(792 / width, 528 / height)
-        left = 64 + (792 - width * scale) / 2
-        bottom = 104 + (528 - height * scale) / 2
+        scale = min(viewport_width / width, viewport_height / height)
+        left = x + (viewport_width - width * scale) / 2
+        bottom = y + (viewport_height - height * scale) / 2
         right = left + width * scale
         top = bottom + height * scale
-        ink = (14, 20, 23)
-        panel = (27, 39, 41)
-        border = (91, 112, 112)
-        main_color = (170, 145, 106)
-        alley_color = (99, 132, 130)
-        wreck_color = (177, 101, 77)
-        building_color = (20, 30, 34)
-        landmark_color = (178, 201, 195)
 
         def map_point(x, y):
             return left + x * scale, bottom + y * scale
 
-        def heading(x, y, angle):
-            dx, dy = math.cos(angle), math.sin(angle)
-            tip_x, tip_y = x + 16 * dx, y + 16 * dy
-            p.draw_line(x, y, tip_x, tip_y, *WHITE)
-            for side in (-1, 1):
-                p.draw_line(tip_x, tip_y, tip_x - 6 * dx - 4 * dy * side,
-                            tip_y - 6 * dy + 4 * dx * side, *WHITE)
-            rectangle(x - 4, y - 4, 8, 8, ink)
-            rectangle(x - 2, y - 2, 4, 4, WHITE)
-
-        p.SDL_SetRenderDrawColor(p.renderer, *ink, 255)
-        p.SDL_RenderClear(p.renderer)
         rectangle(left, bottom, right - left, top - bottom, (41, 56, 57))
-        for roads, color in ((TOWN_ROADS["alleys"], alley_color),
-                             (TOWN_ROADS["main"], main_color),
-                             ((TOWN_ROADS["main_detour"],), alley_color)):
+        for roads, color in ((TOWN_ROADS["alleys"], MAP_ALLEY),
+                             (TOWN_ROADS["main"], MAP_ROAD),
+                             ((TOWN_ROADS["main_detour"],), MAP_ALLEY)):
             for road in roads:
                 points = road["points"]
                 segments = [(a, b, road["width"]) for a, b in zip(points, points[1:])]
@@ -455,9 +464,9 @@ class Renderer:
             w, h = wall.width * scale, wall.depth * scale
             texture = getattr(wall, "texture", None)
             label = landmark_labels.get(texture)
-            fill = wreck_color if texture == "abandoned-car" else building_color
+            fill = MAP_WRECK if texture == "abandoned-car" else MAP_BUILDING
             rectangle(x, y, w, h, fill)
-            rectangle(x, y, w, h, landmark_color if label else border, filled=False)
+            rectangle(x, y, w, h, MAP_LANDMARK if label else MAP_BORDER, filled=False)
             if label:
                 landmarks.append((label, x + w / 2, y + h))
 
@@ -465,35 +474,42 @@ class Renderer:
             label_width = 17 * len(label) + 16
             x = min(right - label_width - 7, anchor_x + 16)
             y = min(top - 29, anchor_y + 10)
-            p.draw_line(anchor_x, anchor_y, x, y + 4, *landmark_color)
-            rectangle(x, y, label_width, 24, panel)
-            rectangle(x, y, label_width, 24, border, filled=False)
-            self.font.draw(x + 8, y + 12, label, landmark_color)
+            p.draw_line(anchor_x, anchor_y, x, y + 4, *MAP_LANDMARK)
+            rectangle(x, y, label_width, 24, MAP_PANEL)
+            rectangle(x, y, label_width, 24, MAP_BORDER, filled=False)
+            self.font.draw(x + 8, y + 12, label, MAP_LANDMARK)
 
-        for position, color in ((world.pickup, ORANGE), (world.destination, TEAL)):
+        for position, color in ((world.pickup, ORANGE), (contract.destination, TEAL)):
             x, y = map_point(*position)
-            rectangle(x - 6, y - 6, 12, 12, ink)
+            rectangle(x - 6, y - 6, 12, 12, MAP_INK)
             rectangle(x - 4, y - 4, 8, 8, color)
-        destination_label = world.contract.name
+        destination_label = contract.name
         label_width = 17 * len(destination_label) + 16
-        x, y = map_point(*world.destination)
+        x, y = map_point(*contract.destination)
         label_x = max(left + 4, x - label_width - 10)
         label_y = max(bottom + 4, y - 32)
-        rectangle(label_x, label_y, label_width, 24, panel)
+        rectangle(label_x, label_y, label_width, 24, MAP_PANEL)
         self.font.draw(label_x + 8, label_y + 12, destination_label, TEAL)
-        heading(*map_point(player.x, player.y), player.aim_angle)
+        if player is not None:
+            self.draw_map_heading(*map_point(player.x, player.y), player.aim_angle)
 
         compass_x, compass_y = left + 28, top - 36
         self.font.draw(compass_x - 4, compass_y + 18, "N", WHITE)
         p.draw_line(compass_x, compass_y - 10, compass_x, compass_y + 8, *WHITE)
         p.draw_line(compass_x - 4, compass_y + 2, compass_x, compass_y + 8, *WHITE)
         p.draw_line(compass_x + 4, compass_y + 2, compass_x, compass_y + 8, *WHITE)
-        rectangle(left, bottom, right - left, top - bottom, border, filled=False)
+        rectangle(left, bottom, right - left, top - bottom, MAP_BORDER, filled=False)
+
+    def draw_map(self, player):
+        world = self.delivery
+        p.SDL_SetRenderDrawColor(p.renderer, *MAP_INK, 255)
+        p.SDL_RenderClear(p.renderer)
+        self.draw_town_map(world.contract, 64, 104, 792, 528, player)
         self.font.draw(64, 674, "배달 구역 지도", WHITE)
 
         side = 880
-        rectangle(side, 104, 336, 528, panel)
-        rectangle(side, 104, 336, 528, border, filled=False)
+        rectangle(side, 104, 336, 528, MAP_PANEL)
+        rectangle(side, 104, 336, 528, MAP_BORDER, filled=False)
         self.font.draw(side + 24, 602, "다음 목표", WHITE)
         waiting = world.parcel == "waiting"
         objective, target, accent = (
@@ -502,23 +518,23 @@ class Renderer:
         )
         self.font.draw(side + 24, 566, objective, accent)
         self.font.draw(side + 24, 532, target, WHITE)
-        p.draw_line(side + 24, 504, side + 312, 504, *border)
+        p.draw_line(side + 24, 504, side + 312, 504, *MAP_BORDER)
         self.font.draw(side + 24, 474, "지도 범례", WHITE)
         for y, label, color, w, h in (
-            (432, "큰길", main_color, 24, 9),
-            (394, "골목", alley_color, 24, 5),
-            (356, "건물", building_color, 18, 14),
-            (318, "상점·정류장", landmark_color, 18, 14),
+            (432, "큰길", MAP_ROAD, 24, 9),
+            (394, "골목", MAP_ALLEY, 24, 5),
+            (356, "건물", MAP_BUILDING, 18, 14),
+            (318, "상점·정류장", MAP_LANDMARK, 18, 14),
             (242, "수령지", ORANGE, 8, 8),
             (204, "배송지", TEAL, 8, 8),
-            (166, "폐차", wreck_color, 18, 8),
+            (166, "폐차", MAP_WRECK, 18, 8),
         ):
             rectangle(side + 36 - w / 2, y - h / 2, w, h, color)
             self.font.draw(side + 62, y, label, WHITE)
-        heading(side + 31, 280, 0)
+        self.draw_map_heading(side + 31, 280, 0)
         self.font.draw(side + 62, 280, "현재 위치·방향", WHITE)
-        rectangle(64, 40, 29, 27, panel)
-        rectangle(64, 40, 29, 27, border, filled=False)
+        rectangle(64, 40, 29, 27, MAP_PANEL)
+        rectangle(64, 40, 29, 27, MAP_BORDER, filled=False)
         self.font.draw(73, 54, "M", WHITE)
         self.font.draw(105, 54, "닫기 · 지도 확인 중 일시정지", WHITE)
 
@@ -1022,6 +1038,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             pending_bottle_pickup = False
             pending_bottle_throw = False
             contract_choice = None
+            preview_choice = renderer.delivery_preview
             reset_requested = False
             lost_focus = False
             map_toggle = False
@@ -1035,7 +1052,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         continue
                     if renderer.choosing_delivery:
                         if contract_choice is None:
-                            contract_choice = DELIVERY_KEYS.get(key)
+                            if key in DELIVERY_KEYS:
+                                preview_choice = DELIVERY_KEYS[key]
+                            elif key in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
+                                contract_choice = preview_choice
                         continue
                     if key == p.SDLK_e and key not in pressed:
                         pending_interact = True
@@ -1076,6 +1096,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 mouse_held = False
             if not focused or lost_focus:
                 contract_choice = None
+            else:
+                renderer.delivery_preview = preview_choice
             if reset_requested or contract_choice is not None:
                 if contract_choice is not None:
                     world.select_contract(contract_choice)
