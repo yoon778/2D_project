@@ -10,17 +10,21 @@ else:
 
 
 TEXT = (244, 239, 225)
-MUTED = (187, 183, 170)
 TEAL = (123, 221, 192)
 AMBER = (255, 191, 106)
 HEALTH = (237, 146, 129)
-PANEL = (23, 22, 19, 224)
+PANEL = (22, 29, 27, 230)
+FRAME = (112, 123, 112, 200)
 TRACK = (67, 61, 53, 255)
 KEYCAP = (225, 217, 196, 255)
 KEY_TEXT = (30, 28, 24)
 SEPARATOR = (126, 120, 101, 150)
 MAX_HEALTH = 3
 MARGIN = 24
+UTILITY_SIZE = 40
+PANEL_GAP = 10
+VITALS_WIDTH = 204
+VITALS_HEIGHT = 98
 SMALL = 15
 BODY = 18
 TITLE = 26
@@ -30,6 +34,13 @@ def fill(x, y, width, height, color):
     p.SDL_SetRenderDrawColor(p.renderer, *color)
     bounds = p.SDL_Rect(x, y, width, height)
     p.SDL_RenderFillRect(p.renderer, ctypes.byref(bounds))
+
+
+def panel(x, y, width, height, border=FRAME):
+    fill(x, y, width, height, PANEL)
+    p.SDL_SetRenderDrawColor(p.renderer, *border)
+    bounds = p.SDL_Rect(x, y, width, height)
+    p.SDL_RenderDrawRect(p.renderer, ctypes.byref(bounds))
 
 
 def trace(x, y, points, color):
@@ -88,37 +99,50 @@ class PlayHUD:
         p.SDL_RenderCopy(p.renderer, texture, None, ctypes.byref(bounds))
 
     def _vitals(self, world):
-        x, y = MARGIN, MARGIN
-        fill(x, y, 184, 88, PANEL)
-        self._text("체력", x + 12, y + 17, BODY)
-        self._text(f"{world.player_hp} / {MAX_HEALTH}", x + 172, y + 17, BODY, align="right")
+        x, y = MARGIN + UTILITY_SIZE + PANEL_GAP, MARGIN
+        panel(MARGIN, y, UTILITY_SIZE, UTILITY_SIZE, (*TEAL, 220))
+        fill(MARGIN + 11, y + 17, 18, 6, (*TEXT, 255))
+        fill(MARGIN + 17, y + 11, 6, 18, (*TEXT, 255))
+
+        map_y = y + UTILITY_SIZE + 8
+        panel(MARGIN, map_y, UTILITY_SIZE, UTILITY_SIZE)
+        trace(MARGIN + 8, map_y + 8, ((0, 4), (7, 0), (14, 4), (21, 0), (21, 17),
+                                    (14, 21), (7, 17), (0, 21), (0, 4)), TEXT)
+        trace(MARGIN + 8, map_y + 8, ((7, 0), (7, 17)), TEXT)
+        trace(MARGIN + 8, map_y + 8, ((14, 4), (14, 21)), TEXT)
+        fill(MARGIN + 24, map_y + 24, 16, 16, KEYCAP)
+        self._text("M", MARGIN + 32, map_y + 32, SMALL, KEY_TEXT, align="center")
+
+        panel(x, y, VITALS_WIDTH, VITALS_HEIGHT)
+        self._text("체력", x + 12, y + 19, BODY)
+        self._text(f"{world.player_hp} / {MAX_HEALTH}", x + VITALS_WIDTH - 12, y + 19, BODY, align="right")
         for index in range(MAX_HEALTH):
             color = (*HEALTH, 255) if index < world.player_hp else TRACK
-            fill(x + 12 + 55 * index, y + 32, 50, 10, color)
-        self._text("스태미나", x + 12, y + 60, SMALL, MUTED)
-        fill(x + 12, y + 73, 160, 4, TRACK)
-        stamina = round(160 * world.stamina / MAX_STAMINA)
+            fill(x + 12 + 61 * index, y + 34, 57, 10, color)
+        self._text("스태미나", x + 12, y + 63, BODY)
+        track_width = VITALS_WIDTH - 24
+        fill(x + 12, y + 82, track_width, 5, TRACK)
+        stamina = round(track_width * world.stamina / MAX_STAMINA)
         if stamina:
-            fill(x + 12, y + 73, stamina, 4, (*TEAL, 255))
+            fill(x + 12, y + 82, stamina, 5, (*TEAL, 255))
 
     def _objective(self, world):
-        x, y = self.width - MARGIN - 228, MARGIN
-        fill(x, y, 228, 88, PANEL)
-        fill(x, y, 2, 88, (*TEAL, 255))
+        width, height = 184, 68
+        x, y = self.width - MARGIN - width, MARGIN
+        panel(x, y, width, height)
+        fill(x, y, 3, height, (*TEAL, 255))
         waiting = world.parcel == "waiting"
-        self._text("택배 수령" if waiting else "택배 전달", x + 14, y + 21, SMALL, TEAL)
-        self._text("남서쪽 거점" if waiting else world.contract.name, x + 14, y + 58, TITLE)
-        self._keycap("M", x + 160, y + 10, SMALL)
-        self._text("지도", x + 190, y + 22, SMALL, MUTED)
+        self._text("택배 수령" if waiting else "택배 전달", x + 14, y + 17, SMALL, TEAL)
+        self._text("남서쪽 거점" if waiting else world.contract.name, x + 14, y + 45, TITLE)
 
     def _keycap(self, key, x, y, size):
         fill(x, y, 23, 24, KEYCAP)
         self._text(key, x + 11, y + 12, size, KEY_TEXT, align="center")
 
     def _notice(self, text, color, *, sneak=False):
-        x, y = MARGIN, MARGIN + 96
+        x, y = MARGIN + UTILITY_SIZE + PANEL_GAP, MARGIN + VITALS_HEIGHT + 8
         width = self._label(text, SMALL, TEXT)[1] + 42
-        fill(x, y, width, 32, PANEL)
+        panel(x, y, width, 32)
         if sneak:
             trace(x + 9, y + 9, ((0, 7), (7, 2), (14, 7), (7, 12), (0, 7)), color)
             trace(x + 9, y + 9, ((2, 12), (12, 2)), color)
@@ -135,7 +159,7 @@ class PlayHUD:
         total = sum(widths)
         x = (self.width - total) // 2
         y = self.height - MARGIN - 40
-        fill(x, y, total, 40, PANEL)
+        panel(x, y, total, 40)
         for index, ((key, label, color), width) in enumerate(zip(actions, widths)):
             if index:
                 fill(x, y + 8, 1, 24, SEPARATOR)
