@@ -207,14 +207,25 @@ class DeliveryWorld(CombatWorld):
         return True
 
     def throw_bottle(self, target):
+        destination = self._bottle_destination(target)
+        if destination is None:
+            return False
+        self.bottle_flight = BottleFlight((self.player.x, self.player.y), destination)
+        self.has_bottle = False
+        return True
+
+    def can_throw_bottle(self, target):
+        return self._bottle_destination(target) is not None
+
+    def _bottle_destination(self, target):
         if (not self.has_bottle or self.bottle_flight is not None or self.attack is not None
                 or self.result != "playing" or self.player_hp <= 0):
-            return False
+            return None
         origin = (self.player.x, self.player.y)
         dx, dy = target[0] - origin[0], target[1] - origin[1]
         distance = math.hypot(dx, dy)
         if not math.isfinite(distance) or distance <= 1e-9:
-            return False
+            return None
         direction = (dx / distance, dy / distance)
         travel = min(distance, BOTTLE_THROW_RANGE)
         for start, heading, size in zip(origin, direction, self.world_size):
@@ -223,7 +234,7 @@ class DeliveryWorld(CombatWorld):
             elif heading < 0:
                 travel = min(travel, (PLAYER_RADIUS - start) / heading)
         if travel <= 1e-9:
-            return False
+            return None
 
         def landing(length):
             return origin[0] + direction[0] * length, origin[1] + direction[1] * length
@@ -240,11 +251,7 @@ class DeliveryWorld(CombatWorld):
                     blocked = middle
             travel = clear
             destination = landing(travel)
-        if travel <= 1e-9:
-            return False
-        self.bottle_flight = BottleFlight(origin, destination)
-        self.has_bottle = False
-        return True
+        return destination if travel > 1e-9 else None
 
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.bottle_impact = None

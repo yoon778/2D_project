@@ -464,15 +464,20 @@ class DeliveryTests(unittest.TestCase):
         world.walls = [Wall(155, 120, 4, 30)]
         self.assertFalse(world.pick_up_bottle())
         world.walls = original_walls
+        self.assertFalse(world.can_throw_bottle((450, 145)))
         self.assertFalse(world.throw_bottle((450, 145)))
         self.assertTrue(world.interact())
         self.assertTrue(world.pick_up_bottle())
         self.assertEqual(world.parcel, "carrying")
         self.assertNotIn(bottle, world.bottle_pickups)
         self.assertFalse(world.pick_up_bottle())
+        self.assertFalse(world.can_throw_bottle(PLAYER_START))
         self.assertFalse(world.throw_bottle(PLAYER_START))
 
         world.walls = [Wall(220, 120, 50, 100)]
+        self.assertTrue(world.can_throw_bottle((600, 145)))
+        self.assertTrue(world.has_bottle)
+        self.assertIsNone(world.bottle_flight)
         self.assertTrue(world.throw_bottle((600, 145)))
         self.assertFalse(world.has_bottle)
         self.assertEqual(world.bottle_flight.origin, PLAYER_START)

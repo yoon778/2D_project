@@ -15,6 +15,7 @@ from combat_visual import CombatVisual
 from delivery import DELIVERY_CONTRACTS, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
 from flashlight import Flashlight, LightField
 from locomotion import Locomotion, select_facing
+from play_hud import PlayHUD
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import ZombieAudio
 import opening
@@ -309,6 +310,7 @@ def cross(x, y, color, size=5):
 class Renderer:
     def __init__(self):
         self.font = None
+        self.play_hud = None
         self.player_visual = None
         self.combat_visual = None
         self.trash_can = None
@@ -369,6 +371,7 @@ class Renderer:
         }
         self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
         self.reset_streetlights()
+        self.play_hud = PlayHUD(BASE_DIR / "assets/ui/NotoSansKR-Regular.ttf", WINDOW_WIDTH, WINDOW_HEIGHT)
 
     def reset_streetlights(self):
         radius = STREETLIGHT_RADIUS
@@ -389,6 +392,9 @@ class Renderer:
                 yield light
 
     def close(self):
+        if self.play_hud is not None:
+            self.play_hud.close()
+            self.play_hud = None
         self.street_prop_images.clear()
         self.streetlamp_image = None
         self.neighborhood_ground = None
@@ -805,39 +811,13 @@ class Renderer:
             rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
             self.font.draw(x + 26, y + 37, "수령" if pickup else "배달", ORANGE if pickup else TEAL)
 
-    def draw_delivery_hud(self):
-        delivery = self.delivery
-        parcel_in_reach = delivery.can_interact()
-        status, guide = {
-            "waiting": ("미수령 · 0/1", "남서쪽 거점에서 택배 수령"),
-            "carrying": ("소지 중 · 0/1", "M 지도에서 배송지 확인"),
-            "delivered": ("전달 완료 · 1/1", ""),
-        }[delivery.parcel]
-        self.font.draw(24, 564, f"택배 {status}  |  {delivery.contract.name}", WHITE)
-        if delivery.result != "playing":
-            success = delivery.result == "delivered"
-            title = "배달 성공" if success else "배달 실패 · 체력 소진"
-            rectangle(425, 303, 430, 112, (17, 25, 31))
-            rectangle(425, 303, 430, 112, TEAL if success else ORANGE, filled=False)
-            self.font.draw(455, 382, title, TEAL if success else ORANGE)
-            self.font.draw(455, 335, "R 배달 선택 · Esc 종료", WHITE)
-        elif parcel_in_reach and self.light.contains(delivery.next_stop):
-            action = "택배 수령" if delivery.parcel == "waiting" else "택배 전달"
-            self.font.draw(520, 56, f"E  {action}", TEAL)
-        else:
-            if not parcel_in_reach and delivery.can_open_gate():
-                self.font.draw(520, 56, "E  철문 열기 · 소음", ORANGE)
-            if (delivery.parcel == "carrying" and delivery.contract is DELIVERY_CONTRACTS[1]
-                    and math.dist((delivery.player.x, delivery.player.y), delivery.destination) <= 300):
-                guide = "Q로 병을 던져 유인 · Ctrl 잠행" if delivery.has_bottle else "좀비가 등을 보이면 Ctrl로 통과"
-            self.font.draw(24, 538, guide, WHITE)
-        if delivery.result == "playing":
-            bottle_hint = "빈 병 1/1  ·  Q 던지기" if delivery.has_bottle else "빈 병 0/1"
-            if delivery.nearby_bottle is not None:
-                bottle_hint += "  ·  F 줍기"
-            self.font.draw(24, 512, bottle_hint, TEAL if delivery.has_bottle else WHITE)
-            if self.vehicle_alarm_remaining > 0:
-                self.font.draw(24, 486, "차량 경보", ORANGE)
+    def draw_delivery_result(self):
+        success = self.delivery.result == "delivered"
+        title = "배달 성공" if success else "배달 실패 · 체력 소진"
+        rectangle(425, 303, 430, 112, (17, 25, 31))
+        rectangle(425, 303, 430, 112, TEAL if success else ORANGE, filled=False)
+        self.font.draw(455, 382, title, TEAL if success else ORANGE)
+        self.font.draw(455, 335, "R 배달 선택 · Esc 종료", WHITE)
 
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
@@ -978,14 +958,16 @@ class Renderer:
             tip = self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle))
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
-        title = "Dead Route  |  골목 배달" if delivery is not None else "Dead Route  |  전투 검수"
-        controls = "WASD 이동 · Shift 달리기 · Ctrl 잠행 · 마우스 조준 · 좌클릭 공격"
         if delivery is not None:
-            controls += " · E 상호작용 · M 지도 · R 배달 선택"
-        else:
-            controls += " · R 재시작"
-        self.font.draw(24, 683, title, WHITE)
-        self.font.draw(24, 651, controls + " · Esc 종료", WHITE)
+            if delivery.result == "playing":
+                self.play_hud.draw(delivery, self.light, aim, focused=focused,
+                                   alarm=self.vehicle_alarm_remaining > 0)
+            else:
+                self.draw_delivery_result()
+            return
+
+        self.font.draw(24, 683, "Dead Route  |  전투 검수", WHITE)
+        self.font.draw(24, 651, "WASD 이동 · Shift 달리기 · Ctrl 잠행 · 마우스 조준 · 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
             self.font.draw(24, 620, f"HP {combat.player_hp}/3", WHITE)
             self.font.draw(24, 592, "스태미나", WHITE)
@@ -995,9 +977,7 @@ class Renderer:
                 rectangle(116, 585, stamina_width, 10, TEAL)
             if combat.sneaking:
                 self.font.draw(236, 592, "잠행 · 작은 발소리", TEAL)
-            if delivery is not None:
-                self.draw_delivery_hud()
-            elif combat.result != "playing":
+            if combat.result != "playing":
                 message = "연습 좀비 처치" if combat.result == "cleared" else "쓰러짐"
                 self.font.draw(470, 365, f"{message} · R 재시작", TEAL)
         self.font.draw(24, 54, "입력 활성" if focused else "포커스 없음 · 이동 입력 초기화", WHITE)

@@ -29,6 +29,7 @@ def add_sprite(files, directory, source, *, empty=False):
 def runtime_files():
     files = set(GAME.glob("*.py"))
     files.update((ROOT / "PRD.md", GAME / "requirements.txt", ASSETS / "props/alley-trash-can.png"))
+    files.update(ASSETS / "ui" / name for name in ("NotoSansKR-Regular.ttf", "OFL-NotoSansKR.txt"))
     files.update(ASSETS / "neighborhood" / name
                  for name in ("ground.png", "west-house.png", "east-house.png", "fence.png", "iron-gate.png",
                               "shop.png", "bus-stop.png", "streetlamp.png", "workshop.png",
