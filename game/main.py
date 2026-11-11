@@ -43,6 +43,7 @@ WALL_TEXTURE_SIZES = {
     "abandoned-car": [56, 31],
     "dumpster": [30, 24],
 }
+LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
 PROP_TEXTURE_SIZES = {
     "mailbox": [10, 24],
     "planter": [13, 15],
@@ -159,7 +160,7 @@ def zombie_light_row(row, foot_y):
     return math.floor(foot_row + (row + .5 - foot_row) * ZOMBIE_LIGHT_DEPTH_SCALE)
 
 
-def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0)):
+def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0), *, wall_alpha=None):
     screen_y = WINDOW_HEIGHT - 1 - mouse_y
     for zombie in sorted(world.zombies, key=lambda enemy: enemy.y):
         position = (zombie.x, zombie.y)
@@ -178,7 +179,8 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
         for wall in world.walls:
             left, bottom = world_to_screen(wall.x, wall.y, camera)
-            if wall.y < zombie.y and wall_covers(wall, left, bottom, wx, wy):
+            alpha_rows = wall_alpha.get(wall.texture) if wall_alpha and isinstance(wall, NeighborhoodWall) else None
+            if wall.y < zombie.y and wall_covers(wall, left, bottom, wx, wy, alpha_rows):
                 break
         else:
             return position
@@ -202,16 +204,27 @@ def house_planes(wall, x, y):
     )
 
 
-def wall_covers(wall, left, bottom, x, y):
+def wall_covers(wall, left, bottom, x, y, alpha_rows=None):
     oblique = isinstance(wall, NeighborhoodWall) and wall.oblique
-    if oblique:
+    if oblique or alpha_rows is not None:
         # SDL fills triangles at the pixel center.
         x, y = x + .5, y + .5
-    if not (left <= x < left + wall.width and bottom <= y < bottom + wall_height(wall) + wall.depth * GROUND_SCALE_Y):
+    height, depth = wall_height(wall), wall.depth * GROUND_SCALE_Y
+    if not (left <= x < left + wall.width and bottom <= y < bottom + height + depth):
         return False
+    if alpha_rows is not None:
+        # Use the same front/roof split as the textured occlusion pass.
+        rise = y - bottom
+        front_rows = round(height / 2)
+        if rise < height:
+            row = len(alpha_rows) - rise * front_rows / height
+        else:
+            row = (len(alpha_rows) - front_rows) * (1 - (rise - height) / depth)
+        column = int((x - left) * len(alpha_rows[0]) / wall.width)
+        return bool(alpha_rows[min(len(alpha_rows) - 1, int(row))][column])
     if not oblique:
         return True
-    if y < bottom + wall.depth * GROUND_SCALE_Y + HOUSE_FOUNDATION_HEIGHT:
+    if y < bottom + depth + HOUSE_FOUNDATION_HEIGHT:
         return True
     # The projected house planes are convex and ordered counterclockwise.
     return any(all((bx - ax) * (y - ay) >= (by - ay) * (x - ax)
@@ -237,6 +250,24 @@ def wall_edge_spans(wall, outline, axis, boundary):
 
 def quad(x, y, width, height):
     return ((x, y), (x + width, y), (x + width, y + height), (x, y + height))
+
+
+def load_wall_alpha(path):
+    source = p.IMG_Load(str(path).encode("utf-8"))
+    if not source:
+        raise OSError(f"Could not load wall alpha: {path}")
+    try:
+        surface = p.SDL_ConvertSurfaceFormat(source, p.SDL_PIXELFORMAT_RGBA32, 0)
+    finally:
+        p.SDL_FreeSurface(source)
+    if not surface:
+        raise RuntimeError(f"Could not convert wall alpha: {p.SDL_GetError()!r}")
+    try:
+        width, height, pitch = surface.contents.w, surface.contents.h, surface.contents.pitch
+        pixels = ctypes.string_at(surface.contents.pixels, pitch * height)
+        return tuple(pixels[row * pitch + 3:row * pitch + width * 4:4] for row in range(height))
+    finally:
+        p.SDL_FreeSurface(surface)
 
 
 def clip_wall_plane(points, bounds, mask):
@@ -279,6 +310,7 @@ class Renderer:
         self.trash_can = None
         self.neighborhood_ground = None
         self.neighborhood_walls = {}
+        self.wall_alpha = {}
         self.street_prop_images = {}
         self.streetlamp_image = None
         self.streetlights = ()
@@ -324,6 +356,8 @@ class Renderer:
         for image in self.neighborhood_walls.values():
             if p.SDL_SetTextureBlendMode(image.texture, p.SDL_BLENDMODE_BLEND) != 0:
                 raise RuntimeError(f"Wall blend mode failed: {p.SDL_GetError()!r}")
+        self.wall_alpha = {key: load_wall_alpha(NEIGHBORHOOD_PATH / f"{key}.png")
+                           for key in LOW_OBSTACLE_TEXTURES if key in self.neighborhood_walls}
         self.street_prop_images = {
             key: load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", size) for key, size in PROP_TEXTURE_SIZES.items()
         }
@@ -353,6 +387,7 @@ class Renderer:
         self.streetlamp_image = None
         self.neighborhood_ground = None
         self.neighborhood_walls.clear()
+        self.wall_alpha.clear()
         self.trash_can = None
         if self.combat_visual is not None:
             self.combat_visual.close()
@@ -581,6 +616,8 @@ class Renderer:
         textured = isinstance(wall, NeighborhoodWall)
         image = self.neighborhood_walls.get(wall.texture) if textured else None
         oblique = image is not None and wall.oblique
+        low_obstacle = image is not None and wall.texture in LOW_OBSTACLE_TEXTURES
+        seam = (image.h - round(height / 2)) / image.h if image is not None else 0.5
         if oblique:
             front, side, roof = house_planes(wall, x, y)
             foundation = quad(x, y, wall.width, depth + HOUSE_FOUNDATION_HEIGHT)
@@ -589,13 +626,15 @@ class Renderer:
         else:
             front = quad(x, y, wall.width, height)
             roof = quad(x, y + height, wall.width, depth)
-            self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0))
+            if low_obstacle:
+                self.draw_wall_plane(image, front, seam, 1, (0, 0, 0))
+                self.draw_wall_plane(image, roof, 0, seam, (0, 0, 0))
+            else:
+                self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0))
 
-        seam = (image.h - round(height / 2)) / image.h if image is not None else 0.5
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
         facade_shade = (178, 147, 105) if image is not None else (53, 47, 40)
-        low_obstacle = textured and wall.texture in ("parked-car", "abandoned-car", "dumpster")
         roof_shade = (140, 123, 102) if image is not None else (45, 41, 38)
         for axis, boundary, offset, length, edge in (
             (1, wall.y, wall.x, wall.width, "front"),
@@ -1141,7 +1180,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if light is None:
                     beam = Flashlight((player.x, player.y), player.aim_angle, walls, world.world_size)
                     light = LightField((beam, *renderer.streetlights_in_view()))
-                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera, renderer.shake_offset)
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
+                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha)
             active = focused and not lost_focus and not renderer.map_open and contract_choice is None
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
@@ -1208,7 +1248,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             previous_camera = renderer.camera
             renderer.follow(player)
             if cursor is not None and renderer.camera != previous_camera:
-                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera, renderer.shake_offset)
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
+                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha)
             if active and strike is None and world.result == "playing":
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle

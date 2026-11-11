@@ -23,6 +23,15 @@ function texture(width, height, channels = 3) {
   return {width, height, channels, data, point, rect}
 }
 
+function propTexture(width, height) {
+  const image = texture(width, height, 4)
+  return {
+    ...image,
+    point: (x, y, color) => image.point(x, y, [...color, 255]),
+    rect: (x, y, w, h, color) => image.rect(x, y, w, h, [...color, 255]),
+  }
+}
+
 function hash(x, y) {
   const bits = Math.imul(x + 29, 374761393) ^ Math.imul(y + 73, 668265263)
   return (Math.imul(bits ^ (bits >>> 13), 1274126177) >>> 0) % 97
@@ -548,9 +557,8 @@ function fence() {
 }
 
 function parkedCar() {
-  const image = texture(56, 31)
+  const image = propTexture(56, 31)
   const {rect} = image
-  rect(0, 0, 56, 31, [29, 35, 38])
   rect(2, 11, 51, 15, [79, 56, 49])
   rect(4, 9, 12, 4, [143, 91, 73])
   rect(12, 5, 31, 9, [131, 91, 75])
@@ -589,7 +597,7 @@ function parkedCar() {
 
 function abandonedCar() {
   const image = parkedCar()
-  const {data, point, rect} = image
+  const {data, channels, point, rect} = image
   const fadedPaint = new Map([
     ['79,56,49', [56, 69, 73]],
     ['143,91,73', [104, 129, 133]],
@@ -604,7 +612,7 @@ function abandonedCar() {
     ['182,111,83', [129, 150, 153]],
     ['86,62,56', [60, 78, 82]],
   ])
-  for (let offset = 0; offset < data.length; offset += 3) {
+  for (let offset = 0; offset < data.length; offset += channels) {
     const color = fadedPaint.get(data.subarray(offset, offset + 3).join(','))
     if (color) data.set(color, offset)
   }
@@ -640,9 +648,9 @@ function abandonedCar() {
 }
 
 function dumpster() {
-  const image = texture(30, 24)
+  const image = propTexture(30, 24)
   const {rect} = image
-  rect(0, 0, 30, 24, [34, 46, 44])
+  rect(2, 2, 26, 20, [34, 46, 44])
   grain(image, 2, 10, 26, 12, [81, 109, 94])
   rect(2, 2, 26, 8, [105, 120, 108])
   rect(3, 1, 24, 2, [132, 145, 123])
