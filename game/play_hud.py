@@ -9,21 +9,21 @@ else:
     from combat import MAX_STAMINA
 
 
-TEXT = (239, 242, 233)
-MUTED = (175, 190, 191)
-TEAL = (112, 231, 203)
-AMBER = (255, 192, 109)
-HEALTH = (245, 153, 131)
-PANEL = (14, 22, 27, 233)
-BORDER = (93, 114, 118, 180)
-TRACK = (45, 58, 63, 255)
-KEYCAP = (40, 59, 63, 255)
-KEY_BORDER = (102, 131, 134, 230)
+TEXT = (244, 239, 225)
+MUTED = (187, 183, 170)
+TEAL = (123, 221, 192)
+AMBER = (255, 191, 106)
+HEALTH = (237, 146, 129)
+PANEL = (23, 22, 19, 224)
+TRACK = (67, 61, 53, 255)
+KEYCAP = (225, 217, 196, 255)
+KEY_TEXT = (30, 28, 24)
+SEPARATOR = (126, 120, 101, 150)
 MAX_HEALTH = 3
 MARGIN = 24
 SMALL = 15
 BODY = 18
-TITLE = 24
+TITLE = 26
 
 
 def fill(x, y, width, height, color):
@@ -32,11 +32,10 @@ def fill(x, y, width, height, color):
     p.SDL_RenderFillRect(p.renderer, ctypes.byref(bounds))
 
 
-def panel(x, y, width, height, background=PANEL, outline=BORDER):
-    fill(x, y, width, height, background)
-    p.SDL_SetRenderDrawColor(p.renderer, *outline)
-    bounds = p.SDL_Rect(x, y, width, height)
-    p.SDL_RenderDrawRect(p.renderer, ctypes.byref(bounds))
+def trace(x, y, points, color):
+    p.SDL_SetRenderDrawColor(p.renderer, *color, 255)
+    vertices = (p.SDL_Point * len(points))(*(p.SDL_Point(x + dx, y + dy) for dx, dy in points))
+    p.SDL_RenderDrawLines(p.renderer, vertices, len(vertices))
 
 
 class PlayHUD:
@@ -90,47 +89,59 @@ class PlayHUD:
 
     def _vitals(self, world):
         x, y = MARGIN, MARGIN
-        panel(x, y, 208, 108)
-        self._text("체력", x + 16, y + 21, BODY)
-        self._text(f"{world.player_hp} / {MAX_HEALTH}", x + 192, y + 21, BODY, align="right")
+        fill(x, y, 184, 88, PANEL)
+        self._text("체력", x + 12, y + 17, BODY)
+        self._text(f"{world.player_hp} / {MAX_HEALTH}", x + 172, y + 17, BODY, align="right")
         for index in range(MAX_HEALTH):
             color = (*HEALTH, 255) if index < world.player_hp else TRACK
-            fill(x + 16 + 60 * index, y + 38, 56, 9, color)
-        self._text("스태미나", x + 16, y + 70, SMALL, MUTED)
-        fill(x + 16, y + 86, 176, 7, TRACK)
-        stamina = round(176 * world.stamina / MAX_STAMINA)
+            fill(x + 12 + 55 * index, y + 32, 50, 10, color)
+        self._text("스태미나", x + 12, y + 60, SMALL, MUTED)
+        fill(x + 12, y + 73, 160, 4, TRACK)
+        stamina = round(160 * world.stamina / MAX_STAMINA)
         if stamina:
-            fill(x + 16, y + 86, stamina, 7, (*TEAL, 255))
+            fill(x + 12, y + 73, stamina, 4, (*TEAL, 255))
 
     def _objective(self, world):
-        x, y = self.width - MARGIN - 246, MARGIN
-        panel(x, y, 246, 108)
-        self._text("다음 배달 목표", x + 16, y + 23, SMALL, MUTED)
-        panel(x + 169, y + 13, 22, 20, KEYCAP, KEY_BORDER)
-        self._text("M", x + 180, y + 23, SMALL, align="center")
-        self._text("지도", x + 199, y + 23, SMALL, MUTED)
+        x, y = self.width - MARGIN - 228, MARGIN
+        fill(x, y, 228, 88, PANEL)
+        fill(x, y, 2, 88, (*TEAL, 255))
         waiting = world.parcel == "waiting"
-        self._text("택배 수령" if waiting else "택배 전달", x + 16, y + 57, TITLE, TEAL)
-        self._text("남서쪽 거점" if waiting else world.contract.name, x + 16, y + 85, BODY)
+        self._text("택배 수령" if waiting else "택배 전달", x + 14, y + 21, SMALL, TEAL)
+        self._text("남서쪽 거점" if waiting else world.contract.name, x + 14, y + 58, TITLE)
+        self._keycap("M", x + 160, y + 10, SMALL)
+        self._text("지도", x + 190, y + 22, SMALL, MUTED)
 
-    def _notice(self, text, color):
-        width = self._label(text, BODY, color)[1] + 32
-        panel(MARGIN, MARGIN + 120, width, 34)
-        self._text(text, MARGIN + 16, MARGIN + 137, BODY, color)
+    def _keycap(self, key, x, y, size):
+        fill(x, y, 23, 24, KEYCAP)
+        self._text(key, x + 11, y + 12, size, KEY_TEXT, align="center")
+
+    def _notice(self, text, color, *, sneak=False):
+        x, y = MARGIN, MARGIN + 96
+        width = self._label(text, SMALL, TEXT)[1] + 42
+        fill(x, y, width, 32, PANEL)
+        if sneak:
+            trace(x + 9, y + 9, ((0, 7), (7, 2), (14, 7), (7, 12), (0, 7)), color)
+            trace(x + 9, y + 9, ((2, 12), (12, 2)), color)
+        else:
+            trace(x + 9, y + 9, ((0, 13), (7, 0), (14, 13), (0, 13)), color)
+            fill(x + 16, y + 14, 1, 4, (*color, 255))
+            fill(x + 16, y + 20, 1, 1, (*color, 255))
+        self._text(text, x + 31, y + 16, SMALL)
 
     def _actions(self, actions):
         if not actions:
             return
-        widths = [self._label(label, BODY, color)[1] + 56 for _, label, color in actions]
-        gap = 8
-        x = (self.width - sum(widths) - gap * (len(actions) - 1)) // 2
-        y = self.height - MARGIN - 46
-        for (key, label, color), width in zip(actions, widths):
-            panel(x, y, width, 46)
-            panel(x + 10, y + 9, 27, 28, KEYCAP, KEY_BORDER)
-            self._text(key, x + 23, y + 23, BODY, align="center")
-            self._text(label, x + 46, y + 23, BODY, color)
-            x += width + gap
+        widths = [self._label(label, BODY, color)[1] + 53 for _, label, color in actions]
+        total = sum(widths)
+        x = (self.width - total) // 2
+        y = self.height - MARGIN - 40
+        fill(x, y, total, 40, PANEL)
+        for index, ((key, label, color), width) in enumerate(zip(actions, widths)):
+            if index:
+                fill(x, y + 8, 1, 24, SEPARATOR)
+            self._keycap(key, x + 10, y + 8, BODY)
+            self._text(label, x + 41, y + 20, BODY, color)
+            x += width
 
     def draw(self, world, light, aim, *, focused, alarm):
         self._vitals(world)
@@ -141,7 +152,7 @@ class PlayHUD:
         if alarm:
             self._notice("차량 경보", AMBER)
         elif world.sneaking:
-            self._notice("잠행 · 작은 발소리", TEAL)
+            self._notice("잠행 · 작은 발소리", TEAL, sneak=True)
 
         actions = []
         if world.can_interact():
