@@ -82,6 +82,7 @@ NOISE_PULSE_DURATION = 0.24
 VEHICLE_ALARM_DURATION = 1.2
 PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
 ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
+SNEAK_HINT_RANGE = 160.0
 TURN_SPEED = math.radians(450)
 SHAKE_DURATIONS = {3: 0.08, 4: 0.10}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
@@ -890,12 +891,7 @@ class Renderer:
             self.font.draw(x + 26, y + 37, "수령" if pickup else "배달", ORANGE if pickup else TEAL)
 
     def draw_delivery_result(self):
-        success = self.delivery.result == "delivered"
-        title = "배달 성공" if success else "배달 실패 · 체력 소진"
-        rectangle(425, 303, 430, 112, (17, 25, 31))
-        rectangle(425, 303, 430, 112, TEAL if success else ORANGE, filled=False)
-        self.font.draw(455, 382, title, TEAL if success else ORANGE)
-        self.font.draw(455, 335, "R 배달 선택 · Esc 종료", WHITE)
+        self.play_hud.draw_result(self.delivery)
 
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
@@ -1055,8 +1051,17 @@ class Renderer:
             cross(*tip, TEAL, size=2)
         if delivery is not None:
             if delivery.result == "playing":
+                near_visible_zombie = False
+                if focused and self.play_hud.watch_for_sneak_hint(delivery):
+                    for zombie in delivery.zombies:
+                        position = zombie.x, zombie.y
+                        if (zombie.alive and math.dist(origin, position) <= SNEAK_HINT_RANGE
+                                and (self.light.contains(position) or glow.contains(position))
+                                and delivery._player_line_clear(zombie)):
+                            near_visible_zombie = True
+                            break
                 self.play_hud.draw(delivery, self.light, aim, focused=focused,
-                                   alarm=self.vehicle_alarm_remaining > 0)
+                                   alarm=self.vehicle_alarm_remaining > 0, near_visible_zombie=near_visible_zombie)
             else:
                 self.draw_delivery_result()
             return
@@ -1191,6 +1196,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             contract_choice = None
             preview_choice = renderer.delivery_preview
             reset_requested = False
+            retry_requested = False
             lost_focus = False
             map_toggle = False
             for event in poll_events():
@@ -1216,6 +1222,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         pending_bottle_throw = True
                     elif key == p.SDLK_m and key not in pressed:
                         map_toggle = not map_toggle
+                    elif (delivery_run and world.result != "playing"
+                          and key in (p.SDLK_RETURN, p.SDLK_KP_ENTER)):
+                        retry_requested = True
                     pressed.add(key)
                     if key == p.SDLK_r:
                         reset_requested = True
@@ -1247,9 +1256,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 mouse_held = False
             if not focused or lost_focus:
                 contract_choice = None
+                retry_requested = False
             else:
                 renderer.delivery_preview = preview_choice
-            if reset_requested or contract_choice is not None:
+            if reset_requested or retry_requested or contract_choice is not None:
                 if contract_choice is not None:
                     world.select_contract(contract_choice)
                     if music is not None:
@@ -1259,12 +1269,14 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 renderer.choosing_delivery = delivery_run and reset_requested
                 if delivery_run:
                     renderer.reset_streetlights()
+                    renderer.play_hud.reset_delivery()
                 player, walls = world.player, world.walls
                 renderer.player_visual.locomotion = Locomotion()
                 renderer.combat_visual.reset_zombie_animation()
                 pressed.clear()
                 pending_click = False
                 pending_interact = False
+                pending_bottle_pickup = pending_bottle_throw = False
                 mouse_held = False
                 cursor = current_cursor()
                 renderer.light = None
@@ -1277,6 +1289,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 aim_player(player, *target)
             elif map_toggle and focused and not lost_focus and delivery_run and world.result == "playing":
                 renderer.map_open = not renderer.map_open
+                if renderer.map_open and world.parcel == "carrying":
+                    renderer.play_hud.dismiss_hint("M")
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
                 pending_bottle_pickup = pending_bottle_throw = False
@@ -1297,7 +1311,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     light = LightField((beam, *renderer.streetlights_in_view()))
                 target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
                                       renderer.shake_offset, wall_alpha=renderer.wall_alpha)
-            active = focused and not lost_focus and not renderer.map_open and contract_choice is None
+            active = (focused and not lost_focus and not renderer.map_open
+                      and contract_choice is None and not retry_requested)
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion

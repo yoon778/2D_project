@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from game.combat import ATTACK_HIT_TIME, STUN_DURATION, Zombie, ZombieAttack
+from game.combat import ATTACK_HIT_TIME, STUN_DURATION, ZOMBIE_ATTACK_HIT_TIME, Zombie, ZombieAttack
 from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player, wall_blocks
 from game.delivery import (
     BOTTLE_FLIGHT_TIME, BOTTLE_THROW_RANGE, DELIVERY_CONTRACTS, DeliveryWorld,
@@ -30,6 +30,47 @@ class DeliveryTests(unittest.TestCase):
         world.update(0.5, 1, 0, sprint=True)
         self.assertEqual((world.player.x, world.player.y), world.destination)
         self.assertFalse(world.interact())
+
+    def test_delivery_stats_count_only_started_swings_and_active_play_time(self):
+        world = self.world
+        self.assertEqual((world.attack_count, world.elapsed_play_time, world.combat_free), (0, 0.0, True))
+        self.assertTrue(world.interact())
+        for dt in (0.0, -1.0, math.inf, math.nan):
+            world.update(dt)
+        self.assertEqual(world.elapsed_play_time, 0.0)
+
+        self.assertTrue(world.start_attack())
+        self.assertFalse(world.start_attack())
+        world.update(ATTACK_HIT_TIME)
+        self.assertFalse(world.attack.landed)
+        self.assertEqual((world.attack_count, world.combat_free), (1, False))
+        self.assertAlmostEqual(world.elapsed_play_time, ATTACK_HIT_TIME)
+
+        world.player.x, world.player.y = world.destination
+        self.assertTrue(world.interact())
+        self.assertFalse(world.start_attack())
+        world.update(1.0)
+        self.assertEqual((world.result, world.attack_count), ("delivered", 1))
+        self.assertAlmostEqual(world.elapsed_play_time, ATTACK_HIT_TIME)
+
+        self.assertTrue(world.select_contract(0))
+        self.assertEqual((world.attack_count, world.elapsed_play_time, world.combat_free), (0, 0.0, True))
+
+    def test_damage_breaks_combat_free_status_and_lethal_hit_stops_the_clock(self):
+        world = self.world
+        world.player = Player(1000, 1100)
+        world.walls = []
+        zombie = Zombie(1010, 1100, attack=ZombieAttack(math.pi, "left"))
+        world.zombies = [zombie]
+        world.update(ZOMBIE_ATTACK_HIT_TIME)
+        self.assertEqual((world.player_hp, world.attack_count, world.combat_free), (2, 0, False))
+
+        world.player_hp = 1
+        world.player_invulnerable_remaining = 0.0
+        zombie.attack = ZombieAttack(math.pi, "left")
+        world.update(1.0)
+        self.assertEqual((world.result, world.player_hp), ("defeated", 0))
+        self.assertAlmostEqual(world.elapsed_play_time, 2 * ZOMBIE_ATTACK_HIT_TIME)
 
     def test_both_contracts_can_complete_delivery_from_town_routes(self):
         main = TOWN_ROADS["main"][0]["points"]

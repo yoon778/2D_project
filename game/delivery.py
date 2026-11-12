@@ -145,6 +145,9 @@ class DeliveryWorld(CombatWorld):
 
     def reset(self):
         super().reset()
+        self._starting_player_hp = self.player_hp
+        self.attack_count = 0
+        self.elapsed_play_time = 0.0
         self.player = Player(*PLAYER_START)
         self.zombies = []
         has_patrol = self.contract is DELIVERY_CONTRACTS[1]
@@ -194,6 +197,16 @@ class DeliveryWorld(CombatWorld):
     @property
     def next_stop(self):
         return self.pickup if self.parcel == "waiting" else self.destination
+
+    @property
+    def combat_free(self):
+        return self.attack_count == 0 and self.player_hp == self._starting_player_hp
+
+    def start_attack(self, facing="front_right", *, stationary_front_right=False):
+        started = super().start_attack(facing, stationary_front_right=stationary_front_right)
+        if started:
+            self.attack_count += 1
+        return started
 
     @property
     def nearby_bottle(self):
@@ -302,6 +315,7 @@ class DeliveryWorld(CombatWorld):
         self._trigger_vehicle_alarm(closest, position)
 
     def _advance_world_objects(self, dt):
+        self.elapsed_play_time += dt
         flight = self.bottle_flight
         if flight is None:
             return

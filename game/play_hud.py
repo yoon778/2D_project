@@ -28,6 +28,9 @@ VITALS_HEIGHT = 98
 SMALL = 15
 BODY = 18
 TITLE = 26
+HINT_WINDOW = 60.0
+HINT_DURATION = 5.0
+HINT_TEXT = {"E": "택배를 받아 배달 시작", "M": "지도에서 배송지 확인", "Ctrl": "발소리를 줄여 지나가기"}
 
 
 def fill(x, y, width, height, color):
@@ -54,6 +57,8 @@ class PlayHUD:
         self.width, self.height = width, height
         self._fonts = {}
         self._labels = {}
+        self._attack_label = None
+        self.reset_delivery()
         try:
             for size in (SMALL, BODY, TITLE):
                 font = p.TTF_OpenFont(str(font_path).encode("utf-8"), size)
@@ -73,7 +78,7 @@ class PlayHUD:
         self._fonts.clear()
 
     def _label(self, text, size, color):
-        # The HUD's text comes from a fixed set of labels and four HP values.
+        # Dynamic attack-count text is released when starting the next delivery.
         key = (text, size, color)
         if key not in self._labels:
             surface = p.TTF_RenderUTF8_Blended(self._fonts[size], text.encode("utf-8"), p.SDL_Color(*color, 255))
@@ -135,9 +140,9 @@ class PlayHUD:
         self._text("택배 수령" if waiting else "택배 전달", x + 14, y + 17, SMALL, TEAL)
         self._text("남서쪽 거점" if waiting else world.contract.name, x + 14, y + 45, TITLE)
 
-    def _keycap(self, key, x, y, size):
-        fill(x, y, 23, 24, KEYCAP)
-        self._text(key, x + 11, y + 12, size, KEY_TEXT, align="center")
+    def _keycap(self, key, x, y, width):
+        fill(x, y, width, 24, KEYCAP)
+        self._text(key, x + width // 2, y + 12, BODY, KEY_TEXT, align="center")
 
     def _notice(self, text, color, *, sneak=False):
         x, y = MARGIN + UTILITY_SIZE + PANEL_GAP, MARGIN + VITALS_HEIGHT + 8
@@ -155,19 +160,82 @@ class PlayHUD:
     def _actions(self, actions):
         if not actions:
             return
-        widths = [self._label(label, BODY, color)[1] + 53 for _, label, color in actions]
+        key_widths = [max(23, self._label(key, BODY, KEY_TEXT)[1] + 12) for key, _, _ in actions]
+        widths = [self._label(label, BODY, color)[1] + key_width + 30
+                  for (_, label, color), key_width in zip(actions, key_widths)]
         total = sum(widths)
         x = (self.width - total) // 2
         y = self.height - MARGIN - 40
         panel(x, y, total, 40)
-        for index, ((key, label, color), width) in enumerate(zip(actions, widths)):
+        for index, ((key, label, color), key_width, width) in enumerate(zip(actions, key_widths, widths)):
             if index:
                 fill(x, y + 8, 1, 24, SEPARATOR)
-            self._keycap(key, x + 10, y + 8, BODY)
-            self._text(label, x + 41, y + 20, BODY, color)
+            self._keycap(key, x + 10, y + 8, key_width)
+            self._text(label, x + key_width + 18, y + 20, BODY, color)
             x += width
 
-    def draw(self, world, light, aim, *, focused, alarm):
+    def reset_delivery(self):
+        self._seen_hints = set()
+        self._hint = None
+        self._hint_until = 0.0
+        if self._attack_label is not None:
+            label = self._labels.pop((self._attack_label, BODY, TEXT), None)
+            if label is not None:
+                p.SDL_DestroyTexture(label[0])
+            self._attack_label = None
+
+    def dismiss_hint(self, key):
+        self._seen_hints.add(key)
+        if self._hint == key:
+            self._hint = None
+
+    def watch_for_sneak_hint(self, world):
+        if world.sneaking:
+            self.dismiss_hint("Ctrl")
+        if any(zombie.alive and zombie.state == "chase" for zombie in world.zombies):
+            if self._hint == "Ctrl":
+                self.dismiss_hint("Ctrl")
+            return False
+        return "Ctrl" not in self._seen_hints and world.elapsed_play_time < HINT_WINDOW
+
+    def _active_hint(self, world, near_visible_zombie):
+        elapsed = world.elapsed_play_time
+        if elapsed >= HINT_WINDOW:
+            self._hint = None
+            return None
+        can_pick_up = world.parcel == "waiting" and world.can_interact()
+        if (self._hint == "E" and not can_pick_up) or elapsed >= self._hint_until:
+            self._hint = None
+        if self._hint is None:
+            for key, available in (("E", can_pick_up), ("M", world.parcel == "carrying"),
+                                   ("Ctrl", near_visible_zombie)):
+                if available and key not in self._seen_hints:
+                    self._seen_hints.add(key)
+                    self._hint = key
+                    self._hint_until = elapsed + HINT_DURATION
+                    break
+        return self._hint
+
+    def draw_result(self, world):
+        success = world.result == "delivered"
+        accent = TEAL if success else AMBER
+        width, height = 502, 244
+        x, y = (self.width - width) // 2, (self.height - height) // 2
+        center = self.width // 2
+        panel(x, y, width, height, (*accent, 220))
+        self._text("배달 성공" if success else "배달 실패", center, y + 34, TITLE, accent, align="center")
+        self._attack_label = f"{world.attack_count}회"
+        rows = (("배송지", world.contract.name), ("남은 체력", f"{world.player_hp} / {MAX_HEALTH}"),
+                ("공격 횟수", self._attack_label),
+                ("교전 없이 배달", "성공" if success and world.combat_free else "미달성"))
+        for index, (label, value) in enumerate(rows):
+            baseline = y + 78 + index * 30
+            self._text(label, x + 28, baseline, BODY)
+            self._text(value, x + width - 28, baseline, BODY, align="right")
+        fill(x + 28, y + 189, width - 56, 1, SEPARATOR)
+        self._text("Enter 같은 배송 재도전  ·  R 배달 선택  ·  Esc 종료", center, y + 216, SMALL, align="center")
+
+    def draw(self, world, light, aim, *, focused, alarm, near_visible_zombie=False):
         self._vitals(world)
         self._objective(world)
         if not focused:
@@ -178,9 +246,10 @@ class PlayHUD:
         elif world.sneaking:
             self._notice("잠행 · 작은 발소리", TEAL, sneak=True)
 
-        actions = []
+        hint = self._active_hint(world, near_visible_zombie)
+        actions = [(hint, HINT_TEXT[hint], TEAL)] if hint is not None else []
         if world.can_interact():
-            if light.contains(world.next_stop):
+            if hint != "E" and light.contains(world.next_stop):
                 action = "택배 수령" if world.parcel == "waiting" else "택배 전달"
                 actions.append(("E", action, TEAL))
         elif world.can_open_gate():
