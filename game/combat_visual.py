@@ -245,6 +245,10 @@ class CombatVisual:
         source, frame = self._zombie_pose(zombie)
         self._draw(source, frame, foot_x, foot_y)
 
+    def zombie_texture(self, zombie):
+        source, _ = self._zombie_pose(zombie)
+        return self.images[source].texture
+
     def zombie_rect(self, zombie, foot_x, foot_y):
         source_name, frame = self._zombie_pose(zombie)
         clip = frame["clip_topleft"]

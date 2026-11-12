@@ -13,7 +13,7 @@ from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
 from delivery import DELIVERY_CONTRACTS, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
-from flashlight import Flashlight, LightField
+from flashlight import Flashlight, LightField, nearby_glow
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD
 from player_visual import PlayerVisual, load_atlas
@@ -59,6 +59,8 @@ HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
+NEARBY_GLOW_COLOR = (42, 38, 31)
+NEARBY_GLOW_TINT = 66
 ZOMBIE_LIGHT_DEPTH_SCALE = 0.35
 TRASH_CAN_POSITION = (365.0, 300.0)
 WHITE = (231, 236, 231)
@@ -159,10 +161,34 @@ def combined_light_rows(sources):
             for row in range(WINDOW_HEIGHT)]
 
 
+def dim_color(color):
+    return tuple(round(channel * NEARBY_GLOW_TINT / 255) for channel in color)
+
+
+def draw_dimmed_texture(texture, draw):
+    tint = NEARBY_GLOW_TINT
+    if p.SDL_SetTextureColorMod(texture, tint, tint, tint) != 0:
+        raise RuntimeError(f"Nearby light tint failed: {p.SDL_GetError()!r}")
+    try:
+        draw()
+    finally:
+        p.SDL_SetTextureColorMod(texture, 255, 255, 255)
+
+
 def zombie_light_row(row, foot_y):
     # A standing sprite's height only partially contributes to its ground depth.
     foot_row = WINDOW_HEIGHT - 1 - foot_y
     return math.floor(foot_row + (row + .5 - foot_row) * ZOMBIE_LIGHT_DEPTH_SCALE)
+
+
+def light_depth_columns(light, ground_y, offset_x):
+    return [(math.ceil(left + offset_x - .5), math.ceil(right + offset_x - .5))
+            for left, right in light.spans_at(ground_y)]
+
+
+def clip_light_columns(spans, columns):
+    return [(max(left, start), min(right, stop)) for left, right in spans for start, stop in columns
+            if left < stop and start < right]
 
 
 def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0), *, wall_alpha=None):
@@ -324,6 +350,7 @@ class Renderer:
         self.delivery = None
         self.cursor = None
         self.light = None
+        self.glow_source = None
         self.camera = (0.0, 0.0)
         self.choosing_delivery = False
         self.delivery_preview = 0
@@ -631,7 +658,7 @@ class Renderer:
         finally:
             p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_BLEND)
 
-    def wall(self, wall, outlines, beam_mask=None):
+    def wall(self, wall, outlines, beam_mask=None, *, glow_outline=()):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
         depth = wall.depth * GROUND_SCALE_Y
@@ -659,43 +686,49 @@ class Renderer:
 
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
-        facade_shade = (178, 147, 105) if image is not None else (53, 47, 40)
-        roof_shade = (140, 123, 102) if image is not None else (45, 41, 38)
-        for axis, boundary, offset, length, edge in (
+        edges = (
             (1, wall.y, wall.x, wall.width, "front"),
             (1, wall.y + wall.depth, wall.x, wall.width, "back"),
             (0, wall.x, wall.y, wall.depth, "left"),
             (0, wall.x + wall.width, wall.y, wall.depth, "right"),
-        ):
-            for index, outline in enumerate(outlines):
-                mask = beam_mask if index == 0 else None
-                for low, high in wall_edge_spans(wall, outline, axis, boundary):
-                    start = max(0, (low - offset) / length)
-                    end = min(1, (high - offset) / length)
-                    if start >= end:
-                        continue
-                    if edge == "front":
-                        self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), mask=mask)
-                        roof_bounds = (start, 0, end, front_band)
-                        roof_alpha = (255, 255, 0, 0)
-                    elif edge == "back":
-                        roof_bounds = (start, 1 - front_band, end, 1)
-                        roof_alpha = (0, 0, 255, 255)
-                    elif edge == "left":
-                        roof_bounds = (0, start, side_band, end)
-                        roof_alpha = (255, 0, 0, 255)
-                    else:
-                        roof_bounds = (1 - side_band, start, 1, end)
-                        roof_alpha = (0, 255, 255, 0)
-                        if oblique:
-                            side_image = self.neighborhood_walls[f"{wall.texture}-side"]
-                            self.draw_wall_plane(side_image, side, 0, 1, (155, 131, 103), (start, 0, end, 1), mask=mask)
-                    if low_obstacle and edge in ("left", "right"):
-                        # Show the end of a low obstacle when approached along the lane.
-                        band = side_band * min(1, (end - start) * 2)
-                        bounds = (0, 0, band, 1) if edge == "left" else (1 - band, 0, 1, 1)
-                        self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, mask=mask)
-                    self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha, mask=mask)
+        )
+        strong_shades = ((178, 147, 105), (140, 123, 102), (155, 131, 103)) if image is not None else (
+            (53, 47, 40), (45, 41, 38), (155, 131, 103))
+        passes = []
+        if glow_outline:
+            dim_shades = tuple(map(dim_color, strong_shades))
+            passes.extend((edge, glow_outline, None, dim_shades) for edge in edges)
+        passes.extend((edge, outline, beam_mask if index == 0 else None, strong_shades)
+                      for edge in edges for index, outline in enumerate(outlines))
+        for (axis, boundary, offset, length, edge), outline, mask, shades in passes:
+            facade_shade, roof_shade, side_shade = shades
+            for low, high in wall_edge_spans(wall, outline, axis, boundary):
+                start = max(0, (low - offset) / length)
+                end = min(1, (high - offset) / length)
+                if start >= end:
+                    continue
+                if edge == "front":
+                    self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), mask=mask)
+                    roof_bounds = (start, 0, end, front_band)
+                    roof_alpha = (255, 255, 0, 0)
+                elif edge == "back":
+                    roof_bounds = (start, 1 - front_band, end, 1)
+                    roof_alpha = (0, 0, 255, 255)
+                elif edge == "left":
+                    roof_bounds = (0, start, side_band, end)
+                    roof_alpha = (255, 0, 0, 255)
+                else:
+                    roof_bounds = (1 - side_band, start, 1, end)
+                    roof_alpha = (0, 255, 255, 0)
+                    if oblique:
+                        side_image = self.neighborhood_walls[f"{wall.texture}-side"]
+                        self.draw_wall_plane(side_image, side, 0, 1, side_shade, (start, 0, end, 1), mask=mask)
+                if low_obstacle and edge in ("left", "right"):
+                    # Show the end of a low obstacle when approached along the lane.
+                    band = side_band * min(1, (end - start) * 2)
+                    bounds = (0, 0, band, 1) if edge == "left" else (1 - band, 0, 1, 1)
+                    self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, mask=mask)
+                self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha, mask=mask)
 
     def draw_wall_plane(self, image, points, top, bottom, shade, bounds=(0, 0, 1, 1), *,
                         alpha=(255, 255, 255, 255), mask=None):
@@ -787,27 +820,50 @@ class Renderer:
             if clipped:
                 p.SDL_RenderSetClipRect(p.renderer, None)
 
+    def glow_at_ground_depth(self, position, screen_x):
+        """Keep upright pixels inside the light and the object's ground-depth shadow."""
+        if self.glow_source is None:
+            return None
+        glow, rows = self.glow_source
+        columns = light_depth_columns(glow, position[1], screen_x - position[0])
+        if not columns:
+            return None
+        return lambda row: clip_light_columns(rows.get(row, ()), columns)
+
     def draw_lit_prop(self, position, image, *, lift=0):
         x, y = self.project(*position)
         y += lift
         width, height = image.w * 2, image.h * 2
-        self.draw_lit_region((x - image.w, y, width, height), lambda: image.draw(x, y + image.h, width, height))
+        bounds = (x - image.w, y, width, height)
+
+        def draw():
+            image.draw(x, y + image.h, width, height)
+
+        glow_spans = self.glow_at_ground_depth(position, x)
+        if glow_spans is not None:
+            self.draw_lit_region(bounds, lambda: draw_dimmed_texture(image.texture, draw),
+                                 row_spans=glow_spans)
+        self.draw_lit_region(bounds, draw)
 
     def draw_station(self, position, pickup):
         x, y = self.project(*position)
 
-        def draw_box():
+        def draw_box(dimmed=False):
             if pickup:
-                rectangle(x - 14, y, 28, 23, (138, 86, 47))
-                rectangle(x - 14, y + 23, 28, 8, (186, 132, 76))
-                rectangle(x - 3, y + 11, 6, 20, (226, 185, 106))
+                parts = ((-14, 0, 28, 23, (138, 86, 47)), (-14, 23, 28, 8, (186, 132, 76)),
+                         (-3, 11, 6, 20, (226, 185, 106)))
             else:
-                rectangle(x - 17, y, 34, 43, (37, 100, 96))
-                rectangle(x - 17, y + 43, 34, 5, (86, 155, 145))
-                rectangle(x - 11, y + 25, 22, 5, (11, 29, 34))
+                parts = ((-17, 0, 34, 43, (37, 100, 96)), (-17, 43, 34, 5, (86, 155, 145)),
+                         (-11, 25, 22, 5, (11, 29, 34)))
+            for dx, dy, width, height, color in parts:
+                rectangle(x + dx, y + dy, width, height, dim_color(color) if dimmed else color)
 
         half_width = 14 if pickup else 17
-        self.draw_lit_region((x - half_width, y, half_width * 2 + 1, 32 if pickup else 49), draw_box)
+        bounds = (x - half_width, y, half_width * 2 + 1, 32 if pickup else 49)
+        glow_spans = self.glow_at_ground_depth(position, x)
+        if glow_spans is not None:
+            self.draw_lit_region(bounds, lambda: draw_box(dimmed=True), row_spans=glow_spans)
+        self.draw_lit_region(bounds, draw_box)
         if self.light.contains(position):
             rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
             self.font.draw(x + 26, y + 37, "수령" if pickup else "배달", ORANGE if pickup else TEAL)
@@ -823,6 +879,21 @@ class Renderer:
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
         bounds = self.combat_visual.zombie_rect(zombie, x, y)
+
+        def draw():
+            self.combat_visual.draw_zombie(zombie, x, y)
+
+        glow_spans = self.glow_at_ground_depth((zombie.x, zombie.y), x)
+        if glow_spans is not None:
+            def draw_glow():
+                draw_dimmed_texture(self.combat_visual.zombie_texture(zombie), draw)
+
+            def zombie_glow_spans(row):
+                sample = zombie_light_row(row, y) if zombie.alive else row
+                return glow_spans(sample)
+
+            self.draw_lit_region(bounds, draw_glow, row_spans=zombie_glow_spans)
+
         row_spans = None
         if zombie.alive:
             left, _, width, _ = bounds
@@ -831,8 +902,7 @@ class Renderer:
             origin_x = x - zombie.x
             sources = []
             for light, rows in self.light_sources:
-                columns = [(math.ceil(a + origin_x - .5), math.ceil(b + origin_x - .5))
-                           for a, b in light.spans_at(zombie.y)]
+                columns = light_depth_columns(light, zombie.y, origin_x)
                 if columns:
                     sources.append((rows, columns))
             if not sources:
@@ -840,16 +910,12 @@ class Renderer:
 
             def zombie_row_spans(row):
                 sample = zombie_light_row(row, y)
-                spans = []
-                for rows, columns in sources:
-                    for a, b in rows.get(sample, ()):
-                        spans.extend((max(a, start), min(b, end)) for start, end in columns
-                                     if a < end and start < b)
-                return merge_light_spans(spans)
+                return merge_light_spans(span for rows, columns in sources
+                                         for span in clip_light_columns(rows.get(sample, ()), columns))
 
             row_spans = zombie_row_spans
 
-        self.draw_lit_region(bounds, lambda: self.combat_visual.draw_zombie(zombie, x, y), row_spans=row_spans)
+        self.draw_lit_region(bounds, draw, row_spans=row_spans)
         self.draw_zombie_markers(zombie, combat, attack, x, y, row_spans=row_spans)
 
     def draw_zombie_markers(self, zombie, combat, attack, x, y, *, row_spans=None):
@@ -889,6 +955,11 @@ class Renderer:
         dx, dy = aim[0] - origin[0], aim[1] - origin[1]
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
         beam = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls, world_size)
+        glow = nearby_glow(origin, walls, world_size)
+        glow_outline = glow.outline()
+        glow_walls = {id(wall) for wall in glow.walls}
+        # Only the stronger sources reveal targeting, station prompts and status marks.
+        self.glow_source = (glow, light_source_rows(glow, self.project))
         lamps = tuple(self.streetlights_in_view())
         self.light = LightField((beam, *lamps))
         self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in self.light.lights)
@@ -902,6 +973,7 @@ class Renderer:
             x, y = self.project(*point)
             beam_mask.append((x, y + 1))
         lamp_outlines = tuple(lamp.outline() for lamp in lamps)
+        self.draw_ground_light(glow, glow_outline, (0, 0, 0), NEARBY_GLOW_COLOR)
         self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53))
         self.draw_streetlight_pools(lamps, lamp_outlines)
         outlines = (beam_outline, *lamp_outlines)
@@ -941,7 +1013,7 @@ class Renderer:
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "wall":
-                self.wall(actor, outlines, beam_mask)
+                self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else ())
             elif kind == "zombie":
                 self.draw_lit_zombie(actor, combat, attack)
             else:

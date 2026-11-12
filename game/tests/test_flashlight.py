@@ -2,7 +2,7 @@ import math
 import unittest
 
 from game.core import Wall
-from game.flashlight import Flashlight, HALF_ANGLE, LightField
+from game.flashlight import Flashlight, HALF_ANGLE, LightField, nearby_glow
 
 
 class FlashlightSpanTests(unittest.TestCase):
@@ -38,3 +38,24 @@ class FlashlightSpanTests(unittest.TestCase):
 
         toward = Flashlight((210, 60), math.pi / 2, [wall])
         self.assertEqual(len(LightField((toward, lamp)).spans_at(130)), 1)
+
+    def test_nearby_glow_covers_all_directions_up_to_50_pixels(self):
+        glow = nearby_glow((200, 100), (), (400, 300))
+        for point in ((150, 100), (250, 100), (200, 50), (200, 150)):
+            with self.subTest(point=point):
+                self.assertTrue(glow.contains(point))
+        for point in ((149, 100), (251, 100), (200, 49), (200, 151)):
+            with self.subTest(point=point):
+                self.assertFalse(glow.contains(point))
+
+    def test_nearby_glow_uses_only_local_walls_and_preserves_their_shadows(self):
+        near = Wall(210, 85, 2, 30)
+        overlapping = Wall(130, 95, 22, 10)
+        far = Wall(260, 85, 20, 30)
+        glow = nearby_glow((200, 100), (near, overlapping, far), (400, 300))
+
+        self.assertEqual(glow.walls, (near, overlapping))
+        self.assertTrue(glow.contains((185, 100)))
+        self.assertFalse(glow.contains((225, 100)))
+        self.assertTrue(any(wall is near for _, wall in glow.outline()))
+        self.assertFalse(any(left <= 225 <= right for left, right in glow.spans_at(100)))

@@ -10,6 +10,7 @@ else:
 
 RANGE = 340.0
 HALF_ANGLE = math.radians(40)
+NEARBY_GLOW_RADIUS = 50.0
 _ARC_STEPS = 40
 _CORNER_OFFSET = 1e-5
 
@@ -80,6 +81,16 @@ class Flashlight:
             if entry is not None and entry <= nearest:
                 nearest, hit = entry, wall
         return (x + dx * length * nearest, y + dy * length * nearest), hit
+
+
+def nearby_glow(origin, walls, world_size):
+    """Return an omnidirectional light using only nearby occluders."""
+    x, y = origin
+    radius = NEARBY_GLOW_RADIUS
+    nearby_walls = tuple(wall for wall in walls
+                         if x - radius <= wall.x + wall.width and wall.x <= x + radius
+                         and y - radius <= wall.y + wall.depth and wall.y <= y + radius)
+    return Flashlight(origin, 0.0, nearby_walls, world_size, radius=radius, half_angle=math.pi)
 
 
 class LightField:
