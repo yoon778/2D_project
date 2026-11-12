@@ -13,7 +13,7 @@ from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
 from delivery import DELIVERY_CONTRACTS, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
-from flashlight import Flashlight, LightField, nearby_glow
+from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD
 from player_visual import PlayerVisual, load_atlas
@@ -381,6 +381,8 @@ class Renderer:
         world_w, world_h = self.delivery.world_size
         self.neighborhood_ground = load_atlas(NEIGHBORHOOD_PATH / "ground.png",
                                               [round(world_w / 2), round(world_h * GROUND_SCALE_Y / 2)])
+        if p.SDL_SetTextureBlendMode(self.neighborhood_ground.texture, p.SDL_BLENDMODE_BLEND) != 0:
+            raise RuntimeError(f"Ground blend mode failed: {p.SDL_GetError()!r}")
         for wall in self.delivery.walls:
             if isinstance(wall, NeighborhoodWall) and wall.texture not in self.neighborhood_walls:
                 self.neighborhood_walls[wall.texture] = load_atlas(
@@ -625,12 +627,19 @@ class Renderer:
         self.font.draw(73, 54, "M", WHITE)
         self.font.draw(105, 54, "닫기 · 지도 확인 중 일시정지", WHITE)
 
-    def draw_ground_light(self, light, outline, edge, falloff):
-        points = [light.origin] + [point for point, _ in outline]
+    def draw_ground_light(self, light, outline, edge, falloff, *, feathered=False):
+        if feathered:
+            samples, indices = feathered_beam_mesh(light, outline)
+        else:
+            samples = [(light.origin, 255)] + [(point, 255) for point, _ in outline]
+            indices = [index for i in range(1, len(samples) - 1) for index in (0, i, i + 1)]
+        if not indices:
+            return
+
         ground = self.neighborhood_ground
         world_w, world_h = light.world_size
-        vertices = (p.SDL_Vertex * len(points))()
-        for i, point in enumerate(points):
+        vertices = (p.SDL_Vertex * len(samples))()
+        for i, (point, opacity) in enumerate(samples):
             x, y = self.project(*point)
             strength = max(0, 1.0 - math.dist(light.origin, point) / light.radius)
             light_rgb = tuple(base + gain * strength for base, gain in zip(edge, falloff))
@@ -638,9 +647,8 @@ class Renderer:
             if ground is not None:
                 light_rgb = tuple(channel * 255 / GROUND_NEUTRAL for channel in light_rgb)
                 uv = p.SDL_FPoint(max(0, min(1, point[0] / world_w)), max(0, min(1, 1 - point[1] / world_h)))
-            color = p.SDL_Color(*(round(channel) for channel in light_rgb), 255)
+            color = p.SDL_Color(*(round(channel) for channel in light_rgb), opacity)
             vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - 1 - y), color, uv)
-        indices = [index for i in range(1, len(vertices) - 1) for index in (0, i, i + 1)]
         triangles = (ctypes.c_int * len(indices))(*indices)
         texture = ground.texture if ground is not None else None
         if p.SDL_RenderGeometry(p.renderer, texture, vertices, len(vertices), triangles, len(indices)) != 0:
@@ -974,7 +982,7 @@ class Renderer:
             beam_mask.append((x, y + 1))
         lamp_outlines = tuple(lamp.outline() for lamp in lamps)
         self.draw_ground_light(glow, glow_outline, (0, 0, 0), NEARBY_GLOW_COLOR)
-        self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53))
+        self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53), feathered=True)
         self.draw_streetlight_pools(lamps, lamp_outlines)
         outlines = (beam_outline, *lamp_outlines)
         self.draw_noise_pulse(self.sprint_pulse, self.sprint_pulse_remaining, TEAL)

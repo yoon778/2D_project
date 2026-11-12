@@ -11,6 +11,8 @@ else:
 RANGE = 340.0
 HALF_ANGLE = math.radians(40)
 NEARBY_GLOW_RADIUS = 50.0
+_BEAM_ANGLE_FADE = math.radians(8)
+_BEAM_DISTANCE_FADE = 56.0
 _ARC_STEPS = 40
 _CORNER_OFFSET = 1e-5
 
@@ -81,6 +83,61 @@ class Flashlight:
             if entry is not None and entry <= nearest:
                 nearest, hit = entry, wall
         return (x + dx * length * nearest, y + dy * length * nearest), hit
+
+
+def _smoothstep(amount):
+    amount = max(0.0, min(1.0, amount))
+    return amount * amount * (3.0 - 2.0 * amount)
+
+
+def feathered_beam_mesh(light, outline):
+    """Subdivide the existing wall-clipped rays and give each vertex an opacity."""
+    vertices = [(light.origin, 255)]
+    indices = []
+    if light.radius <= 0 or light.half_angle <= 0:
+        return vertices, indices
+
+    angle_fade = min(light.half_angle, _BEAM_ANGLE_FADE)
+    distance_fade = min(light.radius, _BEAM_DISTANCE_FADE)
+    # An inner ring gives the shared apex a tiny transition into the side fade.
+    inner = min(1.0, light.radius / 8)
+    fade_rings = (light.radius - distance_fade * step / 4 for step in range(4, -1, -1))
+    rings = [inner, *(distance for distance in fade_rings if distance > inner)]
+    origin_x, origin_y = light.origin
+    previous = None
+    for point, _ in outline:
+        dx, dy = point[0] - origin_x, point[1] - origin_y
+        length = math.hypot(dx, dy)
+        if length == 0:
+            previous = None
+            continue
+        angle = abs(math.remainder(math.atan2(dy, dx) - light.angle, math.tau))
+        angular_opacity = _smoothstep((light.half_angle - angle) / angle_fade)
+        ray = []
+        end_index = None
+        for ring in rings:
+            if end_index is not None:
+                ray.append(end_index)
+                continue
+            is_endpoint = ring >= length or ring == light.radius
+            distance = length if is_endpoint else ring
+            radial_opacity = _smoothstep((light.radius - distance) / distance_fade)
+            fraction = distance / length
+            vertex = point if is_endpoint else (origin_x + dx * fraction, origin_y + dy * fraction)
+            ray.append(len(vertices))
+            vertices.append((vertex, round(255 * angular_opacity * radial_opacity)))
+            if is_endpoint:
+                end_index = ray[-1]
+
+        if previous is not None:
+            indices.extend((0, previous[0], ray[0]))
+            for left_inner, left_outer, right_inner, right_outer in zip(previous, previous[1:], ray, ray[1:]):
+                if left_inner != left_outer:
+                    indices.extend((left_inner, left_outer, right_outer))
+                if right_inner != right_outer:
+                    indices.extend((left_inner, right_outer, right_inner))
+        previous = ray
+    return vertices, indices
 
 
 def nearby_glow(origin, walls, world_size):

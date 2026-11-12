@@ -2,7 +2,7 @@ import math
 import unittest
 
 from game.core import Wall
-from game.flashlight import Flashlight, HALF_ANGLE, LightField, nearby_glow
+from game.flashlight import Flashlight, HALF_ANGLE, LightField, feathered_beam_mesh, nearby_glow
 
 
 class FlashlightSpanTests(unittest.TestCase):
@@ -59,3 +59,40 @@ class FlashlightSpanTests(unittest.TestCase):
         self.assertFalse(glow.contains((225, 100)))
         self.assertTrue(any(wall is near for _, wall in glow.outline()))
         self.assertFalse(any(left <= 225 <= right for left, right in glow.spans_at(100)))
+
+    def test_beam_feather_fades_sides_and_tip_while_retaining_the_core(self):
+        beam = Flashlight((400, 360), 0, ())
+        vertices, _ = feathered_beam_mesh(beam, beam.outline())
+
+        def opacity_at(distance, degrees):
+            angle = math.radians(degrees)
+            sample = (400 + distance * math.cos(angle), 360 + distance * math.sin(angle))
+            return next(opacity for point, opacity in vertices if math.dist(point, sample) < 1e-8)
+
+        self.assertEqual(opacity_at(0, 0), 255)
+        for direction in (-1, 1):
+            self.assertEqual(opacity_at(284, direction * 32), 255)
+            self.assertAlmostEqual(opacity_at(284, direction * 36), 127.5, delta=0.5)
+            self.assertEqual(opacity_at(284, direction * 40), 0)
+        self.assertEqual(opacity_at(284, 0), 255)
+        self.assertGreater(opacity_at(298, 0), opacity_at(312, 0))
+        self.assertGreater(opacity_at(312, 0), opacity_at(326, 0))
+        self.assertEqual(opacity_at(340, 0), 0)
+
+    def test_feather_mesh_matches_the_wall_clipped_outline(self):
+        wall = Wall(500, 300, 30, 120)
+        beam = Flashlight((400, 360), 0, (wall,))
+        outline = beam.outline()
+        vertices, indices = feathered_beam_mesh(beam, outline)
+        opacities = dict(vertices)
+        self.assertTrue(all(point in opacities for point, _ in outline))
+        self.assertEqual(opacities[(500, 360)], 255)
+        self.assertNotIn((740, 360), opacities)
+
+        def area(a, b, c):
+            return abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2
+
+        original_area = sum(area(beam.origin, a, b) for (a, _), (b, _) in zip(outline, outline[1:]))
+        mesh_area = sum(area(*(vertices[index][0] for index in indices[start:start + 3]))
+                        for start in range(0, len(indices), 3))
+        self.assertAlmostEqual(original_area, mesh_area, places=7)
