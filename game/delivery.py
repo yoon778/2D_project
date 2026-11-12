@@ -36,6 +36,17 @@ BOTTLE_NOISE_RANGE = 320.0
 BOTTLE_FLIGHT_TIME = 0.30
 _BOTTLE_STARTS = ((177, 127), (610, 628), (1660, 932), (3230, 2070))
 _REAR_ALLEY_PATROL = ((3180, 2227), (3060, 2227))
+_REAR_ALLEY_ZOMBIES = ((2865, 2227), _REAR_ALLEY_PATROL[0])
+_SHOP_ZOMBIE_STARTS = (
+    *ZOMBIE_STARTS[:16], (1865, 975), (1930, 950), (1978, 942),
+    (2030, 973), (2005, 1015), *ZOMBIE_STARTS[21:],
+)
+
+
+@dataclass(frozen=True)
+class DeliveryStop:
+    name: str
+    position: tuple[float, float]
 
 
 @dataclass(frozen=True)
@@ -45,19 +56,31 @@ class DeliveryContract:
     difficulty: str
     destination: tuple[float, float]
     zombie_starts: tuple[tuple[float, float], ...]
+    stops: tuple[DeliveryStop, ...] = ()
+
+    def __post_init__(self):
+        if not self.stops:
+            object.__setattr__(self, "stops", (DeliveryStop(self.name, self.destination),))
 
 
-DELIVERY_CONTRACTS = (
+_SINGLE_CONTRACTS = (
     DeliveryContract(
         "상점 앞", "가로등 아래 모여 있는 좀비 무리", "보통",
-        (1958.0, 1037.0),
-        (*ZOMBIE_STARTS[:16], (1865, 975), (1930, 950), (1978, 942),
-         (2030, 973), (2005, 1015), *ZOMBIE_STARTS[21:]),
+        (1958.0, 1037.0), _SHOP_ZOMBIE_STARTS,
     ),
     DeliveryContract(
         "주택 뒷문", "순찰 좀비가 오가는 어두운 골목", "어려움",
         (3149.0, 2227.0),
-        (*ZOMBIE_STARTS[:-2], (2865, 2227), _REAR_ALLEY_PATROL[0]),
+        (*ZOMBIE_STARTS[:-2], *_REAR_ALLEY_ZOMBIES),
+    ),
+)
+DELIVERY_CONTRACTS = (
+    *_SINGLE_CONTRACTS,
+    DeliveryContract(
+        "두 곳 배달", "상점 앞·주택 뒷문 순서 자유", "어려움",
+        _SINGLE_CONTRACTS[0].destination,
+        (*_SHOP_ZOMBIE_STARTS[:-2], *_REAR_ALLEY_ZOMBIES),
+        tuple(contract.stops[0] for contract in _SINGLE_CONTRACTS),
     ),
 )
 
@@ -132,14 +155,23 @@ class DeliveryWorld(CombatWorld):
         (2290, 1750), (2730, 1935), (3340, 2070),
     )
 
+    def __init__(self, *, two_stop_unlocked: bool = False):
+        self.two_stop_unlocked = two_stop_unlocked
+        super().__init__()
+
     @property
     def destination(self):
         return self.contract.destination
 
+    @property
+    def available_contracts(self):
+        return DELIVERY_CONTRACTS if self.two_stop_unlocked else _SINGLE_CONTRACTS
+
     def select_contract(self, index):
-        if not 0 <= index < len(DELIVERY_CONTRACTS):
+        contracts = self.available_contracts
+        if not 0 <= index < len(contracts):
             return False
-        self.contract = DELIVERY_CONTRACTS[index]
+        self.contract = contracts[index]
         self.reset()
         return True
 
@@ -150,7 +182,7 @@ class DeliveryWorld(CombatWorld):
         self.elapsed_play_time = 0.0
         self.player = Player(*PLAYER_START)
         self.zombies = []
-        has_patrol = self.contract is DELIVERY_CONTRACTS[1]
+        has_patrol = _SINGLE_CONTRACTS[1].stops[0] in self.contract.stops
         for index, position in enumerate(self.contract.zombie_starts):
             patrol = _REAR_ALLEY_PATROL if has_patrol and position == _REAR_ALLEY_PATROL[0] else None
             self.zombies.append(Zombie(
@@ -187,6 +219,8 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
         ]
         self.parcel = "waiting"
+        self.completed_stops: set[DeliveryStop] = set()
+        self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS)
         self.has_bottle = False
         self.bottle_flight = None
@@ -196,7 +230,14 @@ class DeliveryWorld(CombatWorld):
 
     @property
     def next_stop(self):
-        return self.pickup if self.parcel == "waiting" else self.destination
+        if self.parcel == "waiting":
+            return self.pickup
+        remaining = self.remaining_stops
+        return remaining[0].position if remaining else self.destination
+
+    @property
+    def remaining_stops(self):
+        return tuple(stop for stop in self.contract.stops if stop not in self.completed_stops)
 
     @property
     def combat_free(self):
@@ -325,13 +366,19 @@ class DeliveryWorld(CombatWorld):
             self.bottle_impact = flight.destination
             self._emit_noise(BOTTLE_NOISE_RANGE, flight.destination)
 
-    def can_interact(self):
+    @property
+    def interaction_target(self):
         if self.result != "playing" or self.player_hp <= 0:
-            return False
+            return None
         origin = (self.player.x, self.player.y)
-        stop = self.next_stop
-        return (math.dist(origin, stop) <= INTERACTION_RANGE
-                and not any(wall_blocks(origin, stop, wall) for wall in self.walls))
+        targets = ((self.pickup,) if self.parcel == "waiting"
+                   else (stop.position for stop in self.remaining_stops))
+        return next((target for target in targets
+                     if math.dist(origin, target) <= INTERACTION_RANGE
+                     and not any(wall_blocks(origin, target, wall) for wall in self.walls)), None)
+
+    def can_interact(self):
+        return self.interaction_target is not None
 
     def can_open_gate(self):
         if self.gate is None or self.result != "playing" or self.player_hp <= 0:
@@ -343,7 +390,8 @@ class DeliveryWorld(CombatWorld):
 
     def interact(self):
         self._resolve_result()
-        if not self.can_interact():
+        target = self.interaction_target
+        if target is None:
             if not self.can_open_gate():
                 return False
             self.walls.remove(self.gate)
@@ -352,9 +400,14 @@ class DeliveryWorld(CombatWorld):
             return True
         if self.parcel == "waiting":
             self.parcel = "carrying"
-        else:
+            return True
+        self.completed_stops.add(next(stop for stop in self.remaining_stops if stop.position == target))
+        if not self.remaining_stops:
             self.parcel = "delivered"
             self.result = "delivered"
             self.attack = None
             self._resolve_result()
+            if self.contract in _SINGLE_CONTRACTS and not self.two_stop_unlocked:
+                self.two_stop_unlocked = True
+                self.just_unlocked_two_stop = True
         return True

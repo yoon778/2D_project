@@ -70,3 +70,33 @@ class PlayHUDTests(unittest.TestCase):
             self.hud.reset_delivery()
         self.assertNotIn(key, self.hud._labels)
         destroy.assert_called_once_with(texture)
+
+    def test_two_stop_hud_uses_actual_target_and_keeps_both_results_on_failure(self):
+        self.world = DeliveryWorld(two_stop_unlocked=True)
+        self.assertTrue(self.world.select_contract(2))
+        self.assertTrue(self.world.interact())
+        shop, rear_door = self.world.contract.stops
+        self.world.player.x, self.world.player.y = rear_door.position
+        self.light.contains.side_effect = lambda position: position == rear_door.position
+        self.assertEqual(self.actions()["E"], "택배 전달")
+        self.light.contains.assert_called_once_with(rear_door.position)
+        self.assertTrue(self.world.interact())
+
+        with patch.object(self.hud, "_text") as text, patch.object(play_hud, "panel"), patch.object(play_hud, "fill"):
+            play_hud.PlayHUD._objective(self.hud, self.world)
+            self.assertIn("1 / 2", {args[0] for args, _ in text.call_args_list})
+            text.reset_mock()
+            self.world.player_hp = 0
+            self.world.result = "defeated"
+            self.hud.draw_result(self.world)
+        labels = {args[0] for args, _ in text.call_args_list}
+        self.assertTrue({"배달 실패", f"{shop.name} · 미완료", f"{rear_door.name} · 완료"} <= labels)
+
+    def test_first_success_result_announces_new_contract(self):
+        self.assertTrue(self.world.interact())
+        self.world.player.x, self.world.player.y = self.world.destination
+        self.assertTrue(self.world.interact())
+        with patch.object(self.hud, "_text") as text, patch.object(play_hud, "panel"), patch.object(play_hud, "fill"):
+            self.hud.draw_result(self.world)
+        labels = {args[0] for args, _ in text.call_args_list}
+        self.assertIn("새 계약 열림 · R에서 3번 선택", labels)

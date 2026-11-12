@@ -13,6 +13,7 @@ from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
 from delivery import DELIVERY_CONTRACTS, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
+from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD
@@ -27,7 +28,7 @@ GROUND_Y = 90.0
 GROUND_SCALE_Y = 0.60
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
-DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1}
+DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1, p.SDLK_3: 2, p.SDLK_KP_3: 2}
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
@@ -77,6 +78,7 @@ MAP_CLOSED_GATE = (204, 150, 104)
 MAP_OPEN_GATE = (122, 188, 153)
 MAP_BUILDING = (20, 30, 34)
 MAP_LANDMARK = (178, 201, 195)
+MAP_COMPLETED = (161, 176, 166)
 HIT_MARK_DURATION = 0.06
 NOISE_PULSE_DURATION = 0.24
 VEHICLE_ALARM_DURATION = 1.2
@@ -109,12 +111,11 @@ def current_cursor():
     return x.value, y.value
 
 
-def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, station=None, lamps=(), street_props=(),
+def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stations=(), lamps=(), street_props=(),
                      bottles=()):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
-    if station is not None:
-        objects.append(("station", station))
+    objects.extend(("station", position) for position in stations)
     objects.extend(("lamp", position) for position in lamps)
     objects.extend(("street-prop", decoration) for decoration in street_props)
     objects.extend(("bottle", bottle) for bottle in bottles)
@@ -483,21 +484,27 @@ class Renderer:
                            min(max(0.0, player.y - WORLD_HEIGHT / 2), height - WORLD_HEIGHT))
 
     def draw_delivery_selection(self):
+        world = self.delivery
         p.SDL_SetRenderDrawColor(p.renderer, *MAP_INK, 255)
         p.SDL_RenderClear(p.renderer)
         self.font.draw(64, 672, "DEAD ROUTE  |  배달 선택", TEAL)
         rectangle(64, 104, 378, 528, MAP_PANEL)
         rectangle(64, 104, 378, 528, MAP_BORDER, filled=False)
         for index, contract in enumerate(DELIVERY_CONTRACTS):
-            bottom = 486 - index * 126
+            bottom = 506 - index * 116
             selected = index == self.delivery_preview
             accent = TEAL if selected else MAP_BORDER
             rectangle(82, bottom, 342, 106, (38, 56, 56) if selected else (18, 29, 32))
             rectangle(82, bottom, 342, 106, accent, filled=False)
+            if contract not in world.available_contracts:
+                self.font.draw(100, bottom + 77, f"[{index + 1}]  {contract.name} · 잠금", MAP_LANDMARK)
+                self.font.draw(100, bottom + 40, "기존 배달 1회 성공 후 해금", MAP_LANDMARK)
+                continue
             self.font.draw(100, bottom + 77, f"[{index + 1}]  {contract.name}", TEAL if selected else WHITE)
             self.font.draw(100, bottom + 49, f"난이도 · {contract.difficulty}", ORANGE)
             self.font.draw(100, bottom + 22, contract.description, WHITE)
-        self.font.draw(100, 213, "1 / 2  미리보기", WHITE)
+        keys = "1 / 2 / 3" if world.two_stop_unlocked else "1 / 2"
+        self.font.draw(100, 213, f"{keys}  미리보기", WHITE)
         self.font.draw(100, 170, "Enter  배달 시작  ·  Esc  종료", TEAL)
 
         contract = DELIVERY_CONTRACTS[self.delivery_preview]
@@ -506,7 +513,7 @@ class Renderer:
         for x, color, label in ((496, ORANGE, "수령지"), (608, TEAL, "배송지")):
             rectangle(x, 65, 8, 8, color)
             self.font.draw(x + 16, 69, label, WHITE)
-        if contract is DELIVERY_CONTRACTS[1]:
+        if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
             rectangle(720, 67, 10, 4, MAP_CLOSED_GATE)
             self.font.draw(736, 69, "철문", WHITE)
 
@@ -573,18 +580,24 @@ class Renderer:
             rectangle(x, y, label_width, 24, MAP_BORDER, filled=False)
             self.font.draw(x + 8, y + 12, label, MAP_LANDMARK)
 
-        for position, color in ((world.pickup, ORANGE), (contract.destination, TEAL)):
-            x, y = map_point(*position)
+        x, y = map_point(*world.pickup)
+        rectangle(x - 6, y - 6, 12, 12, MAP_INK)
+        rectangle(x - 4, y - 4, 8, 8, ORANGE)
+        for stop in contract.stops:
+            completed = player is not None and stop in world.completed_stops
+            color = MAP_COMPLETED if completed else TEAL
+            x, y = map_point(*stop.position)
             rectangle(x - 6, y - 6, 12, 12, MAP_INK)
             rectangle(x - 4, y - 4, 8, 8, color)
-        destination_label = contract.name
-        label_width = 17 * len(destination_label) + 16
-        x, y = map_point(*contract.destination)
-        label_x = max(left + 4, x - label_width - 10)
-        label_y = max(bottom + 4, y - 32)
-        rectangle(label_x, label_y, label_width, 24, MAP_PANEL)
-        self.font.draw(label_x + 8, label_y + 12, destination_label, TEAL)
-        if contract is DELIVERY_CONTRACTS[1]:
+            label = stop.name
+            if player is not None and len(contract.stops) > 1:
+                label += " · 완료" if completed else " · 미완료"
+            label_width = 17 * len(label) + 16
+            label_x = max(left + 4, x - label_width - 10)
+            label_y = max(bottom + 4, y - 32)
+            rectangle(label_x, label_y, label_width, 24, MAP_PANEL)
+            self.font.draw(label_x + 8, label_y + 12, label, color)
+        if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
             gate_x, gate_y = map_point(*world.gate_position)
             gate_closed = player is None or world.gate is not None
             rectangle(gate_x - 5, gate_y - 7, 10, 4, MAP_INK)
@@ -610,6 +623,8 @@ class Renderer:
         rectangle(side, 104, 336, 528, MAP_PANEL)
         rectangle(side, 104, 336, 528, MAP_BORDER, filled=False)
         self.font.draw(side + 24, 602, "다음 목표", WHITE)
+        if len(world.contract.stops) > 1:
+            self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", TEAL)
         waiting = world.parcel == "waiting"
         objective, target, accent = (
             ("택배 수령", "주황색 수령지에서 E", ORANGE) if waiting
@@ -630,7 +645,7 @@ class Renderer:
         ):
             rectangle(side + 36 - w / 2, y - h / 2, w, h, color)
             self.font.draw(side + 62, y, label, WHITE)
-        if world.contract is DELIVERY_CONTRACTS[1]:
+        if DELIVERY_CONTRACTS[1].stops[0] in world.contract.stops:
             gate_closed = world.gate is not None
             rectangle(side + 24, 126, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
             self.font.draw(side + 62, 128, "철문 · 닫힘" if gate_closed else "철문 · 열림", WHITE)
@@ -1004,7 +1019,10 @@ class Renderer:
         delivery = self.delivery
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
         bottles = []
+        stations = ()
         if delivery is not None:
+            stations = ((delivery.pickup,) if delivery.parcel == "waiting"
+                        else tuple(stop.position for stop in delivery.remaining_stops))
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
             flight = delivery.bottle_flight
             if flight is not None:
@@ -1014,7 +1032,7 @@ class Renderer:
                 bottles.append((x, y, lift))
         for kind, actor in sorted_drawables(player, walls, zombies=combat.zombies if combat else (),
                                             prop=TRASH_CAN_POSITION if delivery is None else None,
-                                            station=delivery.next_stop if delivery is not None else None,
+                                            stations=stations,
                                             lamps=(lamp.origin for lamp in lamps),
                                             street_props=delivery.props if delivery is not None else (),
                                             bottles=bottles):
@@ -1161,7 +1179,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if not play_opening(renderer, music):
                     return
             zombie_audio = ZombieAudio(BASE_DIR / "assets/audio")
-        world = DeliveryWorld() if delivery_run else CombatWorld()
+        world = DeliveryWorld(two_stop_unlocked=load_two_stop_unlock()) if delivery_run else CombatWorld()
         renderer.combat = world
         if delivery_run:
             if music is not None:
@@ -1210,7 +1228,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     if renderer.choosing_delivery:
                         if contract_choice is None:
                             if key in DELIVERY_KEYS:
-                                preview_choice = DELIVERY_KEYS[key]
+                                index = DELIVERY_KEYS[key]
+                                if DELIVERY_CONTRACTS[index] in world.available_contracts:
+                                    preview_choice = index
                             elif key in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
                                 contract_choice = preview_choice
                         continue
@@ -1342,7 +1362,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             gate_opened = False
             if delivery_run and active and pending_interact:
                 gate_was_closed = world.gate is not None
-                world.interact()
+                if world.interact() and world.just_unlocked_two_stop:
+                    save_two_stop_unlock()
                 gate_opened = gate_was_closed and world.gate is None
                 if gate_opened:
                     renderer.reset_streetlights()
