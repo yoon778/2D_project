@@ -27,7 +27,7 @@ py -3.13 -m venv .venv
 - ZIP의 `sources/`에 배달원과 좀비 원화 생성 프롬프트가 들어 있습니다.
 - 골목 쓰레기통과 일부 좀비 보행에는 PixelLab을 사용했습니다.
 - 마을의 도로, 주택, 상점, 정류장, 가로등은 프로젝트의 도트 에셋 제작 코드로 생성했습니다.
-- 좀비 발소리·신음, 병 깨지는 소리, 철문 소리, 차량 경보는 프로젝트의 합성 효과음입니다.
+- 탐색 배경음악과 좀비 발소리·신음·피격, 배트 스윙, 병 깨지는 소리, 철문 소리, 차량 경보는 프로젝트에서 합성했습니다.
 - 플레이 HUD에는 Noto Sans KR의 한글·기본 기호를 담은 글꼴을 사용했습니다. [글꼴 라이선스](game/assets/ui/OFL-NotoSansKR.txt)
-- 오프닝·게임 배경음악은 Suno Free로 생성한 비상업 과제용 음원입니다. [Last Delivery](https://suno.com/song/b5687c1a-2534-4665-af87-6908db42325d)
+- 오프닝 음악은 Suno Free로 생성한 비상업 과제용 음원입니다. [Last Delivery](https://suno.com/song/b5687c1a-2534-4665-af87-6908db42325d)
 - 화면 글꼴은 pico2d에 포함된 `ConsolaMalgun.ttf`를 사용합니다.

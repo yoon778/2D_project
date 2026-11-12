@@ -7,8 +7,8 @@ import pico2d.pico2d as p
 
 
 _OPENING_VOLUME = 32
-_EXPLORE_VOLUME = 22
-_NEAR_VOLUME = 8
+_EXPLORE_VOLUME = 38
+_NEAR_VOLUME = 16
 _NEAR_DISTANCE = 120.0
 _FAR_DISTANCE = 180.0
 _VOLUME_TIME = .25
@@ -21,7 +21,15 @@ _ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
 _BOTTLE_SOUND = "bottle_break"
 _GATE_SOUND = "gate_open"
 _VEHICLE_SOUND = "vehicle_alarm"
-_EFFECT_VOLUME = {_BOTTLE_SOUND: 82, _GATE_SOUND: 72, _VEHICLE_SOUND: 76}
+_BAT_SWING_SOUND = "bat_swing"
+_ZOMBIE_HIT_SOUND = "zombie_hit"
+_EFFECT_VOLUME = {
+    _BOTTLE_SOUND: 82,
+    _GATE_SOUND: 72,
+    _VEHICLE_SOUND: 76,
+    _BAT_SWING_SOUND: 74,
+    _ZOMBIE_HIT_SOUND: 82,
+}
 
 
 class BackgroundMusic:
@@ -155,6 +163,12 @@ class ZombieAudio:
 
     def play_vehicle_alarm(self, distance):
         self._play_effect(_VEHICLE_SOUND, distance)
+
+    def play_bat_swing(self):
+        self._play_effect(_BAT_SWING_SOUND, 0.0)
+
+    def play_zombie_hit(self):
+        self._play_effect(_ZOMBIE_HIT_SOUND, 0.0)
 
     def _play_effect(self, kind, distance):
         sound = self._sounds.get(kind)

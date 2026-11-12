@@ -1,4 +1,5 @@
 """BGM loop, distance volume, focus and resource ownership checks."""
+import ctypes
 import math
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -42,10 +43,10 @@ class BackgroundMusicTests(unittest.TestCase):
         self.backend.Mix_VolumeMusic.assert_called_once_with(32)
         self.music.update(.05)
         first_volume = self.backend.Mix_VolumeMusic.call_args.args[0]
-        self.assertGreater(first_volume, 22)
-        self.assertLess(first_volume, 32)
-        for distance, opening, expected in ((None, False, 22), (180, False, 22),
-                                            (150, False, 15), (120, False, 8), (0, False, 8), (0, True, 32)):
+        self.assertGreater(first_volume, 32)
+        self.assertLess(first_volume, 38)
+        for distance, opening, expected in ((None, False, 38), (180, False, 38),
+                                            (150, False, 27), (120, False, 16), (0, False, 16), (0, True, 32)):
             with self.subTest(distance=distance, opening=opening):
                 self.music.update(3, distance=distance, opening=opening)
                 self.backend.Mix_VolumeMusic.assert_called_with(expected)
@@ -62,7 +63,7 @@ class BackgroundMusicTests(unittest.TestCase):
         self.music.update(0, focused=True)
         self.backend.Mix_ResumeMusic.assert_called_once()
         self.music.update(3, distance=120)
-        self.backend.Mix_VolumeMusic.assert_called_with(8)
+        self.backend.Mix_VolumeMusic.assert_called_with(16)
         self.backend.Mix_PlayMusic.assert_called_once_with(self.music_handle, -1)
 
     def test_missing_file_is_silent(self):
@@ -104,7 +105,45 @@ class BackgroundMusicTests(unittest.TestCase):
             self.music.update(dt, distance=0)
         self.backend.Mix_VolumeMusic.assert_called_once_with(32)
         self.music.update(3, distance=math.nan)
-        self.backend.Mix_VolumeMusic.assert_called_with(22)
+        self.backend.Mix_VolumeMusic.assert_called_with(38)
+
+
+class ZombieAudioTests(unittest.TestCase):
+    def setUp(self):
+        self.backend = self.enterContext(patch.object(spatial_audio, "p", Mock()))
+        self.backend.Mix_QuerySpec.return_value = 1
+        names = ("zombie_step", "zombie_groan", "bat_swing", "zombie_hit")
+        self.sounds = {name: ctypes.c_void_p(index) for index, name in enumerate(names, 1)}
+        self.backend.Mix_LoadWAV.side_effect = lambda path: self.sounds.get(Path(path.decode()).stem)
+        self.backend.Mix_PlayChannelTimed.side_effect = [0, 1]
+        self.backend.Mix_Playing.return_value = True
+        self.audio = spatial_audio.ZombieAudio(Path("sounds"))
+
+    def test_footstep_and_groan_get_quieter_with_distance_and_walls(self):
+        step, groan = self.sounds["zombie_step"], self.sounds["zombie_groan"]
+        self.backend.Mix_GetChunk.side_effect = (step, groan, step, groan)
+        self.audio.update(.4, distance=20, stride=32, active=True)
+        self.audio.update(.01, distance=420, stride=0, active=True)
+        self.audio.update(.01, distance=420, stride=0, active=True, occluded=True)
+        self.assertEqual(self.backend.Mix_VolumeChunk.call_args_list,
+                         [call(step, 46), call(groan, 58), call(step, 9), call(groan, 12),
+                          call(step, 6), call(groan, 8)])
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(-1, step, 0, -1), call(-1, groan, 0, -1)])
+
+    def test_bat_swing_and_hit_use_independent_effect_channels(self):
+        swing, hit = self.sounds["bat_swing"], self.sounds["zombie_hit"]
+        self.backend.Mix_GetChunk.side_effect = (swing, hit)
+        self.audio.play_bat_swing()
+        self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, swing, 0, -1)
+        self.audio.play_zombie_hit()
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(-1, swing, 0, -1), call(-1, hit, 0, -1)])
+        self.backend.Mix_HaltChannel.assert_not_called()
+        self.audio.update(0, distance=None, stride=0, active=True)
+        self.backend.Mix_HaltChannel.assert_not_called()
+        self.audio.stop()
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1)])
 
 
 if __name__ == "__main__":

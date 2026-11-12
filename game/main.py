@@ -1133,18 +1133,21 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
-        if show_opening and not smoke_test:
+        if not smoke_test:
             from spatial_audio import BackgroundMusic
 
-            music = BackgroundMusic(BASE_DIR / "assets/audio/last-delivery.mp3")
-            music.start()
-            if not play_opening(renderer, music):
-                return
-        if not smoke_test:
+            if show_opening:
+                music = BackgroundMusic(BASE_DIR / "assets/audio/last-delivery.mp3")
+                music.start()
+                if not play_opening(renderer, music):
+                    return
             zombie_audio = ZombieAudio(BASE_DIR / "assets/audio")
         world = DeliveryWorld() if delivery_run else CombatWorld()
         renderer.combat = world
         if delivery_run:
+            if music is not None:
+                music.close()
+            music = BackgroundMusic(BASE_DIR / "assets/audio/night-delivery-loop.ogg")
             renderer.delivery = world
             renderer.choosing_delivery = True
             renderer.player_visual.display_scale = DELIVERY_CHARACTER_SCALE
@@ -1235,6 +1238,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             if reset_requested or contract_choice is not None:
                 if contract_choice is not None:
                     world.select_contract(contract_choice)
+                    if music is not None:
+                        music.start()
                 else:
                     world.reset()
                 renderer.choosing_delivery = delivery_run and reset_requested
@@ -1283,9 +1288,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
             facing_hint = motion.facing if motion._initialized else None
+            swing_started = False
             if pending_click and active:
                 facing = select_facing(player.aim_angle, facing_hint)
-                world.start_attack(facing=facing, stationary_front_right=True)
+                swing_started = world.start_attack(facing=facing, stationary_front_right=True)
             if delivery_run and active:
                 if pending_bottle_pickup:
                     world.pick_up_bottle()
@@ -1309,15 +1315,17 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 gate_opened = gate_was_closed and world.gate is None
                 if gate_opened:
                     renderer.reset_streetlights()
-            hearing_active = active and not reset_requested and world.result == "playing"
+            audio_active = active and not reset_requested
+            hearing_active = audio_active and world.result == "playing"
             renderer.update_sprint_pulse(dt if hearing_active else math.inf,
                                          world.sprint_step if hearing_active else None)
             vehicle_alarm = world.vehicle_alarm if delivery_run and hearing_active else None
             renderer.update_vehicle_alarm(dt if hearing_active else math.inf, vehicle_alarm)
+            strike_landed = strike is not None and strike.landed and not was_landed
             strength = 0
             if world.player_hp < hp_before:
                 strength = 4
-            elif strike is not None and strike.landed and not was_landed:
+            elif strike_landed:
                 strength = 3
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
             distance = None
@@ -1339,8 +1347,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 occluded = hearing_active and nearest_zombie is not None and any(
                     wall_blocks((player.x, player.y), (nearest_zombie.x, nearest_zombie.y), wall)
                     for wall in walls)
-                zombie_audio.update(dt, distance=distance, stride=stride, active=hearing_active,
+                zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
                                     occluded=occluded)
+                if swing_started:
+                    zombie_audio.play_bat_swing()
+                if strike_landed:
+                    zombie_audio.play_zombie_hit()
                 if bottle_impact is not None:
                     zombie_audio.play_bottle_break(math.dist((player.x, player.y), bottle_impact))
                 if gate_opened:
