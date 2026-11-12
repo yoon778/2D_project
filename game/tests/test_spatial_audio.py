@@ -112,7 +112,8 @@ class ZombieAudioTests(unittest.TestCase):
     def setUp(self):
         self.backend = self.enterContext(patch.object(spatial_audio, "p", Mock()))
         self.backend.Mix_QuerySpec.return_value = 1
-        names = ("zombie_step", "zombie_groan", "bat_swing", "zombie_hit")
+        names = ("zombie_step", "zombie_groan", "bat_swing", "zombie_hit",
+                 "player_walk", "player_run", "player_sneak", "player_hit")
         self.sounds = {name: ctypes.c_void_p(index) for index, name in enumerate(names, 1)}
         self.backend.Mix_LoadWAV.side_effect = lambda path: self.sounds.get(Path(path.decode()).stem)
         self.backend.Mix_PlayChannelTimed.side_effect = [0, 1]
@@ -144,6 +145,46 @@ class ZombieAudioTests(unittest.TestCase):
         self.backend.Mix_HaltChannel.assert_not_called()
         self.audio.stop()
         self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1)])
+
+    def test_player_gaits_use_distinct_distance_and_volume(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = (0, 1, 2)
+        for kind, sprinting, sneaking, distance, volume in (
+            ("player_walk", False, False, 32, 42),
+            ("player_run", True, False, 48, 67),
+            ("player_sneak", True, True, 32, 20),
+        ):
+            with self.subTest(kind=kind):
+                sound = self.sounds[kind]
+                count = self.backend.Mix_PlayChannelTimed.call_count
+                self.audio.update_player_steps(distance - 1, sprinting=sprinting, sneaking=sneaking)
+                self.audio.update_player_steps(0, sprinting=sprinting, sneaking=sneaking)
+                self.assertEqual(self.backend.Mix_PlayChannelTimed.call_count, count)
+                self.audio.update_player_steps(1, sprinting=sprinting, sneaking=sneaking)
+                self.assertEqual(self.backend.Mix_PlayChannelTimed.call_count, count + 1)
+                self.backend.Mix_PlayChannelTimed.assert_called_with(-1, sound, 0, -1)
+                self.backend.Mix_VolumeChunk.assert_called_with(sound, volume)
+
+    def test_player_steps_preserve_fraction_on_gait_change_and_reset_on_stop(self):
+        run, walk = self.sounds["player_run"], self.sounds["player_walk"]
+        self.backend.Mix_GetChunk.return_value = run
+        self.audio.update_player_steps(16, sprinting=False, sneaking=False)
+        self.audio.update_player_steps(24, sprinting=True, sneaking=False)
+        self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, run, 0, -1)
+        self.audio.update_player_steps(16, sprinting=False, sneaking=False)
+        self.audio.stop()
+        self.backend.Mix_HaltChannel.assert_called_once_with(0)
+        self.audio.update_player_steps(16, sprinting=False, sneaking=False)
+        self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, run, 0, -1)
+        self.audio.update_player_steps(16, sprinting=False, sneaking=False)
+        self.backend.Mix_PlayChannelTimed.assert_called_with(-1, walk, 0, -1)
+
+    def test_player_hit_uses_a_distinct_effect_channel(self):
+        zombie, player = self.sounds["zombie_hit"], self.sounds["player_hit"]
+        self.audio.play_zombie_hit()
+        self.audio.play_player_hit()
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(-1, zombie, 0, -1), call(-1, player, 0, -1)])
+        self.backend.Mix_VolumeChunk.assert_called_with(player, 78)
 
 
 if __name__ == "__main__":

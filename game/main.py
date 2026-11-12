@@ -1306,6 +1306,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
             sneak = p.SDLK_LCTRL in pressed or p.SDLK_RCTRL in pressed
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
+            dx, dy = player.x - before[0], player.y - before[1]
+            player_hit = world.player_hp < hp_before
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
             gate_opened = False
@@ -1323,7 +1325,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.update_vehicle_alarm(dt if hearing_active else math.inf, vehicle_alarm)
             strike_landed = strike is not None and strike.landed and not was_landed
             strength = 0
-            if world.player_hp < hp_before:
+            if player_hit:
                 strength = 4
             elif strike_landed:
                 strength = 3
@@ -1353,13 +1355,17 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     zombie_audio.play_bat_swing()
                 if strike_landed:
                     zombie_audio.play_zombie_hit()
+                if player_hit:
+                    zombie_audio.play_player_hit()
                 if bottle_impact is not None:
                     zombie_audio.play_bottle_break(math.dist((player.x, player.y), bottle_impact))
                 if gate_opened:
                     zombie_audio.play_gate_open(math.dist((player.x, player.y), world.gate_position))
                 if vehicle_alarm is not None:
                     zombie_audio.play_vehicle_alarm(math.dist((player.x, player.y), vehicle_alarm))
-            dx, dy = player.x - before[0], player.y - before[1]
+                if hearing_active:
+                    zombie_audio.update_player_steps(math.hypot(dx, dy), sprinting=world.sprinting,
+                                                    sneaking=world.sneaking)
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
             previous_camera = renderer.camera

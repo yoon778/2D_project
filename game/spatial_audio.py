@@ -23,12 +23,18 @@ _GATE_SOUND = "gate_open"
 _VEHICLE_SOUND = "vehicle_alarm"
 _BAT_SWING_SOUND = "bat_swing"
 _ZOMBIE_HIT_SOUND = "zombie_hit"
+_PLAYER_HIT_SOUND = "player_hit"
+_PLAYER_STEP_SPACING = {"player_walk": 32.0, "player_run": 48.0, "player_sneak": 32.0}
 _EFFECT_VOLUME = {
     _BOTTLE_SOUND: 82,
     _GATE_SOUND: 72,
     _VEHICLE_SOUND: 76,
     _BAT_SWING_SOUND: 74,
     _ZOMBIE_HIT_SOUND: 82,
+    "player_walk": 42,
+    "player_run": 67,
+    "player_sneak": 20,
+    _PLAYER_HIT_SOUND: 78,
 }
 
 
@@ -103,6 +109,7 @@ class ZombieAudio:
         self._sounds = {}
         self._channels = {}
         self._step_distance = 0.0
+        self._player_step_phase = 0.0
         self._groan_in = _GROAN_DELAY
         if p.Mix_QuerySpec(None, None, None) <= 0:
             return
@@ -170,6 +177,20 @@ class ZombieAudio:
     def play_zombie_hit(self):
         self._play_effect(_ZOMBIE_HIT_SOUND, 0.0)
 
+    def update_player_steps(self, distance, *, sprinting, sneaking):
+        if not math.isfinite(distance) or distance <= 0:
+            return
+        kind = "player_sneak" if sneaking else "player_run" if sprinting else "player_walk"
+        # A half step remains a half step when the player's gait changes.
+        self._player_step_phase += distance / _PLAYER_STEP_SPACING[kind]
+        completed = math.floor(self._player_step_phase + 1e-12)
+        if completed:
+            self._player_step_phase = max(0.0, self._player_step_phase - completed)
+            self._play_effect(kind, 0.0)
+
+    def play_player_hit(self):
+        self._play_effect(_PLAYER_HIT_SOUND, 0.0)
+
     def _play_effect(self, kind, distance):
         sound = self._sounds.get(kind)
         if sound is None or distance >= _HEARING_RANGE:
@@ -194,6 +215,7 @@ class ZombieAudio:
 
     def stop(self):
         self._stop_zombies()
+        self._player_step_phase = 0.0
         for kind in _EFFECT_VOLUME:
             self._stop_channel(kind)
 
