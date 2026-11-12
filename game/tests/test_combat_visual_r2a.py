@@ -15,7 +15,8 @@ import main
 import combat_visual
 from combat import CombatWorld, STUN_DURATION
 from combat_visual import CombatVisual, METADATA_PATH
-from core import Wall
+from core import Player, Wall
+from delivery import NeighborhoodWall
 from flashlight import Flashlight, LightField
 import test_visual_input_r1a as input_fixture
 
@@ -162,6 +163,35 @@ class CombatSpriteTests(unittest.TestCase):
         world.walls = [Wall(245, 286, 12, 28)]
         light = LightField((Flashlight((200, 300), 0, world.walls),))
         self.assertEqual(main.mouse_target(world, visual, x, head_row, light), main.sdl_to_world(x, head_row))
+
+    def test_only_buildings_over_the_courier_are_hidden(self):
+        camera = (150, 100)
+        for texture in ("west-house", "east-house", "shop", "workshop", "fence", "parked-car", "bus-stop"):
+            with self.subTest(texture=texture):
+                wall = NeighborhoodWall(100, 300, 140, 190, texture, oblique=texture.endswith("house"))
+                hidden = main.building_covers_player(wall, Player(170, 520), camera)
+                self.assertEqual(hidden, texture in {"west-house", "east-house", "shop", "workshop"})
+                for position in ((170, 280), (255, 520), (170, 700)):
+                    self.assertFalse(main.building_covers_player(wall, Player(*position), camera))
+        house = NeighborhoodWall(100, 300, 140, 190, "west-house", oblique=True)
+        self.assertFalse(main.building_covers_player(house, Player(104, 520), camera))
+
+    def test_hidden_building_stops_screen_pick_occlusion_but_still_blocks_light(self):
+        world = CombatWorld()
+        world.zombie.x, world.zombie.y = 300, 320
+        wall = NeighborhoodWall(245, 200, 110, 60, "workshop")
+        world.walls = [wall]
+        visual = SimpleNamespace(zombie_contains=Mock(return_value=True))
+        x, foot_y = map(round, main.world_to_screen(300, 320))
+        head_row = main.WINDOW_HEIGHT - 1 - (foot_y + 50)
+        fallback = main.sdl_to_world(x, head_row)
+        world.player = Player(230, 285)
+        self.assertEqual(main.mouse_target(world, visual, x, head_row), fallback)
+        world.player.x = 300
+        self.assertEqual(main.mouse_target(world, visual, x, head_row), (300, 320))
+        light = LightField((Flashlight((300, 150), math.pi / 2, world.walls),))
+        self.assertEqual(main.mouse_target(world, visual, x, head_row, light), fallback)
+        self.assertEqual(world.walls, [wall])
 
     def test_zombie_stun_and_dead_states_use_separate_authored_cells(self):
         zombie = CombatWorld().zombie

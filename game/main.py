@@ -46,6 +46,7 @@ WALL_TEXTURE_SIZES = {
     "dumpster": [30, 24],
 }
 LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
+BUILDING_TEXTURES = {"west-house", "east-house", "shop", "workshop"}
 PROP_TEXTURE_SIZES = {
     "mailbox": [10, 24],
     "planter": [13, 15],
@@ -209,9 +210,11 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         # A wall drawn in front can cover the upper part of a lit sprite.
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
         for wall in world.walls:
+            if wall.y >= zombie.y or building_covers_player(wall, world.player, camera):
+                continue
             left, bottom = world_to_screen(wall.x, wall.y, camera)
             alpha_rows = wall_alpha.get(wall.texture) if wall_alpha and isinstance(wall, NeighborhoodWall) else None
-            if wall.y < zombie.y and wall_covers(wall, left, bottom, wx, wy, alpha_rows):
+            if wall_covers(wall, left, bottom, wx, wy, alpha_rows):
                 break
         else:
             return position
@@ -261,6 +264,16 @@ def wall_covers(wall, left, bottom, x, y, alpha_rows=None):
     return any(all((bx - ax) * (y - ay) >= (by - ay) * (x - ax)
                    for (ax, ay), (bx, by) in zip(plane, (*plane[1:], plane[0])))
                for plane in house_planes(wall, left, bottom))
+
+
+def building_covers_player(wall, player, camera):
+    if (not isinstance(wall, NeighborhoodWall) or wall.texture not in BUILDING_TEXTURES
+            or player.y < wall.y + wall.depth):
+        return False
+    # The ground anchor keeps the cutaway stable across poses and held equipment.
+    left, bottom = world_to_screen(wall.x, wall.y, camera)
+    x, y = world_to_screen(player.x, player.y, camera)
+    return wall_covers(wall, left, bottom, x, y)
 
 
 def wall_edge_spans(wall, outline, axis, boundary):
@@ -1021,7 +1034,8 @@ class Renderer:
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "wall":
-                self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else ())
+                if not building_covers_player(actor, player, self.camera):
+                    self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else ())
             elif kind == "zombie":
                 self.draw_lit_zombie(actor, combat, attack)
             else:

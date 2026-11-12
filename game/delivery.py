@@ -161,10 +161,10 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
             NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
             NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
-            # Leave a 60px alley between the rear house wall and the fence.
-            *(NeighborhoodWall(x, 2260, 110, 12, "fence", height=38)
+            # Leave a 72px alley between the rear house wall and the fence.
+            *(NeighborhoodWall(x, 2272, 110, 12, "fence", height=38)
               for x in (2848, 2958, 3068)),
-            NeighborhoodWall(3178, 2260, 72, 12, "fence", height=38),
+            NeighborhoodWall(3178, 2272, 72, 12, "fence", height=38),
             NeighborhoodWall(3125, 2190, 15, 12, "fence", height=38),
             self.gate,
             NeighborhoodWall(3190, 2190, 20, 12, "fence", height=38),

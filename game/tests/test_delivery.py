@@ -96,7 +96,7 @@ class DeliveryTests(unittest.TestCase):
                              for point in (world.destination, (3230, 2227))))
         walker = Player(3000, world.destination[1])
         move_player(walker, 0, 1, 1, world.walls, world_size=world.world_size)
-        self.assertEqual(walker.y, 2260 - PLAYER_RADIUS)
+        self.assertEqual(walker.y, 2272 - PLAYER_RADIUS)
         move_player(walker, 0, -1, 1, world.walls, world_size=world.world_size)
         self.assertEqual(walker.y, 2200 + PLAYER_RADIUS)
         world.interact()
