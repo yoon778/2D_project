@@ -35,7 +35,7 @@ BOTTLE_THROW_RANGE = 320.0
 BOTTLE_NOISE_RANGE = 320.0
 BOTTLE_FLIGHT_TIME = 0.30
 _BOTTLE_STARTS = ((177, 127), (610, 628), (1660, 932), (3230, 2070))
-_REAR_ALLEY_GUARD = (3180, 2227)
+_REAR_ALLEY_PATROL = ((3180, 2227), (3060, 2227))
 
 
 @dataclass(frozen=True)
@@ -55,9 +55,9 @@ DELIVERY_CONTRACTS = (
          (2030, 973), (2005, 1015), *ZOMBIE_STARTS[21:]),
     ),
     DeliveryContract(
-        "주택 뒷문", "어둡고 좁은 골목 사이의 배송지", "어려움",
+        "주택 뒷문", "순찰 좀비가 오가는 어두운 골목", "어려움",
         (3149.0, 2227.0),
-        (*ZOMBIE_STARTS[:-2], (2865, 2227), _REAR_ALLEY_GUARD),
+        (*ZOMBIE_STARTS[:-2], (2865, 2227), _REAR_ALLEY_PATROL[0]),
     ),
 )
 
@@ -146,11 +146,15 @@ class DeliveryWorld(CombatWorld):
     def reset(self):
         super().reset()
         self.player = Player(*PLAYER_START)
-        self.zombies = [
-            Zombie(*position, aim_angle=0.0 if position == _REAR_ALLEY_GUARD else Player.aim_angle,
-                   appearance=ZOMBIE_APPEARANCES[index % len(ZOMBIE_APPEARANCES)])
-            for index, position in enumerate(self.contract.zombie_starts)
-        ]
+        self.zombies = []
+        has_patrol = self.contract is DELIVERY_CONTRACTS[1]
+        for index, position in enumerate(self.contract.zombie_starts):
+            patrol = _REAR_ALLEY_PATROL if has_patrol and position == _REAR_ALLEY_PATROL[0] else None
+            self.zombies.append(Zombie(
+                *position, aim_angle=math.pi if patrol else Player.aim_angle,
+                state="patrol" if patrol else "idle", patrol_points=patrol,
+                appearance=ZOMBIE_APPEARANCES[index % len(ZOMBIE_APPEARANCES)],
+            ))
         self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38)
         self.gate_position = (self.gate.x + self.gate.width / 2, self.gate.y + self.gate.depth / 2)
         self.walls = [

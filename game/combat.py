@@ -37,6 +37,7 @@ _TIME_STEP = 0.001
 _MAX_UPDATE_DT = 10.0
 _ZOMBIE_SIGHT_RANGE = 230.0
 _ZOMBIE_NEAR_DETECTION_RANGE = 32.0
+_PATROL_SPEED = 45.0
 _SEARCH_DURATION = 3.0
 _SEARCH_TURN_SPEED = 1.5
 _FOOTSTEP_SPACING = 36.0
@@ -67,6 +68,9 @@ class Zombie(Player):
     heard_at: tuple[float, float] | None = None
     investigation_route: list[tuple[float, float]] | None = None
     appearance: str = "classic"
+    patrol_points: tuple[tuple[float, float], tuple[float, float]] | None = None
+    patrol_index: int = field(default=1, init=False)
+    patrol_route: list[tuple[float, float]] | None = field(default=None, init=False)
 
     @property
     def alive(self):
@@ -189,15 +193,40 @@ class CombatWorld:
             zombie.search_remaining = 0.0
         zombie.heard_at = None
 
-    def _move_zombie_toward(self, zombie, target, dt, *, stop_distance=0.0):
+    def _move_zombie_toward(self, zombie, target, dt, *, stop_distance=0.0, speed=WALK_SPEED):
         dx, dy = target[0] - zombie.x, target[1] - zombie.y
         distance = math.hypot(dx, dy)
         if distance > stop_distance + _EPSILON:
             zombie.aim_angle = math.atan2(dy, dx)
-            travel_time = min(dt, (distance - stop_distance) / WALK_SPEED)
-            move_player(zombie, dx, dy, travel_time, self.walls, world_size=self.world_size)
+            travel_time = min(dt, (distance - stop_distance) / speed)
+            move_player(zombie, dx, dy, travel_time * (speed / WALK_SPEED), self.walls,
+                        world_size=self.world_size)
             return travel_time
         return 0.0
+
+    def _follow_zombie_route(self, zombie, route, dt, *, speed=WALK_SPEED):
+        while route and dt > _EPSILON:
+            waypoint = route[0]
+            dt -= self._move_zombie_toward(zombie, waypoint, dt, speed=speed)
+            if math.dist((zombie.x, zombie.y), waypoint) > 1e-7:
+                break
+            route.pop(0)
+        return dt
+
+    def _patrol(self, zombie, dt):
+        while dt > _EPSILON:
+            if zombie.patrol_route is None:
+                destination = zombie.patrol_points[zombie.patrol_index]
+                zombie.patrol_route = find_route((zombie.x, zombie.y), destination,
+                                                 self.walls, self.world_size)
+            route = zombie.patrol_route
+            if not route:
+                return
+            dt = self._follow_zombie_route(zombie, route, dt, speed=_PATROL_SPEED)
+            if route:
+                return
+            zombie.patrol_index = 1 - zombie.patrol_index
+            zombie.patrol_route = None
 
     def _investigate_and_search(self, zombie, dt):
         if zombie.state == "investigate":
@@ -205,12 +234,7 @@ class CombatWorld:
                 zombie.investigation_route = find_route((zombie.x, zombie.y), zombie.target,
                                                          self.walls, self.world_size)
             route = zombie.investigation_route
-            while route and dt > _EPSILON:
-                waypoint = route[0]
-                dt -= self._move_zombie_toward(zombie, waypoint, dt)
-                if math.dist((zombie.x, zombie.y), waypoint) > 1e-7:
-                    return
-                route.pop(0)
+            dt = self._follow_zombie_route(zombie, route, dt)
             if route:
                 return
             zombie.state = "search"
@@ -222,7 +246,8 @@ class CombatWorld:
             if zombie.search_remaining <= _EPSILON:
                 zombie.search_remaining = 0.0
                 zombie.target = None
-                zombie.state = "idle"
+                zombie.state = "patrol" if zombie.patrol_points else "idle"
+                zombie.patrol_route = None
 
     def _zombie_target_in_strike(self, zombie, angle):
         dx, dy = self.player.x - zombie.x, self.player.y - zombie.y
@@ -246,7 +271,10 @@ class CombatWorld:
         if dt <= _EPSILON:
             return
         if zombie.attack is None and zombie.state != "chase":
-            self._investigate_and_search(zombie, dt)
+            if zombie.state == "patrol":
+                self._patrol(zombie, dt)
+            else:
+                self._investigate_and_search(zombie, dt)
             return
         if zombie.attack is None and not self._start_zombie_attack(zombie):
             travel_time = self._move_zombie_toward(zombie, zombie.target, dt, stop_distance=2 * PLAYER_RADIUS)

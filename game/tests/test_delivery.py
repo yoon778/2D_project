@@ -105,6 +105,55 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(world.player.y, 2190 - PLAYER_RADIUS)
         self.assertFalse(world.can_interact())
 
+    def test_rear_alley_guard_patrols_both_directions_and_resets_after_contract_change(self):
+        world = self.world
+        guard = world.zombies[-1]
+        self.assertEqual([zombie for zombie in world.zombies if zombie.state == "patrol"], [guard])
+        self.assertEqual((guard.x, guard.y, guard.aim_angle), (3180, 2227, math.pi))
+
+        world.update(1.0)
+        self.assertAlmostEqual(guard.x, 3135)
+        guard.stun_remaining = STUN_DURATION
+        world.update(STUN_DURATION)
+        self.assertAlmostEqual(guard.x, 3135)
+        world.update(75 / 45)
+        self.assertAlmostEqual(guard.x, 3060)
+        world.update(1.0)
+        self.assertAlmostEqual(guard.x, 3105)
+        self.assertEqual(guard.aim_angle, 0.0)
+        world.update(75 / 45)
+        self.assertAlmostEqual(guard.x, 3180)
+        world.update(1.0)
+        self.assertAlmostEqual(guard.x, 3135)
+        self.assertEqual((guard.y, guard.aim_angle), (2227, math.pi))
+
+        world.select_contract(0)
+        self.assertTrue(all(zombie.state == "idle" for zombie in world.zombies))
+        world.select_contract(1)
+        guard = world.zombies[-1]
+        self.assertEqual((guard.state, guard.x, guard.y, guard.aim_angle), ("patrol", 3180, 2227, math.pi))
+
+    def test_rear_alley_guard_resumes_patrol_around_fence_after_searching_noise(self):
+        world = self.world
+        guard = world.zombies[-1]
+        sound = (3230, 2080)
+        self.assertTrue(any(wall_blocks((guard.x, guard.y), sound, wall) for wall in world.walls))
+
+        world._emit_noise(320, sound)
+        world.update(0.01)
+        self.assertEqual((guard.state, guard.target), ("investigate", sound))
+        self.assertGreater(len(guard.investigation_route), 1)
+        world.update(2.1)
+        self.assertEqual((guard.state, guard.x, guard.y), ("search", *sound))
+        world.update(3.0)
+        self.assertEqual((guard.state, guard.target), ("patrol", None))
+
+        world.update(7.3)
+        self.assertAlmostEqual(guard.y, 2227)
+        self.assertGreater(guard.x, 3060)
+        self.assertLess(guard.x, 3180)
+        self.assertAlmostEqual(guard.aim_angle, 0)
+
     def test_large_street_props_block_movement_and_cast_a_shadow(self):
         world = self.world
         for texture in ("parked-car", "dumpster", "abandoned-car"):
