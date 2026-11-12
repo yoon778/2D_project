@@ -180,11 +180,16 @@ class EndingTests(unittest.TestCase):
         release_e = (p.SDL_KEYUP, p.SDLK_e)
         batches = iter([
             (None, tap(p.SDLK_3, p.SDLK_RETURN)),
-            (None, tap(p.SDLK_e)),
+            (None, tap(p.SDLK_e, p.SDLK_f)),
+            (None, tap(p.SDLK_f)),
             *hold(None, 10),
             (None, (release_e,)),
             *hold(first.position, 20),
             (None, (release_e,)),
+            (None, tap(p.SDLK_m)),
+            (None, ()),
+            (None, ((p.SDL_WINDOWEVENT, p.SDL_WINDOWEVENT_FOCUS_LOST),)),
+            (None, tap(p.SDLK_m)),
             *hold(second.position, 20),
             (None, (release_e, *tap(p.SDLK_d))),
             (None, tap(p.SDLK_RETURN, p.SDLK_r, p.SDLK_e)),
@@ -192,7 +197,7 @@ class EndingTests(unittest.TestCase):
             (None, tap(p.SDLK_KP_ENTER)),
         ])
         audio, music, art = Mock(), Mock(), Mock()
-        frames, endings = [], []
+        frames, endings, chase_frames = [], [], []
         original_poll = main.poll_events
 
         def poll():
@@ -209,7 +214,10 @@ class EndingTests(unittest.TestCase):
                 for kind, key in events:
                     event = p.SDL_Event()
                     event.type = kind
-                    event.key.keysym.sym = key
+                    if kind == p.SDL_WINDOWEVENT:
+                        event.window.event = key
+                    else:
+                        event.key.keysym.sym = key
                     self.assertEqual(p.SDL_PushEvent(ctypes.byref(event)), 1)
             return original_poll()
 
@@ -217,6 +225,20 @@ class EndingTests(unittest.TestCase):
             state = (world.result, world.parcel, len(world.completed_stops), renderer.choosing_delivery)
             if not frames or state != frames[-1]:
                 frames.append(state)
+            if world.zombies:
+                expected = not renderer.map_open and focused and any(
+                    zombie.alive and zombie.state == "chase" for zombie in world.zombies)
+                self.assertEqual(music.update.call_args.kwargs["chasing"], expected)
+                chase_frames.append(expected)
+                if len(chase_frames) == 1:
+                    world.zombie.hp = 0
+                    world.zombie.state = "chase"
+                elif len(chase_frames) == 2:
+                    zombie = world.zombies[1]
+                    zombie.x, zombie.y = player.x + 65, player.y
+                    zombie.state = "chase"
+                elif len(chase_frames) == 3:
+                    world.zombies[1].hp = 0
 
         def draw_ending(elapsed, font, cutscene_art, delivery):
             self.assertIs(cutscene_art, art)
@@ -243,11 +265,23 @@ class EndingTests(unittest.TestCase):
             main.run()
 
         self.assertEqual(endings, ["delivered"])
+        self.assertEqual(chase_frames[:4], [False, False, True, False])
         self.assertEqual(frames, [("playing", "waiting", 0, False), ("playing", "carrying", 0, False),
                                   ("playing", "carrying", 1, False), ("delivered", "delivered", 2, False),
                                   ("playing", "waiting", 0, False)])
         audio.play_delivery_cue.assert_called_once_with()
+        audio.play_parcel_pickup.assert_called_once_with()
+        audio.play_parcel_drop.assert_called_once_with()
+        audio.play_bottle_pickup.assert_called_once_with()
         audio.play_player_hit.assert_not_called()
+        map_calls = [i for i, entry in enumerate(audio.mock_calls) if entry == call.play_map_toggle()]
+        self.assertEqual(len(map_calls), 2)
+        opening_map, closing_map = map_calls
+        self.assertEqual(audio.mock_calls[opening_map - 1].kwargs["active"], False)
+        self.assertEqual(audio.mock_calls[opening_map - 1].kwargs["preserve_map_cue"], True)
+        self.assertEqual(audio.mock_calls[opening_map + 1].kwargs["preserve_map_cue"], True)
+        self.assertEqual(audio.mock_calls[opening_map + 2].kwargs["preserve_map_cue"], False)
+        self.assertEqual(audio.mock_calls[closing_map - 1].kwargs["active"], True)
         audio.close.assert_called_once_with()
         art.close.assert_called_once_with()
 

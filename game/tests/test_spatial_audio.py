@@ -53,6 +53,24 @@ class BackgroundMusicTests(unittest.TestCase):
         self.backend.Mix_LoadMUS.assert_called_once()
         self.backend.Mix_PlayMusic.assert_called_once()
 
+    def test_chase_ducks_smoothly_and_recovers_to_distance_volume(self):
+        self.music.start()
+        self.music.update(3, distance=150, opening=True, chasing=True)
+        self.backend.Mix_VolumeMusic.assert_called_once_with(32)
+        self.music.update(.05, distance=150, chasing=True)
+        partial = self.backend.Mix_VolumeMusic.call_args.args[0]
+        self.assertGreater(partial, 10)
+        self.assertLess(partial, 32)
+        self.music.update(3, distance=150, chasing=True)
+        self.backend.Mix_VolumeMusic.assert_called_with(10)
+        self.music.update(.05, distance=150)
+        partial = self.backend.Mix_VolumeMusic.call_args.args[0]
+        self.assertGreater(partial, 10)
+        self.assertLess(partial, 27)
+        self.music.update(3, distance=150)
+        self.backend.Mix_VolumeMusic.assert_called_with(27)
+        self.backend.Mix_PlayMusic.assert_called_once_with(self.music_handle, -1)
+
     def test_focus_transitions_pause_once_and_resume_without_restarting(self):
         self.music.start()
         self.music.update(.1, focused=False, distance=120)
@@ -113,7 +131,8 @@ class ZombieAudioTests(unittest.TestCase):
         self.backend = self.enterContext(patch.object(spatial_audio, "p", Mock()))
         self.backend.Mix_QuerySpec.return_value = 1
         names = ("zombie_step", "zombie_groan", "bat_swing", "zombie_hit",
-                 "player_walk", "player_run", "player_sneak", "player_hit")
+                 "player_walk", "player_run", "player_sneak", "player_hit",
+                 "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle")
         self.sounds = {name: ctypes.c_void_p(index) for index, name in enumerate(names, 1)}
         self.backend.Mix_LoadWAV.side_effect = lambda path: self.sounds.get(Path(path.decode()).stem)
         self.backend.Mix_PlayChannelTimed.side_effect = [0, 1]
@@ -185,6 +204,24 @@ class ZombieAudioTests(unittest.TestCase):
         self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
                          [call(-1, zombie, 0, -1), call(-1, player, 0, -1)])
         self.backend.Mix_VolumeChunk.assert_called_with(player, 78)
+
+    def test_interaction_effects_use_distinct_chunks_and_only_map_tail_survives_pause(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = range(4)
+        chunks = [self.sounds[name] for name in ("parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle")]
+        self.backend.Mix_GetChunk.side_effect = chunks
+        self.audio.play_parcel_pickup()
+        self.audio.play_parcel_drop()
+        self.audio.play_bottle_pickup()
+        self.audio.play_map_toggle()
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(-1, chunk, 0, -1) for chunk in chunks])
+        self.assertEqual(self.backend.Mix_VolumeChunk.call_args_list,
+                         [call(chunk, gain) for chunk, gain in zip(chunks, (40, 46, 35, 33))])
+        self.audio.update(0, distance=None, stride=0, active=False, preserve_map_cue=True)
+        self.audio.update(0, distance=None, stride=0, active=False, preserve_map_cue=True)
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1), call(2)])
+        self.audio.update(0, distance=None, stride=0, active=False)
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1), call(2), call(3)])
 
 
 if __name__ == "__main__":

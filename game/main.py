@@ -1323,6 +1323,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             retry_requested = False
             lost_focus = False
             map_toggle = False
+            map_toggled = False
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
@@ -1417,6 +1418,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 aim_player(player, *target)
             elif map_toggle and focused and not lost_focus and delivery_run and world.result == "playing":
                 renderer.map_open = not renderer.map_open
+                map_toggled = True
                 if renderer.map_open and world.parcel == "carrying":
                     renderer.play_hud.dismiss_hint("M")
                 pressed.clear()
@@ -1448,12 +1450,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             if pending_click and active:
                 facing = select_facing(player.aim_angle, facing_hint)
                 swing_started = world.start_attack(facing=facing, stationary_front_right=True)
-            if delivery_run and active:
-                if pending_bottle_pickup:
-                    world.pick_up_bottle()
-                if pending_bottle_throw:
-                    throw_target = sdl_to_world(*cursor, renderer.camera) if cursor is not None else target
-                    world.throw_bottle(throw_target)
+            bottle_picked_up = delivery_run and active and pending_bottle_pickup and world.pick_up_bottle()
+            if delivery_run and active and pending_bottle_throw:
+                throw_target = sdl_to_world(*cursor, renderer.camera) if cursor is not None else target
+                world.throw_bottle(throw_target)
             before = (player.x, player.y)
             zombie_origins = [(zombie.x, zombie.y) for zombie in world.zombies]
             strike = world.attack
@@ -1467,8 +1467,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
             gate_opened = False
+            parcel_picked_up = parcel_dropped = False
             if delivery_run:
                 gate_was_closed = world.gate is not None
+                was_waiting = world.parcel == "waiting"
                 completed = world.update_interaction(
                     dt if active else 0.0, held=active and p.SDLK_e in pressed,
                     pressed=active and pending_interact, moving=player.moved, damaged=player_hit,
@@ -1476,6 +1478,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if completed and world.just_unlocked_two_stop:
                     save_two_stop_unlock()
                 gate_opened = completed and gate_was_closed and world.gate is None
+                if completed and not gate_opened and world.parcel == "carrying":
+                    parcel_picked_up = was_waiting
+                    parcel_dropped = not was_waiting
                 if gate_opened:
                     renderer.reset_streetlights()
                     renderer.light = None
@@ -1496,10 +1501,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             distance = None
             nearest_zombie = None
             stride = 0.0
+            chasing = False
             for zombie, (x, y) in zip(world.zombies, zombie_origins):
                 zombie_dx, zombie_dy = zombie.x - x, zombie.y - y
                 renderer.combat_visual.update_zombie(zombie, zombie_dx, zombie_dy, paused=not active)
                 if zombie.alive:
+                    chasing |= zombie.state == "chase"
                     enemy_distance = math.hypot(zombie.x - player.x, zombie.y - player.y)
                     if distance is None or enemy_distance < distance:
                         distance = enemy_distance
@@ -1507,13 +1514,26 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         recoil_x, recoil_y = zombie.recoil_offset
                         stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
             if music is not None:
-                music.update(dt, distance=distance, focused=active and (not delivery_run or world.result == "playing"))
+                if delivery_run:
+                    playing = active and world.result == "playing"
+                    music.update(dt, distance=distance, focused=playing, chasing=playing and chasing)
+                else:
+                    music.update(dt, distance=distance, focused=active)
             if zombie_audio is not None and not ending:
                 occluded = hearing_active and nearest_zombie is not None and any(
                     wall_blocks((player.x, player.y), (nearest_zombie.x, nearest_zombie.y), wall)
                     for wall in walls)
+                preserve_map_cue = renderer.map_open and focused and not lost_focus
                 zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
-                                    occluded=occluded)
+                                    occluded=occluded, preserve_map_cue=preserve_map_cue)
+                if map_toggled:
+                    zombie_audio.play_map_toggle()
+                if bottle_picked_up:
+                    zombie_audio.play_bottle_pickup()
+                if parcel_picked_up:
+                    zombie_audio.play_parcel_pickup()
+                if parcel_dropped:
+                    zombie_audio.play_parcel_drop()
                 if swing_started:
                     zombie_audio.play_bat_swing()
                 if strike_landed:

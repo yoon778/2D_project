@@ -42,7 +42,9 @@ def runtime_files():
                                                      "zombie_step.wav", "zombie_groan.wav", "bat_swing.wav",
                                                      "zombie_hit.wav", "bottle_break.wav", "gate_open.wav",
                                                      "vehicle_alarm.wav", "player_walk.wav", "player_run.wav",
-                                                     "player_sneak.wav", "player_hit.wav", "cutscene-delivered.wav"))
+                                                     "player_sneak.wav", "player_hit.wav", "cutscene-delivered.wav",
+                                                     "parcel_pickup.wav", "parcel_drop.wav", "bottle_pickup.wav",
+                                                     "map_rustle.wav"))
 
     player_path, player = metadata_assets("player/r1b-courier-atlas-20261104.json")
     files.add(player_path)

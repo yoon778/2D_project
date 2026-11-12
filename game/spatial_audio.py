@@ -9,6 +9,7 @@ import pico2d.pico2d as p
 _OPENING_VOLUME = 32
 _EXPLORE_VOLUME = 38
 _NEAR_VOLUME = 16
+_CHASE_VOLUME = 10
 _NEAR_DISTANCE = 120.0
 _FAR_DISTANCE = 180.0
 _VOLUME_TIME = .25
@@ -25,6 +26,10 @@ _BAT_SWING_SOUND = "bat_swing"
 _ZOMBIE_HIT_SOUND = "zombie_hit"
 _PLAYER_HIT_SOUND = "player_hit"
 _DELIVERY_CUE_SOUND = "cutscene-delivered"
+_PARCEL_PICKUP_SOUND = "parcel_pickup"
+_PARCEL_DROP_SOUND = "parcel_drop"
+_BOTTLE_PICKUP_SOUND = "bottle_pickup"
+_MAP_SOUND = "map_rustle"
 _PLAYER_STEP_SPACING = {"player_walk": 32.0, "player_run": 48.0, "player_sneak": 32.0}
 _EFFECT_VOLUME = {
     _BOTTLE_SOUND: 82,
@@ -37,6 +42,10 @@ _EFFECT_VOLUME = {
     "player_sneak": 20,
     _PLAYER_HIT_SOUND: 78,
     _DELIVERY_CUE_SOUND: 74,
+    _PARCEL_PICKUP_SOUND: 40,
+    _PARCEL_DROP_SOUND: 46,
+    _BOTTLE_PICKUP_SOUND: 35,
+    _MAP_SOUND: 33,
 }
 
 
@@ -72,7 +81,7 @@ class BackgroundMusic:
                 p.Mix_FreeMusic(music)
 
     def update(self, dt: float, *, distance: float | None = None, opening: bool = False,
-               focused: bool = True) -> None:
+               focused: bool = True, chasing: bool = False) -> None:
         if self._music is None:
             return
         if not focused:
@@ -86,10 +95,15 @@ class BackgroundMusic:
         if not math.isfinite(dt) or dt <= 0:
             return
 
-        target = _OPENING_VOLUME if opening else _EXPLORE_VOLUME
-        if not opening and distance is not None and math.isfinite(distance):
+        if opening:
+            target = _OPENING_VOLUME
+        elif chasing:
+            target = _CHASE_VOLUME
+        elif distance is not None and math.isfinite(distance):
             fraction = (distance - _NEAR_DISTANCE) / (_FAR_DISTANCE - _NEAR_DISTANCE)
             target = _NEAR_VOLUME + (_EXPLORE_VOLUME - _NEAR_VOLUME) * min(1.0, max(0.0, fraction))
+        else:
+            target = _EXPLORE_VOLUME
         self._volume += (target - self._volume) * -math.expm1(-dt / _VOLUME_TIME)
         volume = round(self._volume)
         if volume != self._applied_volume:
@@ -128,11 +142,11 @@ class ZombieAudio:
         current = p.Mix_GetChunk(channel)
         return ctypes.cast(current, ctypes.c_void_p).value == ctypes.cast(sound, ctypes.c_void_p).value
 
-    def update(self, dt, *, distance, stride, active, occluded=False):
+    def update(self, dt, *, distance, stride, active, occluded=False, preserve_map_cue=False):
         if not self._sounds:
             return
         if not active:
-            self.stop()
+            self._stop_effects(preserve_map_cue)
             return
         if distance is None or distance >= _HEARING_RANGE:
             self._stop_zombies()
@@ -196,6 +210,18 @@ class ZombieAudio:
     def play_delivery_cue(self):
         self._play_effect(_DELIVERY_CUE_SOUND, 0.0)
 
+    def play_parcel_pickup(self):
+        self._play_effect(_PARCEL_PICKUP_SOUND, 0.0)
+
+    def play_parcel_drop(self):
+        self._play_effect(_PARCEL_DROP_SOUND, 0.0)
+
+    def play_bottle_pickup(self):
+        self._play_effect(_BOTTLE_PICKUP_SOUND, 0.0)
+
+    def play_map_toggle(self):
+        self._play_effect(_MAP_SOUND, 0.0)
+
     def _play_effect(self, kind, distance):
         sound = self._sounds.get(kind)
         if sound is None or distance >= _HEARING_RANGE:
@@ -218,11 +244,15 @@ class ZombieAudio:
         self._step_distance = 0.0
         self._groan_in = _GROAN_DELAY
 
-    def stop(self):
+    def _stop_effects(self, preserve_map_cue):
         self._stop_zombies()
         self._player_step_phase = 0.0
         for kind in _EFFECT_VOLUME:
-            self._stop_channel(kind)
+            if not (preserve_map_cue and kind == _MAP_SOUND):
+                self._stop_channel(kind)
+
+    def stop(self):
+        self._stop_effects(False)
 
     def close(self):
         self.stop()
