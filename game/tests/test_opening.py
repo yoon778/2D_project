@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -147,6 +147,96 @@ class OpeningTests(unittest.TestCase):
         self.assertEqual([frame[1] for frame in game], [180, 420, 300])
         self.assertEqual(len(worlds), 1)
         self.assertFalse(music)
+
+
+class EndingTests(unittest.TestCase):
+    def test_failure_uses_its_own_duration_and_stops_the_hit_sound_on_focus_loss(self):
+        duration = main.opening.FAILURE_DURATION
+        audio = Mock()
+        renderer, world, art = SimpleNamespace(font=object()), SimpleNamespace(result="defeated"), object()
+        with (
+            patch.object(main.time, "perf_counter", side_effect=[0.0, 0.0, duration / 2, duration]),
+            patch.object(main, "cutscene_controls", side_effect=[(False, False), (True, True), (False, False)]),
+            patch.object(p, "window", object(), create=True),
+            patch.object(p, "SDL_GetWindowFlags", return_value=p.SDL_WINDOW_INPUT_FOCUS),
+            patch.object(main.opening, "draw_ending") as draw,
+            patch.object(p, "update_canvas"),
+        ):
+            self.assertTrue(main.play_ending(renderer, art, world, audio, player_hit=True))
+        self.assertEqual(draw.call_args_list, [call(0, renderer.font, art, world),
+                                               call(duration / 2, renderer.font, art, world)])
+        self.assertEqual(audio.mock_calls, [call.stop(), call.play_player_hit(), call.stop(), call.stop()])
+
+    def test_two_stop_delivery_only_plays_one_ending_and_skip_does_not_retry(self):
+        world = main.DeliveryWorld(two_stop_unlocked=True)
+        first, second = main.DELIVERY_CONTRACTS[2].stops
+        batches = iter([
+            (None, (p.SDLK_3, p.SDLK_RETURN)),
+            (None, (p.SDLK_e,)),
+            (first.position, (p.SDLK_e,)),
+            (second.position, (p.SDLK_e,)),
+            (None, (p.SDLK_d,)),
+            (None, (p.SDLK_RETURN, p.SDLK_r, p.SDLK_e)),
+            (None, ()),
+            (None, (p.SDLK_KP_ENTER,)),
+        ])
+        audio, music, art = Mock(), Mock(), Mock()
+        frames, endings = [], []
+        original_poll = main.poll_events
+
+        def poll():
+            batch = next(batches, None)
+            if batch is None:
+                event = p.SDL_Event()
+                event.type = p.SDL_QUIT
+                self.assertEqual(p.SDL_PushEvent(ctypes.byref(event)), 1)
+            else:
+                position, keys = batch
+                if position is not None:
+                    world.player.x, world.player.y = position
+                for key in keys:
+                    for kind in (p.SDL_KEYDOWN, p.SDL_KEYUP):
+                        event = p.SDL_Event()
+                        event.type = kind
+                        event.key.keysym.sym = key
+                        self.assertEqual(p.SDL_PushEvent(ctypes.byref(event)), 1)
+            return original_poll()
+
+        def draw_game(renderer, player, walls, target, focused=True):
+            frames.append((world.result, world.parcel, len(world.completed_stops), renderer.choosing_delivery))
+
+        def draw_ending(elapsed, font, cutscene_art, delivery):
+            self.assertIs(cutscene_art, art)
+            self.assertEqual(delivery.completed_stops, {first, second})
+            self.assertFalse(music.update.call_args.kwargs["focused"])
+            endings.append(delivery.result)
+
+        clock = (i / 60 for i in count())
+        with ExitStack() as patches:
+            patches.enter_context(patch.dict("os.environ", {
+                "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "SDL_RENDER_DRIVER": "software",
+            }))
+            patches.enter_context(patch.dict(sys.modules, {"spatial_audio": SimpleNamespace(BackgroundMusic=Mock(return_value=music))}))
+            patches.enter_context(patch.object(main, "load_two_stop_unlock", return_value=True))
+            patches.enter_context(patch.object(main, "save_two_stop_unlock"))
+            patches.enter_context(patch.object(main, "DeliveryWorld", return_value=world))
+            patches.enter_context(patch.object(main, "ZombieAudio", return_value=audio))
+            patches.enter_context(patch.object(main, "poll_events", poll))
+            patches.enter_context(patch.object(main.time, "perf_counter", side_effect=clock))
+            patches.enter_context(patch.object(main.Renderer, "draw", draw_game))
+            patches.enter_context(patch.object(main.opening, "CutsceneArt", return_value=art))
+            patches.enter_context(patch.object(main.opening, "draw_ending", draw_ending))
+            patches.enter_context(patch.object(p, "SDL_GetWindowFlags", return_value=p.SDL_WINDOW_INPUT_FOCUS))
+            main.run()
+
+        self.assertEqual(endings, ["delivered"])
+        self.assertEqual(frames, [("playing", "waiting", 0, False), ("playing", "carrying", 0, False),
+                                  ("playing", "carrying", 1, False), ("delivered", "delivered", 2, False),
+                                  ("delivered", "delivered", 2, False), ("playing", "waiting", 0, False)])
+        audio.play_delivery_cue.assert_called_once_with()
+        audio.play_player_hit.assert_not_called()
+        audio.close.assert_called_once_with()
+        art.close.assert_called_once_with()
 
 
 if __name__ == "__main__":

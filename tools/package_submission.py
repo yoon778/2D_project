@@ -11,6 +11,7 @@ CREDITS = {
     "sources/courier-imagegen-prompts.json":
         "art/player/style-studies/eight-direction-consistency/generation-prompts.json",
     "sources/zombie-imagegen-prompt.md": "art/zombie/studies/imagegen-prompt.md",
+    "sources/cutscene-imagegen-prompts.txt": "art/cutscenes/imagegen-prompts.txt",
 }
 
 
@@ -30,6 +31,7 @@ def runtime_files():
     files = set(GAME.glob("*.py"))
     files.update((ROOT / "PRD.md", GAME / "requirements.txt", ASSETS / "props/alley-trash-can.png"))
     files.update(ASSETS / "ui" / name for name in ("NotoSansKR-Regular.ttf", "OFL-NotoSansKR.txt"))
+    files.update(ASSETS / "cutscenes" / name for name in ("waybill.png", "alley.png", "delivered.png"))
     files.update(ASSETS / "neighborhood" / name
                  for name in ("ground.png", "west-house.png", "east-house.png", "fence.png", "iron-gate.png",
                               "shop.png", "bus-stop.png", "streetlamp.png", "workshop.png",
@@ -40,7 +42,7 @@ def runtime_files():
                                                      "zombie_step.wav", "zombie_groan.wav", "bat_swing.wav",
                                                      "zombie_hit.wav", "bottle_break.wav", "gate_open.wav",
                                                      "vehicle_alarm.wav", "player_walk.wav", "player_run.wav",
-                                                     "player_sneak.wav", "player_hit.wav"))
+                                                     "player_sneak.wav", "player_hit.wav", "cutscene-delivered.wav"))
 
     player_path, player = metadata_assets("player/r1b-courier-atlas-20261104.json")
     files.add(player_path)

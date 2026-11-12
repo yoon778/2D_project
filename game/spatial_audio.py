@@ -24,6 +24,7 @@ _VEHICLE_SOUND = "vehicle_alarm"
 _BAT_SWING_SOUND = "bat_swing"
 _ZOMBIE_HIT_SOUND = "zombie_hit"
 _PLAYER_HIT_SOUND = "player_hit"
+_DELIVERY_CUE_SOUND = "cutscene-delivered"
 _PLAYER_STEP_SPACING = {"player_walk": 32.0, "player_run": 48.0, "player_sneak": 32.0}
 _EFFECT_VOLUME = {
     _BOTTLE_SOUND: 82,
@@ -35,6 +36,7 @@ _EFFECT_VOLUME = {
     "player_run": 67,
     "player_sneak": 20,
     _PLAYER_HIT_SOUND: 78,
+    _DELIVERY_CUE_SOUND: 74,
 }
 
 
@@ -190,6 +192,9 @@ class ZombieAudio:
 
     def play_player_hit(self):
         self._play_effect(_PLAYER_HIT_SOUND, 0.0)
+
+    def play_delivery_cue(self):
+        self._play_effect(_DELIVERY_CUE_SOUND, 0.0)
 
     def _play_effect(self, kind, distance):
         sound = self._sounds.get(kind)

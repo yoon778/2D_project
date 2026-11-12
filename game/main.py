@@ -1127,37 +1127,75 @@ def poll_events():
         yield event
 
 
-def play_opening(renderer, music):
+def cutscene_controls():
+    skip = lost_focus = False
+    for event in poll_events():
+        if event.type == p.SDL_QUIT:
+            return None
+        if event.type == p.SDL_KEYDOWN and not event.key.repeat:
+            if event.key.keysym.sym == p.SDLK_ESCAPE:
+                return None
+            if event.key.keysym.sym in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
+                skip = True
+        if (event.type == p.SDL_WINDOWEVENT
+                and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
+            lost_focus = True
+    return skip, lost_focus
+
+
+def play_opening(renderer, music, art=None):
     start = previous = time.perf_counter()
     while True:
         now = time.perf_counter()
-        skip = False
-        lost_focus = False
-        for event in poll_events():
-            if event.type == p.SDL_QUIT:
-                return False
-            if event.type == p.SDL_KEYDOWN and not event.key.repeat:
-                if event.key.keysym.sym == p.SDLK_ESCAPE:
-                    return False
-                if event.key.keysym.sym in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
-                    skip = True
-            if (event.type == p.SDL_WINDOWEVENT
-                    and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
-                lost_focus = True
+        controls = cutscene_controls()
+        if controls is None:
+            return False
+        skip, lost_focus = controls
         elapsed = now - start
         if skip or elapsed >= opening.DURATION:
             return True
         focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
         music.update(min(now - previous, 0.05), opening=True, focused=focused and not lost_focus)
-        opening.draw(elapsed, renderer.font, renderer.player_visual, renderer.combat_visual.metadata["zombie"])
+        opening.draw(elapsed, renderer.font, renderer.player_visual, renderer.combat_visual.metadata["zombie"], art)
         p.update_canvas()
         previous = now
+
+
+def play_ending(renderer, art, world, audio, *, player_hit):
+    delivered = world.result == "delivered"
+    duration = opening.ENDING_DURATION if delivered else opening.FAILURE_DURATION
+    start = time.perf_counter()
+    cue_played = False
+    audio.stop()
+    try:
+        while True:
+            elapsed = time.perf_counter() - start
+            controls = cutscene_controls()
+            if controls is None:
+                return False
+            skip, lost_focus = controls
+            focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS) and not lost_focus
+            if not focused:
+                audio.stop()
+            elif not cue_played:
+                if delivered:
+                    audio.play_delivery_cue()
+                elif player_hit:
+                    audio.play_player_hit()
+                cue_played = True
+            if elapsed >= duration or (skip and focused):
+                return True
+            opening.draw_ending(elapsed, renderer.font, art, world)
+            p.update_canvas()
+    finally:
+        audio.stop()
 
 
 def run(smoke_test=False, *, show_opening=False, practice=False):
     renderer = None
     music = None
     zombie_audio = None
+    cutscene_art = None
     delivery_run = not (smoke_test or practice)
     try:
         p.open_canvas(WINDOW_WIDTH, WINDOW_HEIGHT, sync=True)
@@ -1170,13 +1208,15 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
         p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
+        if delivery_run:
+            cutscene_art = opening.CutsceneArt(BASE_DIR / "assets/cutscenes")
         if not smoke_test:
             from spatial_audio import BackgroundMusic
 
             if show_opening:
                 music = BackgroundMusic(BASE_DIR / "assets/audio/last-delivery.mp3")
                 music.start()
-                if not play_opening(renderer, music):
+                if not play_opening(renderer, music, cutscene_art):
                     return
             zombie_audio = ZombieAudio(BASE_DIR / "assets/audio")
         world = DeliveryWorld(two_stop_unlocked=load_two_stop_unlock()) if delivery_run else CombatWorld()
@@ -1337,6 +1377,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
             facing_hint = motion.facing if motion._initialized else None
+            was_playing = world.result == "playing"
             swing_started = False
             if pending_click and active:
                 facing = select_facing(player.aim_angle, facing_hint)
@@ -1367,6 +1408,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 gate_opened = gate_was_closed and world.gate is None
                 if gate_opened:
                     renderer.reset_streetlights()
+            ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
             audio_active = active and not reset_requested
             hearing_active = audio_active and world.result == "playing"
             renderer.update_sprint_pulse(dt if hearing_active else math.inf,
@@ -1394,8 +1436,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         recoil_x, recoil_y = zombie.recoil_offset
                         stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
             if music is not None:
-                music.update(dt, distance=distance, focused=active)
-            if zombie_audio is not None:
+                music.update(dt, distance=distance, focused=active and (not delivery_run or world.result == "playing"))
+            if zombie_audio is not None and not ending:
                 occluded = hearing_active and nearest_zombie is not None and any(
                     wall_blocks((player.x, player.y), (nearest_zombie.x, nearest_zombie.y), wall)
                     for wall in walls)
@@ -1427,6 +1469,14 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
             renderer.player_visual.update(display_angle, dx, dy, sprinting=delivery_run and world.sprinting)
+            if ending:
+                if not play_ending(renderer, cutscene_art, world, zombie_audio, player_hit=player_hit):
+                    return
+                pressed.clear()
+                mouse_held = False
+                cursor = current_cursor()
+                focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
+                previous = time.perf_counter()
             renderer.draw(player, walls, target, focused)
             if smoke_test:
                 output = BASE_DIR.parent / "output/review/R2-C8" / f"ui-{name}.png"
@@ -1447,10 +1497,14 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     music.close()
             finally:
                 try:
-                    if renderer is not None:
-                        renderer.close()
+                    if cutscene_art is not None:
+                        cutscene_art.close()
                 finally:
-                    p.close_canvas()
+                    try:
+                        if renderer is not None:
+                            renderer.close()
+                    finally:
+                        p.close_canvas()
 
 
 if __name__ == "__main__":

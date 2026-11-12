@@ -1,18 +1,129 @@
-"""Three pixel-art title cards drawn from the current game's art."""
+"""Cinematic opening and delivery endings with procedural fallback art."""
 from __future__ import annotations
+
+import ctypes
+from pathlib import Path
 
 import pico2d.pico2d as p
 
 
 DURATION = 8.0
-_LAMP_START = 2.6
-_ALLEY_START = 5.2
+ENDING_DURATION = 4.0
+FAILURE_DURATION = 2.0
+_ALLEY_START = 2.6
+_TITLE_START = 5.2
 _INK = (12, 19, 26)
 _DUSK = (22, 33, 41)
-_STEEL = (45, 61, 67)
 _PAPER = (222, 211, 180)
 _AMBER = (246, 173, 82)
 _WHITE = (235, 237, 224)
+_TITLE = 54
+_CAPTION = 25
+_SMALL = 18
+
+
+class CutsceneArt:
+    def __init__(self, directory):
+        self._images = {}
+        self._fonts = {}
+        self._labels = {}
+        try:
+            for name in ("waybill", "alley", "delivered"):
+                path = Path(directory) / f"{name}.png"
+                if path.is_file():
+                    image = p.load_image(str(path))
+                    if p.SDL_SetTextureScaleMode(image.texture, p.SDL_ScaleModeLinear) != 0:
+                        raise RuntimeError(f"Cutscene texture scale mode failed: {p.SDL_GetError()!r}")
+                    self._images[name] = image
+            font_path = Path(__file__).resolve().parent / "assets/ui/NotoSansKR-Regular.ttf"
+            for size in (_TITLE, _CAPTION, _SMALL):
+                self._fonts[size] = p.load_font(str(font_path), size)
+        except Exception:
+            self.close()
+            raise
+
+    def close(self):
+        self._labels.clear()
+        self._images.clear()
+        for font in self._fonts.values():
+            p.TTF_CloseFont(font.font)
+        self._fonts.clear()
+
+    def frame(self, name, zoom, focal):
+        image = self._images.get(name)
+        if image is None:
+            return False
+        scale = max(p.canvas_width / image.w, p.canvas_height / image.h) * zoom
+        width, height = round(p.canvas_width / scale), round(p.canvas_height / scale)
+        x, y = round((image.w - width) * focal[0]), round((image.h - height) * focal[1])
+        source = p.SDL_Rect(x, y, width, height)
+        if p.SDL_RenderCopy(p.renderer, image.texture, ctypes.byref(source), None) != 0:
+            raise RuntimeError(f"Cutscene render failed: {p.SDL_GetError()!r}")
+        return True
+
+    def text(self, text, x, y, size, color, opacity, align):
+        key = (text, size, color)
+        if key not in self._labels:
+            font = self._fonts[size].font
+            surface = p.TTF_RenderUTF8_Blended(font, text.encode("utf-8"), p.SDL_Color(*color, 255))
+            if not surface:
+                raise RuntimeError(f"Cutscene text rendering failed: {p.SDL_GetError()!r}")
+            try:
+                texture = p.SDL_CreateTextureFromSurface(p.renderer, surface)
+            finally:
+                p.SDL_FreeSurface(surface)
+            if not texture:
+                raise RuntimeError(f"Cutscene text texture failed: {p.SDL_GetError()!r}")
+            self._labels[key] = p.Image(texture)
+        image = self._labels[key]
+        p.SDL_SetTextureAlphaMod(image.texture, round(255 * opacity))
+        offset = image.w / 2 if align == "left" else -image.w / 2 if align == "right" else 0
+        image.draw(x + offset, p.canvas_height - y)
+
+
+def _ease(value):
+    value = max(0.0, min(value, 1.0))
+    return value * value * (3 - 2 * value)
+
+
+def _caption(font, art, text, x, y, size, *, color=_WHITE, opacity=1.0, align="left"):
+    if opacity <= 0:
+        return
+    if art is not None:
+        art.text(text, x, y, size, color, opacity, align)
+        return
+    width = sum(9 if char.isascii() else 18 for char in text)
+    offset = width / 2 if align == "center" else width if align == "right" else 0
+    font.draw(x - offset, p.canvas_height - y, text, color)
+
+
+def _wash(opacity):
+    if opacity > 0:
+        p.SDL_SetRenderDrawColor(p.renderer, 4, 7, 10, round(255 * opacity))
+        p.SDL_RenderFillRect(p.renderer, None)
+
+
+def _caption_shade():
+    width, height = p.canvas_width, p.canvas_height
+    top = height - 286
+    vertices = (p.SDL_Vertex * 4)(
+        p.SDL_Vertex(p.SDL_FPoint(0, top), p.SDL_Color(5, 9, 13, 0), p.SDL_FPoint()),
+        p.SDL_Vertex(p.SDL_FPoint(width, top), p.SDL_Color(5, 9, 13, 0), p.SDL_FPoint()),
+        p.SDL_Vertex(p.SDL_FPoint(width, height), p.SDL_Color(5, 9, 13, 236), p.SDL_FPoint()),
+        p.SDL_Vertex(p.SDL_FPoint(0, height), p.SDL_Color(5, 9, 13, 236), p.SDL_FPoint()),
+    )
+    indices = (ctypes.c_int * 6)(0, 1, 2, 0, 2, 3)
+    p.SDL_RenderGeometry(p.renderer, None, vertices, len(vertices), indices, len(indices))
+
+
+def _clear():
+    p.SDL_SetRenderDrawColor(p.renderer, *_INK, 255)
+    p.SDL_RenderClear(p.renderer)
+
+
+def _skip(font, art):
+    _caption(font, art, "Enter  건너뛰기", p.canvas_width - 54, p.canvas_height - 39, _SMALL,
+             color=_PAPER, align="right")
 
 
 def _box(x, y, width, height, color):
@@ -49,11 +160,9 @@ def _waybill(font):
     _box(642, 289, 224, 125, _PAPER)
     _box(655, 394, 194, 5, _AMBER)
     font.draw(657, 376, "마지막 택배", _INK)
-    font.draw(657, 349, "구역 07  /  야간 배송", _INK)
+    font.draw(657, 349, "야간 배송", _INK)
     for index, width in enumerate((3, 5, 2, 7, 3, 4, 2, 6, 3, 5, 2, 4)):
         _box(657 + index * 8, 305, width, 24, (51, 47, 40))
-    font.draw(109, 423, "01 / 마지막 송장", _AMBER)
-    font.draw(109, 379, "남은 배송은 한 건.", _WHITE)
 
 
 def _courier(player_visual, foot_x, foot_y, lit):
@@ -74,7 +183,7 @@ def _courier(player_visual, foot_x, foot_y, lit):
             p.SDL_SetTextureColorMod(image.texture, 255, 255, 255)
 
 
-def _chest_lamp(font, player_visual, local):
+def _chest_lamp(player_visual, local):
     _box(64, 128, 1152, 464, (17, 26, 33))
     _box(64, 128, 1152, 60, (20, 31, 38))
     _box(689, 149, 249, 16, (12, 19, 24))
@@ -89,11 +198,9 @@ def _chest_lamp(font, player_visual, local):
                                      (849, 352, 10, 3), (834, 365, 4, 7)):
             _box(x, y, width, height, _AMBER)
         _box(834, 351, 6, 6, (255, 231, 158))
-    font.draw(109, 423, "02 / 가슴등", _AMBER)
-    font.draw(109, 379, "불을 켜고 골목으로.", _WHITE)
 
 
-def _alley(font, zombie_metadata):
+def _alley(zombie_metadata=None):
     _box(64, 128, 1152, 464, _DUSK)
     _box(724, 240, 262, 286, (51, 67, 69))
     _shape([(634, 128), (1152, 128), (948, 361), (793, 361)], (39, 51, 54))
@@ -104,29 +211,64 @@ def _alley(font, zombie_metadata):
     _box(809, 473, 98, 10, (100, 110, 88))
     _shape([(811, 473), (905, 473), (958, 275), (762, 275)], (65, 78, 70))
     _shape([(772, 244), (958, 244), (909, 283), (817, 283)], (29, 41, 44))
-    for y, spans in zombie_metadata["facings"]["front"]["idle"]["opaque_rows"].items():
-        for left, right in spans:
-            _box(865 + (left - 40) * 2, 253 + (71 - int(y)) * 2,
-                 (right - left + 1) * 2, 2, _INK)
-    font.draw(109, 423, "03 / 골목 끝", _AMBER)
-    font.draw(109, 379, "불빛 끝에 누군가 서 있다.", _WHITE)
+    if zombie_metadata is not None:
+        for y, spans in zombie_metadata["facings"]["front"]["idle"]["opaque_rows"].items():
+            for left, right in spans:
+                _box(865 + (left - 40) * 2, 253 + (71 - int(y)) * 2,
+                     (right - left + 1) * 2, 2, _INK)
 
 
-def draw(elapsed, font, player_visual, zombie_metadata):
-    p.SDL_SetRenderDrawColor(p.renderer, *_INK, 255)
-    p.SDL_RenderClear(p.renderer)
-    if elapsed < _LAMP_START:
-        _waybill(font)
-        cut = 1
-    elif elapsed < _ALLEY_START:
-        _chest_lamp(font, player_visual, elapsed - _LAMP_START)
-        cut = 2
+def draw(elapsed, font, player_visual, zombie_metadata, art=None):
+    _clear()
+    width, height = p.canvas_width, p.canvas_height
+    if elapsed < _ALLEY_START:
+        progress = _ease(elapsed / _ALLEY_START)
+        if art is None or not art.frame("waybill", 1.0 + .075 * progress, (.54, .56 - .06 * progress)):
+            _waybill(font)
+        _caption_shade()
+        _caption(font, art, "오늘 밤, 마지막 택배를 맡았다.", 76, height - 106, _CAPTION,
+                 opacity=_ease((elapsed - .3) / .35))
     else:
-        _alley(font, zombie_metadata)
-        cut = 3
-    font.draw(64, 648, "DEAD ROUTE   /   LAST DELIVERY", _WHITE)
-    font.draw(1138, 648, f"0{cut} / 03", _PAPER)
-    _box(64, 98, 1152, 4, _STEEL)
-    _box(64, 98, int(1152 * elapsed / DURATION), 4, _AMBER)
-    font.draw(64, 63, "야간 배송 기록", _PAPER)
-    font.draw(1008, 63, "Enter  건너뛰기", _WHITE)
+        local = elapsed - _ALLEY_START
+        progress = _ease(local / (DURATION - _ALLEY_START))
+        if art is None or not art.frame("alley", 1.0 + .09 * progress, (.49 + .08 * progress, .53)):
+            if elapsed < _TITLE_START:
+                _chest_lamp(player_visual, local)
+            else:
+                _alley(zombie_metadata)
+        _caption_shade()
+        if elapsed < _TITLE_START:
+            _caption(font, art, "불을 켜고 골목으로.", 76, height - 106, _CAPTION,
+                     opacity=_ease((local - .35) / .38) * _ease((_TITLE_START - elapsed) / .46))
+        else:
+            reveal = _ease((elapsed - _TITLE_START) / .58)
+            _wash(.59 * reveal)
+            _caption(font, art, "DEAD ROUTE", width // 2, round(height * .48), _TITLE,
+                     opacity=reveal, align="center")
+    _wash(max(1 - _ease(elapsed / .36),
+              .94 * (1 - _ease(abs(elapsed - _ALLEY_START) / .23)),
+              _ease((elapsed - (DURATION - .4)) / .4)))
+    _skip(font, art)
+
+
+def draw_ending(elapsed, font, art, world):
+    _clear()
+    height = p.canvas_height
+    if world.result == "delivered":
+        progress = _ease(elapsed / ENDING_DURATION)
+        if art is None or not art.frame("delivered", 1.0 + .07 * progress, (.53, .58)):
+            _waybill(font)
+        _caption_shade()
+        reveal = _ease((elapsed - .48) / .38)
+        stops = " · ".join(stop.name for stop in world.contract.stops)
+        _caption(font, art, "배달 완료", 76, height - 172, _TITLE, opacity=reveal)
+        _caption(font, art, "배송을 무사히 마쳤다.", 79, height - 109, _CAPTION, opacity=reveal)
+        _caption(font, art, stops, 79, height - 67, _SMALL, color=_PAPER, opacity=reveal)
+        _wash(_ease((elapsed - (ENDING_DURATION - .42)) / .42))
+    else:
+        if art is None or not art.frame("alley", 1.02 + .035 * _ease(elapsed / FAILURE_DURATION), (.55, .53)):
+            _alley()
+        _wash(_ease((elapsed - .16) / .66))
+        _caption(font, art, "골목의 불빛이 꺼졌다.", 76, height - 106, _CAPTION,
+                 opacity=_ease((elapsed - .64) / .26) * _ease((FAILURE_DURATION - elapsed) / .27))
+    _skip(font, art)
