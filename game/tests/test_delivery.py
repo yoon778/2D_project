@@ -14,6 +14,77 @@ class DeliveryTests(unittest.TestCase):
     def setUp(self):
         self.world = DeliveryWorld()
 
+    def hold_e(self, dt, *, held=True, pressed=False, moving=False, damaged=False):
+        return self.world.update_interaction(dt, held=held, pressed=pressed, moving=moving, damaged=damaged)
+
+    def test_held_pickup_and_delivery_require_their_full_durations_and_new_presses(self):
+        world = self.world
+        self.assertFalse(self.hold_e(1.0))
+        self.assertFalse(self.hold_e(0.49, pressed=True))
+        self.assertEqual(world.interaction_action, "pickup")
+        self.assertAlmostEqual(world.interaction_progress, 0.98)
+        self.assertEqual(world.parcel, "waiting")
+        self.assertTrue(self.hold_e(0.01))
+        self.assertEqual((world.parcel, world.interaction_action, world.interaction_progress), ("carrying", None, 0.0))
+
+        world.player.x, world.player.y = world.destination
+        self.assertFalse(self.hold_e(1.0))
+        self.assertFalse(self.hold_e(0.99, pressed=True))
+        self.assertEqual(world.interaction_action, "deliver")
+        self.assertIsNotNone(world.gate)
+        self.assertTrue(self.hold_e(0.01))
+        self.assertEqual(world.result, "delivered")
+        self.assertTrue(world.just_unlocked_two_stop)
+        self.assertIsNotNone(world.gate)
+
+    def test_held_interaction_cancels_on_release_movement_damage_or_lost_target(self):
+        world = self.world
+        for interrupt in ({"held": False}, {"moving": True}, {"damaged": True}, {}):
+            with self.subTest(interrupt=interrupt):
+                world.reset()
+                self.assertFalse(self.hold_e(0.4, pressed=True))
+                if not interrupt:
+                    world.walls.append(Wall(155, 135, 4, 40))
+                self.assertFalse(self.hold_e(0.5, **interrupt))
+                if not interrupt:
+                    world.walls.pop()
+                self.assertEqual((world.interaction_action, world.interaction_progress), (None, 0.0))
+                self.assertFalse(self.hold_e(1.0))
+                self.assertEqual(world.parcel, "waiting")
+                self.assertTrue(self.hold_e(0.5, pressed=True))
+
+    def test_held_gate_cancels_if_delivery_becomes_the_preferred_target(self):
+        world = self.world
+        self.assertTrue(world.interact())
+        world.player = Player(3165, 2160)
+        self.assertFalse(self.hold_e(0.65, pressed=True))
+        self.assertEqual(world.interaction_action, "gate")
+        world.player = Player(3155, 2218)
+        self.assertTrue(world.can_open_gate())
+        self.assertTrue(world.can_interact())
+        self.assertFalse(self.hold_e(1.0))
+        self.assertIsNone(world.interaction_action)
+        self.assertIsNotNone(world.gate)
+        self.assertTrue(self.hold_e(1.0, pressed=True))
+        self.assertEqual(world.result, "delivered")
+        self.assertIsNotNone(world.gate)
+
+    def test_held_gate_restarts_on_fresh_press_and_only_emits_noise_on_completion(self):
+        world = self.world
+        world.player = Player(3165, 2160)
+        guard = world.zombies[-1]
+        self.assertFalse(self.hold_e(0.4, pressed=True))
+        self.assertFalse(self.hold_e(0.4, pressed=True))
+        self.assertAlmostEqual(world.interaction_progress, 0.4 / 0.7)
+        self.assertFalse(self.hold_e(0.29))
+        self.assertIsNone(guard.heard_at)
+        self.assertTrue(self.hold_e(0.01))
+        self.assertIsNone(world.gate)
+        self.assertEqual(guard.heard_at, world.gate_position)
+        guard.heard_at = None
+        self.assertFalse(self.hold_e(1.0))
+        self.assertIsNone(guard.heard_at)
+
     def test_requires_pickup_and_reaches_success_only_at_destination(self):
         world = self.world
         world.player.x, world.player.y = world.destination

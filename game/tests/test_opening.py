@@ -170,15 +170,26 @@ class EndingTests(unittest.TestCase):
     def test_two_stop_delivery_only_plays_one_ending_and_skip_does_not_retry(self):
         world = main.DeliveryWorld(two_stop_unlocked=True)
         first, second = main.DELIVERY_CONTRACTS[2].stops
+
+        def tap(*keys):
+            return tuple((kind, key) for key in keys for kind in (p.SDL_KEYDOWN, p.SDL_KEYUP))
+
+        def hold(position, frames):
+            return [(position, ((p.SDL_KEYDOWN, p.SDLK_e),)), *[(None, ())] * (frames - 1)]
+
+        release_e = (p.SDL_KEYUP, p.SDLK_e)
         batches = iter([
-            (None, (p.SDLK_3, p.SDLK_RETURN)),
-            (None, (p.SDLK_e,)),
-            (first.position, (p.SDLK_e,)),
-            (second.position, (p.SDLK_e,)),
-            (None, (p.SDLK_d,)),
-            (None, (p.SDLK_RETURN, p.SDLK_r, p.SDLK_e)),
+            (None, tap(p.SDLK_3, p.SDLK_RETURN)),
+            (None, tap(p.SDLK_e)),
+            *hold(None, 10),
+            (None, (release_e,)),
+            *hold(first.position, 20),
+            (None, (release_e,)),
+            *hold(second.position, 20),
+            (None, (release_e, *tap(p.SDLK_d))),
+            (None, tap(p.SDLK_RETURN, p.SDLK_r, p.SDLK_e)),
             (None, ()),
-            (None, (p.SDLK_KP_ENTER,)),
+            (None, tap(p.SDLK_KP_ENTER)),
         ])
         audio, music, art = Mock(), Mock(), Mock()
         frames, endings = [], []
@@ -191,19 +202,21 @@ class EndingTests(unittest.TestCase):
                 event.type = p.SDL_QUIT
                 self.assertEqual(p.SDL_PushEvent(ctypes.byref(event)), 1)
             else:
-                position, keys = batch
+                position, events = batch
                 if position is not None:
                     world.player.x, world.player.y = position
-                for key in keys:
-                    for kind in (p.SDL_KEYDOWN, p.SDL_KEYUP):
-                        event = p.SDL_Event()
-                        event.type = kind
-                        event.key.keysym.sym = key
-                        self.assertEqual(p.SDL_PushEvent(ctypes.byref(event)), 1)
+                    world.zombies.clear()
+                for kind, key in events:
+                    event = p.SDL_Event()
+                    event.type = kind
+                    event.key.keysym.sym = key
+                    self.assertEqual(p.SDL_PushEvent(ctypes.byref(event)), 1)
             return original_poll()
 
         def draw_game(renderer, player, walls, target, focused=True):
-            frames.append((world.result, world.parcel, len(world.completed_stops), renderer.choosing_delivery))
+            state = (world.result, world.parcel, len(world.completed_stops), renderer.choosing_delivery)
+            if not frames or state != frames[-1]:
+                frames.append(state)
 
         def draw_ending(elapsed, font, cutscene_art, delivery):
             self.assertIs(cutscene_art, art)
@@ -211,7 +224,7 @@ class EndingTests(unittest.TestCase):
             self.assertFalse(music.update.call_args.kwargs["focused"])
             endings.append(delivery.result)
 
-        clock = (i / 60 for i in count())
+        clock = (i / 20 for i in count())
         with ExitStack() as patches:
             patches.enter_context(patch.dict("os.environ", {
                 "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "SDL_RENDER_DRIVER": "software",
@@ -232,7 +245,7 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(endings, ["delivered"])
         self.assertEqual(frames, [("playing", "waiting", 0, False), ("playing", "carrying", 0, False),
                                   ("playing", "carrying", 1, False), ("delivered", "delivered", 2, False),
-                                  ("delivered", "delivered", 2, False), ("playing", "waiting", 0, False)])
+                                  ("playing", "waiting", 0, False)])
         audio.play_delivery_cue.assert_called_once_with()
         audio.play_player_hit.assert_not_called()
         audio.close.assert_called_once_with()

@@ -30,7 +30,12 @@ BODY = 18
 TITLE = 26
 HINT_WINDOW = 60.0
 HINT_DURATION = 5.0
-HINT_TEXT = {"E": "택배를 받아 배달 시작", "M": "지도에서 배송지 확인", "Ctrl": "발소리를 줄여 지나가기"}
+HINT_TEXT = {"E": "택배 수령 · 길게 누르기", "M": "지도에서 배송지 확인", "Ctrl": "발소리를 줄여 지나가기"}
+INTERACTION_LABELS = {
+    "pickup": (HINT_TEXT["E"], "택배 수령 중", TEAL),
+    "deliver": ("택배 전달 · 길게 누르기", "택배 전달 중", TEAL),
+    "gate": ("철문 열기 · 길게 누르기 · 소음", "철문 여는 중 · 소음", AMBER),
+}
 
 
 def fill(x, y, width, height, color):
@@ -161,7 +166,7 @@ class PlayHUD:
             fill(x + 16, y + 20, 1, 1, (*color, 255))
         self._text(text, x + 31, y + 16, SMALL)
 
-    def _actions(self, actions):
+    def _actions(self, actions, *, progress=None):
         if not actions:
             return
         key_widths = [max(23, self._label(key, BODY, KEY_TEXT)[1] + 12) for key, _, _ in actions]
@@ -169,13 +174,20 @@ class PlayHUD:
                   for (_, label, color), key_width in zip(actions, key_widths)]
         total = sum(widths)
         x = (self.width - total) // 2
-        y = self.height - MARGIN - 40
-        panel(x, y, total, 40)
+        height = 49 if progress is not None else 40
+        y = self.height - MARGIN - height
+        panel(x, y, total, height)
         for index, ((key, label, color), key_width, width) in enumerate(zip(actions, key_widths, widths)):
             if index:
                 fill(x, y + 8, 1, 24, SEPARATOR)
             self._keycap(key, x + 10, y + 8, key_width)
             self._text(label, x + key_width + 18, y + 20, BODY, color)
+            if key == "E" and progress is not None:
+                track_width = width - 20
+                fill(x + 10, y + 38, track_width, 4, TRACK)
+                filled = round(track_width * progress)
+                if filled:
+                    fill(x + 10, y + 38, filled, 4, (*color, 255))
             x += width
 
     def reset_delivery(self):
@@ -264,15 +276,21 @@ class PlayHUD:
 
         interaction_target = world.interaction_target
         hint = self._active_hint(world, near_visible_zombie, interaction_target)
-        actions = [(hint, HINT_TEXT[hint], TEAL)] if hint is not None else []
-        if interaction_target is not None:
-            if hint != "E" and light.contains(interaction_target):
-                action = "택배 수령" if world.parcel == "waiting" else "택배 전달"
-                actions.append(("E", action, TEAL))
+        action = world.interaction_action
+        progress = world.interaction_progress if action is not None else None
+        actions = [(hint, HINT_TEXT[hint], TEAL)] if hint is not None and hint != "E" else []
+        if action is not None:
+            _, label, color = INTERACTION_LABELS[action]
+            actions.append(("E", label, color))
+        elif interaction_target is not None:
+            if hint == "E" or light.contains(interaction_target):
+                label, _, color = INTERACTION_LABELS["pickup" if world.parcel == "waiting" else "deliver"]
+                actions.append(("E", label, color))
         elif world.can_open_gate():
-            actions.append(("E", "철문 열기 · 소음", AMBER))
+            label, _, color = INTERACTION_LABELS["gate"]
+            actions.append(("E", label, color))
         if world.nearby_bottle is not None:
             actions.append(("F", "빈 병 줍기", TEXT))
         if world.can_throw_bottle(aim):
             actions.append(("Q", "병 던지기", TEXT))
-        self._actions(actions)
+        self._actions(actions, progress=progress)

@@ -28,6 +28,7 @@ ZOMBIE_STARTS = (
     (3070, 1740), (2315, 1895), (2765, 2070), (3255, 2080),
 )
 INTERACTION_RANGE = 42.0
+_INTERACTION_HOLD_TIMES = {"pickup": 0.50, "deliver": 1.00, "gate": 0.70}
 GATE_NOISE_RANGE = 230.0
 VEHICLE_ALARM_RANGE = 520.0
 _VEHICLE_TEXTURES = ("parked-car", "abandoned-car")
@@ -219,6 +220,7 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
         ]
         self.parcel = "waiting"
+        self._clear_interaction()
         self.completed_stops: set[DeliveryStop] = set()
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS)
@@ -388,17 +390,61 @@ class DeliveryWorld(CombatWorld):
                 and not any(wall_blocks(origin, self.gate_position, wall)
                             for wall in self.walls if wall is not self.gate))
 
+    def _available_interaction(self):
+        target = self.interaction_target
+        if target is not None:
+            return ("pickup" if self.parcel == "waiting" else "deliver", target)
+        if self.can_open_gate():
+            return "gate", self.gate_position
+        return None
+
+    def _clear_interaction(self):
+        self._held_interaction = None
+        self._interaction_elapsed = 0.0
+
+    @property
+    def interaction_action(self):
+        return None if self._held_interaction is None else self._held_interaction[0]
+
+    @property
+    def interaction_progress(self):
+        action = self.interaction_action
+        return 0.0 if action is None else self._interaction_elapsed / _INTERACTION_HOLD_TIMES[action]
+
+    def update_interaction(self, dt, *, held, pressed, moving, damaged) -> bool:
+        if not held or moving or damaged:
+            self._clear_interaction()
+            return False
+        if not pressed and self._held_interaction is None:
+            return False
+
+        interaction = self._available_interaction()
+        if pressed:
+            self._held_interaction = interaction
+            self._interaction_elapsed = 0.0
+        if interaction is None or interaction != self._held_interaction:
+            self._clear_interaction()
+            return False
+
+        if math.isfinite(dt) and dt > 0:
+            self._interaction_elapsed += dt
+        if self._interaction_elapsed < _INTERACTION_HOLD_TIMES[interaction[0]] - 1e-9:
+            return False
+        self._clear_interaction()
+        return self.interact()
+
     def interact(self):
         self._resolve_result()
-        target = self.interaction_target
-        if target is None:
-            if not self.can_open_gate():
-                return False
+        interaction = self._available_interaction()
+        if interaction is None:
+            return False
+        action, target = interaction
+        if action == "gate":
             self.walls.remove(self.gate)
             self.gate = None
-            self._emit_noise(GATE_NOISE_RANGE, self.gate_position)
+            self._emit_noise(GATE_NOISE_RANGE, target)
             return True
-        if self.parcel == "waiting":
+        if action == "pickup":
             self.parcel = "carrying"
             return True
         self.completed_stops.add(next(stop for stop in self.remaining_stops if stop.position == target))

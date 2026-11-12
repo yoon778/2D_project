@@ -45,7 +45,7 @@ class PlayHUDTests(unittest.TestCase):
     def test_hints_expire_without_repeating_and_chase_does_not_spend_an_unseen_hint(self):
         self.assertIn("E", self.actions())
         self.world.elapsed_play_time = play_hud.HINT_DURATION
-        self.assertEqual(self.actions()["E"], "택배 수령")
+        self.assertEqual(self.actions()["E"], "택배 수령 · 길게 누르기")
         self.assertTrue(self.world.interact())
         self.hud.dismiss_hint("M")
         self.world.zombie.state = "chase"
@@ -78,7 +78,7 @@ class PlayHUDTests(unittest.TestCase):
         shop, rear_door = self.world.contract.stops
         self.world.player.x, self.world.player.y = rear_door.position
         self.light.contains.side_effect = lambda position: position == rear_door.position
-        self.assertEqual(self.actions()["E"], "택배 전달")
+        self.assertEqual(self.actions()["E"], "택배 전달 · 길게 누르기")
         self.light.contains.assert_called_once_with(rear_door.position)
         self.assertTrue(self.world.interact())
 
@@ -100,3 +100,14 @@ class PlayHUDTests(unittest.TestCase):
             self.hud.draw_result(self.world)
         labels = {args[0] for args, _ in text.call_args_list}
         self.assertIn("새 계약 열림 · R에서 3번 선택", labels)
+
+    def test_active_hold_shows_progress_even_when_the_target_is_dark(self):
+        self.world.elapsed_play_time = play_hud.HINT_WINDOW
+        self.light.contains.return_value = False
+        self.assertNotIn("E", self.actions())
+        self.world.update_interaction(.125, held=True, pressed=True, moving=False, damaged=False)
+        self.assertEqual(self.actions()["E"], "택배 수령 중")
+        self.assertAlmostEqual(self.hud._actions.call_args.kwargs["progress"], .25)
+        self.world.update_interaction(0, held=False, pressed=False, moving=False, damaged=False)
+        self.assertNotIn("E", self.actions())
+        self.assertIsNone(self.hud._actions.call_args.kwargs["progress"])

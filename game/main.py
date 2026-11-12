@@ -627,8 +627,8 @@ class Renderer:
             self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", TEAL)
         waiting = world.parcel == "waiting"
         objective, target, accent = (
-            ("택배 수령", "주황색 수령지에서 E", ORANGE) if waiting
-            else ("택배 전달", "청록색 배송지에서 E", TEAL)
+            ("택배 수령", "주황색 수령지에서 E 길게", ORANGE) if waiting
+            else ("택배 전달", "청록색 배송지에서 E 길게", TEAL)
         )
         self.font.draw(side + 24, 566, objective, accent)
         self.font.draw(side + 24, 532, target, WHITE)
@@ -1401,11 +1401,15 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
             gate_opened = False
-            if delivery_run and active and pending_interact:
+            if delivery_run:
                 gate_was_closed = world.gate is not None
-                if world.interact() and world.just_unlocked_two_stop:
+                completed = world.update_interaction(
+                    dt if active else 0.0, held=active and p.SDLK_e in pressed,
+                    pressed=active and pending_interact, moving=player.moved, damaged=player_hit,
+                )
+                if completed and world.just_unlocked_two_stop:
                     save_two_stop_unlock()
-                gate_opened = gate_was_closed and world.gate is None
+                gate_opened = completed and gate_was_closed and world.gate is None
                 if gate_opened:
                     renderer.reset_streetlights()
             ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
