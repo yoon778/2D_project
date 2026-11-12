@@ -1,16 +1,18 @@
 """R1-A ground projection, mouse conversion, and painter-order contracts."""
 from dataclasses import asdict
 import json
+import math
 from pathlib import Path
 import struct
 import sys
+from types import SimpleNamespace
 import unittest
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core import Player, Wall
-from main import screen_to_world, sdl_to_world, sorted_drawables, world_to_screen
+from main import CAMERA_TIME, Renderer, screen_to_world, sdl_to_world, sorted_drawables, world_to_screen
 from player_visual import METADATA_PATH, sprite_rect
 
 
@@ -58,6 +60,54 @@ class ProjectionTests(unittest.TestCase):
         for mouse, world in cases:
             with self.subTest(mouse=mouse):
                 self.assertPointAlmostEqual(sdl_to_world(*mouse), world)
+
+
+class CameraTests(unittest.TestCase):
+    def setUp(self):
+        self.renderer = Renderer.__new__(Renderer)
+        self.renderer.camera = (0, 0)
+        self.renderer.delivery = SimpleNamespace(world_size=(3600, 2400))
+        self.player = Player(1300, 900)
+
+    def test_reset_restores_anchor_and_practice_keeps_fixed_camera(self):
+        self.renderer.follow(self.player)
+        self.assertEqual(world_to_screen(1300, 900, self.renderer.camera), (640, 306))
+        self.renderer.delivery = None
+        self.renderer.camera = (0, 0)
+        self.renderer.follow(self.player, CAMERA_TIME, cursor=(1279, 0))
+        self.assertEqual(self.renderer.camera, (0, 0))
+
+    def test_diagonal_lead_is_capped_in_screen_pixels_and_is_frame_independent(self):
+        self.renderer.follow(self.player)
+        base = self.renderer.camera
+        cursor = (1200, 65)
+        self.renderer.follow(self.player, CAMERA_TIME, cursor=cursor)
+        whole = self.renderer.camera
+        lead = math.hypot(whole[0] - base[0], .6 * (whole[1] - base[1]))
+        self.assertAlmostEqual(lead, 72 * (1 - math.exp(-1)))
+        self.renderer.follow(self.player)
+        for _ in range(10):
+            self.renderer.follow(self.player, CAMERA_TIME / 10, cursor=cursor)
+        for actual, expected in zip(self.renderer.camera, whole):
+            self.assertAlmostEqual(actual, expected)
+
+    def test_follow_clamps_to_old_map_edges_and_removes_lead_without_mouse(self):
+        self.player.x, self.player.y = 3580, 2380
+        self.renderer.follow(self.player)
+        self.renderer.follow(self.player, 3, cursor=(1279, 0))
+        self.assertEqual(self.renderer.camera, (2640, 1680))
+        self.player.x, self.player.y = 20, 20
+        self.renderer.follow(self.player)
+        self.renderer.follow(self.player, 3, cursor=(0, 719))
+        self.assertEqual(self.renderer.camera, (0, 0))
+        self.player.x, self.player.y = 1300, 900
+        self.renderer.follow(self.player)
+        base = self.renderer.camera
+        self.renderer.follow(self.player, 3, cursor=(1279, 413))
+        self.assertGreater(self.renderer.camera[0], base[0] + 70)
+        self.renderer.follow(self.player, 3)
+        self.assertAlmostEqual(self.renderer.camera[0], base[0], places=6)
+        self.assertAlmostEqual(self.renderer.camera[1], base[1])
 
 
 class DepthOrderTests(unittest.TestCase):

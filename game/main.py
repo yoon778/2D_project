@@ -26,6 +26,9 @@ WINDOW_HEIGHT = 720
 GROUND_X = 160.0
 GROUND_Y = 90.0
 GROUND_SCALE_Y = 0.60
+CAMERA_TIME = 0.145
+CAMERA_LEAD_FRACTION = 0.25
+CAMERA_MAX_LEAD = 72.0
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
 DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1, p.SDLK_3: 2, p.SDLK_KP_3: 2}
@@ -365,6 +368,7 @@ class Renderer:
         self.delivery = None
         self.cursor = None
         self.light = None
+        self._light_pose = None
         self.glow_source = None
         self.camera = (0.0, 0.0)
         self.choosing_delivery = False
@@ -477,11 +481,43 @@ class Renderer:
         dx, dy = self.shake_offset
         return sx + dx, sy + dy
 
-    def follow(self, player):
-        if self.delivery is not None:
-            width, height = self.delivery.world_size
-            self.camera = (min(max(0.0, player.x - WORLD_WIDTH / 2), width - WORLD_WIDTH),
-                           min(max(0.0, player.y - WORLD_HEIGHT / 2), height - WORLD_HEIGHT))
+    def follow(self, player, dt=None, *, cursor=None):
+        if self.delivery is None:
+            return
+        width, height = self.delivery.world_size
+        right, top = width - WORLD_WIDTH, height - WORLD_HEIGHT
+        base = (min(max(0.0, player.x - WORLD_WIDTH / 2), right),
+                min(max(0.0, player.y - WORLD_HEIGHT / 2), top))
+        if dt is None:
+            self.camera = base
+            return
+
+        destination = base
+        if cursor is not None:
+            # Measure from the unshifted foot so the lead never feeds itself.
+            foot_x, foot_y = world_to_screen(player.x, player.y, base)
+            dx = cursor[0] - foot_x
+            dy = WINDOW_HEIGHT - 1 - cursor[1] - foot_y
+            distance = math.hypot(dx, dy)
+            if distance:
+                factor = min(CAMERA_LEAD_FRACTION, CAMERA_MAX_LEAD / distance)
+                destination = (min(max(0.0, base[0] + dx * factor), right),
+                               min(max(0.0, base[1] + dy * factor / GROUND_SCALE_Y), top))
+        weight = -math.expm1(-dt / CAMERA_TIME)
+        self.camera = tuple(current + (desired - current) * weight
+                            for current, desired in zip(self.camera, destination))
+
+    def prepare_light(self, player, walls, aim):
+        origin = (player.x, player.y)
+        dx, dy = aim[0] - origin[0], aim[1] - origin[1]
+        angle = math.atan2(dy, dx) if dx or dy else player.aim_angle
+        pose = (origin, angle, self.camera, self.shake_offset, id(walls))
+        if self.light is None or pose != self._light_pose:
+            world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
+            beam = Flashlight(origin, angle, walls, world_size)
+            self.light = LightField((beam, *self.streetlights_in_view()))
+            self._light_pose = pose
+        return self.light
 
     def draw_delivery_selection(self):
         world = self.delivery
@@ -984,16 +1020,13 @@ class Renderer:
         p.SDL_RenderClear(p.renderer)
         origin = (player.x, player.y)
         aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
-        dx, dy = aim[0] - origin[0], aim[1] - origin[1]
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
-        beam = Flashlight(origin, math.atan2(dy, dx) if dx or dy else player.aim_angle, walls, world_size)
+        beam, *lamps = self.prepare_light(player, walls, aim).lights
         glow = nearby_glow(origin, walls, world_size)
         glow_outline = glow.outline()
         glow_walls = {id(wall) for wall in glow.walls}
         # Only the stronger sources reveal targeting, station prompts and status marks.
         self.glow_source = (glow, light_source_rows(glow, self.project))
-        lamps = tuple(self.streetlights_in_view())
-        self.light = LightField((beam, *lamps))
         self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in self.light.lights)
         self.light_rows = combined_light_rows([rows for _, rows in self.light_sources])
         beam_outline = beam.outline()
@@ -1331,6 +1364,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     renderer.reset_streetlights()
                     renderer.play_hud.reset_delivery()
                 player, walls = world.player, world.walls
+                renderer.follow(player)
                 renderer.player_visual.locomotion = Locomotion()
                 renderer.combat_visual.reset_zombie_animation()
                 pressed.clear()
@@ -1362,17 +1396,15 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 renderer.draw(player, walls, target, focused)
                 p.update_canvas()
                 continue
-            renderer.follow(player)
-            renderer.cursor = cursor
-            if cursor is not None:
-                light = renderer.light
-                if light is None:
-                    beam = Flashlight((player.x, player.y), player.aim_angle, walls, world.world_size)
-                    light = LightField((beam, *renderer.streetlights_in_view()))
-                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
-                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha)
             active = (focused and not lost_focus and not renderer.map_open
                       and contract_choice is None and not retry_requested)
+            if not delivery_run and cursor is not None:
+                light = renderer.light
+                if light is None:
+                    aim = (player.x, player.y)
+                    light = renderer.prepare_light(player, walls, aim)
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
+                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha)
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
@@ -1412,6 +1444,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 gate_opened = completed and gate_was_closed and world.gate is None
                 if gate_opened:
                     renderer.reset_streetlights()
+                    renderer.light = None
             ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
             audio_active = active and not reset_requested
             hearing_active = audio_active and world.result == "playing"
@@ -1464,9 +1497,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                                                     sneaking=world.sneaking)
             if smoke_test:
                 name, player.x, player.y = smoke_poses[frame]
-            previous_camera = renderer.camera
-            renderer.follow(player)
-            if cursor is not None and renderer.camera != previous_camera:
+            if active and world.result == "playing":
+                renderer.follow(player, dt, cursor=cursor)
+            renderer.cursor = cursor
+            if delivery_run and cursor is not None and not renderer.map_open:
+                aim = sdl_to_world(*cursor, renderer.camera)
+                light = renderer.prepare_light(player, walls, aim)
                 target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
                                       renderer.shake_offset, wall_alpha=renderer.wall_alpha)
             if active and strike is None and world.result == "playing":
@@ -1479,6 +1515,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 pressed.clear()
                 mouse_held = False
                 cursor = current_cursor()
+                renderer.cursor = cursor
                 focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
                 previous = time.perf_counter()
             renderer.draw(player, walls, target, focused)
