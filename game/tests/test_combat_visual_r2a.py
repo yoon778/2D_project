@@ -189,9 +189,53 @@ class CombatSpriteTests(unittest.TestCase):
         self.assertEqual(main.mouse_target(world, visual, x, head_row), fallback)
         world.player.x = 300
         self.assertEqual(main.mouse_target(world, visual, x, head_row), (300, 320))
+        renderer = main.Renderer.__new__(main.Renderer)
+        renderer.camera = (0.0, 0.0)
+        renderer._building_fades = {}
+        renderer.update_building_fades(world.player, world.walls, main.BUILDING_FADE_OUT / 2)
+        self.assertEqual(main.mouse_target(world, visual, x, head_row, building_opacity=renderer.building_opacity),
+                         fallback)
+        renderer.update_building_fades(world.player, world.walls, main.BUILDING_FADE_OUT / 2)
+        self.assertEqual(main.mouse_target(world, visual, x, head_row, building_opacity=renderer.building_opacity),
+                         (300, 320))
         light = LightField((Flashlight((300, 150), math.pi / 2, world.walls),))
-        self.assertEqual(main.mouse_target(world, visual, x, head_row, light), fallback)
+        self.assertEqual(main.mouse_target(world, visual, x, head_row, light,
+                                           building_opacity=renderer.building_opacity), fallback)
         self.assertEqual(world.walls, [wall])
+
+    def test_building_fade_reverses_from_current_opacity_and_resets(self):
+        renderer = main.Renderer.__new__(main.Renderer)
+        renderer.camera = (150, 100)
+        renderer._building_fades = {}
+        wall = NeighborhoodWall(100, 300, 140, 190, "east-house", oblique=True)
+        fence = NeighborhoodWall(100, 300, 140, 190, "fence")
+        walls = [wall, fence]
+        behind, side = Player(170, 520), Player(255, 520)
+        self.assertEqual(renderer.building_opacity(wall), 1)
+        for _ in range(8):
+            renderer.update_building_fades(behind, walls, .01)
+        self.assertAlmostEqual(renderer.building_opacity(wall), .5)
+        self.assertEqual(renderer.building_opacity(fence), 1)
+        renderer.update_building_fades(side, walls, .02)
+        self.assertAlmostEqual(renderer.building_opacity(wall), .6)
+        for _ in range(16):
+            renderer.update_building_fades(behind, walls, .01)
+        self.assertEqual(renderer.building_opacity(wall), 0)
+        for _ in range(20):
+            renderer.update_building_fades(side, walls, .01)
+        self.assertEqual(renderer.building_opacity(wall), 1)
+        renderer.update_building_fades(behind, walls, .08)
+        renderer.reset_building_fades()
+        self.assertEqual(renderer.building_opacity(wall), 1)
+
+    def test_building_fade_multiplies_existing_vertex_alpha(self):
+        renderer = main.Renderer.__new__(main.Renderer)
+        with (patch.object(main.p, "renderer", object(), create=True),
+              patch.object(main.p, "SDL_RenderGeometry", return_value=0) as geometry):
+            renderer.draw_wall_plane(None, main.quad(100, 100, 30, 20), 0, 1, (70, 85, 95),
+                                     alpha=(255, 191, 63, 0), opacity=.5)
+        vertices = geometry.call_args.args[2]
+        self.assertEqual([vertex.color.a for vertex in vertices], [128, 96, 32, 0])
 
     def test_zombie_stun_and_dead_states_use_separate_authored_cells(self):
         zombie = CombatWorld().zombie

@@ -51,6 +51,8 @@ WALL_TEXTURE_SIZES = {
 }
 LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
 BUILDING_TEXTURES = {"west-house", "east-house", "shop", "workshop"}
+BUILDING_FADE_OUT = .16
+BUILDING_FADE_IN = .20
 PROP_TEXTURE_SIZES = {
     "mailbox": [10, 24],
     "planter": [13, 15],
@@ -197,7 +199,8 @@ def clip_light_columns(spans, columns):
             if left < stop and start < right]
 
 
-def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0), *, wall_alpha=None):
+def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0), *,
+                 wall_alpha=None, building_opacity=None):
     screen_y = WINDOW_HEIGHT - 1 - mouse_y
     for zombie in sorted(world.zombies, key=lambda enemy: enemy.y):
         position = (zombie.x, zombie.y)
@@ -215,7 +218,11 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
         # A wall drawn in front can cover the upper part of a lit sprite.
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
         for wall in world.walls:
-            if wall.y >= zombie.y or building_covers_player(wall, world.player, camera):
+            if wall.y >= zombie.y:
+                continue
+            hidden = (building_opacity(wall) == 0 if building_opacity is not None
+                      else building_covers_player(wall, world.player, camera))
+            if hidden:
                 continue
             left, bottom = world_to_screen(wall.x, wall.y, camera)
             alpha_rows = wall_alpha.get(wall.texture) if wall_alpha and isinstance(wall, NeighborhoodWall) else None
@@ -361,6 +368,7 @@ class Renderer:
         self.neighborhood_ground = None
         self.neighborhood_walls = {}
         self.wall_alpha = {}
+        self._building_fades = {}
         self.street_prop_images = {}
         self.streetlamp_image = None
         self.streetlights = ()
@@ -518,6 +526,26 @@ class Renderer:
             self.light = LightField((beam, *self.streetlights_in_view()))
             self._light_pose = pose
         return self.light
+
+    def reset_building_fades(self):
+        self._building_fades.clear()
+
+    def building_opacity(self, wall):
+        return self._building_fades.get(id(wall), 1.0)
+
+    def update_building_fades(self, player, walls, dt):
+        for wall in walls:
+            key = id(wall)
+            opacity = self.building_opacity(wall)
+            if building_covers_player(wall, player, self.camera):
+                remaining = opacity - dt / BUILDING_FADE_OUT
+                self._building_fades[key] = 0.0 if remaining <= 1e-12 else remaining
+            elif opacity < 1.0:
+                opacity = opacity + dt / BUILDING_FADE_IN
+                if opacity >= 1.0 - 1e-12:
+                    self._building_fades.pop(key, None)
+                else:
+                    self._building_fades[key] = opacity
 
     def draw_delivery_selection(self):
         world = self.delivery
@@ -731,7 +759,7 @@ class Renderer:
         finally:
             p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_BLEND)
 
-    def wall(self, wall, outlines, beam_mask=None, *, glow_outline=()):
+    def wall(self, wall, outlines, beam_mask=None, *, glow_outline=(), opacity=1.0):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
         depth = wall.depth * GROUND_SCALE_Y
@@ -747,15 +775,15 @@ class Renderer:
             front, side, roof = house_planes(wall, x, y)
             foundation = quad(x, y, wall.width, depth + HOUSE_FOUNDATION_HEIGHT)
             for plane in (foundation, front, side, roof):
-                self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0))
+                self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0), opacity=opacity)
         else:
             front = quad(x, y, wall.width, height)
             roof = quad(x, y + height, wall.width, depth)
             if low_obstacle:
-                self.draw_wall_plane(image, front, seam, 1, (0, 0, 0))
-                self.draw_wall_plane(image, roof, 0, seam, (0, 0, 0))
+                self.draw_wall_plane(image, front, seam, 1, (0, 0, 0), opacity=opacity)
+                self.draw_wall_plane(image, roof, 0, seam, (0, 0, 0), opacity=opacity)
             else:
-                self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0))
+                self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0), opacity=opacity)
 
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
@@ -781,7 +809,8 @@ class Renderer:
                 if start >= end:
                     continue
                 if edge == "front":
-                    self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), mask=mask)
+                    self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), mask=mask,
+                                         opacity=opacity)
                     roof_bounds = (start, 0, end, front_band)
                     roof_alpha = (255, 255, 0, 0)
                 elif edge == "back":
@@ -795,16 +824,18 @@ class Renderer:
                     roof_alpha = (0, 255, 255, 0)
                     if oblique:
                         side_image = self.neighborhood_walls[f"{wall.texture}-side"]
-                        self.draw_wall_plane(side_image, side, 0, 1, side_shade, (start, 0, end, 1), mask=mask)
+                        self.draw_wall_plane(side_image, side, 0, 1, side_shade, (start, 0, end, 1), mask=mask,
+                                             opacity=opacity)
                 if low_obstacle and edge in ("left", "right"):
                     # Show the end of a low obstacle when approached along the lane.
                     band = side_band * min(1, (end - start) * 2)
                     bounds = (0, 0, band, 1) if edge == "left" else (1 - band, 0, 1, 1)
-                    self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, mask=mask)
-                self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha, mask=mask)
+                    self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, mask=mask, opacity=opacity)
+                self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha, mask=mask,
+                                     opacity=opacity)
 
     def draw_wall_plane(self, image, points, top, bottom, shade, bounds=(0, 0, 1, 1), *,
-                        alpha=(255, 255, 255, 255), mask=None):
+                        alpha=(255, 255, 255, 255), mask=None, opacity=1.0):
         left, near, right, far = bounds
         a, b, c, d = points
         coords = (clip_wall_plane(points, bounds, mask) if mask is not None else
@@ -818,9 +849,9 @@ class Renderer:
             x, y = ((1 - v) * (a[axis] + u * (b[axis] - a[axis]))
                     + v * (d[axis] + u * (c[axis] - d[axis])) for axis in (0, 1))
             s, t = (u - left) / (right - left), (v - near) / (far - near)
-            opacity = round((1 - t) * ((1 - s) * alpha[0] + s * alpha[1])
-                            + t * (s * alpha[2] + (1 - s) * alpha[3]))
-            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - y), p.SDL_Color(*shade, opacity),
+            vertex_alpha = (1 - t) * ((1 - s) * alpha[0] + s * alpha[1]) + t * (s * alpha[2] + (1 - s) * alpha[3])
+            color = p.SDL_Color(*shade, round(opacity * vertex_alpha))
+            vertices[i] = p.SDL_Vertex(p.SDL_FPoint(x, WINDOW_HEIGHT - y), color,
                                        p.SDL_FPoint(u, bottom + v * (top - bottom)))
         indices = [index for i in range(1, len(coords) - 1) for index in (0, i, i + 1)]
         triangles = (ctypes.c_int * len(indices))(*indices)
@@ -1081,8 +1112,10 @@ class Renderer:
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "wall":
-                if not building_covers_player(actor, player, self.camera):
-                    self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else ())
+                opacity = self.building_opacity(actor)
+                if opacity > 0.0:
+                    self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else (),
+                              opacity=opacity)
             elif kind == "zombie":
                 self.draw_lit_zombie(actor, combat, attack)
             else:
@@ -1362,6 +1395,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 renderer.choosing_delivery = delivery_run and reset_requested
                 if delivery_run:
                     renderer.reset_streetlights()
+                    renderer.reset_building_fades()
                     renderer.play_hud.reset_delivery()
                 player, walls = world.player, world.walls
                 renderer.follow(player)
@@ -1499,12 +1533,15 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 name, player.x, player.y = smoke_poses[frame]
             if active and world.result == "playing":
                 renderer.follow(player, dt, cursor=cursor)
+                if delivery_run:
+                    renderer.update_building_fades(player, walls, dt)
             renderer.cursor = cursor
             if delivery_run and cursor is not None and not renderer.map_open:
                 aim = sdl_to_world(*cursor, renderer.camera)
                 light = renderer.prepare_light(player, walls, aim)
                 target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
-                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha)
+                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha,
+                                      building_opacity=renderer.building_opacity)
             if active and strike is None and world.result == "playing":
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
