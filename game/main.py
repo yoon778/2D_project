@@ -390,6 +390,7 @@ class Renderer:
         self.choosing_delivery = False
         self.delivery_preview = 0
         self.map_open = False
+        self.abandon_confirmation = False
         self.shake_remaining = 0.0
         self.shake_strength = 0
         self.shake_offset = (0, 0)
@@ -1075,6 +1076,11 @@ class Renderer:
             self.draw_lit_region((x - 9, y, 20, 10), draw_hit, row_spans=row_spans)
 
     def draw(self, player, walls, target, focused=True):
+        self._draw_scene(player, walls, target, focused)
+        if self.abandon_confirmation:
+            self.play_hud.draw_abandon_confirmation()
+
+    def _draw_scene(self, player, walls, target, focused):
         if self.choosing_delivery:
             self.draw_delivery_selection()
             return
@@ -1364,9 +1370,20 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             map_toggle = False
             map_toggled = False
             waypoint_clicks = []
+            abandon_requested = False
+            abandon_decision = None
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
+                elif renderer.abandon_confirmation or abandon_requested:
+                    if (renderer.abandon_confirmation and abandon_decision is None
+                            and event.type == p.SDL_KEYDOWN and not event.key.repeat):
+                        key = event.key.keysym.sym
+                        if key in (p.SDLK_RETURN, p.SDLK_KP_ENTER, p.SDLK_ESCAPE):
+                            abandon_decision = key != p.SDLK_ESCAPE
+                    elif (event.type == p.SDL_WINDOWEVENT
+                          and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
+                        lost_focus = True
                 elif event.type == p.SDL_KEYDOWN and not event.key.repeat:
                     key = event.key.keysym.sym
                     if key == p.SDLK_ESCAPE:
@@ -1394,7 +1411,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         retry_requested = True
                     pressed.add(key)
                     if key == p.SDLK_r:
-                        reset_requested = True
+                        if delivery_run and world.result == "playing":
+                            abandon_requested = True
+                        else:
+                            reset_requested = True
                 elif event.type == p.SDL_KEYUP and not event.key.repeat:
                     pressed.discard(event.key.keysym.sym)
                 elif event.type == p.SDL_MOUSEMOTION:
@@ -1432,6 +1452,15 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 retry_requested = False
             else:
                 renderer.delivery_preview = preview_choice
+            confirmation_changed = focused and not lost_focus and (abandon_requested or abandon_decision is not None)
+            if confirmation_changed:
+                renderer.abandon_confirmation = abandon_requested
+                reset_requested = abandon_decision is True
+                pressed.clear()
+                pending_click = pending_interact = mouse_held = False
+                pending_bottle_pickup = pending_bottle_throw = False
+                map_toggle = False
+                waypoint_clicks.clear()
             if reset_requested or retry_requested or contract_choice is not None:
                 if contract_choice is not None:
                     world.select_contract(contract_choice)
@@ -1485,6 +1514,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 p.update_canvas()
                 continue
             active = (focused and not lost_focus and not renderer.map_open
+                      and not renderer.abandon_confirmation and not confirmation_changed
                       and contract_choice is None and not retry_requested)
             if not delivery_run and cursor is not None:
                 light = renderer.light

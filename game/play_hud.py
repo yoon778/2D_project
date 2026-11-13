@@ -258,6 +258,20 @@ class PlayHUD:
                     break
         return self._hint
 
+    def draw_abandon_confirmation(self):
+        fill(0, 0, self.width, self.height, (0, 0, 0, 170))
+        width, height = 440, 152
+        x, y = (self.width - width) // 2, (self.height - height) // 2
+        center = self.width // 2
+        panel(x, y, width, height, (*AMBER, 220))
+        self._text("배달을 포기할까요?", center, y + 36, TITLE, align="center")
+        self._text("현재 배달 진행이 초기화됩니다", center, y + 70, BODY, align="center")
+        fill(x + 24, y + 95, width - 48, 1, SEPARATOR)
+        self._keycap("Enter", x + 79, y + 108, 58)
+        self._text("포기", x + 145, y + 120, BODY, AMBER)
+        self._keycap("Esc", x + 234, y + 108, 42)
+        self._text("계속하기", x + 284, y + 120, BODY)
+
     def draw_result(self, world):
         success = world.result == "delivered"
         accent = TEAL if success else AMBER
