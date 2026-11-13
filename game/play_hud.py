@@ -32,6 +32,7 @@ BODY = 18
 TITLE = 26
 HINT_WINDOW = 60.0
 HINT_DURATION = 5.0
+PICKUP_CONTROLS = "WASD 이동 · 마우스 조준 · 좌클릭 공격"
 HINT_TEXT = {"E": "택배 수령 · 길게 누르기", "M": "지도에서 배송지 확인", "Ctrl": "발소리를 줄여 지나가기"}
 INTERACTION_LABELS = {
     "pickup": (HINT_TEXT["E"], "택배 수령 중", TEAL),
@@ -155,6 +156,12 @@ class PlayHUD:
         fill(x, y, width, 24, KEYCAP)
         self._text(key, x + width // 2, y + 12, BODY, KEY_TEXT, align="center")
 
+    def _draw_pickup_controls(self):
+        width = self._label(PICKUP_CONTROLS, BODY, TEXT)[1] + 28
+        center = self.width // 2
+        panel(center - width // 2, MARGIN, width, 36)
+        self._text(PICKUP_CONTROLS, center, MARGIN + 18, BODY, align="center")
+
     def _waypoint(self, direction):
         dx, dy = direction
         distance = math.hypot(dx, dy)
@@ -212,6 +219,7 @@ class PlayHUD:
         self._seen_hints = set()
         self._hint = None
         self._hint_until = 0.0
+        self._pickup_controls_until = None
         if self._attack_label is not None:
             label = self._labels.pop((self._attack_label, BODY, TEXT), None)
             if label is not None:
@@ -287,6 +295,12 @@ class PlayHUD:
         if not focused:
             self._notice("포커스 없음 · 이동 입력 초기화", AMBER)
             return
+        if world.parcel == "carrying":
+            elapsed = world.elapsed_play_time
+            if self._pickup_controls_until is None:
+                self._pickup_controls_until = elapsed + HINT_DURATION
+            if elapsed < self._pickup_controls_until:
+                self._draw_pickup_controls()
         if waypoint_direction is not None:
             self._waypoint(waypoint_direction)
         if alarm:

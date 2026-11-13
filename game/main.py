@@ -576,7 +576,7 @@ class Renderer:
             self.font.draw(100, bottom + 49, f"난이도 · {contract.difficulty}", ORANGE)
             self.font.draw(100, bottom + 22, contract.description, WHITE)
         keys = "1 / 2 / 3" if world.two_stop_unlocked else "1 / 2"
-        self.font.draw(100, 213, f"{keys}  미리보기", WHITE)
+        self.font.draw(100, 213, f"{keys}  계약 선택", WHITE)
         self.font.draw(100, 170, "Enter  배달 시작  ·  Esc  종료", TEAL)
 
         contract = DELIVERY_CONTRACTS[self.delivery_preview]

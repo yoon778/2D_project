@@ -20,6 +20,7 @@ class PlayHUDTests(unittest.TestCase):
         self.hud.reset_delivery()
         self.hud._vitals = Mock()
         self.hud._objective = Mock()
+        self.hud._draw_pickup_controls = Mock()
         self.hud._notice = Mock()
         self.hud._actions = Mock()
         self.light = Mock()
