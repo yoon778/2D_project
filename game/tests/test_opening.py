@@ -150,6 +150,14 @@ class OpeningTests(unittest.TestCase):
 
 
 class EndingTests(unittest.TestCase):
+    def test_world_sound_position_keeps_distance_and_softens_pan_near_listener(self):
+        origin = (140, 180)
+        self.assertEqual(main.sound_position(origin, (240, 180)), (100.0, 1.0))
+        self.assertEqual(main.sound_position(origin, (80, 260)), (100.0, -0.6))
+        self.assertEqual(main.sound_position(origin, (140, 80)), (100.0, 0.0))
+        self.assertEqual(main.sound_position(origin, (176, 180)), (36.0, 0.5))
+        self.assertEqual(main.sound_position(origin, origin), (0.0, 0.0))
+
     def test_failure_uses_its_own_duration_and_stops_the_hit_sound_on_focus_loss(self):
         duration = main.opening.FAILURE_DURATION
         audio = Mock()
@@ -238,6 +246,8 @@ class EndingTests(unittest.TestCase):
                     zombie.x, zombie.y = player.x + 65, player.y
                     zombie.state = "chase"
                 elif len(chase_frames) == 3:
+                    self.assertAlmostEqual(audio.update.call_args.kwargs["pan"], (world.zombies[1].x - player.x) / 72)
+                    self.assertGreater(audio.update.call_args.kwargs["pan"], 0)
                     world.zombies[1].hp = 0
 
         def draw_ending(elapsed, font, cutscene_art, delivery):

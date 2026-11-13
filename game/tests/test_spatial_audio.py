@@ -132,7 +132,8 @@ class ZombieAudioTests(unittest.TestCase):
         self.backend.Mix_QuerySpec.return_value = 1
         names = ("zombie_step", "zombie_groan", "bat_swing", "zombie_hit",
                  "player_walk", "player_run", "player_sneak", "player_hit",
-                 "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle")
+                 "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle",
+                 "bottle_break", "gate_open", "vehicle_alarm")
         self.sounds = {name: ctypes.c_void_p(index) for index, name in enumerate(names, 1)}
         self.backend.Mix_LoadWAV.side_effect = lambda path: self.sounds.get(Path(path.decode()).stem)
         self.backend.Mix_PlayChannelTimed.side_effect = [0, 1]
@@ -142,14 +143,33 @@ class ZombieAudioTests(unittest.TestCase):
     def test_footstep_and_groan_get_quieter_with_distance_and_walls(self):
         step, groan = self.sounds["zombie_step"], self.sounds["zombie_groan"]
         self.backend.Mix_GetChunk.side_effect = (step, groan, step, groan)
-        self.audio.update(.4, distance=20, stride=32, active=True)
-        self.audio.update(.01, distance=420, stride=0, active=True)
+        self.audio.update(.4, distance=20, stride=32, active=True, pan=-1.0)
+        self.audio.update(.01, distance=420, stride=0, active=True, pan=1.0)
         self.audio.update(.01, distance=420, stride=0, active=True, occluded=True)
         self.assertEqual(self.backend.Mix_VolumeChunk.call_args_list,
                          [call(step, 46), call(groan, 58), call(step, 9), call(groan, 12),
                           call(step, 6), call(groan, 8)])
         self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
                          [call(-1, step, 0, -1), call(-1, groan, 0, -1)])
+        self.assertEqual(self.backend.Mix_SetPanning.call_args_list, [call(0, 255, 80), call(1, 255, 80)])
+
+    def test_new_sounds_pan_by_position_and_center_reused_channels(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = (0, 1, 2, 0)
+        self.audio.play_bottle_break(260, pan=-4.0)
+        self.audio.play_gate_open(0, pan=.5)
+        self.audio.play_vehicle_alarm(0, pan=math.nan)
+        self.audio.play_bat_swing()
+        self.assertEqual(self.backend.Mix_SetPanning.call_args_list,
+                         [call(0, 255, 80), call(1, 168, 255), call(2, 255, 255), call(0, 255, 255)])
+        self.assertEqual(self.backend.Mix_VolumeChunk.call_args_list, [
+            call(self.sounds["bottle_break"], 41), call(self.sounds["gate_open"], 72),
+            call(self.sounds["vehicle_alarm"], 76), call(self.sounds["bat_swing"], 74),
+        ])
+
+    def test_failed_channel_allocation_does_not_set_panning(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = (-1,)
+        self.audio.play_gate_open(0, pan=1.0)
+        self.backend.Mix_SetPanning.assert_not_called()
 
     def test_bat_swing_and_hit_use_independent_effect_channels(self):
         swing, hit = self.sounds["bat_swing"], self.sounds["zombie_hit"]

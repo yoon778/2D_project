@@ -553,10 +553,13 @@ class DeliveryTests(unittest.TestCase):
                     world.player = Player(x, car.y - 20, math.pi / 2)
                     world.update(0.04, 0, 1, sprint=True)
                     self.assertEqual(world.vehicle_alarm, (x, car.y - PLAYER_RADIUS))
+                    self.assertEqual(world.vehicle_alarm_source, (x, car.y + car.depth / 2))
                     world.update(0.04, 0, 1, sprint=True)
                     self.assertIsNone(world.vehicle_alarm)
+                    self.assertIsNone(world.vehicle_alarm_source)
             world.reset()
             self.assertIsNone(world.vehicle_alarm)
+            self.assertIsNone(world.vehicle_alarm_source)
 
     def test_vehicle_alarm_reaches_zombies_behind_the_car_up_to_520_pixels(self):
         world = self.world
@@ -567,6 +570,7 @@ class DeliveryTests(unittest.TestCase):
         world.zombies = [Zombie(source[0] + distance, 120) for distance in (520, 521)]
         world.update(0.04, 1, 0, sprint=True)
         self.assertEqual(world.vehicle_alarm, source)
+        self.assertEqual(world.vehicle_alarm_source, (car.x + car.width / 2, car.y + car.depth / 2))
         self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "idle"])
         self.assertEqual(world.zombie.target, source)
         self.assertFalse(world._player_line_clear(world.zombie))

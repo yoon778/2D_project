@@ -228,6 +228,7 @@ class DeliveryWorld(CombatWorld):
         self.bottle_flight = None
         self.bottle_impact = None
         self.vehicle_alarm = None
+        self.vehicle_alarm_source = None
         self._triggered_vehicle_alarms = set()
 
     @property
@@ -319,6 +320,7 @@ class DeliveryWorld(CombatWorld):
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.bottle_impact = None
         self.vehicle_alarm = None
+        self.vehicle_alarm_source = None
         super().update(dt, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
         if self.result != "playing":
             self.bottle_flight = None
@@ -330,6 +332,7 @@ class DeliveryWorld(CombatWorld):
     def _trigger_vehicle_alarm(self, wall, position):
         self._triggered_vehicle_alarms.add((wall.x, wall.y))
         self.vehicle_alarm = position
+        self.vehicle_alarm_source = (wall.x + wall.width / 2, wall.y + wall.depth / 2)
         self._emit_noise(VEHICLE_ALARM_RANGE, position)
 
     def _on_sprint_collision(self, wall):

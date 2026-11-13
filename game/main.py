@@ -87,6 +87,7 @@ MAP_COMPLETED = (161, 176, 166)
 HIT_MARK_DURATION = 0.06
 NOISE_PULSE_DURATION = 0.24
 VEHICLE_ALARM_DURATION = 1.2
+AUDIO_PAN_NEAR_RADIUS = 72.0
 PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
 ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
 SNEAK_HINT_RANGE = 160.0
@@ -105,6 +106,12 @@ def screen_to_world(x, y, camera=(0.0, 0.0)):
 
 def sdl_to_world(x, y, camera=(0.0, 0.0)):
     return screen_to_world(x, WINDOW_HEIGHT - 1 - y, camera)
+
+
+def sound_position(listener, source):
+    dx = source[0] - listener[0]
+    distance = math.hypot(dx, source[1] - listener[1])
+    return distance, dx / max(distance, AUDIO_PAN_NEAR_RADIUS)
 
 
 def current_cursor():
@@ -1500,16 +1507,18 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
             distance = None
             nearest_zombie = None
-            stride = 0.0
+            stride = pan = 0.0
             chasing = False
+            listener = (player.x, player.y)
             for zombie, (x, y) in zip(world.zombies, zombie_origins):
                 zombie_dx, zombie_dy = zombie.x - x, zombie.y - y
                 renderer.combat_visual.update_zombie(zombie, zombie_dx, zombie_dy, paused=not active)
                 if zombie.alive:
                     chasing |= zombie.state == "chase"
-                    enemy_distance = math.hypot(zombie.x - player.x, zombie.y - player.y)
+                    enemy_distance, enemy_pan = sound_position(listener, (zombie.x, zombie.y))
                     if distance is None or enemy_distance < distance:
                         distance = enemy_distance
+                        pan = enemy_pan
                         nearest_zombie = zombie
                         recoil_x, recoil_y = zombie.recoil_offset
                         stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
@@ -1521,11 +1530,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     music.update(dt, distance=distance, focused=active)
             if zombie_audio is not None and not ending:
                 occluded = hearing_active and nearest_zombie is not None and any(
-                    wall_blocks((player.x, player.y), (nearest_zombie.x, nearest_zombie.y), wall)
+                    wall_blocks(listener, (nearest_zombie.x, nearest_zombie.y), wall)
                     for wall in walls)
                 preserve_map_cue = renderer.map_open and focused and not lost_focus
                 zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
-                                    occluded=occluded, preserve_map_cue=preserve_map_cue)
+                                    occluded=occluded, preserve_map_cue=preserve_map_cue,
+                                    pan=pan if hearing_active else 0.0)
                 if map_toggled:
                     zombie_audio.play_map_toggle()
                 if bottle_picked_up:
@@ -1541,11 +1551,14 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if player_hit:
                     zombie_audio.play_player_hit()
                 if bottle_impact is not None:
-                    zombie_audio.play_bottle_break(math.dist((player.x, player.y), bottle_impact))
+                    sound_distance, sound_pan = sound_position(listener, bottle_impact)
+                    zombie_audio.play_bottle_break(sound_distance, pan=sound_pan)
                 if gate_opened:
-                    zombie_audio.play_gate_open(math.dist((player.x, player.y), world.gate_position))
+                    sound_distance, sound_pan = sound_position(listener, world.gate_position)
+                    zombie_audio.play_gate_open(sound_distance, pan=sound_pan)
                 if vehicle_alarm is not None:
-                    zombie_audio.play_vehicle_alarm(math.dist((player.x, player.y), vehicle_alarm))
+                    sound_distance, sound_pan = sound_position(listener, world.vehicle_alarm_source)
+                    zombie_audio.play_vehicle_alarm(sound_distance, pan=sound_pan)
                 if hearing_active:
                     zombie_audio.update_player_steps(math.hypot(dx, dy), sprinting=world.sprinting,
                                                     sneaking=world.sneaking)

@@ -15,6 +15,7 @@ _FAR_DISTANCE = 180.0
 _VOLUME_TIME = .25
 _HEARING_RANGE = 520.0
 _WALL_GAIN = 0.65
+_PAN_FAR_GAIN = 80
 _STEP_SPACING = 32.0
 _GROAN_DELAY = .4
 _GROAN_INTERVAL = 3.2
@@ -142,7 +143,7 @@ class ZombieAudio:
         current = p.Mix_GetChunk(channel)
         return ctypes.cast(current, ctypes.c_void_p).value == ctypes.cast(sound, ctypes.c_void_p).value
 
-    def update(self, dt, *, distance, stride, active, occluded=False, preserve_map_cue=False):
+    def update(self, dt, *, distance, stride, active, occluded=False, preserve_map_cue=False, pan=0.0):
         if not self._sounds:
             return
         if not active:
@@ -174,18 +175,17 @@ class ZombieAudio:
             if playing or due:
                 p.Mix_VolumeChunk(sound, max(1, round(_ZOMBIE_VOLUME[kind] * gain)))
             if due and not playing:
-                channel = p.Mix_PlayChannelTimed(-1, sound, 0, -1)
-                if channel >= 0:
-                    self._channels[kind] = channel
+                # Keep each sound on its starting side until its channel ends.
+                self._start_channel(kind, sound, pan)
 
-    def play_bottle_break(self, distance):
-        self._play_effect(_BOTTLE_SOUND, distance)
+    def play_bottle_break(self, distance, *, pan=0.0):
+        self._play_effect(_BOTTLE_SOUND, distance, pan=pan)
 
-    def play_gate_open(self, distance):
-        self._play_effect(_GATE_SOUND, distance)
+    def play_gate_open(self, distance, *, pan=0.0):
+        self._play_effect(_GATE_SOUND, distance, pan=pan)
 
-    def play_vehicle_alarm(self, distance):
-        self._play_effect(_VEHICLE_SOUND, distance)
+    def play_vehicle_alarm(self, distance, *, pan=0.0):
+        self._play_effect(_VEHICLE_SOUND, distance, pan=pan)
 
     def play_bat_swing(self):
         self._play_effect(_BAT_SWING_SOUND, 0.0)
@@ -222,15 +222,23 @@ class ZombieAudio:
     def play_map_toggle(self):
         self._play_effect(_MAP_SOUND, 0.0)
 
-    def _play_effect(self, kind, distance):
+    def _play_effect(self, kind, distance, *, pan=0.0):
         sound = self._sounds.get(kind)
         if sound is None or distance >= _HEARING_RANGE:
             return
         self._stop_channel(kind)
         gain = 1.0 - distance / _HEARING_RANGE
         p.Mix_VolumeChunk(sound, max(1, round(_EFFECT_VOLUME[kind] * gain)))
+        self._start_channel(kind, sound, pan)
+
+    def _start_channel(self, kind, sound, pan):
         channel = p.Mix_PlayChannelTimed(-1, sound, 0, -1)
         if channel >= 0:
+            pan = max(-1.0, min(1.0, pan)) if math.isfinite(pan) else 0.0
+            far = round(255 - (255 - _PAN_FAR_GAIN) * abs(pan))
+            left, right = (far, 255) if pan > 0 else (255, far)
+            # Centered effects also clear any panning on a reused mixer channel.
+            p.Mix_SetPanning(channel, left, right)
             self._channels[kind] = channel
 
     def _stop_channel(self, kind):
