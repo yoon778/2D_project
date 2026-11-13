@@ -21,10 +21,13 @@ _GROAN_DELAY = .4
 _GROAN_INTERVAL = 3.2
 _ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
 _BOTTLE_SOUND = "bottle_break"
+_BOTTLE_THROW_SOUND = "bottle_throw"
 _GATE_SOUND = "gate_open"
 _VEHICLE_SOUND = "vehicle_alarm"
+_VEHICLE_HIT_SOUND = "vehicle_hit"
 _BAT_SWING_SOUND = "bat_swing"
 _ZOMBIE_HIT_SOUND = "zombie_hit"
+_HEAVY_ZOMBIE_HIT_SOUND = "zombie_hit_heavy"
 _PLAYER_HIT_SOUND = "player_hit"
 _DELIVERY_CUE_SOUND = "cutscene-delivered"
 _PARCEL_PICKUP_SOUND = "parcel_pickup"
@@ -34,10 +37,13 @@ _MAP_SOUND = "map_rustle"
 _PLAYER_STEP_SPACING = {"player_walk": 32.0, "player_run": 48.0, "player_sneak": 32.0}
 _EFFECT_VOLUME = {
     _BOTTLE_SOUND: 82,
+    _BOTTLE_THROW_SOUND: 48,
     _GATE_SOUND: 72,
     _VEHICLE_SOUND: 76,
+    _VEHICLE_HIT_SOUND: 65,
     _BAT_SWING_SOUND: 74,
     _ZOMBIE_HIT_SOUND: 82,
+    _HEAVY_ZOMBIE_HIT_SOUND: 88,
     "player_walk": 42,
     "player_run": 67,
     "player_sneak": 20,
@@ -181,17 +187,24 @@ class ZombieAudio:
     def play_bottle_break(self, distance, *, pan=0.0):
         self._play_effect(_BOTTLE_SOUND, distance, pan=pan)
 
+    def play_bottle_throw(self):
+        self._play_effect(_BOTTLE_THROW_SOUND, 0.0)
+
     def play_gate_open(self, distance, *, pan=0.0):
         self._play_effect(_GATE_SOUND, distance, pan=pan)
 
     def play_vehicle_alarm(self, distance, *, pan=0.0):
         self._play_effect(_VEHICLE_SOUND, distance, pan=pan)
 
+    def play_vehicle_hit(self, distance, *, pan=0.0):
+        self._play_effect(_VEHICLE_HIT_SOUND, distance, pan=pan)
+
     def play_bat_swing(self):
         self._play_effect(_BAT_SWING_SOUND, 0.0)
 
-    def play_zombie_hit(self):
-        self._play_effect(_ZOMBIE_HIT_SOUND, 0.0)
+    def play_zombie_hit(self, *, heavy=False):
+        kind = _HEAVY_ZOMBIE_HIT_SOUND if heavy and _HEAVY_ZOMBIE_HIT_SOUND in self._sounds else _ZOMBIE_HIT_SOUND
+        self._play_effect(kind, 0.0)
 
     def update_player_steps(self, distance, *, sprinting, sneaking):
         if not math.isfinite(distance) or distance <= 0:

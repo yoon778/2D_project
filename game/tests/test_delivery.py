@@ -554,6 +554,7 @@ class DeliveryTests(unittest.TestCase):
                     world.update(0.04, 0, 1, sprint=True)
                     self.assertEqual(world.vehicle_alarm, (x, car.y - PLAYER_RADIUS))
                     self.assertEqual(world.vehicle_alarm_source, (x, car.y + car.depth / 2))
+                    self.assertIsNone(world.vehicle_hit)
                     world.update(0.04, 0, 1, sprint=True)
                     self.assertIsNone(world.vehicle_alarm)
                     self.assertIsNone(world.vehicle_alarm_source)
@@ -612,14 +613,18 @@ class DeliveryTests(unittest.TestCase):
                 world.player.aim_angle = math.pi
                 world.update(0.239)
                 self.assertIsNone(world.vehicle_alarm)
+                self.assertIsNone(world.vehicle_hit)
                 world.update(0.001)
                 self.assertEqual(world.vehicle_alarm, (356, 120) if case == "hit" else None)
+                self.assertEqual(world.vehicle_hit, (370, 120) if case == "hit" else None)
                 self.assertFalse(world.attack.landed)
                 world.update(0.42)
+                self.assertIsNone(world.vehicle_hit)
                 world.player.aim_angle = angle
                 self.assertTrue(world.start_attack())
                 world.update(ATTACK_HIT_TIME)
                 self.assertIsNone(world.vehicle_alarm)
+                self.assertEqual(world.vehicle_hit, (370, 120) if case == "hit" else None)
 
     def test_sneaking_is_55_pixels_per_second_in_all_directions_and_still_visible(self):
         for axis_x, axis_y in ((1, 0), (-1, 0), (-1, 1)):

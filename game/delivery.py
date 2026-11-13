@@ -232,6 +232,7 @@ class DeliveryWorld(CombatWorld):
         self.bottle_impact = None
         self.vehicle_alarm = None
         self.vehicle_alarm_source = None
+        self.vehicle_hit = None
         self._triggered_vehicle_alarms = set()
 
     @property
@@ -351,12 +352,17 @@ class DeliveryWorld(CombatWorld):
         self.bottle_impact = None
         self.vehicle_alarm = None
         self.vehicle_alarm_source = None
+        self.vehicle_hit = None
         super().update(dt, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
         if self.result != "playing":
             self.bottle_flight = None
 
+    @staticmethod
+    def _is_vehicle(wall):
+        return isinstance(wall, NeighborhoodWall) and wall.texture in _VEHICLE_TEXTURES
+
     def _can_trigger_vehicle_alarm(self, wall):
-        return (isinstance(wall, NeighborhoodWall) and wall.texture in _VEHICLE_TEXTURES
+        return (self._is_vehicle(wall)
                 and (wall.x, wall.y) not in self._triggered_vehicle_alarms)
 
     def _trigger_vehicle_alarm(self, wall, position):
@@ -378,6 +384,9 @@ class DeliveryWorld(CombatWorld):
             fraction = wall_entry(origin, end, wall)
             if fraction is not None and fraction < entry:
                 closest, entry = wall, fraction
+        if not self._is_vehicle(closest):
+            return
+        self.vehicle_hit = (origin[0] + dx * entry, origin[1] + dy * entry)
         if not self._can_trigger_vehicle_alarm(closest):
             return
         # Keep the investigation point on the approachable side of the vehicle.

@@ -1503,9 +1503,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 facing = select_facing(player.aim_angle, facing_hint)
                 swing_started = world.start_attack(facing=facing, stationary_front_right=True)
             bottle_picked_up = delivery_run and active and pending_bottle_pickup and world.pick_up_bottle()
+            bottle_thrown = False
             if delivery_run and active and pending_bottle_throw:
                 throw_target = sdl_to_world(*cursor, renderer.camera) if cursor is not None else target
-                world.throw_bottle(throw_target)
+                bottle_thrown = world.throw_bottle(throw_target)
             before = (player.x, player.y)
             zombie_origins = [(zombie.x, zombie.y) for zombie in world.zombies]
             strike = world.attack
@@ -1544,6 +1545,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.update_sprint_pulse(dt if hearing_active else math.inf,
                                          world.sprint_step if hearing_active else None)
             vehicle_alarm = world.vehicle_alarm if delivery_run and hearing_active else None
+            vehicle_hit = world.vehicle_hit if delivery_run and hearing_active else None
             renderer.update_vehicle_alarm(dt if hearing_active else math.inf, vehicle_alarm)
             strike_landed = strike is not None and strike.landed and not was_landed
             strength = 0
@@ -1587,6 +1589,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     zombie_audio.play_map_toggle()
                 if bottle_picked_up:
                     zombie_audio.play_bottle_pickup()
+                if bottle_thrown:
+                    zombie_audio.play_bottle_throw()
                 if parcel_picked_up:
                     zombie_audio.play_parcel_pickup()
                 if parcel_dropped:
@@ -1594,7 +1598,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if swing_started:
                     zombie_audio.play_bat_swing()
                 if strike_landed:
-                    zombie_audio.play_zombie_hit()
+                    zombie_audio.play_zombie_hit(heavy=len(strike.hit_targets) > 1
+                                                 or not all(zombie.alive for zombie in strike.hit_targets))
                 if player_hit:
                     zombie_audio.play_player_hit()
                 if bottle_impact is not None:
@@ -1603,6 +1608,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if gate_opened:
                     sound_distance, sound_pan = sound_position(listener, world.gate_position)
                     zombie_audio.play_gate_open(sound_distance, pan=sound_pan)
+                if vehicle_hit is not None:
+                    sound_distance, sound_pan = sound_position(listener, vehicle_hit)
+                    zombie_audio.play_vehicle_hit(sound_distance, pan=sound_pan)
                 if vehicle_alarm is not None:
                     sound_distance, sound_pan = sound_position(listener, world.vehicle_alarm_source)
                     zombie_audio.play_vehicle_alarm(sound_distance, pan=sound_pan)
