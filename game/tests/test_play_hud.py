@@ -17,6 +17,7 @@ class PlayHUDTests(unittest.TestCase):
         self.hud.width, self.hud.height = 1280, 720
         self.hud._labels = {}
         self.hud._attack_label = None
+        self.hud._waypoint_label = None
         self.hud.reset_delivery()
         self.hud._vitals = Mock()
         self.hud._objective = Mock()
@@ -120,7 +121,7 @@ class PlayHUDTests(unittest.TestCase):
                 self.hud.draw(self.world, self.light, self.world.next_stop, focused=True, alarm=False,
                               waypoint_direction=direction)
                 self.assertEqual(trace.call_args.args[2][1], head)
-                self.assertEqual(text.call_args.args[0], "경유지 방향")
+                self.assertEqual(text.call_args.args[0], "경유지 1 방향")
             trace.reset_mock()
             self.hud.draw(self.world, self.light, self.world.next_stop, focused=False, alarm=False,
                           waypoint_direction=(0, -10))

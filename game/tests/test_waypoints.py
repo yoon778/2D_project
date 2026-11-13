@@ -59,6 +59,37 @@ class WaypointTests(unittest.TestCase):
                 self.assertEqual(world.waypoints, [])
                 self.assertEqual(world.parcel, "waiting")
 
+    def test_skip_and_arrival_keep_remaining_waypoint_numbers_until_route_is_empty(self):
+        world = DeliveryWorld()
+        world.player.x, world.player.y = (150, 100)
+        first, second, third, fourth = (230, 100), (170, 100), (300, 100), (400, 100)
+        self.assertFalse(world.skip_waypoint())
+        for point in (first, second, third):
+            self.assertTrue(world.add_waypoint(point))
+        self.assertEqual(world.first_waypoint_number, 1)
+
+        self.assertTrue(world.skip_waypoint())
+        self.assertEqual(world.waypoints, [second, third])
+        self.assertEqual(world.first_waypoint_number, 2)
+        self.assertTrue(world.advance_waypoint())
+        self.assertEqual(world.waypoints, [third])
+        self.assertEqual(world.first_waypoint_number, 3)
+
+        self.assertTrue(world.add_waypoint(fourth))
+        self.assertTrue(world.remove_last_waypoint())
+        self.assertEqual(world.waypoints, [third])
+        self.assertEqual(world.first_waypoint_number, 3)
+        self.assertTrue(world.remove_last_waypoint())
+        self.assertEqual(world.first_waypoint_number, 1)
+        self.assertFalse(world.skip_waypoint())
+        self.assertTrue(world.add_waypoint(first))
+        self.assertTrue(world.add_waypoint(second))
+        self.assertTrue(world.skip_waypoint())
+        self.assertEqual(world.first_waypoint_number, 2)
+        world.reset()
+        self.assertEqual(world.waypoints, [])
+        self.assertEqual(world.first_waypoint_number, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -695,12 +695,14 @@ class Renderer:
             route = [position, *(map_point(*point) for point in world.waypoints)]
             for start, end in zip(route, route[1:]):
                 p.draw_line(*start, *end, *WAYPOINT)
-            for index, (x, y) in enumerate(route[1:], 1):
-                x = min(right - 8, max(left + 8, x))
+            for index, (x, y) in enumerate(route[1:], world.first_waypoint_number):
+                label = str(index)
+                half_width = 2 + 5 * len(label)
+                x = min(right - half_width - 1, max(left + half_width + 1, x))
                 y = min(top - 12, max(bottom + 12, y))
-                rectangle(x - 7, y - 10, 14, 20, MAP_INK)
-                rectangle(x - 7, y - 10, 14, 20, WAYPOINT, filled=False)
-                self.font.draw(x - 5, y, str(index), WAYPOINT)
+                rectangle(x - half_width, y - 10, 2 * half_width, 20, MAP_INK)
+                rectangle(x - half_width, y - 10, 2 * half_width, 20, WAYPOINT, filled=False)
+                self.font.draw(x - half_width + 2, y, label, WAYPOINT)
             self.draw_map_heading(*position, player.aim_angle)
 
         compass_x, compass_y = left + 28, top - 36
@@ -754,6 +756,8 @@ class Renderer:
         self.font.draw(73, 54, "M", WHITE)
         self.font.draw(105, 54, "닫기 · 지도 확인 중 일시정지", WHITE)
         self.font.draw(508, 54, "좌클릭 경유지 추가 · 우클릭 마지막 삭제", WAYPOINT)
+        if world.waypoints:
+            self.font.draw(508, 26, "Space 현재 경유지 건너뛰기", WAYPOINT)
 
     def draw_ground_light(self, light, outline, edge, falloff, *, feathered=False):
         if feathered:
@@ -1369,7 +1373,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             lost_focus = False
             map_toggle = False
             map_toggled = False
-            waypoint_clicks = []
+            waypoint_actions = []
             abandon_requested = False
             abandon_decision = None
             for event in poll_events():
@@ -1406,6 +1410,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         pending_bottle_throw = True
                     elif key == p.SDLK_m and key not in pressed:
                         map_toggle = not map_toggle
+                    elif (key == p.SDLK_SPACE and delivery_run and world.result == "playing"
+                          and renderer.map_open != map_toggle):
+                        waypoint_actions.append(("skip", None))
                     elif (delivery_run and world.result != "playing"
                           and key in (p.SDLK_RETURN, p.SDLK_KP_ENTER)):
                         retry_requested = True
@@ -1424,8 +1431,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     button = event.button.button
                     if (delivery_run and not renderer.choosing_delivery and world.result == "playing"
                             and renderer.map_open != map_toggle):
-                        if button in (p.SDL_BUTTON_LEFT, p.SDL_BUTTON_RIGHT):
-                            waypoint_clicks.append((button, cursor))
+                        if button == p.SDL_BUTTON_LEFT:
+                            waypoint_actions.append(("add", cursor))
+                        elif button == p.SDL_BUTTON_RIGHT:
+                            waypoint_actions.append(("remove", None))
                     elif button == p.SDL_BUTTON_LEFT:
                         if not renderer.choosing_delivery and not mouse_held:
                             pending_click = True
@@ -1460,7 +1469,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 pending_click = pending_interact = mouse_held = False
                 pending_bottle_pickup = pending_bottle_throw = False
                 map_toggle = False
-                waypoint_clicks.clear()
+                waypoint_actions.clear()
             if reset_requested or retry_requested or contract_choice is not None:
                 if contract_choice is not None:
                     world.select_contract(contract_choice)
@@ -1499,9 +1508,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
                 pending_bottle_pickup = pending_bottle_throw = False
-            if waypoint_clicks and focused and not lost_focus and not reset_requested:
-                for button, map_cursor in waypoint_clicks:
-                    if button == p.SDL_BUTTON_RIGHT:
+            if focused and not lost_focus and not reset_requested:
+                for action, map_cursor in waypoint_actions:
+                    if action == "skip":
+                        world.skip_waypoint()
+                    elif action == "remove":
                         world.remove_last_waypoint()
                     elif (point := renderer.map_world_at(*map_cursor)) is not None:
                         world.add_waypoint(point)

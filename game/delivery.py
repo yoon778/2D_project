@@ -224,6 +224,7 @@ class DeliveryWorld(CombatWorld):
         self.parcel = "waiting"
         self._clear_interaction()
         self.waypoints: list[tuple[float, float]] = []
+        self.first_waypoint_number = 1
         self.completed_stops: set[DeliveryStop] = set()
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS)
@@ -260,6 +261,15 @@ class DeliveryWorld(CombatWorld):
         if not self.waypoints:
             return False
         self.waypoints.pop()
+        if not self.waypoints:
+            self.first_waypoint_number = 1
+        return True
+
+    def skip_waypoint(self) -> bool:
+        if not self.waypoints or self.result != "playing" or self.player_hp <= 0:
+            return False
+        self.waypoints.pop(0)
+        self.first_waypoint_number = self.first_waypoint_number + 1 if self.waypoints else 1
         return True
 
     def advance_waypoint(self) -> bool:
@@ -270,8 +280,7 @@ class DeliveryWorld(CombatWorld):
         if math.dist(origin, target) > _WAYPOINT_REACH or any(
                 wall_blocks(origin, target, wall) for wall in self.walls):
             return False
-        self.waypoints.pop(0)
-        return True
+        return self.skip_waypoint()
 
     @property
     def combat_free(self):

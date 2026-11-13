@@ -66,6 +66,7 @@ class PlayHUD:
         self._fonts = {}
         self._labels = {}
         self._attack_label = None
+        self._waypoint_label = None
         self.reset_delivery()
         try:
             for size in (SMALL, BODY, TITLE):
@@ -162,13 +163,19 @@ class PlayHUD:
         panel(center - width // 2, MARGIN, width, 36)
         self._text(PICKUP_CONTROLS, center, MARGIN + 18, BODY, align="center")
 
-    def _waypoint(self, direction):
+    def _waypoint(self, direction, number):
         dx, dy = direction
         distance = math.hypot(dx, dy)
         if not distance:
             return
         dx, dy = dx / distance, dy / distance
-        width = 138
+        label = f"경유지 {number} 방향"
+        if self._waypoint_label != label:
+            previous = self._labels.pop((self._waypoint_label, SMALL, WAYPOINT), None)
+            if previous is not None:
+                p.SDL_DestroyTexture(previous[0])
+            self._waypoint_label = label
+        width = 144 + 9 * len(str(number))
         x, y = self.width - MARGIN - width, MARGIN + 76
         panel(x, y, width, 32)
         tail = round(-8 * dx), round(-8 * dy)
@@ -176,7 +183,7 @@ class PlayHUD:
         left = round(2 * dx - 4 * dy), round(2 * dy + 4 * dx)
         right = round(2 * dx + 4 * dy), round(2 * dy - 4 * dx)
         trace(x + 20, y + 16, (tail, head, left, head, right), WAYPOINT)
-        self._text("경유지 방향", x + 38, y + 16, SMALL, WAYPOINT)
+        self._text(label, x + 38, y + 16, SMALL, WAYPOINT)
 
     def _notice(self, text, color, *, sneak=False):
         x, y = MARGIN + UTILITY_SIZE + PANEL_GAP, MARGIN + VITALS_HEIGHT + 8
@@ -316,7 +323,7 @@ class PlayHUD:
             if elapsed < self._pickup_controls_until:
                 self._draw_pickup_controls()
         if waypoint_direction is not None:
-            self._waypoint(waypoint_direction)
+            self._waypoint(waypoint_direction, world.first_waypoint_number)
         if alarm:
             self._notice("차량 경보", AMBER)
         elif world.sneaking:
