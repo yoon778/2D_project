@@ -111,3 +111,16 @@ class PlayHUDTests(unittest.TestCase):
         self.world.update_interaction(0, held=False, pressed=False, moving=False, damaged=False)
         self.assertNotIn("E", self.actions())
         self.assertIsNone(self.hud._actions.call_args.kwargs["progress"])
+
+    def test_waypoint_arrow_uses_screen_direction_and_hides_on_focus_loss(self):
+        with (patch.object(play_hud, "panel"), patch.object(play_hud, "trace") as trace,
+              patch.object(self.hud, "_text") as text):
+            for direction, head in (((10, 0), (8, 0)), ((0, -10), (0, -8)), ((10, 6), (7, 4))):
+                self.hud.draw(self.world, self.light, self.world.next_stop, focused=True, alarm=False,
+                              waypoint_direction=direction)
+                self.assertEqual(trace.call_args.args[2][1], head)
+                self.assertEqual(text.call_args.args[0], "경유지 방향")
+            trace.reset_mock()
+            self.hud.draw(self.world, self.light, self.world.next_stop, focused=False, alarm=False,
+                          waypoint_direction=(0, -10))
+            trace.assert_not_called()

@@ -1,5 +1,6 @@
 """Native-resolution HUD for an active delivery."""
 import ctypes
+import math
 
 import pico2d.pico2d as p
 
@@ -12,6 +13,7 @@ else:
 TEXT = (244, 239, 225)
 TEAL = (123, 221, 192)
 AMBER = (255, 191, 106)
+WAYPOINT = (222, 174, 255)
 HEALTH = (237, 146, 129)
 PANEL = (22, 29, 27, 230)
 FRAME = (112, 123, 112, 200)
@@ -153,6 +155,22 @@ class PlayHUD:
         fill(x, y, width, 24, KEYCAP)
         self._text(key, x + width // 2, y + 12, BODY, KEY_TEXT, align="center")
 
+    def _waypoint(self, direction):
+        dx, dy = direction
+        distance = math.hypot(dx, dy)
+        if not distance:
+            return
+        dx, dy = dx / distance, dy / distance
+        width = 138
+        x, y = self.width - MARGIN - width, MARGIN + 76
+        panel(x, y, width, 32)
+        tail = round(-8 * dx), round(-8 * dy)
+        head = round(8 * dx), round(8 * dy)
+        left = round(2 * dx - 4 * dy), round(2 * dy + 4 * dx)
+        right = round(2 * dx + 4 * dy), round(2 * dy - 4 * dx)
+        trace(x + 20, y + 16, (tail, head, left, head, right), WAYPOINT)
+        self._text("경유지 방향", x + 38, y + 16, SMALL, WAYPOINT)
+
     def _notice(self, text, color, *, sneak=False):
         x, y = MARGIN + UTILITY_SIZE + PANEL_GAP, MARGIN + VITALS_HEIGHT + 8
         width = self._label(text, SMALL, TEXT)[1] + 42
@@ -263,12 +281,14 @@ class PlayHUD:
         self._text("Enter 같은 배송 재도전  ·  R 배달 선택  ·  Esc 종료", center, y + 216 + extra_height,
                    SMALL, align="center")
 
-    def draw(self, world, light, aim, *, focused, alarm, near_visible_zombie=False):
+    def draw(self, world, light, aim, *, focused, alarm, near_visible_zombie=False, waypoint_direction=None):
         self._vitals(world)
         self._objective(world)
         if not focused:
             self._notice("포커스 없음 · 이동 입력 초기화", AMBER)
             return
+        if waypoint_direction is not None:
+            self._waypoint(waypoint_direction)
         if alarm:
             self._notice("차량 경보", AMBER)
         elif world.sneaking:

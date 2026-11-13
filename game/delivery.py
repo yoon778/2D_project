@@ -28,6 +28,8 @@ ZOMBIE_STARTS = (
     (3070, 1740), (2315, 1895), (2765, 2070), (3255, 2080),
 )
 INTERACTION_RANGE = 42.0
+MAX_WAYPOINTS = 8
+_WAYPOINT_REACH = 32.0
 _INTERACTION_HOLD_TIMES = {"pickup": 0.50, "deliver": 1.00, "gate": 0.70}
 GATE_NOISE_RANGE = 230.0
 VEHICLE_ALARM_RANGE = 520.0
@@ -221,6 +223,7 @@ class DeliveryWorld(CombatWorld):
         ]
         self.parcel = "waiting"
         self._clear_interaction()
+        self.waypoints: list[tuple[float, float]] = []
         self.completed_stops: set[DeliveryStop] = set()
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS)
@@ -241,6 +244,33 @@ class DeliveryWorld(CombatWorld):
     @property
     def remaining_stops(self):
         return tuple(stop for stop in self.contract.stops if stop not in self.completed_stops)
+
+    def add_waypoint(self, position: tuple[float, float]) -> bool:
+        if len(self.waypoints) >= MAX_WAYPOINTS:
+            return False
+        x, y = position
+        width, height = self.world_size
+        if not (0 <= x <= width and 0 <= y <= height):
+            return False
+        self.waypoints.append((x, y))
+        return True
+
+    def remove_last_waypoint(self) -> bool:
+        if not self.waypoints:
+            return False
+        self.waypoints.pop()
+        return True
+
+    def advance_waypoint(self) -> bool:
+        if not self.waypoints or self.result != "playing" or self.player_hp <= 0:
+            return False
+        origin = (self.player.x, self.player.y)
+        target = self.waypoints[0]
+        if math.dist(origin, target) > _WAYPOINT_REACH or any(
+                wall_blocks(origin, target, wall) for wall in self.walls):
+            return False
+        self.waypoints.pop(0)
+        return True
 
     @property
     def combat_free(self):

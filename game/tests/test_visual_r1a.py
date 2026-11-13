@@ -110,6 +110,19 @@ class CameraTests(unittest.TestCase):
         self.assertAlmostEqual(self.renderer.camera[1], base[1])
 
 
+class MapProjectionTests(unittest.TestCase):
+    def test_sdl_mouse_maps_inside_actual_map_area_only(self):
+        renderer = Renderer.__new__(Renderer)
+        renderer.delivery = SimpleNamespace(world_size=(3600, 2400))
+        for screen, world in (((64, 615), (0, 0)), ((856, 87), (3600, 2400)), ((460, 351), (1800, 1200))):
+            with self.subTest(screen=screen):
+                actual = renderer.map_world_at(*screen)
+                self.assertAlmostEqual(actual[0], world[0])
+                self.assertAlmostEqual(actual[1], world[1])
+        for screen in ((63, 400), (857, 400), (400, 86), (400, 616), (1000, 350)):
+            self.assertIsNone(renderer.map_world_at(*screen))
+
+
 class DepthOrderTests(unittest.TestCase):
     def test_prop_uses_ground_depth_and_precedes_characters_on_ties(self):
         prop = (365.0, 300.0)

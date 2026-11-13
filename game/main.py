@@ -16,7 +16,7 @@ from delivery import DELIVERY_CONTRACTS, TOWN_ROADS, DeliveryWorld, Neighborhood
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
 from locomotion import Locomotion, select_facing
-from play_hud import PlayHUD
+from play_hud import PlayHUD, WAYPOINT
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import ZombieAudio
 import opening
@@ -84,6 +84,7 @@ MAP_OPEN_GATE = (122, 188, 153)
 MAP_BUILDING = (20, 30, 34)
 MAP_LANDMARK = (178, 201, 195)
 MAP_COMPLETED = (161, 176, 166)
+PLAY_MAP_VIEWPORT = (64, 104, 792, 528)
 HIT_MARK_DURATION = 0.06
 NOISE_PULSE_DURATION = 0.24
 VEHICLE_ALARM_DURATION = 1.2
@@ -599,12 +600,27 @@ class Renderer:
         rectangle(x - 4, y - 4, 8, 8, MAP_INK)
         rectangle(x - 2, y - 2, 4, 4, WHITE)
 
-    def draw_town_map(self, contract, x, y, viewport_width, viewport_height, player=None):
-        world = self.delivery
-        width, height = world.world_size
+    def _map_layout(self, x, y, viewport_width, viewport_height):
+        width, height = self.delivery.world_size
         scale = min(viewport_width / width, viewport_height / height)
         left = x + (viewport_width - width * scale) / 2
         bottom = y + (viewport_height - height * scale) / 2
+        return left, bottom, scale
+
+    def map_world_at(self, mouse_x, mouse_y):
+        """Convert an SDL mouse position inside the live map to ground coordinates."""
+        left, bottom, scale = self._map_layout(*PLAY_MAP_VIEWPORT)
+        x = (mouse_x - left) / scale
+        y = (WINDOW_HEIGHT - 1 - mouse_y - bottom) / scale
+        width, height = self.delivery.world_size
+        if -1e-9 <= x <= width + 1e-9 and -1e-9 <= y <= height + 1e-9:
+            return min(width, max(0.0, x)), min(height, max(0.0, y))
+        return None
+
+    def draw_town_map(self, contract, x, y, viewport_width, viewport_height, player=None):
+        world = self.delivery
+        width, height = world.world_size
+        left, bottom, scale = self._map_layout(x, y, viewport_width, viewport_height)
         right = left + width * scale
         top = bottom + height * scale
 
@@ -674,7 +690,17 @@ class Renderer:
             rectangle(gate_x - 5, gate_y - 7, 10, 4, MAP_INK)
             rectangle(gate_x - 4, gate_y - 6, 8, 2, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
         if player is not None:
-            self.draw_map_heading(*map_point(player.x, player.y), player.aim_angle)
+            position = map_point(player.x, player.y)
+            route = [position, *(map_point(*point) for point in world.waypoints)]
+            for start, end in zip(route, route[1:]):
+                p.draw_line(*start, *end, *WAYPOINT)
+            for index, (x, y) in enumerate(route[1:], 1):
+                x = min(right - 8, max(left + 8, x))
+                y = min(top - 12, max(bottom + 12, y))
+                rectangle(x - 7, y - 10, 14, 20, MAP_INK)
+                rectangle(x - 7, y - 10, 14, 20, WAYPOINT, filled=False)
+                self.font.draw(x - 5, y, str(index), WAYPOINT)
+            self.draw_map_heading(*position, player.aim_angle)
 
         compass_x, compass_y = left + 28, top - 36
         self.font.draw(compass_x - 4, compass_y + 18, "N", WHITE)
@@ -687,7 +713,7 @@ class Renderer:
         world = self.delivery
         p.SDL_SetRenderDrawColor(p.renderer, *MAP_INK, 255)
         p.SDL_RenderClear(p.renderer)
-        self.draw_town_map(world.contract, 64, 104, 792, 528, player)
+        self.draw_town_map(world.contract, *PLAY_MAP_VIEWPORT, player)
         self.font.draw(64, 674, "배달 구역 지도", WHITE)
 
         side = 880
@@ -726,6 +752,7 @@ class Renderer:
         rectangle(64, 40, 29, 27, MAP_BORDER, filled=False)
         self.font.draw(73, 54, "M", WHITE)
         self.font.draw(105, 54, "닫기 · 지도 확인 중 일시정지", WHITE)
+        self.font.draw(508, 54, "좌클릭 경유지 추가 · 우클릭 마지막 삭제", WAYPOINT)
 
     def draw_ground_light(self, light, outline, edge, falloff, *, feathered=False):
         if feathered:
@@ -1151,8 +1178,13 @@ class Renderer:
                                 and delivery._player_line_clear(zombie)):
                             near_visible_zombie = True
                             break
+                waypoint_direction = None
+                if delivery.waypoints:
+                    waypoint_x, waypoint_y = self.project(*delivery.waypoints[0])
+                    waypoint_direction = (waypoint_x - foot[0], foot[1] - waypoint_y)
                 self.play_hud.draw(delivery, self.light, aim, focused=focused,
-                                   alarm=self.vehicle_alarm_remaining > 0, near_visible_zombie=near_visible_zombie)
+                                   alarm=self.vehicle_alarm_remaining > 0, near_visible_zombie=near_visible_zombie,
+                                   waypoint_direction=waypoint_direction)
             else:
                 self.draw_delivery_result()
             return
@@ -1331,6 +1363,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             lost_focus = False
             map_toggle = False
             map_toggled = False
+            waypoint_clicks = []
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
@@ -1366,11 +1399,17 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     pressed.discard(event.key.keysym.sym)
                 elif event.type == p.SDL_MOUSEMOTION:
                     cursor = (event.motion.x, event.motion.y)
-                elif event.type == p.SDL_MOUSEBUTTONDOWN and event.button.button == p.SDL_BUTTON_LEFT:
+                elif event.type == p.SDL_MOUSEBUTTONDOWN:
                     cursor = (event.button.x, event.button.y)
-                    if not renderer.choosing_delivery and not mouse_held:
-                        pending_click = True
-                    mouse_held = True
+                    button = event.button.button
+                    if (delivery_run and not renderer.choosing_delivery and world.result == "playing"
+                            and renderer.map_open != map_toggle):
+                        if button in (p.SDL_BUTTON_LEFT, p.SDL_BUTTON_RIGHT):
+                            waypoint_clicks.append((button, cursor))
+                    elif button == p.SDL_BUTTON_LEFT:
+                        if not renderer.choosing_delivery and not mouse_held:
+                            pending_click = True
+                        mouse_held = True
                 elif event.type == p.SDL_MOUSEBUTTONUP and event.button.button == p.SDL_BUTTON_LEFT:
                     mouse_held = False
                 elif (event.type == p.SDL_WINDOWEVENT
@@ -1431,6 +1470,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
                 pending_bottle_pickup = pending_bottle_throw = False
+            if waypoint_clicks and focused and not lost_focus and not reset_requested:
+                for button, map_cursor in waypoint_clicks:
+                    if button == p.SDL_BUTTON_RIGHT:
+                        world.remove_last_waypoint()
+                    elif (point := renderer.map_world_at(*map_cursor)) is not None:
+                        world.add_waypoint(point)
             if renderer.choosing_delivery:
                 if music is not None:
                     music.update(dt, focused=False)
@@ -1469,6 +1514,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
             sneak = p.SDLK_LCTRL in pressed or p.SDLK_RCTRL in pressed
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
+            if delivery_run and active:
+                world.advance_waypoint()
             dx, dy = player.x - before[0], player.y - before[1]
             player_hit = world.player_hp < hp_before
             bottle_impact = world.bottle_impact if delivery_run and active else None
