@@ -17,7 +17,7 @@ from delivery import (DELIVERY_CONTRACTS, INTERACTION_RANGE, REAR_ALLEY_LISTEN_P
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
 from locomotion import Locomotion, select_facing
-from play_hud import PlayHUD, SAFE_GREEN, WAYPOINT
+from play_hud import PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import PatrolFootstep, ZombieAudio
 from town_map_art import MAP_ALLEY, MAP_BUILDING, MAP_LANDMARK, MAP_ROAD, MAP_WRECK, draw_base as draw_map_base
@@ -82,14 +82,15 @@ MAP_BORDER = (91, 112, 112)
 MAP_CLOSED_GATE = (204, 150, 104)
 MAP_OPEN_GATE = (122, 188, 153)
 MAP_PAPER_INK = (54, 57, 47)
-MAP_LABEL = (248, 245, 234)
-MAP_LABEL_EDGE = (163, 155, 132)
-MAP_ROUTE_INK = (106, 61, 136)
+MAP_LABEL = (249, 236, 203)
+MAP_LABEL_EDGE = (163, 137, 100)
+MAP_ROUTE_INK = (36, 73, 127)
+MAP_ROUTE_HINT = (176, 205, 245)
 MAP_ROAD_INK = (91, 75, 46)
 MAP_ALLEY_INK = (100, 96, 81)
 MAP_PICKUP = (168, 85, 27)
-MAP_DROPOFF = (19, 108, 96)
-MAP_SAFE = (63, 112, 59)
+MAP_DROPOFF = (149, 45, 37)
+MAP_SAFE = (42, 100, 57)
 MAP_COMPLETED = (108, 114, 103)
 PLAY_MAP_VIEWPORT = (64, 104, 792, 528)
 HIT_MARK_DURATION = 0.14
@@ -627,9 +628,36 @@ class Renderer:
             rectangle(x - 6, y - 6, 12, 12, MAP_LABEL)
             rectangle(x - 4, y - 4, 8, 8, color)
         else:
-            p.draw_circle(x, y, 7, *MAP_LABEL, filled=True)
-            p.draw_circle(x, y, 5, *color, filled=True)
-            rectangle(x - 1, y - 1, 2, 2, MAP_LABEL)
+            p.draw_circle(x, y, 9, *MAP_LABEL, filled=True)
+            p.draw_circle(x, y, 7, *color, filled=True)
+            p.draw_circle(x, y, 4, *MAP_LABEL, filled=True)
+            rectangle(x - 1, y - 1, 2, 2, color)
+
+    def draw_map_waypoint(self, x, y, number):
+        label = str(number)
+        half_width = 2 + 5 * len(label)
+        rectangle(x - half_width - 1, y - 11, 2 * half_width + 2, 22, MAP_LABEL)
+        rectangle(x - half_width, y - 10, 2 * half_width, 20, MAP_ROUTE_INK)
+        self.font.draw(x - half_width + 2, y, label, MAP_LABEL)
+
+    def draw_map_waypoints(self, bounds, points, first_number, occupied):
+        left, bottom, right, top = bounds
+        for index, (x, y) in enumerate(points, first_number):
+            half_width = 3 + 5 * len(str(index))
+            step = half_width + 13
+            offsets = ((0, 0), (step, 0), (-step, 0), (0, 24), (0, -24),
+                       (step, 24), (-step, 24), (step, -24), (-step, -24),
+                       (2 * step, 0), (-2 * step, 0), (0, 48), (0, -48))
+            for dx, dy in offsets:
+                bx = min(right - half_width - 1, max(left + half_width + 1, x + dx))
+                by = min(top - 12, max(bottom + 12, y + dy))
+                west, south, east, north = bx - half_width, by - 11, bx + half_width, by + 11
+                if all(east < a or west > c or north < b or south > d for a, b, c, d in occupied):
+                    break
+            occupied.append((west, south, east, north))
+            if (bx, by) != (x, y):
+                p.draw_line(x, y, bx, by, *MAP_ROUTE_INK)
+            self.draw_map_waypoint(bx, by, index)
 
     def draw_map_label(self, x, y, width, label, color=MAP_PAPER_INK):
         rectangle(x, y, width, 23, MAP_LABEL)
@@ -676,33 +704,43 @@ class Renderer:
                       TOWN_ROADS, world.walls)
         for point, label, color in (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
-            ((2900, 1000), "상점길", MAP_ALLEY_INK),
+            ((3110, 1007), "상점길", MAP_ALLEY_INK),
             ((2440, 1720), "정류장길", MAP_ALLEY_INK),
         ):
             self.font.draw(*map_point(*point), label, color)
 
-        landmarks = []
+        route = []
+        if player is not None:
+            route = [map_point(player.x, player.y), *(map_point(*point) for point in world.waypoints)]
+            for start, end in zip(route, route[1:]):
+                for dx, dy in ((-1, 0), (0, -1), (1, 0), (0, 1)):
+                    p.draw_line(start[0] + dx, start[1] + dy, end[0] + dx, end[1] + dy, *MAP_LABEL)
+            for start, end in zip(route, route[1:]):
+                p.draw_line(*start, *end, *MAP_ROUTE_INK)
+
+        occupied = []
+        labels = []
         landmark_labels = {"shop": "상점", "bus-stop": "정류장"}
         for wall in world.walls:
-            texture = getattr(wall, "texture", None)
-            label = landmark_labels.get(texture)
+            label = landmark_labels.get(getattr(wall, "texture", None))
             if label:
-                landmarks.append((label, *map_point(wall.x + wall.width / 2, wall.y + wall.depth)))
-
-        for label, anchor_x, anchor_y in landmarks:
-            label_width = 17 * len(label) + 16
-            x = min(right - label_width - 7, anchor_x + 16)
-            y = min(top - 29, anchor_y + 10)
-            p.draw_line(anchor_x, anchor_y, x, y + 5, *MAP_PAPER_INK)
-            self.draw_map_label(x, y, label_width, label)
+                anchor_x, anchor_y = map_point(wall.x + wall.width / 2, wall.y + wall.depth)
+                label_width = 17 * len(label) + 16
+                x = min(right - label_width - 7, anchor_x + 16)
+                y = min(top - 29, anchor_y + 10)
+                occupied.append((x, y, x + label_width, y + 23))
+                p.draw_line(anchor_x, anchor_y, x, y + 5, *MAP_PAPER_INK)
+                labels.append((x, y, label_width, label, MAP_PAPER_INK))
 
         pickup_x, pickup_y = map_point(*contract.pickup)
+        occupied.append((pickup_x - 7, pickup_y - 7, pickup_x + 7, pickup_y + 7))
         pickup_done = contract.return_point is not None and player is not None and world.parcel != "waiting"
         self.draw_map_pin(pickup_x, pickup_y, MAP_COMPLETED if pickup_done else MAP_PICKUP, pickup=True)
         for stop in contract.stops:
             completed = player is not None and stop in world.completed_stops
-            color = MAP_COMPLETED if completed else MAP_DROPOFF
+            color = MAP_COMPLETED if completed and contract.return_point is None else MAP_DROPOFF
             x, y = map_point(*stop.position)
+            occupied.append((x - 9, y - 9, x + 9, y + 9))
             self.draw_map_pin(x, y, color)
             label = stop.name
             if player is not None and (len(contract.stops) > 1 or completed and world.returning):
@@ -712,34 +750,26 @@ class Renderer:
             if contract.return_point is not None:
                 label_x = min(right - label_width - 4, max(x, pickup_x) + 10)
             label_y = max(bottom + 4, y - 32)
+            occupied.append((label_x, label_y, label_x + label_width, label_y + 23))
             leader_x = label_x if label_x > x else label_x + label_width
             p.draw_line(x, y - 7, leader_x, label_y + 19, *color)
-            self.draw_map_label(label_x, label_y, label_width, label, color)
+            labels.append((label_x, label_y, label_width, label, color))
         if contract.return_point is not None:
             safe_x, safe_y = map_point(*contract.return_point)
-            self.draw_safe_map_marker(safe_x, safe_y, MAP_SAFE)
-            self.draw_map_label(safe_x - 94, safe_y - 11, 83, "안전지점", MAP_SAFE)
+            occupied.append((safe_x - 94, safe_y - 11, safe_x - 11, safe_y + 12))
+            occupied.append((safe_x - 8, safe_y - 8, safe_x + 8, safe_y + 8))
+            self.draw_safe_map_marker(safe_x, safe_y, MAP_SAFE, backing=MAP_LABEL)
+            labels.append((safe_x - 94, safe_y - 11, 83, "안전지점", MAP_SAFE))
         if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
             gate_x, gate_y = map_point(*world.gate_position)
             gate_closed = player is None or world.gate is not None
             rectangle(gate_x - 5, gate_y - 7, 10, 4, MAP_INK)
             rectangle(gate_x - 4, gate_y - 6, 8, 2, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
         if player is not None:
-            position = map_point(player.x, player.y)
-            route = [position, *(map_point(*point) for point in world.waypoints)]
-            for start, end in zip(route, route[1:]):
-                for dx, dy in ((-1, 0), (0, -1), (1, 0), (0, 1)):
-                    p.draw_line(start[0] + dx, start[1] + dy, end[0] + dx, end[1] + dy, *MAP_LABEL)
-            for start, end in zip(route, route[1:]):
-                p.draw_line(*start, *end, *MAP_ROUTE_INK)
-            for index, (x, y) in enumerate(route[1:], world.first_waypoint_number):
-                label = str(index)
-                half_width = 2 + 5 * len(label)
-                x = min(right - half_width - 1, max(left + half_width + 1, x))
-                y = min(top - 12, max(bottom + 12, y))
-                rectangle(x - half_width, y - 10, 2 * half_width, 20, MAP_ROUTE_INK)
-                self.font.draw(x - half_width + 2, y, label, MAP_LABEL)
-            self.draw_map_heading(*position, player.aim_angle, on_paper=True)
+            self.draw_map_waypoints((left, bottom, right, top), route[1:], world.first_waypoint_number, occupied)
+            self.draw_map_heading(*route[0], player.aim_angle, on_paper=True)
+        for label in labels:
+            self.draw_map_label(*label)
 
         compass_x, compass_y = left + 31, top - 39
         p.draw_circle(compass_x, compass_y, 17, *MAP_LABEL, filled=True)
@@ -775,39 +805,41 @@ class Renderer:
         elif world.parcel == "waiting":
             objective, target, accent = "택배 수령", "주황색 수령지에서 E 길게", ORANGE
         else:
-            objective, target, accent = "택배 전달", "청록색 배송지에서 E 길게", TEAL
+            objective, target, accent = "택배 전달", "붉은 원 배송지에서 E 길게", WHITE
         self.font.draw(side + 24, 566, objective, accent)
         self.font.draw(side + 24, 532, target, WHITE)
         p.draw_line(side + 24, 504, side + 312, 504, *MAP_BORDER)
         self.font.draw(side + 24, 474, "지도 범례", WHITE)
         for y, label, color, w, h in (
-            (432, "큰길", MAP_ROAD, 24, 9),
-            (394, "골목", MAP_ALLEY, 24, 5),
-            (356, "건물", MAP_BUILDING, 18, 14),
-            (318, "상점·정류장", MAP_LANDMARK, 18, 14),
-            (166, "차량", MAP_WRECK, 18, 8),
+            (435, "큰길", MAP_ROAD, 24, 9),
+            (400, "골목", MAP_ALLEY, 24, 5),
+            (365, "건물", MAP_BUILDING, 18, 14),
+            (330, "상점·정류장", MAP_LANDMARK, 18, 14),
+            (190, "차량", MAP_WRECK, 18, 8),
         ):
             rectangle(side + 36 - w / 2, y - h / 2, w, h, color)
             self.font.draw(side + 62, y, label, WHITE)
-        for y, label, color, pickup in ((242, "수령지", MAP_PICKUP, True), (204, "배송지", MAP_DROPOFF, False)):
+        for y, label, color, pickup in ((260, "수령지", MAP_PICKUP, True), (225, "배송지", MAP_DROPOFF, False)):
             self.draw_map_pin(side + 36, y, color, pickup=pickup)
             self.font.draw(side + 62, y, label, WHITE)
         if DELIVERY_CONTRACTS[1].stops[0] in world.contract.stops:
             gate_closed = world.gate is not None
-            rectangle(side + 24, 126, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
-            self.font.draw(side + 62, 128, "철문 · 닫힘" if gate_closed else "철문 · 열림", WHITE)
+            rectangle(side + 24, 153, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
+            self.font.draw(side + 62, 155, "철문 · 닫힘" if gate_closed else "철문 · 열림", WHITE)
         if world.contract.return_point is not None:
-            self.draw_safe_map_marker(side + 36, 128, MAP_SAFE, backing=MAP_LABEL)
-            self.font.draw(side + 62, 128, "안전지점", WHITE)
-        self.draw_map_heading(side + 31, 280, 0)
-        self.font.draw(side + 62, 280, "현재 위치·방향", WHITE)
+            self.draw_safe_map_marker(side + 36, 155, MAP_SAFE, backing=MAP_LABEL)
+            self.font.draw(side + 62, 155, "안전지점", WHITE)
+        self.draw_map_heading(side + 31, 295, 0)
+        self.font.draw(side + 62, 295, "현재 위치·방향", WHITE)
+        self.draw_map_waypoint(side + 36, 120, 1)
+        self.font.draw(side + 62, 120, "경유지", WHITE)
         rectangle(64, 40, 29, 27, MAP_PANEL)
         rectangle(64, 40, 29, 27, MAP_BORDER, filled=False)
         self.font.draw(73, 54, "M", WHITE)
         self.font.draw(105, 54, "닫기 · 지도 확인 중 일시정지", WHITE)
-        self.font.draw(508, 54, "좌클릭 경유지 추가 · 우클릭 마지막 삭제", WAYPOINT)
+        self.font.draw(508, 54, "좌클릭 경유지 추가 · 우클릭 마지막 삭제", MAP_ROUTE_HINT)
         if world.waypoints:
-            self.font.draw(508, 26, "Space 현재 경유지 건너뛰기", WAYPOINT)
+            self.font.draw(508, 26, "Space 현재 경유지 건너뛰기", MAP_ROUTE_HINT)
 
     def draw_ground_light(self, light, outline, edge, falloff, *, feathered=False):
         if feathered:

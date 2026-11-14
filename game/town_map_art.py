@@ -1,24 +1,24 @@
-"""Printed street-map styling for the town's real roads and footprints."""
+"""Aged printed street-map styling for the town's roads and footprints."""
 
-MAP_PAPER = (237, 233, 221)
-MAP_ROAD = (233, 207, 151)
-MAP_ALLEY = (255, 250, 236)
-MAP_BUILDING = (170, 166, 156)
-MAP_WRECK = (161, 84, 64)
-MAP_LANDMARK = (122, 139, 134)
+MAP_PAPER = (233, 222, 195)
+MAP_ROAD = (221, 192, 132)
+MAP_ALLEY = (254, 247, 225)
+MAP_BUILDING = (171, 160, 139)
+MAP_WRECK = (153, 75, 54)
+MAP_LANDMARK = (120, 130, 110)
 
-_GRID = (226, 221, 208)
-_PARCEL = (230, 225, 210)
-_VERGE = (221, 225, 205)
-_PARCEL_EDGE = (211, 205, 188)
-_ALLEY_EDGE = (188, 178, 151)
-_ROAD_EDGE = (166, 145, 102)
-_LANE = (199, 168, 113)
-_ROOF_EDGE = (123, 122, 115)
-_ROOF_LIGHT = (191, 187, 174)
-_ROOF_SHADOW = (145, 140, 130)
-_ROOF_LINE = (153, 150, 140)
-_LANDMARK_EDGE = (76, 99, 95)
+_GRID = (218, 206, 176)
+_PARCEL = (225, 215, 190)
+_VERGE = (218, 218, 187)
+_PARCEL_EDGE = (199, 188, 158)
+_ALLEY_EDGE = (179, 160, 124)
+_ROAD_EDGE = (156, 127, 83)
+_LANE = (146, 113, 69)
+_ROOF_EDGE = (121, 109, 91)
+_ROOF_LIGHT = (191, 179, 156)
+_ROOF_SHADOW = (145, 127, 101)
+_ROOF_LINE = (150, 137, 115)
+_LANDMARK_EDGE = (74, 86, 68)
 _CAR_EDGE = (122, 70, 56)
 _CAR_GLASS = (224, 178, 147)
 _FENCE = (132, 124, 101)
@@ -26,6 +26,11 @@ _BUILDING_TYPES = {"workshop", "west-house", "east-house", "shop", "bus-stop"}
 _RESIDENCES = {"west-house", "east-house"}
 _LANDMARKS = {"shop", "bus-stop"}
 _CARS = {"abandoned-car", "parked-car"}
+
+_EDGE_TONES = ((0, (196, 172, 132)), (1, (211, 190, 150)), (3, (220, 201, 167)),
+               (6, (227, 211, 178)), (11, (230, 218, 187)), (16, MAP_PAPER))
+_CREASE_SHADE = (223, 209, 181)
+_CREASE_LIGHT = (239, 230, 204)
 
 
 def _segments(roads):
@@ -35,6 +40,30 @@ def _segments(roads):
             yield start, end, road["width"]
         for point in road.get("junctions", ()):
             yield point, point, road["width"] + 10
+
+
+def _draw_paper(rectangle, draw_line, bounds):
+    left, bottom, right, top = bounds
+    width, height = right - left, top - bottom
+    for inset, tone in _EDGE_TONES:
+        rectangle(left + inset, bottom + inset, width - 2 * inset, height - 2 * inset, tone)
+
+    # The fold is part of the paper, beneath the printed streets and blocks.
+    fold_x = round(left + width * .5)
+    fold_y = round(bottom + height * .49)
+    rectangle(fold_x - 2, bottom + 5, 2, height - 10, _CREASE_SHADE)
+    rectangle(fold_x, bottom + 5, 2, height - 10, _CREASE_LIGHT)
+    rectangle(left + 5, fold_y - 1, width - 10, 1, _CREASE_SHADE)
+    rectangle(left + 5, fold_y, width - 10, 1, _CREASE_LIGHT)
+
+    # Sparse, broken pale fibers along the rim soften the straight edge tones.
+    for fraction, length, depth in ((.07, 13, 4), (.18, 9, 2), (.34, 16, 8), (.59, 11, 5),
+                                     (.73, 15, 3), (.91, 8, 6)):
+        x = round(left + width * fraction)
+        y = round(bottom + height * fraction)
+        draw_line(x, top - depth, x + length, top - depth, *_CREASE_LIGHT)
+        draw_line(right - depth, y, right - depth, y + length, *_CREASE_LIGHT)
+        draw_line(left + depth + 2, y, left + depth + 2, y + length, *_CREASE_SHADE)
 
 
 def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls):
@@ -49,7 +78,7 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls):
             rectangle(left + west * scale, bottom + south * scale,
                       (east - west) * scale, (north - south) * scale, color, filled=filled)
 
-    rectangle(left, bottom, right - left, top - bottom, MAP_PAPER)
+    _draw_paper(rectangle, draw_line, bounds)
     for x in range(600, int(width), 600):
         sx = left + x * scale
         draw_line(sx, bottom, sx, top, *_GRID)
