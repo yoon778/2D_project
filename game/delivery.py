@@ -38,6 +38,7 @@ BOTTLE_THROW_RANGE = 320.0
 BOTTLE_NOISE_RANGE = 320.0
 BOTTLE_FLIGHT_TIME = 0.30
 _BOTTLE_STARTS = ((177, 127), (610, 628), (1660, 932), (3230, 2070))
+REAR_ALLEY_LISTEN_POINT = (3230, 2170)
 _REAR_ALLEY_PATROL = ((3180, 2227), (3060, 2227))
 _REAR_ALLEY_ZOMBIES = ((2865, 2227), _REAR_ALLEY_PATROL[0])
 _SHOP_ZOMBIE_STARTS = (
@@ -206,6 +207,8 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(3125, 2190, 15, 12, "fence", height=38),
             self.gate,
             NeighborhoodWall(3190, 2190, 20, 12, "fence", height=38),
+            # The service alley bends around this shed and reconnects west of the fence.
+            NeighborhoodWall(3306, 2273, 50, 57, "workshop", height=72),
             NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
             NeighborhoodWall(2380, 101, 112, 44, "abandoned-car", height=36),
             NeighborhoodWall(2140, 1019, 112, 44, "abandoned-car", height=36),

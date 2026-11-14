@@ -166,6 +166,25 @@ class ZombieAudioTests(unittest.TestCase):
             call(self.sounds["vehicle_alarm"], 76), call(self.sounds["bat_swing"], 74),
         ])
 
+    def test_corner_steps_follow_the_patrol_even_when_a_closer_zombie_is_still(self):
+        step, groan = self.sounds["zombie_step"], self.sounds["zombie_groan"]
+        far = spatial_audio.PatrolFootstep(170, 32, -.9, True)
+        near = spatial_audio.PatrolFootstep(75, 32, -.6, True)
+        self.backend.Mix_PlayChannelTimed.side_effect = range(5)
+        self.backend.Mix_Playing.return_value = False
+        self.audio.update(.4, distance=30, stride=0, active=True, pan=1.0, patrol_step=far)
+        self.audio.update(.7, distance=30, stride=0, active=True, pan=1.0, patrol_step=near)
+        self.audio.update(.7, distance=30, stride=0, active=True, pan=1.0, patrol_step=far)
+        self.audio.update(.7, distance=30, stride=0, active=True, pan=1.0)
+        calls = self.backend.Mix_VolumeChunk.call_args_list
+        step_gains = [gain for sound, gain in (entry.args for entry in calls) if sound == step]
+        self.assertEqual(len(step_gains), 3)
+        self.assertGreater(step_gains[1], step_gains[0] * 2)
+        self.assertEqual(step_gains[2], step_gains[0])
+        self.assertIn(call(groan, 57), calls)
+        self.assertEqual(self.backend.Mix_SetPanning.call_args_list,
+                         [call(0, 255, 98), call(1, 80, 255), call(2, 255, 150), call(3, 255, 98)])
+
     def test_failed_channel_allocation_does_not_set_panning(self):
         self.backend.Mix_PlayChannelTimed.side_effect = (-1,)
         self.audio.play_gate_open(0, pan=1.0)

@@ -12,13 +12,13 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import DELIVERY_CONTRACTS, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
+from delivery import DELIVERY_CONTRACTS, REAR_ALLEY_LISTEN_POINT, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD, WAYPOINT
 from player_visual import PlayerVisual, load_atlas
-from spatial_audio import ZombieAudio
+from spatial_audio import PatrolFootstep, ZombieAudio
 import opening
 
 WINDOW_WIDTH = 1280
@@ -89,6 +89,7 @@ HIT_MARK_DURATION = 0.06
 NOISE_PULSE_DURATION = 0.24
 VEHICLE_ALARM_DURATION = 1.2
 AUDIO_PAN_NEAR_RADIUS = 72.0
+REAR_ALLEY_LISTEN_RADIUS = 65.0
 PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
 ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
 SNEAK_HINT_RANGE = 160.0
@@ -1600,18 +1601,26 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             stride = pan = 0.0
             chasing = False
             listener = (player.x, player.y)
+            patrol_step = None
+            listening_at_corner = (delivery_run and hearing_active
+                                   and math.dist(listener, REAR_ALLEY_LISTEN_POINT) <= REAR_ALLEY_LISTEN_RADIUS)
             for zombie, (x, y) in zip(world.zombies, zombie_origins):
                 zombie_dx, zombie_dy = zombie.x - x, zombie.y - y
                 renderer.combat_visual.update_zombie(zombie, zombie_dx, zombie_dy, paused=not active)
                 if zombie.alive:
                     chasing |= zombie.state == "chase"
-                    enemy_distance, enemy_pan = sound_position(listener, (zombie.x, zombie.y))
+                    source = (zombie.x, zombie.y)
+                    enemy_distance, enemy_pan = sound_position(listener, source)
+                    recoil_x, recoil_y = zombie.recoil_offset
+                    enemy_stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
+                    if listening_at_corner and zombie.state == "patrol" and zombie.patrol_points:
+                        patrol_step = PatrolFootstep(enemy_distance, enemy_stride, enemy_pan,
+                                                     any(wall_blocks(listener, source, wall) for wall in walls))
                     if distance is None or enemy_distance < distance:
                         distance = enemy_distance
                         pan = enemy_pan
                         nearest_zombie = zombie
-                        recoil_x, recoil_y = zombie.recoil_offset
-                        stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
+                        stride = enemy_stride
             if music is not None:
                 if delivery_run:
                     playing = active and world.result == "playing"
@@ -1625,7 +1634,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 preserve_map_cue = renderer.map_open and focused and not lost_focus
                 zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
                                     occluded=occluded, preserve_map_cue=preserve_map_cue,
-                                    pan=pan if hearing_active else 0.0)
+                                    pan=pan if hearing_active else 0.0, patrol_step=patrol_step)
                 if map_toggled:
                     zombie_audio.play_map_toggle()
                 if bottle_picked_up:

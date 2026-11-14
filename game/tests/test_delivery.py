@@ -326,6 +326,28 @@ class DeliveryTests(unittest.TestCase):
         guard = world.zombies[-1]
         self.assertEqual((guard.state, guard.x, guard.y, guard.aim_angle), ("patrol", 3180, 2227, math.pi))
 
+    def test_rear_alley_escape_path_cuts_sight_and_rejoins_at_west_end(self):
+        world = self.world
+        route = ((3230, 2227), (3380, 2227), (3380, 2358), (2820, 2358),
+                 (2820, 2233), (3114, 2233))
+        walker = Player(*route[0])
+        for start, target in zip(route, route[1:]):
+            dx, dy = (target[i] - start[i] for i in (0, 1))
+            move_player(walker, dx, dy, math.hypot(dx, dy) / WALK_SPEED,
+                        world.walls, world_size=world.world_size)
+            self.assertAlmostEqual(walker.x, target[0])
+            self.assertAlmostEqual(walker.y, target[1])
+
+        pursuer = world.zombies[-1]
+        pursuer.x, pursuer.y = 3330, 2244
+        world.player = Player(3280, 2358)
+        self.assertFalse(world._player_line_clear(pursuer))
+        pursuer.x, pursuer.y = 2950, 2350
+        world.player = walker
+        self.assertFalse(world._player_line_clear(pursuer))
+        self.assertLess(math.dist((walker.x, walker.y), world.destination), 42)
+        self.assertIsNotNone(world.gate)
+
     def test_rear_alley_guard_resumes_patrol_around_fence_after_searching_noise(self):
         world = self.world
         guard = world.zombies[-1]
