@@ -12,11 +12,12 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import DELIVERY_CONTRACTS, REAR_ALLEY_LISTEN_POINT, TOWN_ROADS, DeliveryWorld, NeighborhoodWall
+from delivery import (DELIVERY_CONTRACTS, INTERACTION_RANGE, REAR_ALLEY_LISTEN_POINT, TOWN_ROADS, DeliveryWorld,
+                      NeighborhoodWall)
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
 from locomotion import Locomotion, select_facing
-from play_hud import PlayHUD, WAYPOINT
+from play_hud import PlayHUD, SAFE_GREEN, WAYPOINT
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import PatrolFootstep, ZombieAudio
 import opening
@@ -31,7 +32,8 @@ CAMERA_LEAD_FRACTION = 0.25
 CAMERA_MAX_LEAD = 72.0
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
-DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1, p.SDLK_3: 2, p.SDLK_KP_3: 2}
+DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1,
+                 p.SDLK_3: 2, p.SDLK_KP_3: 2, p.SDLK_4: 3, p.SDLK_KP_4: 3}
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
@@ -572,21 +574,22 @@ class Renderer:
         rectangle(64, 104, 378, 528, MAP_PANEL)
         rectangle(64, 104, 378, 528, MAP_BORDER, filled=False)
         for index, contract in enumerate(DELIVERY_CONTRACTS):
-            bottom = 506 - index * 116
+            bottom = 521 - index * 92
             selected = index == self.delivery_preview
             accent = TEAL if selected else MAP_BORDER
-            rectangle(82, bottom, 342, 106, (38, 56, 56) if selected else (18, 29, 32))
-            rectangle(82, bottom, 342, 106, accent, filled=False)
+            rectangle(82, bottom, 342, 84, (38, 56, 56) if selected else (18, 29, 32))
+            rectangle(82, bottom, 342, 84, accent, filled=False)
             if contract not in world.available_contracts:
-                self.font.draw(100, bottom + 77, f"[{index + 1}]  {contract.name} · 잠금", MAP_LANDMARK)
-                self.font.draw(100, bottom + 40, "기존 배달 1회 성공 후 해금", MAP_LANDMARK)
+                self.font.draw(100, bottom + 62, f"[{index + 1}]  {contract.name} · 잠금", MAP_LANDMARK)
+                self.font.draw(100, bottom + 30, "기존 배달 1회 성공 후 해금", MAP_LANDMARK)
                 continue
-            self.font.draw(100, bottom + 77, f"[{index + 1}]  {contract.name}", TEAL if selected else WHITE)
-            self.font.draw(100, bottom + 49, f"난이도 · {contract.difficulty}", ORANGE)
-            self.font.draw(100, bottom + 22, contract.description, WHITE)
-        keys = "1 / 2 / 3" if world.two_stop_unlocked else "1 / 2"
-        self.font.draw(100, 213, f"{keys}  계약 선택", WHITE)
-        self.font.draw(100, 170, "Enter  배달 시작  ·  Esc  종료", TEAL)
+            self.font.draw(100, bottom + 62, f"[{index + 1}]  {contract.name}", TEAL if selected else WHITE)
+            self.font.draw(100, bottom + 40, f"난이도 · {contract.difficulty}", ORANGE)
+            self.font.draw(100, bottom + 18, contract.description, WHITE)
+        keys = " / ".join(str(i) for i, contract in enumerate(DELIVERY_CONTRACTS, 1)
+                          if contract in world.available_contracts)
+        self.font.draw(100, 201, f"{keys}  계약 선택", WHITE)
+        self.font.draw(100, 162, "Enter  배달 시작  ·  Esc  종료", TEAL)
 
         contract = DELIVERY_CONTRACTS[self.delivery_preview]
         self.font.draw(496, 610, f"{contract.name} 지도", WHITE)
@@ -597,6 +600,9 @@ class Renderer:
         if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
             rectangle(720, 67, 10, 4, MAP_CLOSED_GATE)
             self.font.draw(736, 69, "철문", WHITE)
+        if contract.return_point is not None:
+            self.draw_safe_map_marker(724, 69)
+            self.font.draw(736, 69, "안전지점", WHITE)
 
     @staticmethod
     def draw_map_heading(x, y, angle):
@@ -608,6 +614,13 @@ class Renderer:
                         tip_y - 6 * dy + 4 * dx * side, *WHITE)
         rectangle(x - 4, y - 4, 8, 8, MAP_INK)
         rectangle(x - 2, y - 2, 4, 4, WHITE)
+
+    @staticmethod
+    def draw_safe_map_marker(x, y, color=SAFE_GREEN):
+        points = ((x, y + 7), (x + 7, y), (x, y - 7), (x - 7, y), (x, y + 7))
+        for start, end in zip(points, points[1:]):
+            p.draw_line(*start, *end, *color)
+        rectangle(x - 2, y - 2, 4, 4, color)
 
     def _map_layout(self, x, y, viewport_width, viewport_height):
         width, height = self.delivery.world_size
@@ -676,9 +689,10 @@ class Renderer:
             rectangle(x, y, label_width, 24, MAP_BORDER, filled=False)
             self.font.draw(x + 8, y + 12, label, MAP_LANDMARK)
 
-        x, y = map_point(*world.pickup)
-        rectangle(x - 6, y - 6, 12, 12, MAP_INK)
-        rectangle(x - 4, y - 4, 8, 8, ORANGE)
+        pickup_x, pickup_y = map_point(*contract.pickup)
+        rectangle(pickup_x - 6, pickup_y - 6, 12, 12, MAP_INK)
+        pickup_done = contract.return_point is not None and player is not None and world.parcel != "waiting"
+        rectangle(pickup_x - 4, pickup_y - 4, 8, 8, MAP_COMPLETED if pickup_done else ORANGE)
         for stop in contract.stops:
             completed = player is not None and stop in world.completed_stops
             color = MAP_COMPLETED if completed else TEAL
@@ -686,13 +700,17 @@ class Renderer:
             rectangle(x - 6, y - 6, 12, 12, MAP_INK)
             rectangle(x - 4, y - 4, 8, 8, color)
             label = stop.name
-            if player is not None and len(contract.stops) > 1:
+            if player is not None and (len(contract.stops) > 1 or completed and world.returning):
                 label += " · 완료" if completed else " · 미완료"
             label_width = 17 * len(label) + 16
             label_x = max(left + 4, x - label_width - 10)
+            if contract.return_point is not None:
+                label_x = min(right - label_width - 4, max(x, pickup_x) + 10)
             label_y = max(bottom + 4, y - 32)
             rectangle(label_x, label_y, label_width, 24, MAP_PANEL)
             self.font.draw(label_x + 8, label_y + 12, label, color)
+        if contract.return_point is not None:
+            self.draw_safe_map_marker(*map_point(*contract.return_point))
         if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
             gate_x, gate_y = map_point(*world.gate_position)
             gate_closed = player is None or world.gate is not None
@@ -733,11 +751,13 @@ class Renderer:
         self.font.draw(side + 24, 602, "다음 목표", WHITE)
         if len(world.contract.stops) > 1:
             self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", TEAL)
-        waiting = world.parcel == "waiting"
-        objective, target, accent = (
-            ("택배 수령", "주황색 수령지에서 E 길게", ORANGE) if waiting
-            else ("택배 전달", "청록색 배송지에서 E 길게", TEAL)
-        )
+        if world.returning:
+            objective, accent = "안전지점 복귀", SAFE_GREEN
+            target = "추격을 끊고 복귀" if world.return_blocked else "초록색 안전지점에 도착하면 완료"
+        elif world.parcel == "waiting":
+            objective, target, accent = "택배 수령", "주황색 수령지에서 E 길게", ORANGE
+        else:
+            objective, target, accent = "택배 전달", "청록색 배송지에서 E 길게", TEAL
         self.font.draw(side + 24, 566, objective, accent)
         self.font.draw(side + 24, 532, target, WHITE)
         p.draw_line(side + 24, 504, side + 312, 504, *MAP_BORDER)
@@ -757,6 +777,9 @@ class Renderer:
             gate_closed = world.gate is not None
             rectangle(side + 24, 126, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
             self.font.draw(side + 62, 128, "철문 · 닫힘" if gate_closed else "철문 · 열림", WHITE)
+        if world.contract.return_point is not None:
+            self.draw_safe_map_marker(side + 36, 128)
+            self.font.draw(side + 62, 128, "안전지점", WHITE)
         self.draw_map_heading(side + 31, 280, 0)
         self.font.draw(side + 62, 280, "현재 위치·방향", WHITE)
         rectangle(64, 40, 29, 27, MAP_PANEL)
@@ -1019,6 +1042,18 @@ class Renderer:
             rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
             self.font.draw(x + 26, y + 37, "수령" if pickup else "배달", ORANGE if pickup else TEAL)
 
+    def draw_safe_zone(self, position, origin, walls, *, blocked):
+        if math.dist(position, origin) > 150 or any(wall_blocks(origin, position, wall) for wall in walls):
+            return
+        x, y = position
+        color = ORANGE if blocked else SAFE_GREEN
+        ring = [(x + INTERACTION_RANGE * dx, y + INTERACTION_RANGE * dy) for dx, dy in PULSE_RING]
+        visible = [not any(wall_blocks(origin, point, wall) for wall in walls) for point in ring]
+        for i, (start, end) in enumerate(zip(ring, ring[1:])):
+            if visible[i] and visible[i + 1]:
+                p.draw_line(*self.project(*start), *self.project(*end), *color)
+        self.draw_safe_map_marker(*self.project(*position), color)
+
     def draw_delivery_result(self):
         self.play_hud.draw_result(self.delivery)
 
@@ -1153,6 +1188,8 @@ class Renderer:
         if delivery is not None:
             stations = ((delivery.pickup,) if delivery.parcel == "waiting"
                         else tuple(stop.position for stop in delivery.remaining_stops))
+            if delivery.returning:
+                self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
             flight = delivery.bottle_flight
             if flight is not None:
@@ -1596,9 +1633,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if completed and world.just_unlocked_two_stop:
                     save_two_stop_unlock()
                 gate_opened = completed and gate_was_closed and world.gate is None
-                if completed and not gate_opened and world.parcel == "carrying":
+                if completed and not gate_opened:
                     parcel_picked_up = was_waiting
-                    parcel_dropped = not was_waiting
+                    parcel_dropped = not was_waiting and world.result == "playing"
                 if gate_opened:
                     renderer.reset_streetlights()
                     renderer.light = None

@@ -18,6 +18,7 @@ TOWN_SIZE = (3600, 2400)
 TOWN_ROADS = json.loads((Path(__file__).resolve().parent / "assets/neighborhood/roads.json")
                         .read_text(encoding="utf-8"))
 PLAYER_START = (145.0, 145.0)
+TOWN_PICKUP = (172.0, 155.0)
 ZOMBIE_START = (675.0, 345.0)
 ZOMBIE_STARTS = (
     ZOMBIE_START, (485, 475), (120, 565), (785, 690),
@@ -61,6 +62,9 @@ class DeliveryContract:
     destination: tuple[float, float]
     zombie_starts: tuple[tuple[float, float], ...]
     stops: tuple[DeliveryStop, ...] = ()
+    player_start: tuple[float, float] = PLAYER_START
+    pickup: tuple[float, float] = TOWN_PICKUP
+    return_point: tuple[float, float] | None = None
 
     def __post_init__(self):
         if not self.stops:
@@ -85,6 +89,13 @@ DELIVERY_CONTRACTS = (
         _SINGLE_CONTRACTS[0].destination,
         (*_SHOP_ZOMBIE_STARTS[:-2], *_REAR_ALLEY_ZOMBIES),
         tuple(contract.stops[0] for contract in _SINGLE_CONTRACTS),
+    ),
+    DeliveryContract(
+        "상점 왕복", "상점에 전달하고 안전지점 복귀", "보통",
+        _SINGLE_CONTRACTS[0].destination,
+        (*_SHOP_ZOMBIE_STARTS[16:21], (2020, 1335), (2370, 1430)),
+        _SINGLE_CONTRACTS[0].stops,
+        player_start=(2315.0, 907.0), pickup=(2290.0, 907.0), return_point=(2460.0, 2285.0),
     ),
 )
 
@@ -151,7 +162,6 @@ class DeliveryWorld(CombatWorld):
     sprint_speed = 210.0
     zombie_sight_half_angle = math.pi / 3
     world_size = TOWN_SIZE
-    pickup = (172.0, 155.0)
     contract = DELIVERY_CONTRACTS[1]
     props = tuple(StreetProp(x, y, texture) for texture, positions in _STREET_PROPS.items() for x, y in positions)
     streetlights = (
@@ -169,14 +179,28 @@ class DeliveryWorld(CombatWorld):
         return self.contract.destination
 
     @property
+    def pickup(self):
+        return self.contract.pickup
+
+    @property
+    def returning(self):
+        return self.result == "playing" and self.parcel == "delivered" and self.contract.return_point is not None
+
+    @property
+    def return_blocked(self):
+        return self.returning and any(zombie.alive and zombie.state == "chase" for zombie in self.zombies)
+
+    @property
     def available_contracts(self):
-        return DELIVERY_CONTRACTS if self.two_stop_unlocked else _SINGLE_CONTRACTS
+        return DELIVERY_CONTRACTS if self.two_stop_unlocked else (*_SINGLE_CONTRACTS, DELIVERY_CONTRACTS[3])
 
     def select_contract(self, index):
-        contracts = self.available_contracts
-        if not 0 <= index < len(contracts):
+        if not 0 <= index < len(DELIVERY_CONTRACTS):
             return False
-        self.contract = contracts[index]
+        contract = DELIVERY_CONTRACTS[index]
+        if contract not in self.available_contracts:
+            return False
+        self.contract = contract
         self.reset()
         return True
 
@@ -185,7 +209,7 @@ class DeliveryWorld(CombatWorld):
         self._starting_player_hp = self.player_hp
         self.attack_count = 0
         self.elapsed_play_time = 0.0
-        self.player = Player(*PLAYER_START)
+        self.player = Player(*self.contract.player_start)
         self.zombies = []
         has_patrol = _SINGLE_CONTRACTS[1].stops[0] in self.contract.stops
         for index, position in enumerate(self.contract.zombie_starts):
@@ -233,6 +257,8 @@ class DeliveryWorld(CombatWorld):
         self.completed_stops: set[DeliveryStop] = set()
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS)
+        if self.contract.return_point is not None:
+            self.bottle_pickups.append((2276, 902))
         self.has_bottle = False
         self.bottle_flight = None
         self.bottle_impact = None
@@ -245,6 +271,8 @@ class DeliveryWorld(CombatWorld):
     def next_stop(self):
         if self.parcel == "waiting":
             return self.pickup
+        if self.returning:
+            return self.contract.return_point
         remaining = self.remaining_stops
         return remaining[0].position if remaining else self.destination
 
@@ -392,6 +420,16 @@ class DeliveryWorld(CombatWorld):
         if self.result != "playing":
             self.bottle_flight = None
 
+    def _update_tick(self, dt, axis_x, axis_y, walk_scale, wants_sprint, sneak):
+        super()._update_tick(dt, axis_x, axis_y, walk_scale, wants_sprint, sneak)
+        if self.returning:
+            origin = (self.player.x, self.player.y)
+            target = self.contract.return_point
+            if (math.dist(origin, target) <= INTERACTION_RANGE
+                    and not self.return_blocked
+                    and not any(wall_blocks(origin, target, wall) for wall in self.walls)):
+                self._finish_delivery()
+
     @staticmethod
     def _is_vehicle(wall):
         return isinstance(wall, NeighborhoodWall) and wall.texture in _VEHICLE_TEXTURES
@@ -534,10 +572,14 @@ class DeliveryWorld(CombatWorld):
         self.completed_stops.add(next(stop for stop in self.remaining_stops if stop.position == target))
         if not self.remaining_stops:
             self.parcel = "delivered"
-            self.result = "delivered"
-            self.attack = None
-            self._resolve_result()
-            if self.contract in _SINGLE_CONTRACTS and not self.two_stop_unlocked:
-                self.two_stop_unlocked = True
-                self.just_unlocked_two_stop = True
+            if self.contract.return_point is None:
+                self._finish_delivery()
         return True
+
+    def _finish_delivery(self):
+        self.result = "delivered"
+        self.attack = None
+        self._resolve_result()
+        if self.contract in _SINGLE_CONTRACTS and not self.two_stop_unlocked:
+            self.two_stop_unlocked = True
+            self.just_unlocked_two_stop = True

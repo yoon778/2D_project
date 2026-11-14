@@ -13,6 +13,7 @@ else:
 TEXT = (244, 239, 225)
 TEAL = (123, 221, 192)
 AMBER = (255, 191, 106)
+SAFE_GREEN = (168, 226, 120)
 WAYPOINT = (222, 174, 255)
 HEALTH = (237, 146, 129)
 PANEL = (22, 29, 27, 230)
@@ -143,7 +144,17 @@ class PlayHUD:
     def _objective(self, world):
         stop_count = len(world.contract.stops)
         width, height = (212 if stop_count > 1 else 184), 68
+        if world.contract.return_point is not None:
+            width = 212
         x, y = self.width - MARGIN - width, MARGIN
+        if world.returning:
+            accent = AMBER if world.return_blocked else SAFE_GREEN
+            guidance = "추격을 끊고 복귀" if world.return_blocked else "도착하면 자동 완료"
+            panel(x, y, width, height)
+            fill(x, y, 3, height, (*accent, 255))
+            self._text("안전지점 복귀", x + 14, y + 24, TITLE, accent)
+            self._text(guidance, x + 14, y + 50, SMALL)
+            return
         panel(x, y, width, height)
         fill(x, y, 3, height, (*TEAL, 255))
         waiting = world.parcel == "waiting"
@@ -151,7 +162,11 @@ class PlayHUD:
         if stop_count > 1:
             self._text(f"{len(world.completed_stops)} / {stop_count}", x + width - 14, y + 17,
                        SMALL, TEAL, align="right")
-        self._text("남서쪽 거점" if waiting else world.contract.name, x + 14, y + 45, TITLE)
+        if world.contract.return_point is not None:
+            place = "상점 근처 거점" if waiting else world.contract.stops[0].name
+        else:
+            place = "남서쪽 거점" if waiting else world.contract.name
+        self._text(place, x + 14, y + 45, TITLE)
 
     def _keycap(self, key, x, y, width):
         fill(x, y, width, 24, KEYCAP)

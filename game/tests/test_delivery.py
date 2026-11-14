@@ -176,7 +176,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertTrue(world.interact())
         self.assertFalse(world.select_contract(-1))
         self.assertEqual(world.parcel, "carrying")
-        for index, contract in enumerate(world.available_contracts):
+        for index, contract in enumerate(DELIVERY_CONTRACTS[:2]):
             self.assertTrue(world.select_contract(index))
             self.assertIs(world.contract, contract)
             self.assertEqual(world.parcel, "waiting")
@@ -197,7 +197,7 @@ class DeliveryTests(unittest.TestCase):
         for index in range(2):
             with self.subTest(contract=index):
                 world = DeliveryWorld()
-                self.assertEqual(world.available_contracts, DELIVERY_CONTRACTS[:2])
+                self.assertEqual(world.available_contracts, (*DELIVERY_CONTRACTS[:2], DELIVERY_CONTRACTS[3]))
                 self.assertFalse(world.select_contract(2))
                 self.assertTrue(world.select_contract(index))
                 self.assertTrue(world.interact())
@@ -220,6 +220,70 @@ class DeliveryTests(unittest.TestCase):
         world.player_hp = 0
         self.assertFalse(world.interact())
         self.assertFalse(world.two_stop_unlocked)
+
+    def test_shop_round_trip_requires_clear_and_safe_return_after_delivery(self):
+        world = self.world
+        self.assertFalse(world.select_contract(2))
+        self.assertTrue(world.select_contract(3))
+        self.assertIs(world.contract, DELIVERY_CONTRACTS[3])
+        self.assertEqual((world.player.x, world.player.y), world.contract.player_start)
+        self.assertEqual(world.next_stop, world.pickup)
+        self.assertNotEqual(world.pickup, world.contract.return_point)
+        world.walls.clear()
+        world.zombies.clear()
+        x, y = world.contract.return_point
+        world.player.x, world.player.y = x, y
+        world.update(0.02)
+        self.assertEqual((world.parcel, world.result), ("waiting", "playing"))
+
+        world.player.x, world.player.y = world.pickup
+        self.assertTrue(self.hold_e(0.5, pressed=True))
+        world.player.x, world.player.y = world.destination
+        self.assertTrue(self.hold_e(1.0, pressed=True))
+        self.assertEqual(world.completed_stops, set(world.contract.stops))
+        self.assertEqual((world.parcel, world.result), ("delivered", "playing"))
+        self.assertTrue(world.returning)
+        self.assertEqual(world.next_stop, (x, y))
+        self.assertIsNone(world.interaction_target)
+
+        world.player.x, world.player.y = x + 43, y
+        world.update(0.02)
+        self.assertEqual(world.result, "playing")
+        world.player.x = x + 41
+        world.walls.append(Wall(x + 20, y - 5, 2, 10))
+        world.update(0.02)
+        self.assertEqual(world.result, "playing")
+        world.walls.clear()
+        world.zombies.append(Zombie(x + 110, y, aim_angle=math.pi))
+        world.update(0.02)
+        self.assertTrue(world.return_blocked)
+        self.assertEqual(world.result, "playing")
+
+        world.zombies.clear()
+        world.update(0.02)
+        self.assertEqual(world.result, "delivered")
+        self.assertFalse(world.returning)
+        self.assertFalse(world.two_stop_unlocked)
+        self.assertFalse(world.just_unlocked_two_stop)
+        world.reset()
+        self.assertEqual((world.player.x, world.player.y), world.contract.player_start)
+        self.assertEqual((world.parcel, world.result, world.completed_stops), ("waiting", "playing", set()))
+
+    def test_shop_round_trip_lethal_hit_at_return_point_still_fails(self):
+        world = self.world
+        self.assertTrue(world.select_contract(3))
+        world.walls.clear()
+        world.zombies.clear()
+        world.player.x, world.player.y = world.pickup
+        self.assertTrue(world.interact())
+        world.player.x, world.player.y = world.destination
+        self.assertTrue(world.interact())
+        x, y = world.contract.return_point
+        world.player.x, world.player.y = x, y
+        world.player_hp = 1
+        world.zombies.append(Zombie(x + 20, y, attack=ZombieAttack(math.pi, "left", ZOMBIE_ATTACK_HIT_TIME - 0.001)))
+        world.update(0.02)
+        self.assertEqual((world.result, world.player_hp), ("defeated", 0))
 
     def test_two_stop_contract_accepts_both_orders_and_only_reachable_unfinished_stops(self):
         contract = DELIVERY_CONTRACTS[2]
