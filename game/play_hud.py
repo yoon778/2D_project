@@ -346,6 +346,7 @@ class PlayHUD:
             actions.append(("E", label, color))
         if world.nearby_bottle is not None:
             actions.append(("F", "빈 병 줍기", TEXT))
-        if world.can_throw_bottle(aim):
-            actions.append(("Q", "병 던지기", TEXT))
+        bottle_hint = world.bottle_throw_hint(aim, light=light)
+        if bottle_hint is not None:
+            actions.append(("Q", bottle_hint, AMBER if bottle_hint == "차량 경보 유인" else TEXT))
         self._actions(actions, progress=progress)

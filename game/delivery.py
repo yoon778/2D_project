@@ -128,6 +128,7 @@ class BottleFlight:
     origin: tuple[float, float]
     destination: tuple[float, float]
     elapsed: float = 0.0
+    vehicle: NeighborhoodWall | None = None
 
     @property
     def progress(self):
@@ -212,6 +213,7 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
             NeighborhoodWall(2380, 101, 112, 44, "abandoned-car", height=36),
             NeighborhoodWall(2140, 1019, 112, 44, "abandoned-car", height=36),
+            NeighborhoodWall(1692, 970, 88, 44, "abandoned-car", height=36),
             # The wrecks cut across the eastern road. The house side has a narrow bypass.
             NeighborhoodWall(3332, 730, 112, 44, "abandoned-car", height=36),
             NeighborhoodWall(3468, 752, 112, 44, "abandoned-car", height=36),
@@ -314,10 +316,11 @@ class DeliveryWorld(CombatWorld):
         return True
 
     def throw_bottle(self, target):
-        destination = self._bottle_destination(target)
-        if destination is None:
+        preview = self.bottle_throw_preview(target)
+        if preview is None:
             return False
-        self.bottle_flight = BottleFlight((self.player.x, self.player.y), destination)
+        destination, vehicle = preview
+        self.bottle_flight = BottleFlight((self.player.x, self.player.y), destination, vehicle=vehicle)
         self.has_bottle = False
         return True
 
@@ -325,6 +328,20 @@ class DeliveryWorld(CombatWorld):
         return self._bottle_destination(target) is not None
 
     def _bottle_destination(self, target):
+        preview = self.bottle_throw_preview(target)
+        return preview[0] if preview is not None else None
+
+    def bottle_throw_hint(self, target, *, light=None):
+        preview = self.bottle_throw_preview(target)
+        if preview is None:
+            return None
+        landing, vehicle = preview
+        if vehicle is not None and (light is None or light.contains(landing)):
+            return "차량 경보 유인"
+        return "병 던지기"
+
+    def bottle_throw_preview(self, target):
+        """Return a reachable landing point and the armed vehicle struck, if any."""
         if (not self.has_bottle or self.bottle_flight is not None or self.attack is not None
                 or self.result != "playing" or self.player_hp <= 0):
             return None
@@ -347,8 +364,10 @@ class DeliveryWorld(CombatWorld):
             return origin[0] + direction[0] * length, origin[1] + direction[1] * length
 
         destination = landing(travel)
+        vehicle = None
         # Use zombie clearance so a bottle stopped by a wall can still be reached.
         if not can_walk_direct(origin, destination, self.walls):
+            first_wall, _ = self._first_wall_hit(origin, destination)
             clear, blocked = 0.0, travel
             for _ in range(20):
                 middle = (clear + blocked) / 2
@@ -356,9 +375,13 @@ class DeliveryWorld(CombatWorld):
                     clear = middle
                 else:
                     blocked = middle
+            # A nearer corner can stop the throw even if the center ray misses it.
+            if (self._can_trigger_vehicle_alarm(first_wall)
+                    and not can_walk_direct(origin, landing(blocked), (first_wall,))):
+                vehicle = first_wall
             travel = clear
             destination = landing(travel)
-        return destination if travel > 1e-9 else None
+        return (destination, vehicle) if travel > 1e-9 else None
 
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.bottle_impact = None
@@ -387,15 +410,19 @@ class DeliveryWorld(CombatWorld):
         if self._can_trigger_vehicle_alarm(wall):
             self._trigger_vehicle_alarm(wall, (self.player.x, self.player.y))
 
-    def _on_attack_impact(self, angle):
-        origin = self.player.x, self.player.y
-        dx, dy = ATTACK_RANGE * math.cos(angle), ATTACK_RANGE * math.sin(angle)
-        end = origin[0] + dx, origin[1] + dy
+    def _first_wall_hit(self, origin, end):
         closest, entry = None, math.inf
         for wall in self.walls:
             fraction = wall_entry(origin, end, wall)
             if fraction is not None and fraction < entry:
                 closest, entry = wall, fraction
+        return closest, entry
+
+    def _on_attack_impact(self, angle):
+        origin = self.player.x, self.player.y
+        dx, dy = ATTACK_RANGE * math.cos(angle), ATTACK_RANGE * math.sin(angle)
+        end = origin[0] + dx, origin[1] + dy
+        closest, entry = self._first_wall_hit(origin, end)
         if not self._is_vehicle(closest):
             return
         self.vehicle_hit = (origin[0] + dx * entry, origin[1] + dy * entry)
@@ -420,7 +447,10 @@ class DeliveryWorld(CombatWorld):
         if flight.elapsed >= BOTTLE_FLIGHT_TIME - 1e-9:
             self.bottle_flight = None
             self.bottle_impact = flight.destination
-            self._emit_noise(BOTTLE_NOISE_RANGE, flight.destination)
+            if self._can_trigger_vehicle_alarm(flight.vehicle):
+                self._trigger_vehicle_alarm(flight.vehicle, flight.destination)
+            else:
+                self._emit_noise(BOTTLE_NOISE_RANGE, flight.destination)
 
     @property
     def interaction_target(self):

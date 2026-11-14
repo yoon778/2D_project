@@ -85,7 +85,7 @@ MAP_BUILDING = (20, 30, 34)
 MAP_LANDMARK = (178, 201, 195)
 MAP_COMPLETED = (161, 176, 166)
 PLAY_MAP_VIEWPORT = (64, 104, 792, 528)
-HIT_MARK_DURATION = 0.06
+HIT_MARK_DURATION = 0.14
 NOISE_PULSE_DURATION = 0.24
 VEHICLE_ALARM_DURATION = 1.2
 AUDIO_PAN_NEAR_RADIUS = 72.0
@@ -94,7 +94,7 @@ PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) fo
 ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
 SNEAK_HINT_RANGE = 160.0
 TURN_SPEED = math.radians(450)
-SHAKE_DURATIONS = {3: 0.08, 4: 0.10}
+SHAKE_DURATIONS = {3: 0.08, 4: 0.10, 5: 0.12}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
 
 
@@ -395,6 +395,7 @@ class Renderer:
         self.shake_remaining = 0.0
         self.shake_strength = 0
         self.shake_offset = (0, 0)
+        self.shake_axis = (1.0, 0.0)
         self.sprint_pulse = None
         self.sprint_pulse_remaining = 0.0
         self.bottle_pulse = None
@@ -480,10 +481,15 @@ class Renderer:
                 self.font.font = None
             self.font = None
 
-    def update_shake(self, dt, strength=0):
+    def update_shake(self, dt, strength=0, *, hit_angle=None):
         if strength:
             self.shake_strength = strength
             self.shake_remaining = SHAKE_DURATIONS[strength]
+            self.shake_axis = (1.0, 0.0)
+            if hit_angle is not None:
+                x, y = math.cos(hit_angle), GROUND_SCALE_Y * math.sin(hit_angle)
+                length = math.hypot(x, y)
+                self.shake_axis = x / length, y / length
         else:
             self.shake_remaining = max(0.0, self.shake_remaining - dt)
         self.shake_offset = (0, 0)
@@ -492,7 +498,8 @@ class Renderer:
             phase = int((duration - self.shake_remaining) / 0.014)
             dx, dy = SHAKE_DIRECTIONS[phase % len(SHAKE_DIRECTIONS)]
             amplitude = round(self.shake_strength * self.shake_remaining / duration)
-            self.shake_offset = (dx * amplitude, dy * amplitude)
+            x, y = self.shake_axis
+            self.shake_offset = (round((dx * x - dy * y) * amplitude), round((dx * y + dy * x) * amplitude))
 
     def project(self, x, y):
         sx, sy = world_to_screen(x, y, self.camera)
@@ -1068,17 +1075,31 @@ class Renderer:
                 self.font.draw(left + 4, bottom + 9, symbol, color)
 
             self.draw_lit_region((left, bottom - 2, 19, 23), draw_status, row_spans=row_spans)
-        if (attack is not None and attack.facing == "front_right"
-                and attack.elapsed < attack.hit_time + HIT_MARK_DURATION
-                and any(target is zombie for target in attack.hit_targets)):
-            x, y = x - 12 * scale, y + 83 * scale
+        if attack is None or not any(target is zombie for target in attack.hit_targets):
+            return
+        elapsed = attack.elapsed - attack.hit_time
+        if not 0.0 <= elapsed < HIT_MARK_DURATION:
+            return
+        progress = elapsed / HIT_MARK_DURATION
+        alpha = round(255 * min(1.0, (1.0 - progress) / .8) ** 2)
+        spread = round(3 * progress)
+        away_x, away_y = math.cos(attack.angle), math.sin(attack.angle)
+        # Keep the spark above the courier's silhouette when the target is behind it.
+        height = 57 + 39 * max(0, away_y) if zombie.alive else 18
+        x = round(x + 8 * scale * away_x)
+        y = round(y + scale * height)
 
-            def draw_hit():
-                p.draw_line(x - 9, y + 4, x - 3, y + 1, *WHITE)
-                p.draw_line(x - 2, y + 9, x, y + 3, *ORANGE)
-                p.draw_line(x + 4, y + 4, x + 9, y + 2, *WHITE)
+        def draw_hit():
+            highlight = (*WHITE, alpha)
+            gold = (*ORANGE, alpha)
+            p.draw_line(x - 10 - spread, y + 4 + spread, x - 4 - spread, y + 2 + spread, *gold)
+            p.draw_line(x - 2 - spread, y + 5 + spread, x - 3 - spread, y + 9 + spread, *highlight)
+            p.draw_line(x + 4 + spread, y + 3 + spread, x + 9 + spread, y + 6 + spread, *gold)
+            p.draw_line(x + 4 + spread, y - 2 - spread, x + 8 + spread, y - 4 - spread, *highlight)
+            if progress < .45:
+                p.draw_rectangle(x - 1, y - 1, x + 1, y + 1, *highlight, filled=True)
 
-            self.draw_lit_region((x - 9, y, 20, 10), draw_hit, row_spans=row_spans)
+        self.draw_lit_region((x - 13, y - 7, 27, 20), draw_hit, row_spans=row_spans)
 
     def draw(self, player, walls, target, focused=True):
         self._draw_scene(player, walls, target, focused)
@@ -1590,12 +1611,17 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             vehicle_hit = world.vehicle_hit if delivery_run and hearing_active else None
             renderer.update_vehicle_alarm(dt if hearing_active else math.inf, vehicle_alarm)
             strike_landed = strike is not None and strike.landed and not was_landed
+            heavy_hit = strike_landed and (len(strike.hit_targets) > 1
+                                           or any(not zombie.alive for zombie in strike.hit_targets))
             strength = 0
+            hit_angle = None
             if player_hit:
                 strength = 4
             elif strike_landed:
-                strength = 3
-            renderer.update_shake(dt if active and not reset_requested else math.inf, strength)
+                strength = 5 if delivery_run and heavy_hit else 3
+                if delivery_run:
+                    hit_angle = strike.angle
+            renderer.update_shake(dt if active and not reset_requested else math.inf, strength, hit_angle=hit_angle)
             distance = None
             nearest_zombie = None
             stride = pan = 0.0
@@ -1648,8 +1674,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if swing_started:
                     zombie_audio.play_bat_swing()
                 if strike_landed:
-                    zombie_audio.play_zombie_hit(heavy=len(strike.hit_targets) > 1
-                                                 or not all(zombie.alive for zombie in strike.hit_targets))
+                    zombie_audio.play_zombie_hit(heavy=heavy_hit)
                 if player_hit:
                     zombie_audio.play_player_hit()
                 if bottle_impact is not None:

@@ -8,6 +8,7 @@ from game.delivery import (
     PLAYER_START, TOWN_ROADS, ZOMBIE_START,
 )
 from game.flashlight import Flashlight
+from game.zombie_navigation import can_walk_direct
 
 
 class DeliveryTests(unittest.TestCase):
@@ -148,7 +149,7 @@ class DeliveryTests(unittest.TestCase):
         detour = TOWN_ROADS["main_detour"]["points"]
         alleys = TOWN_ROADS["alleys"][0]["points"]
         routes = (
-            (0, (*alleys[:5], (1660, 980), (1958, 980))),
+            (0, (*alleys[:5], (1660, 945), (1958, 945), (1958, 980))),
             (1, (*alleys[:7], (3190, 2080), (3230, 2080), (3230, 2227))),
             (1, ((PLAYER_START[0], main[0][1]), *main[1:-1], *detour, main[-1], (3149, 2240))),
         )
@@ -566,7 +567,7 @@ class DeliveryTests(unittest.TestCase):
         world = self.world
         for _ in range(2):
             cars = [wall for wall in world.walls if wall.texture in ("parked-car", "abandoned-car")]
-            self.assertEqual(len(cars), 5)
+            self.assertEqual(len(cars), 6)
             world.walls = cars
             world.zombies = []
             for car in cars:
@@ -597,6 +598,71 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual([zombie.state for zombie in world.zombies], ["investigate", "idle"])
         self.assertEqual(world.zombie.target, source)
         self.assertFalse(world._player_line_clear(world.zombie))
+
+    def test_bottle_uses_the_shop_vehicle_alarm_once_when_the_glass_breaks(self):
+        world = self.world
+        world.select_contract(0)
+        car = next(wall for wall in world.walls if (wall.x, wall.y) == (2140, 1019))
+        origin, aim = (2400, 1035), (2160, 1035)
+        world.player = Player(*origin)
+        near, farther = Zombie(2040, 1035), Zombie(1870, 1035)
+        world.zombies = [near, farther]
+        world.has_bottle = True
+        landing, vehicle = world.bottle_throw_preview(aim)
+        self.assertIs(vehicle, car)
+        self.assertAlmostEqual(landing[0], car.x + car.width + PLAYER_RADIUS, places=3)
+        self.assertTrue(can_walk_direct(origin, landing, world.walls))
+        self.assertGreater(math.dist((farther.x, farther.y), landing), 320)
+        self.assertFalse(world._player_line_clear(farther))
+        light = Flashlight(origin, math.pi, world.walls, world.world_size)
+        opposite_light = Flashlight(origin, 0, world.walls, world.world_size)
+        self.assertEqual(world.bottle_throw_hint(aim, light=light), "차량 경보 유인")
+        self.assertEqual(world.bottle_throw_hint(aim, light=opposite_light), "병 던지기")
+
+        self.assertTrue(world.throw_bottle(aim))
+        world.update(BOTTLE_FLIGHT_TIME - .02)
+        self.assertIsNone(world.vehicle_alarm)
+        self.assertIsNone(world.bottle_impact)
+        self.assertEqual([zombie.state for zombie in world.zombies], ["idle", "idle"])
+        world.update(.02)
+        self.assertEqual(world.bottle_impact, landing)
+        self.assertEqual(world.vehicle_alarm, landing)
+        self.assertEqual(world.vehicle_alarm_source, (2196, 1041))
+        self.assertEqual([zombie.target for zombie in world.zombies], [landing, landing])
+        self.assertTrue(farther.investigation_route)
+
+        near, farther = Zombie(2040, 1035), Zombie(1870, 1035)
+        world.zombies = [near, farther]
+        world.has_bottle = True
+        self.assertEqual(world.bottle_throw_hint(aim, light=light), "병 던지기")
+        self.assertTrue(world.throw_bottle(aim))
+        world.update(BOTTLE_FLIGHT_TIME)
+        self.assertEqual(world.bottle_impact, landing)
+        self.assertIsNone(world.vehicle_alarm)
+        self.assertEqual(near.target, landing)
+        self.assertEqual(farther.state, "idle")
+
+    def test_bottle_does_not_trigger_a_car_behind_cover_or_out_of_throw_range(self):
+        for case in ("wall first", "corner first", "short of car"):
+            with self.subTest(case=case):
+                world = DeliveryWorld()
+                car = next(wall for wall in world.walls if wall.texture == "parked-car")
+                world.walls = [car]
+                world.zombies = []
+                world.player = Player(50 if case == "short of car" else 100, 120)
+                if case == "short of car":
+                    world.player.x = 49  # Maximum range stops 1px short of the actual car.
+                elif case == "wall first":
+                    world.walls.append(Wall(320, 100, 5, 40))
+                else:
+                    world.walls.append(Wall(320, 125, 5, 40))
+                world.has_bottle = True
+                landing, vehicle = world.bottle_throw_preview((450, 120))
+                self.assertIsNone(vehicle)
+                self.assertTrue(world.throw_bottle((450, 120)))
+                world.update(BOTTLE_FLIGHT_TIME)
+                self.assertEqual(world.bottle_impact, landing)
+                self.assertIsNone(world.vehicle_alarm)
 
     def test_vehicle_alarm_requires_a_blocked_sprint_or_a_bat_hit(self):
         for case in ("walk", "sneak", "backstep", "exhausted", "parallel", "no input", "wall first"):
