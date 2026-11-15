@@ -55,6 +55,7 @@ WALL_TEXTURE_SIZES = {
     "dumpster": [30, 24],
 }
 WALL_TEXTURE_ALIASES = {"parking-shutter": "iron-gate"}
+BRIDGE_TERRAIN = {"bridge-channel", "bridge-raised"}
 LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
 BUILDING_TEXTURES = {"west-house", "east-house", "shop", "workshop"}
 BUILDING_FADE_OUT = .16
@@ -439,7 +440,7 @@ class Renderer:
         if p.SDL_SetTextureBlendMode(self.neighborhood_ground.texture, p.SDL_BLENDMODE_BLEND) != 0:
             raise RuntimeError(f"Ground blend mode failed: {p.SDL_GetError()!r}")
         for wall in self.delivery.walls:
-            if not isinstance(wall, NeighborhoodWall):
+            if not isinstance(wall, NeighborhoodWall) or wall.texture in BRIDGE_TERRAIN:
                 continue
             texture = WALL_TEXTURE_ALIASES.get(wall.texture, wall.texture)
             if texture not in self.neighborhood_walls:
@@ -471,7 +472,8 @@ class Renderer:
         lights = []
         for x, y in self.delivery.streetlights:
             walls = [wall for wall in self.delivery.walls
-                     if x - radius <= wall.x + wall.width and wall.x <= x + radius
+                     if getattr(wall, "texture", None) != "bridge-channel"
+                     and x - radius <= wall.x + wall.width and wall.x <= x + radius
                      and y - radius <= wall.y + wall.depth and wall.y <= y + radius]
             lights.append(Flashlight((x, y), 0, walls, self.delivery.world_size,
                                      radius=radius, half_angle=math.pi))
@@ -565,10 +567,14 @@ class Renderer:
         pose = (origin, angle, self.camera, self.shake_offset, id(walls))
         if self.light is None or pose != self._light_pose:
             world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
-            beam = Flashlight(origin, angle, walls, world_size)
+            beam = Flashlight(origin, angle, self.light_walls(walls), world_size)
             self.light = LightField((beam, *self.streetlights_in_view()))
             self._light_pose = pose
         return self.light
+
+    @staticmethod
+    def light_walls(walls):
+        return [wall for wall in walls if getattr(wall, "texture", None) != "bridge-channel"]
 
     def reset_building_fades(self):
         self._building_fades.clear()
@@ -728,11 +734,13 @@ class Renderer:
         def map_point(x, y):
             return left + x * scale, bottom + y * scale
 
-        shutter = world.shutter_wall if contract is world.contract else None
-        map_walls = world.walls
+        active_contract = contract is world.contract
+        shutter = world.shutter_wall if active_contract else None
+        bridge = world.bridge_puzzle if active_contract else None
+        map_walls = [wall for wall in world.walls if getattr(wall, "texture", None) not in BRIDGE_TERRAIN]
         if contract is not world.contract and world.parking_walls:
-            map_walls = [wall for wall in world.walls
-                         if wall is not world.shutter_wall and wall not in world.parking_walls]
+            map_walls = [wall for wall in map_walls if wall is not world.shutter_wall
+                         and wall not in (*world.parking_walls, *world.bridge_puzzle.station_walls)]
         draw_map_base(rectangle, p.draw_line, (left, bottom, right, top), scale, (width, height),
                       TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite)
         for point, label, color in (
@@ -813,6 +821,19 @@ class Renderer:
             occupied.append((label_x, label_y, label_x + 65, label_y + 23))
             p.draw_line(lot_x, lot_y, lot_x, label_y, *MAP_PAPER_INK)
             labels.append((label_x, label_y, 65, "주차장", MAP_PAPER_INK))
+        if bridge is not None:
+            x, y, width, depth = bridge.channel_rect
+            cx, cy = map_point(x, y)
+            rectangle(cx, cy, width * scale, max(2, depth * scale), MAP_ROUTE_INK)
+            for position, symbol in ((bridge.key_position, "K"), (bridge.panel_position, "C")):
+                px, py = map_point(*position)
+                self.draw_bridge_map_marker(px, py, symbol)
+                occupied.append((px - 7, py - 8, px + 7, py + 8))
+            bx, by = map_point(*bridge.bridge_position)
+            color = MAP_OPEN_GATE if bridge.bridge_down else MAP_CLOSED_GATE
+            rectangle(bx - 9, by - 4, 18, 8, MAP_INK)
+            rectangle(bx - 7, by - 2, 14, 4, color)
+            occupied.append((bx - 9, by - 4, bx + 9, by + 4))
         if player is not None:
             self.draw_map_waypoints((left, bottom, right, top), route[1:], world.first_waypoint_number, occupied)
             self.draw_map_heading(*route[0], player.aim_angle, on_paper=True)
@@ -833,6 +854,11 @@ class Renderer:
         rectangle(scale_x, scale_y, 2 * half_scale, 4, MAP_PAPER_INK, filled=False)
         self.font.draw(scale_x, scale_y + 15, "400 px", MAP_PAPER_INK)
         rectangle(left, bottom, right - left, top - bottom, MAP_BORDER, filled=False)
+
+    def draw_bridge_map_marker(self, x, y, symbol):
+        rectangle(x - 7, y - 8, 14, 16, MAP_LABEL)
+        rectangle(x - 7, y - 8, 14, 16, MAP_PAPER_INK, filled=False)
+        self.font.draw(x - 5, y, symbol, MAP_PAPER_INK)
 
     def draw_map(self, player):
         world = self.delivery
@@ -887,6 +913,17 @@ class Renderer:
             rectangle(side + 162, 188, 20, 4, color)
             status = "셔터 · 닫힘" if world.shutter_closed else "셔터 · 열림"
             self.font.draw(side + 191, 190, status, MAP_VIEW_TEXT)
+        bridge = world.bridge_puzzle
+        if bridge is not None:
+            self.draw_bridge_map_marker(side + 172, 435, "K")
+            status = "열쇠 수령" if bridge.has_key else "경비초소 · 열쇠"
+            self.font.draw(side + 191, 435, status, MAP_VIEW_TEXT)
+            self.draw_bridge_map_marker(side + 172, 400, "C")
+            self.font.draw(side + 191, 400, "관리실 · 회로", MAP_VIEW_TEXT)
+            color = MAP_OPEN_GATE if bridge.bridge_down else MAP_CLOSED_GATE
+            rectangle(side + 162, 363, 20, 4, color)
+            status = "다리 · 개방" if bridge.bridge_down else "다리 · 올라감"
+            self.font.draw(side + 191, 365, status, MAP_VIEW_TEXT)
         self.draw_map_heading(side + 31, 295, 0)
         self.font.draw(side + 62, 295, "현재 위치·방향", MAP_VIEW_TEXT)
         self.draw_map_waypoint(side + 36, 120, 1)
@@ -1176,8 +1213,10 @@ class Renderer:
         self.draw_lit_region((x, y, shutter.width, depth), draw)
 
     def draw_shutter_control(self, position, *, closed):
+        self.draw_control_box(position, "닫힘" if closed else "셔터", TEAL if closed else ORANGE)
+
+    def draw_control_box(self, position, label, light_color, *, label_width=72):
         x, y = self.project(*position)
-        light_color = TEAL if closed else ORANGE
 
         def draw(*, dimmed=False):
             for left, bottom, width, height, color in (
@@ -1194,8 +1233,60 @@ class Renderer:
             self.draw_lit_region(bounds, lambda: draw(dimmed=True), row_spans=glow_spans)
         self.draw_lit_region(bounds, draw)
         if self.light.contains(position):
-            rectangle(x + 13, y + 20, 72, 23, (16, 24, 28))
-            self.font.draw(x + 19, y + 31, "닫힘" if closed else "셔터", light_color)
+            rectangle(x + 13, y + 20, label_width, 23, (16, 24, 28))
+            self.font.draw(x + 19, y + 31, label, light_color)
+
+    def draw_bridge_terrain(self, puzzle):
+        x, y, width, depth = puzzle.channel_rect
+        sx, sy = self.project(x, y)
+        depth *= GROUND_SCALE_Y
+        parts = [(sx, sy, width, depth, (38, 58, 61)),
+                 (sx, sy, width, 3, (94, 88, 74)),
+                 (sx, sy + depth - 4, width, 4, (95, 99, 87))]
+        for offset in range(6, width - 8, 14):
+            parts.append((sx + offset, sy + 7 + (offset % 3) * 3, 8, 1, (78, 105, 105)))
+        if puzzle.bridge_down:
+            bx, by, bridge_width, bridge_depth = puzzle.bridge_rect
+            left, bottom = self.project(bx, by)
+            rise = bridge_depth * GROUND_SCALE_Y
+            parts.extend(((left, bottom, bridge_width, rise, (115, 111, 93)),
+                          (left, bottom, 4, rise, (164, 142, 83)),
+                          (left + bridge_width - 4, bottom, 4, rise, (164, 142, 83))))
+            for rail in (5, 11, 17):
+                parts.append((left + 5, bottom + rail, bridge_width - 10, 1, (69, 65, 54)))
+
+        def draw(dimmed=False):
+            for px, py, w, h, color in parts:
+                rectangle(px, py, w, h, dim_color(color) if dimmed else color)
+
+        bounds = (sx, sy, width, depth + 1)
+        self.draw_lit_region(bounds, lambda: draw(dimmed=True),
+                             row_spans=lambda row: self.glow_source[1].get(row, ()))
+        self.draw_lit_region(bounds, draw)
+
+    def draw_raised_bridge(self, wall):
+        x, y = self.project(wall.x, wall.y)
+
+        def draw(dimmed=False):
+            parts = ((0, 0, wall.width, wall.height, (100, 96, 81)),
+                     (0, wall.height - 5, wall.width, 5, (155, 133, 76)),
+                     (0, 0, 4, wall.height, (137, 119, 77)),
+                     (wall.width - 4, 0, 4, wall.height, (137, 119, 77)))
+            for left, bottom, w, h, color in parts:
+                rectangle(x + left, y + bottom, w, h, dim_color(color) if dimmed else color)
+            for offset in range(8, wall.height - 6, 7):
+                line = (58, 59, 54) if not dimmed else dim_color((58, 59, 54))
+                rectangle(x + 4, y + offset, wall.width - 8, 2, line)
+
+        def outline_columns(light):
+            near = wall.y - .5 if light.origin[1] <= wall.y else wall.y + wall.depth + .5
+            return light_depth_columns(light, near, x - wall.x)
+
+        bounds = (x, y, wall.width + 1, wall.height + 1)
+        glow_columns = outline_columns(self.glow_source[0])
+        self.draw_lit_region(bounds, lambda: draw(dimmed=True), row_spans=lambda _: glow_columns)
+        columns = merge_light_spans(span for light in self.light.lights for span in outline_columns(light))
+        self.draw_lit_region(bounds, draw, row_spans=lambda _: columns)
 
     def draw_safe_zone(self, position, origin, walls, *, blocked):
         if math.dist(position, origin) > 150 or any(wall_blocks(origin, position, wall) for wall in walls):
@@ -1293,7 +1384,10 @@ class Renderer:
 
     def draw(self, player, walls, target, focused=True):
         self._draw_scene(player, walls, target, focused)
-        if self.abandon_confirmation:
+        bridge = self.delivery.bridge_puzzle if self.delivery is not None else None
+        if bridge is not None and bridge.panel_open:
+            self.play_hud.draw_bridge_panel(bridge)
+        elif self.abandon_confirmation:
             self.play_hud.draw_abandon_confirmation()
 
     def _draw_scene(self, player, walls, target, focused):
@@ -1309,7 +1403,7 @@ class Renderer:
         aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
         beam, *lamps = self.prepare_light(player, walls, aim).lights
-        glow = nearby_glow(origin, walls, world_size)
+        glow = nearby_glow(origin, self.light_walls(walls), world_size)
         glow_outline = glow.outline()
         glow_walls = {id(wall) for wall in glow.walls}
         # Only the stronger sources reveal targeting, station prompts and status marks.
@@ -1328,6 +1422,10 @@ class Renderer:
         self.draw_ground_light(glow, glow_outline, (0, 0, 0), NEARBY_GLOW_COLOR)
         self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53), feathered=True)
         self.draw_streetlight_pools(lamps, lamp_outlines)
+        delivery = self.delivery
+        bridge = delivery.bridge_puzzle if delivery is not None else None
+        if bridge is not None:
+            self.draw_bridge_terrain(bridge)
         outlines = (beam_outline, *lamp_outlines)
         self.draw_noise_pulse(self.sprint_pulse, self.sprint_pulse_remaining, TEAL)
         self.draw_noise_pulse(self.bottle_pulse, self.bottle_pulse_remaining, ORANGE)
@@ -1336,7 +1434,6 @@ class Renderer:
         foot = self.project(*origin)
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
-        delivery = self.delivery
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
         bottles = []
         stations = ()
@@ -1349,6 +1446,8 @@ class Renderer:
                     stations = (*stations, delivery.shutter_position)
                     if not delivery.shutter_closed:
                         self.draw_shutter_entrance(delivery.shutter_wall)
+                if bridge is not None:
+                    stations = (*stations, bridge.key_position, bridge.panel_position)
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
             flight = delivery.bottle_flight
             if flight is not None:
@@ -1372,11 +1471,21 @@ class Renderer:
             elif kind == "station":
                 if actor == delivery.shutter_position:
                     self.draw_shutter_control(actor, closed=delivery.shutter_closed)
+                elif bridge is not None and actor == bridge.key_position:
+                    self.draw_control_box(actor, "경비초소", TEAL if bridge.has_key else ORANGE,
+                                          label_width=88)
+                elif bridge is not None and actor == bridge.panel_position:
+                    self.draw_control_box(actor, "관리실", TEAL if bridge.bridge_down else ORANGE)
                 else:
                     self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "wall":
+                texture = getattr(actor, "texture", None)
+                if texture in BRIDGE_TERRAIN:
+                    if texture == "bridge-raised":
+                        self.draw_raised_bridge(actor)
+                    continue
                 opacity = self.building_opacity(actor)
                 if opacity > 0.0:
                     self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else (),
@@ -1597,9 +1706,17 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             waypoint_actions = []
             abandon_requested = False
             abandon_decision = None
+            bridge = world.bridge_puzzle if delivery_run else None
+            circuit_keys = []
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
+                elif bridge is not None and bridge.panel_open:
+                    if event.type == p.SDL_KEYDOWN and not event.key.repeat:
+                        circuit_keys.append(event.key.keysym.sym)
+                    elif (event.type == p.SDL_WINDOWEVENT
+                          and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
+                        lost_focus = True
                 elif renderer.abandon_confirmation or abandon_requested:
                     if (renderer.abandon_confirmation and abandon_decision is None
                             and event.type == p.SDL_KEYDOWN and not event.key.repeat):
@@ -1682,6 +1799,18 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 retry_requested = False
             else:
                 renderer.delivery_preview = preview_choice
+            motor_sound = None
+            if focused and not lost_focus and bridge is not None and bridge.panel_open:
+                for key in circuit_keys:
+                    if key == p.SDLK_ESCAPE:
+                        world.close_bridge_panel()
+                        break
+                    index = DELIVERY_KEYS.get(key, -1)
+                    if 0 <= index < 3 and world.rotate_bridge_tile(index):
+                        motor_sound = bridge.bridge_position
+                        renderer.reset_streetlights()
+                        renderer.light = None
+                        break
             confirmation_changed = focused and not lost_focus and (abandon_requested or abandon_decision is not None)
             if confirmation_changed:
                 renderer.abandon_confirmation = abandon_requested
@@ -1747,6 +1876,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 continue
             active = (focused and not lost_focus and not renderer.map_open
                       and not renderer.abandon_confirmation and not confirmation_changed
+                      and (bridge is None or not bridge.panel_open)
                       and contract_choice is None and not retry_requested)
             if not delivery_run and cursor is not None:
                 light = renderer.light
@@ -1789,17 +1919,21 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 gate_was_closed = world.gate is not None
                 shutter_was_closed = world.shutter_closed
                 was_waiting = world.parcel == "waiting"
+                stops_before = len(world.completed_stops)
                 completed = world.update_interaction(
                     dt if active else 0.0, held=active and p.SDLK_e in pressed,
                     pressed=active and pending_interact, moving=player.moved, damaged=player_hit,
                 )
                 if completed and world.just_unlocked_two_stop:
                     save_two_stop_unlock()
+                if completed and bridge is not None and bridge.panel_open:
+                    pressed.clear()
+                    mouse_held = False
                 gate_opened = completed and gate_was_closed and world.gate is None
                 shutter_closed = completed and not shutter_was_closed and world.shutter_closed
-                if completed and not (gate_opened or shutter_closed):
-                    parcel_picked_up = was_waiting
-                    parcel_dropped = not was_waiting and world.result == "playing"
+                parcel_picked_up = completed and was_waiting and world.parcel == "carrying"
+                parcel_dropped = (completed and len(world.completed_stops) > stops_before
+                                  and world.result == "playing")
                 if gate_opened or shutter_closed:
                     door_sound = world.gate_position if gate_opened else world.shutter_position
                     renderer.reset_streetlights()
@@ -1894,6 +2028,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if door_sound is not None:
                     sound_distance, sound_pan = sound_position(listener, door_sound)
                     zombie_audio.play_gate_open(sound_distance, pan=sound_pan)
+                if motor_sound is not None:
+                    sound_distance, sound_pan = sound_position(listener, motor_sound)
+                    zombie_audio.play_bridge_motor(sound_distance, pan=sound_pan)
                 if vehicle_hit is not None:
                     sound_distance, sound_pan = sound_position(listener, vehicle_hit)
                     zombie_audio.play_vehicle_hit(sound_distance, pan=sound_pan)

@@ -31,9 +31,13 @@ ZOMBIE_STARTS = (
 INTERACTION_RANGE = 42.0
 MAX_WAYPOINTS = 8
 _WAYPOINT_REACH = 32.0
-_INTERACTION_HOLD_TIMES = {"pickup": 0.50, "deliver": 1.00, "gate": 0.70, "shutter": 0.70}
+_INTERACTION_HOLD_TIMES = {
+    "pickup": 0.50, "deliver": 1.00, "gate": 0.70, "shutter": 0.70,
+    "bridge_key": 0.50, "bridge_panel": 0.70,
+}
 GATE_NOISE_RANGE = 230.0
 _SHUTTER_NOISE_RANGE = 95.0
+BRIDGE_MOTOR_NOISE_RANGE = 280.0
 VEHICLE_ALARM_RANGE = 520.0
 _VEHICLE_TEXTURES = ("parked-car", "abandoned-car")
 BOTTLE_THROW_RANGE = 320.0
@@ -136,6 +140,44 @@ class NeighborhoodWall(Wall):
     oblique: bool = False
 
 
+class BridgePuzzle:
+    key_position = (2608, 1190)
+    panel_position = (2545, 1302)
+    bridge_rect = (2510, 1342, 70, 38)
+    channel_rect = (2480, 1342, 240, 38)
+    bridge_position = (2545, 1361)
+    # Power enters the bottom-left tile, then turns north and leaves to the east.
+    _base_ports = (((-1, 0), (0, 1)), ((0, -1), (1, 0)), ((-1, 0), (1, 0)))
+
+    def __init__(self):
+        self.has_key = False
+        self.panel_open = False
+        self.bridge_down = False
+        self.rotations = [2, 1, 3]
+        self.bridge_wall = NeighborhoodWall(*self.bridge_rect, "bridge-raised", height=36)
+        self.station_walls = (
+            NeighborhoodWall(2630, 1170, 44, 40, "workshop", height=48),
+            NeighborhoodWall(2492, 1273, 28, 48, "workshop", height=48),
+        )
+
+    @property
+    def ports(self):
+        result = []
+        for ports, rotation in zip(self._base_ports, self.rotations):
+            for _ in range(rotation):
+                ports = tuple((y, -x) for x, y in ports)
+            result.append(ports)
+        return tuple(result)
+
+    @property
+    def powered(self):
+        first, second, third = self.ports
+        first_powered = (-1, 0) in first
+        second_powered = first_powered and (0, 1) in first and (0, -1) in second
+        third_powered = second_powered and (1, 0) in second and (-1, 0) in third
+        return first_powered, second_powered, third_powered
+
+
 @dataclass(frozen=True)
 class StreetProp:
     x: float
@@ -221,10 +263,10 @@ class DeliveryWorld(CombatWorld):
         self.player = Player(*self.contract.player_start)
         self.zombies = []
         has_patrol = _SINGLE_CONTRACTS[1].stops[0] in self.contract.stops
-        has_shutter = self.contract is DELIVERY_CONTRACTS[3]
+        shop_round_trip = self.contract is DELIVERY_CONTRACTS[3]
         streetlights = type(self).streetlights
-        self.streetlights = (*streetlights, (2290, 1350)) if has_shutter else streetlights
-        parking_starts = _PARKING_ZOMBIE_STARTS if has_shutter else ()
+        self.streetlights = (*streetlights, (2290, 1350)) if shop_round_trip else streetlights
+        parking_starts = _PARKING_ZOMBIE_STARTS if shop_round_trip else ()
         for index, position in enumerate((*self.contract.zombie_starts, *parking_starts)):
             patrol = _REAR_ALLEY_PATROL if has_patrol and position == _REAR_ALLEY_PATROL[0] else None
             self.zombies.append(Zombie(
@@ -232,7 +274,7 @@ class DeliveryWorld(CombatWorld):
                 state="patrol" if patrol else "idle", patrol_points=patrol,
                 appearance=ZOMBIE_APPEARANCES[index % len(ZOMBIE_APPEARANCES)],
             ))
-        if has_shutter:
+        if shop_round_trip:
             self.zombies.append(Zombie(*_PARKING_HEAVY_ZOMBIE_START, aim_angle=math.pi / 2,
                                        hp=HEAVY_ZOMBIE_HP, appearance=HEAVY_ZOMBIE_APPEARANCE))
         self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38)
@@ -266,12 +308,13 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(1820, 1060, 260, 160, "shop"),
             NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
         ]
-        self.shutter_position = _PARKING_SHUTTER_POSITION if has_shutter else None
-        self.shutter_lure = _PARKING_LURE_POSITION if has_shutter else None
+        self.shutter_position = _PARKING_SHUTTER_POSITION if shop_round_trip else None
+        self.shutter_lure = _PARKING_LURE_POSITION if shop_round_trip else None
         self.shutter_wall = None
         self.shutter_closed = False
         self.parking_walls = ()
-        if has_shutter:
+        self.bridge_puzzle = BridgePuzzle() if shop_round_trip else None
+        if shop_round_trip:
             # The west shutter is the lot's only opening. Its control is outside.
             self.shutter_wall = NeighborhoodWall(2160, 1262, 12, 162, "parking-shutter", height=66)
             self.parking_walls = (
@@ -280,6 +323,16 @@ class DeliveryWorld(CombatWorld):
                 NeighborhoodWall(2160, 1424, 320, 12, "fence", height=38),
             )
             self.walls.extend(self.parking_walls)
+            puzzle = self.bridge_puzzle
+            x, y, width, depth = puzzle.channel_rect
+            bridge_x, _, bridge_width, _ = puzzle.bridge_rect
+            bridge_end = bridge_x + bridge_width
+            self.walls.extend((
+                *puzzle.station_walls,
+                NeighborhoodWall(x, y, bridge_x - x, depth, "bridge-channel", height=0),
+                puzzle.bridge_wall,
+                NeighborhoodWall(bridge_end, y, x + width - bridge_end, depth, "bridge-channel", height=0),
+            ))
         self.parcel = "waiting"
         self._clear_interaction()
         self.waypoints: list[tuple[float, float]] = []
@@ -289,7 +342,7 @@ class DeliveryWorld(CombatWorld):
         self.bottle_pickups = list(_BOTTLE_STARTS)
         if self.contract.return_point is not None:
             self.bottle_pickups.append((2276, 902))
-        if has_shutter:
+        if shop_round_trip:
             self.bottle_pickups.append(_PARKING_BOTTLE_POSITION)
         self.has_bottle = False
         self.bottle_flight = None
@@ -564,6 +617,48 @@ class DeliveryWorld(CombatWorld):
                 return False
         return True
 
+    def _bridge_interaction_in_reach(self, target):
+        origin = (self.player.x, self.player.y)
+        return (self.returning and self.player_hp > 0 and math.dist(origin, target) <= INTERACTION_RANGE
+                and not any(wall_blocks(origin, target, wall) for wall in self.walls))
+
+    def can_collect_bridge_key(self):
+        puzzle = self.bridge_puzzle
+        return (puzzle is not None and not puzzle.has_key
+                and self._bridge_interaction_in_reach(puzzle.key_position))
+
+    def can_reach_bridge_panel(self):
+        puzzle = self.bridge_puzzle
+        return puzzle is not None and self._bridge_interaction_in_reach(puzzle.panel_position)
+
+    def can_open_bridge_panel(self):
+        puzzle = self.bridge_puzzle
+        return (puzzle is not None and puzzle.has_key and not puzzle.bridge_down and not puzzle.panel_open
+                and self.can_reach_bridge_panel())
+
+    def close_bridge_panel(self):
+        if self.bridge_puzzle is not None:
+            self.bridge_puzzle.panel_open = False
+
+    def rotate_bridge_tile(self, index):
+        puzzle = self.bridge_puzzle
+        if puzzle is None or not puzzle.panel_open or not 0 <= index < len(puzzle.rotations):
+            return False
+        puzzle.rotations[index] = (puzzle.rotations[index] + 1) % 4
+        if not puzzle.powered[-1] or (1, 0) not in puzzle.ports[-1]:
+            return False
+        puzzle.bridge_down = True
+        self.close_bridge_panel()
+        self.walls.remove(puzzle.bridge_wall)
+        self._clear_zombie_routes()
+        self._emit_noise(BRIDGE_MOTOR_NOISE_RANGE, puzzle.bridge_position)
+        return True
+
+    def _clear_zombie_routes(self):
+        for zombie in self.zombies:
+            zombie.investigation_route = None
+            zombie.patrol_route = None
+
     def _available_interaction(self):
         target = self.interaction_target
         if target is not None:
@@ -572,6 +667,10 @@ class DeliveryWorld(CombatWorld):
             return "gate", self.gate_position
         if self.can_close_shutter():
             return "shutter", self.shutter_position
+        if self.can_collect_bridge_key():
+            return "bridge_key", self.bridge_puzzle.key_position
+        if self.can_open_bridge_panel():
+            return "bridge_panel", self.bridge_puzzle.panel_position
         return None
 
     def _clear_interaction(self):
@@ -623,10 +722,14 @@ class DeliveryWorld(CombatWorld):
         if action == "shutter":
             self.walls.append(self.shutter_wall)
             self.shutter_closed = True
-            for zombie in self.zombies:
-                zombie.investigation_route = None
-                zombie.patrol_route = None
+            self._clear_zombie_routes()
             self._emit_noise(_SHUTTER_NOISE_RANGE, target)
+            return True
+        if action == "bridge_key":
+            self.bridge_puzzle.has_key = True
+            return True
+        if action == "bridge_panel":
+            self.bridge_puzzle.panel_open = True
             return True
         if action == "pickup":
             self.parcel = "carrying"

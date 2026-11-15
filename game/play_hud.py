@@ -48,6 +48,8 @@ INTERACTION_LABELS = {
     "deliver": ("택배 전달 · 길게 누르기", "택배 전달 중", TEAL),
     "gate": ("철문 열기 · 길게 누르기 · 소음", "철문 여는 중 · 소음", AMBER),
     "shutter": ("셔터 닫기 · 길게 누르기", "셔터 닫는 중", AMBER),
+    "bridge_key": ("관리실 열쇠 줍기 · 길게 누르기", "열쇠 줍는 중", TEAL),
+    "bridge_panel": ("관리실 열기 · 길게 누르기", "관리실 여는 중", TEAL),
 }
 
 
@@ -296,6 +298,47 @@ class PlayHUD:
         self._keycap("Esc", x + 234, y + 108, 42)
         self._text("계속하기", x + 284, y + 120, BODY)
 
+    def draw_bridge_panel(self, puzzle):
+        fill(0, 0, self.width, self.height, (0, 0, 0, 175))
+        width, height = 560, 364
+        x, y = (self.width - width) // 2, (self.height - height) // 2
+        panel(x, y, width, height, PAPER_EDGE, background=PAPER, accent=STAMP)
+        self._text("다리 제어 회로", x + 30, y + 35, TITLE, PAPER_INK)
+        self._text("1 · 2 · 3으로 타일을 돌려 전원과 모터 연결", x + 30, y + 69, BODY, PAPER_MUTED)
+        panel(x + 30, y + 94, width - 60, 188, FRAME, background=(48, 47, 42, 255))
+
+        left, top = x + 191, y + 145
+        tile_size = 72
+        centers = ((left, top + tile_size), (left, top), (left + tile_size, top))
+        inactive = (178, 140, 98, 255)
+        live = (*TEAL, 255)
+        for cx, cy in centers:
+            panel(cx - 34, cy - 34, 68, 68, FRAME, background=(68, 57, 47, 255))
+
+        # Screen y increases downward; the circuit's port coordinates use ground y.
+        for index, ((cx, cy), ports, powered) in enumerate(zip(centers, puzzle.ports, puzzle.powered), 1):
+            color = live if powered else inactive
+            for dx, dy in ports:
+                fill(min(cx, cx + dx * 35) - 2, min(cy, cy - dy * 35) - 2,
+                     abs(dx) * 35 + 5, abs(dy) * 35 + 5, color)
+            fill(cx - 5, cy - 5, 11, 11, color)
+            fill(cx - 30, cy - 30, 16, 18, PANEL)
+            self._text(str(index), cx - 22, cy - 21, SMALL, align="center")
+
+        source_y = centers[0][1]
+        source_x = left - 93
+        output_x = centers[-1][0] + 35
+        fill(source_x, source_y - 2, left - 35 - source_x, 5, live)
+        fill(source_x - 4, source_y - 5, 10, 11, live)
+        fill(output_x, top - 2, 65, 5, inactive)
+        fill(output_x + 62, top - 5, 10, 11, inactive)
+        self._text("전원", source_x, source_y + 21, SMALL, TEAL, align="center")
+        self._text("모터", output_x + 67, top + 21, SMALL, AMBER, align="center")
+
+        self._text("가동하면 모터 소리에 좀비가 반응", x + 30, y + 309, SMALL, STAMP)
+        self._keycap("Esc", x + width - 120, y + 330, 42)
+        self._text("닫기", x + width - 69, y + 342, SMALL, PAPER_INK)
+
     def draw_result(self, world):
         success = world.result == "delivered"
         extra_lines = []
@@ -355,8 +398,11 @@ class PlayHUD:
                 self._draw_pickup_controls()
         if waypoint_direction is not None:
             self._waypoint(waypoint_direction, world.first_waypoint_number)
+        bridge = world.bridge_puzzle
         if alarm:
             self._notice("차량 경보", AMBER)
+        elif bridge is not None and world.can_reach_bridge_panel() and not (bridge.has_key or bridge.bridge_down):
+            self._notice("관리실 잠김 · 경비초소에 열쇠", AMBER)
         elif (world.returning and world.shutter_position is not None
               and math.dist((world.player.x, world.player.y), world.shutter_position) <= 150
               and light.contains(world.shutter_position)):
@@ -385,6 +431,12 @@ class PlayHUD:
             actions.append(("E", label, color))
         elif world.can_close_shutter():
             label, _, color = INTERACTION_LABELS["shutter"]
+            actions.append(("E", label, color))
+        elif world.can_collect_bridge_key():
+            label, _, color = INTERACTION_LABELS["bridge_key"]
+            actions.append(("E", label, color))
+        elif world.can_open_bridge_panel():
+            label, _, color = INTERACTION_LABELS["bridge_panel"]
             actions.append(("E", label, color))
         if world.nearby_bottle is not None:
             actions.append(("F", "빈 병 줍기", TEXT))

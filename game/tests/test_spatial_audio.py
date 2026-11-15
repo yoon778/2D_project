@@ -133,7 +133,7 @@ class ZombieAudioTests(unittest.TestCase):
         names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "bat_swing", "zombie_hit",
                  "player_walk", "player_run", "player_sneak", "player_hit",
                  "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle",
-                 "bottle_break", "gate_open", "vehicle_alarm")
+                 "bottle_break", "gate_open", "bridge_motor", "vehicle_alarm")
         self.sounds = {name: ctypes.c_void_p(index) for index, name in enumerate(names, 1)}
         self.backend.Mix_LoadWAV.side_effect = lambda path: self.sounds.get(Path(path.decode()).stem)
         self.backend.Mix_PlayChannelTimed.side_effect = [0, 1]
@@ -165,6 +165,15 @@ class ZombieAudioTests(unittest.TestCase):
             call(self.sounds["bottle_break"], 41), call(self.sounds["gate_open"], 72),
             call(self.sounds["vehicle_alarm"], 76), call(self.sounds["bat_swing"], 74),
         ])
+
+    def test_bridge_motor_plays_once_with_distance_and_panning(self):
+        motor = self.sounds["bridge_motor"]
+        self.audio.play_bridge_motor(520, pan=-1.0)
+        self.backend.Mix_PlayChannelTimed.assert_not_called()
+        self.audio.play_bridge_motor(260, pan=-1.0)
+        self.backend.Mix_VolumeChunk.assert_called_once_with(motor, 43)
+        self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, motor, 0, -1)
+        self.backend.Mix_SetPanning.assert_called_once_with(0, 255, 80)
 
     def test_corner_steps_follow_the_patrol_even_when_a_closer_zombie_is_still(self):
         step, groan = self.sounds["zombie_step"], self.sounds["zombie_groan"]
