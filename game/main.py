@@ -10,7 +10,7 @@ import time
 import pico2d.pico2d as p
 
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
-from combat import CombatWorld, MAX_STAMINA
+from combat import CombatWorld, HEAVY_ZOMBIE_APPEARANCE, MAX_STAMINA
 from combat_visual import CombatVisual
 from delivery import (DELIVERY_CONTRACTS, INTERACTION_RANGE, REAR_ALLEY_LISTEN_POINT, TOWN_ROADS, DeliveryWorld,
                       NeighborhoodWall)
@@ -19,7 +19,7 @@ from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
-from spatial_audio import PatrolFootstep, ZombieAudio
+from spatial_audio import HeavyFootstep, PatrolFootstep, ZombieAudio
 from town_map_art import (MAP_ALLEY, MAP_BUILDING, MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS, MAP_LANDMARK,
                           MAP_ROAD, MAP_WRECK)
 from town_map_art import draw_base as draw_map_base
@@ -1830,6 +1830,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             chasing = False
             listener = (player.x, player.y)
             patrol_step = None
+            heavy_step = None
             listening_at_corner = (delivery_run and hearing_active
                                    and math.dist(listener, REAR_ALLEY_LISTEN_POINT) <= REAR_ALLEY_LISTEN_RADIUS)
             for zombie, (x, y) in zip(world.zombies, zombie_origins):
@@ -1844,6 +1845,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     if listening_at_corner and zombie.state == "patrol" and zombie.patrol_points:
                         patrol_step = PatrolFootstep(enemy_distance, enemy_stride, enemy_pan,
                                                      any(wall_blocks(listener, source, wall) for wall in walls))
+                    if zombie.appearance == HEAVY_ZOMBIE_APPEARANCE:
+                        if hearing_active:
+                            heavy_step = HeavyFootstep(enemy_distance, enemy_stride, enemy_pan,
+                                                       any(wall_blocks(listener, source, wall) for wall in walls))
+                        continue
                     if distance is None or enemy_distance < distance:
                         distance = enemy_distance
                         pan = enemy_pan
@@ -1852,7 +1858,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             if music is not None:
                 if delivery_run:
                     playing = active and world.result == "playing"
-                    music.update(dt, distance=distance, focused=playing, chasing=playing and chasing)
+                    threat_distance = distance
+                    if heavy_step is not None:
+                        threat_distance = min(heavy_step.distance, distance) if distance is not None else heavy_step.distance
+                    music.update(dt, distance=threat_distance, focused=playing, chasing=playing and chasing)
                 else:
                     music.update(dt, distance=distance, focused=active)
             if zombie_audio is not None and not ending:
@@ -1862,7 +1871,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 preserve_map_cue = renderer.map_open and focused and not lost_focus
                 zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
                                     occluded=occluded, preserve_map_cue=preserve_map_cue,
-                                    pan=pan if hearing_active else 0.0, patrol_step=patrol_step)
+                                    pan=pan if hearing_active else 0.0, patrol_step=patrol_step, heavy_step=heavy_step)
                 if map_toggled:
                     zombie_audio.play_map_toggle()
                 if bottle_picked_up:

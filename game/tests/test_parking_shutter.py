@@ -1,6 +1,6 @@
 import unittest
 
-from game.combat import Zombie
+from game.combat import HEAVY_ZOMBIE_APPEARANCE, Zombie
 from game.delivery import DeliveryWorld
 from game.zombie_navigation import can_walk_direct, find_route
 
@@ -71,7 +71,8 @@ class ParkingShutterTests(unittest.TestCase):
         world = self.world
         self.deliver_at_shop()
         # Keep the shop guards out of this focused test of the parking group.
-        del world.zombies[:len(world.contract.zombie_starts)]
+        world.zombies = [zombie for zombie in world.zombies[len(world.contract.zombie_starts):]
+                         if zombie.appearance != HEAVY_ZOMBIE_APPEARANCE]
         self.assertEqual(len(world.zombies), 8)
         outside = (2105, 1258)
         world.player.x, world.player.y = outside

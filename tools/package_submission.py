@@ -39,7 +39,7 @@ def runtime_files():
                               "parked-car.png", "abandoned-car.png", "dumpster.png", "mailbox.png", "planter.png",
                               "bicycle.png", "trash-bags.png", "metal-bin.png", "recycling-bin.png", "empty-bottle.png"))
     files.update(ASSETS / "audio" / name for name in ("last-delivery.mp3", "night-delivery-loop.ogg",
-                                                     "zombie_step.wav", "zombie_groan.wav", "bat_swing.wav",
+                                                     "zombie_step.wav", "zombie_step_heavy.wav", "zombie_groan.wav", "bat_swing.wav",
                                                      "zombie_hit.wav", "zombie_hit_heavy.wav", "bottle_throw.wav",
                                                      "bottle_break.wav", "gate_open.wav", "vehicle_hit.wav",
                                                      "vehicle_alarm.wav", "player_walk.wav", "player_run.wav",
@@ -68,6 +68,10 @@ def runtime_files():
         add_sprite(files, path.parent, source)
     files.update(ASSETS / "zombie" / f"{appearance}-{atlas}.png"
                  for appearance in ("maintenance", "resident") for atlas in ("base", "attack"))
+    for atlas in ("base", "attack"):
+        path, source = metadata_assets(f"zombie/heavy-{atlas}.json")
+        files.add(path)
+        add_sprite(files, path.parent, source)
     return files
 
 

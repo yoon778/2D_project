@@ -5,11 +5,11 @@ import math
 from pathlib import Path
 
 if __package__:
-    from .combat import ATTACK_RANGE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
+    from .combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, HEAVY_ZOMBIE_HP, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from .core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from .zombie_navigation import can_walk_direct
 else:
-    from combat import ATTACK_RANGE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
+    from combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, HEAVY_ZOMBIE_HP, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from zombie_navigation import can_walk_direct
 
@@ -51,6 +51,7 @@ _PARKING_ZOMBIE_STARTS = (
     (2083, 1422), (2102, 1418), (2119, 1414), (2142, 1407),
     (2094, 1406), (2116, 1393), (2134, 1382), (2144, 1369),
 )
+_PARKING_HEAVY_ZOMBIE_START = (2056, 1430)
 _PARKING_SHUTTER_POSITION = (2142, 1255)
 _PARKING_LURE_POSITION = (2355, 1380)
 _PARKING_BOTTLE_POSITION = (2110, 1230)
@@ -231,6 +232,9 @@ class DeliveryWorld(CombatWorld):
                 state="patrol" if patrol else "idle", patrol_points=patrol,
                 appearance=ZOMBIE_APPEARANCES[index % len(ZOMBIE_APPEARANCES)],
             ))
+        if has_shutter:
+            self.zombies.append(Zombie(*_PARKING_HEAVY_ZOMBIE_START, aim_angle=math.pi / 2,
+                                       hp=HEAVY_ZOMBIE_HP, appearance=HEAVY_ZOMBIE_APPEARANCE))
         self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38)
         self.gate_position = (self.gate.x + self.gate.width / 2, self.gate.y + self.gate.depth / 2)
         self.walls = [

@@ -9,7 +9,7 @@ from pathlib import Path
 import pico2d.pico2d as p
 
 from player_visual import PARCEL_OCCLUDED_FACINGS, load_atlas, load_empty_atlas, sprite_rect
-from combat import ATTACK_HIT_TIME, STUN_DURATION, ZOMBIE_APPEARANCES, ZOMBIE_ATTACK_DURATION
+from combat import ATTACK_HIT_TIME, HEAVY_ZOMBIE_APPEARANCE, STUN_DURATION, ZOMBIE_APPEARANCES
 from locomotion import Locomotion, STRIDE_DISTANCE, select_facing
 
 
@@ -65,16 +65,18 @@ class CombatVisual:
             raise
 
     def load_zombie_appearances(self):
-        """Load the delivery atlases once and reuse the original pose data."""
+        """Load the delivery atlases and the heavy zombie's own pose data once."""
         if f"{ZOMBIE_APPEARANCES[1]}_zombie" in self.images:
             return
         images = {}
         metadata = {}
-        for appearance in ZOMBIE_APPEARANCES[1:]:
+        for appearance in (*ZOMBIE_APPEARANCES[1:], HEAVY_ZOMBIE_APPEARANCE):
             for source, suffix in (("zombie", "base"), ("zombie_attack", "attack")):
                 key = f"{appearance}_{source}"
                 layout = self.metadata[source]
                 path = ZOMBIE_METADATA_PATH.parent / f"{appearance}-{suffix}.png"
+                if appearance == HEAVY_ZOMBIE_APPEARANCE:
+                    layout = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
                 images[key] = load_atlas(path, layout["canvas_size"])
                 metadata[key] = layout
         self.images.update(images)
@@ -186,7 +188,7 @@ class CombatVisual:
             return
 
         if state.attack is not None:
-            if state.attack.elapsed >= ZOMBIE_ATTACK_DURATION:
+            if state.attack.elapsed >= state.attack.duration:
                 poses = self.metadata["zombie"]["facings"][motion.facing]
                 if poses.get("resume"):
                     state.resume = (0.0, None)

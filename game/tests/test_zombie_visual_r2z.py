@@ -13,7 +13,8 @@ sys.path.insert(0, str(TEST_DIR.parent))
 
 import main
 import combat_visual
-from combat import CombatWorld, STUN_DURATION, Zombie, ZombieAttack
+from combat import (CombatWorld, HEAVY_ZOMBIE_APPEARANCE, HEAVY_ZOMBIE_ATTACK_DURATION,
+                    HEAVY_ZOMBIE_ATTACK_HIT_TIME, STUN_DURATION, Zombie, ZombieAttack)
 from combat_visual import CombatVisual
 import test_visual_input_r1a as input_fixture
 
@@ -194,7 +195,7 @@ class ZombiePoseTests(unittest.TestCase):
             visual.close()
             self.assertEqual(visual.images, {})
 
-    def test_delivery_appearances_load_once_and_use_the_same_pose_data(self):
+    def test_delivery_appearances_load_once_and_use_correct_pose_data(self):
         def mock_atlas(path, canvas_size):
             return SimpleNamespace(h=canvas_size[1], clip_draw=Mock())
 
@@ -224,9 +225,24 @@ class ZombiePoseTests(unittest.TestCase):
                         zombie.hp = 0
                         self.assertEqual(visual._zombie_pose(zombie),
                                          (base_key, visual.metadata["zombie"]["frames"]["dead"]))
+            heavy_base = f"{HEAVY_ZOMBIE_APPEARANCE}_zombie"
+            heavy_attack = f"{HEAVY_ZOMBIE_APPEARANCE}_zombie_attack"
+            self.assertIsNot(visual.metadata[heavy_base], visual.metadata["zombie"])
+            self.assertIsNot(visual.metadata[heavy_attack], visual.metadata["zombie_attack"])
+            for facing, angle in FACINGS:
+                with self.subTest(appearance=HEAVY_ZOMBIE_APPEARANCE, facing=facing):
+                    visual.reset_zombie_animation()
+                    zombie = Zombie(300, 300, angle, appearance=HEAVY_ZOMBIE_APPEARANCE)
+                    zombie.attack = ZombieAttack(angle, facing, .50, hit_time=HEAVY_ZOMBIE_ATTACK_HIT_TIME,
+                                                 duration=HEAVY_ZOMBIE_ATTACK_DURATION)
+                    frames = visual.metadata[heavy_attack]["facings"][facing]
+                    self.assertEqual(visual._zombie_pose(zombie), (heavy_attack, frames[4]))
+                    zombie.attack.elapsed = zombie.attack.hit_time
+                    self.assertEqual(visual._zombie_pose(zombie), (heavy_attack, frames[6]))
+                    self.assertEqual(frames[-1]["end"], zombie.attack.duration)
             visual.reset_zombie_animation()
             visual.load_zombie_appearances()
-            self.assertEqual(load.call_count, 4)
+            self.assertEqual(load.call_count, 6)
 
     def test_delivery_appearance_atlases_keep_original_alpha(self):
         for atlas, metadata_path in (("base", combat_visual.ZOMBIE_METADATA_PATH),

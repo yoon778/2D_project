@@ -130,7 +130,7 @@ class ZombieAudioTests(unittest.TestCase):
     def setUp(self):
         self.backend = self.enterContext(patch.object(spatial_audio, "p", Mock()))
         self.backend.Mix_QuerySpec.return_value = 1
-        names = ("zombie_step", "zombie_groan", "bat_swing", "zombie_hit",
+        names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "bat_swing", "zombie_hit",
                  "player_walk", "player_run", "player_sneak", "player_hit",
                  "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle",
                  "bottle_break", "gate_open", "vehicle_alarm")
@@ -184,6 +184,36 @@ class ZombieAudioTests(unittest.TestCase):
         self.assertIn(call(groan, 57), calls)
         self.assertEqual(self.backend.Mix_SetPanning.call_args_list,
                          [call(0, 255, 98), call(1, 80, 255), call(2, 255, 150), call(3, 255, 98)])
+
+    def test_heavy_steps_keep_their_own_stride_distance_and_pan_behind_a_wall(self):
+        heavy, regular = self.sounds["zombie_step_heavy"], self.sounds["zombie_step"]
+        half_step = spatial_audio.HeavyFootstep(260, 18, .8, True)
+        self.audio.update(.1, distance=100, stride=0, active=True, heavy_step=half_step)
+        self.backend.Mix_PlayChannelTimed.assert_not_called()
+        self.audio.update(.1, distance=100, stride=32, active=True, pan=-1, heavy_step=half_step)
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(-1, heavy, 0, -1), call(-1, regular, 0, -1)])
+        self.assertEqual(self.backend.Mix_VolumeChunk.call_args_list, [call(heavy, 25), call(regular, 39)])
+        self.assertEqual(self.backend.Mix_SetPanning.call_args_list, [call(0, 115, 255), call(1, 255, 80)])
+
+    def test_heavy_steps_play_without_regular_zombies_and_stop_on_pause_or_leave(self):
+        sound = self.sounds["zombie_step_heavy"]
+        self.backend.Mix_GetChunk.return_value = sound
+        self.audio.update(.1, distance=None, stride=0, active=True,
+                          heavy_step=spatial_audio.HeavyFootstep(100, 36, 0.0, False))
+        self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, sound, 0, -1)
+        self.backend.Mix_HaltChannel.assert_not_called()
+        self.audio.update(.1, distance=None, stride=0, active=False, preserve_map_cue=True)
+        self.backend.Mix_HaltChannel.assert_called_once_with(0)
+
+        self.audio.update(.1, distance=None, stride=0, active=True,
+                          heavy_step=spatial_audio.HeavyFootstep(100, 36, 0.0, False))
+        self.audio.update(.1, distance=None, stride=0, active=True,
+                          heavy_step=spatial_audio.HeavyFootstep(520, 36, 0.0, False))
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1)])
+        self.audio.update(.1, distance=None, stride=0, active=True,
+                          heavy_step=spatial_audio.HeavyFootstep(100, 35, 0.0, False))
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_count, 2)
 
     def test_failed_channel_allocation_does_not_set_panning(self):
         self.backend.Mix_PlayChannelTimed.side_effect = (-1,)

@@ -32,6 +32,11 @@ _HIT_RECOIL_DISTANCE = 8.0
 ZOMBIE_ATTACK_DURATION = 0.8
 ZOMBIE_ATTACK_HIT_TIME = 0.3
 ZOMBIE_APPEARANCES = ("classic", "maintenance", "resident")
+HEAVY_ZOMBIE_APPEARANCE = "heavy"
+HEAVY_ZOMBIE_HP = 18
+HEAVY_ZOMBIE_SPEED = 54.0
+HEAVY_ZOMBIE_ATTACK_DURATION = 1.15
+HEAVY_ZOMBIE_ATTACK_HIT_TIME = 0.6
 _EPSILON = 1e-12
 _TIME_STEP = 0.001
 _MAX_UPDATE_DT = 10.0
@@ -53,6 +58,8 @@ class ZombieAttack:
     facing: str
     elapsed: float = 0.0
     _hit_done: bool = False
+    hit_time: float = field(default=ZOMBIE_ATTACK_HIT_TIME, kw_only=True)
+    duration: float = field(default=ZOMBIE_ATTACK_DURATION, kw_only=True)
 
 
 @dataclass
@@ -75,6 +82,10 @@ class Zombie(Player):
     @property
     def alive(self):
         return self.hp > 0
+
+    @property
+    def move_speed(self):
+        return HEAVY_ZOMBIE_SPEED if self.appearance == HEAVY_ZOMBIE_APPEARANCE else WALK_SPEED
 
 
 @dataclass
@@ -194,6 +205,7 @@ class CombatWorld:
         zombie.heard_at = None
 
     def _move_zombie_toward(self, zombie, target, dt, *, stop_distance=0.0, speed=WALK_SPEED):
+        speed = min(speed, zombie.move_speed)
         dx, dy = target[0] - zombie.x, target[1] - zombie.y
         distance = math.hypot(dx, dy)
         if distance > stop_distance + _EPSILON:
@@ -264,7 +276,12 @@ class CombatWorld:
         if not self._zombie_target_in_strike(zombie, angle):
             return False
         zombie.aim_angle = angle
-        zombie.attack = ZombieAttack(angle, select_facing(angle))
+        facing = select_facing(angle)
+        if zombie.appearance == HEAVY_ZOMBIE_APPEARANCE:
+            zombie.attack = ZombieAttack(angle, facing, hit_time=HEAVY_ZOMBIE_ATTACK_HIT_TIME,
+                                         duration=HEAVY_ZOMBIE_ATTACK_DURATION)
+        else:
+            zombie.attack = ZombieAttack(angle, facing)
         return True
 
     def _update_zombie(self, zombie, dt):
@@ -284,17 +301,18 @@ class CombatWorld:
             if dt <= _EPSILON:
                 return
         attack = zombie.attack
+        hit_time, duration = attack.hit_time, attack.duration
         end = attack.elapsed + dt
-        for boundary in (ZOMBIE_ATTACK_HIT_TIME, ZOMBIE_ATTACK_DURATION):
+        for boundary in (hit_time, duration):
             if abs(end - boundary) <= _EPSILON:
                 end = boundary
-        if not attack._hit_done and end >= ZOMBIE_ATTACK_HIT_TIME:
+        if not attack._hit_done and end >= hit_time:
             attack._hit_done = True
             if self.player_invulnerable_remaining == 0 and self._zombie_target_in_strike(zombie, attack.angle):
                 self.player_hp = max(0, self.player_hp - 1)
                 self.player_invulnerable_remaining = 1.0
-        attack.elapsed = min(end, ZOMBIE_ATTACK_DURATION)
-        if attack.elapsed >= ZOMBIE_ATTACK_DURATION:
+        attack.elapsed = min(end, duration)
+        if attack.elapsed >= duration:
             zombie.attack = None
 
     def _advance_player_attack(self, dt):
@@ -352,12 +370,10 @@ class CombatWorld:
             tick = min(remaining, _TIME_STEP)
             # End ticks at combat events so partial external frames lose no time.
             player_attack = self.attack
-            player_boundaries = (player_attack.hit_time, player_attack.duration) if player_attack is not None else ()
-            zombie_attacks = ((zombie.attack, (ZOMBIE_ATTACK_HIT_TIME, ZOMBIE_ATTACK_DURATION))
-                              for zombie in self.zombies if zombie.attack is not None)
-            for attack, boundaries in ((player_attack, player_boundaries), *zombie_attacks):
+            attacks = (player_attack, *(zombie.attack for zombie in self.zombies if zombie.attack is not None))
+            for attack in attacks:
                 if attack is not None:
-                    for boundary in boundaries:
+                    for boundary in (attack.hit_time, attack.duration):
                         until = boundary - attack.elapsed
                         if until > _EPSILON:
                             tick = min(tick, until)
@@ -457,8 +473,9 @@ class CombatWorld:
             recoil_dt = min(dt, max(0.0, recoil_left))
             angle = zombie.recoil_angle
             x, y = zombie.x, zombie.y
+            recoil_speed = min(zombie.move_speed, _HIT_RECOIL_DISTANCE / _HIT_RECOIL_DURATION)
             move_player(zombie, math.cos(angle), math.sin(angle),
-                        recoil_dt * _HIT_RECOIL_DISTANCE / (_HIT_RECOIL_DURATION * WALK_SPEED),
+                        recoil_dt * recoil_speed / WALK_SPEED,
                         self.walls, world_size=self.world_size)
             dx, dy = zombie.recoil_offset
             zombie.recoil_offset = (dx + (zombie.x - x), dy + (zombie.y - y))
