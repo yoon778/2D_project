@@ -825,15 +825,37 @@ class Renderer:
             x, y, width, depth = bridge.channel_rect
             cx, cy = map_point(x, y)
             rectangle(cx, cy, width * scale, max(2, depth * scale), MAP_ROUTE_INK)
+            next_stop = self.bridge_map_next_stop(world) if player is not None else None
             for position, symbol in ((bridge.key_position, "K"), (bridge.panel_position, "C")):
                 px, py = map_point(*position)
-                self.draw_bridge_map_marker(px, py, symbol)
-                occupied.append((px - 7, py - 8, px + 7, py + 8))
+                active = next_stop is not None and symbol == next_stop[0]
+                self.draw_bridge_map_marker(px, py, symbol, active=active)
+                half_w, half_h = (9, 10) if active else (7, 8)
+                occupied.append((px - half_w, py - half_h, px + half_w, py + half_h))
+                if active:
+                    label = next_stop[1]
+                    label_x, label_y = px + 16, py - 11
+                    label_width = 17 * len(label) + 16
+                    p.draw_line(px + 9, py, label_x, py, *MAP_PICKUP)
+                    labels.append((label_x, label_y, label_width, label, MAP_PICKUP))
+                    occupied.append((label_x, label_y, label_x + label_width, label_y + 23))
             bx, by = map_point(*bridge.bridge_position)
-            color = MAP_OPEN_GATE if bridge.bridge_down else MAP_CLOSED_GATE
-            rectangle(bx - 9, by - 4, 18, 8, MAP_INK)
-            rectangle(bx - 7, by - 2, 14, 4, color)
-            occupied.append((bx - 9, by - 4, bx + 9, by + 4))
+            if bridge.bridge_down:
+                bridge_x, bridge_y, bridge_width, bridge_depth = bridge.bridge_rect
+                deck_x, deck_y = map_point(bridge_x, bridge_y)
+                deck_width, deck_depth = bridge_width * scale, bridge_depth * scale
+                rectangle(deck_x, deck_y, deck_width, deck_depth, MAP_OPEN_GATE)
+                rectangle(deck_x, deck_y, deck_width, deck_depth, MAP_SAFE, filled=False)
+                p.draw_line(bx, deck_y - 4, bx, deck_y + deck_depth + 4, *MAP_SAFE)
+                label_x, label_y = cx + width * scale + 10, by + 6
+                p.draw_line(bx, deck_y + deck_depth + 4, label_x, label_y + 8, *MAP_SAFE)
+                labels.append((label_x, label_y, 118, "다리 지름길", MAP_SAFE))
+                occupied.append((label_x, label_y, label_x + 118, label_y + 23))
+            else:
+                rectangle(bx - 9, by - 4, 18, 8, MAP_INK)
+                rectangle(bx - 7, by - 2, 14, 4, MAP_CLOSED_GATE)
+            half_h = 9 if bridge.bridge_down else 4
+            occupied.append((bx - 9, by - half_h, bx + 9, by + half_h))
         if player is not None:
             self.draw_map_waypoints((left, bottom, right, top), route[1:], world.first_waypoint_number, occupied)
             self.draw_map_heading(*route[0], player.aim_angle, on_paper=True)
@@ -855,9 +877,21 @@ class Renderer:
         self.font.draw(scale_x, scale_y + 15, "400 px", MAP_PAPER_INK)
         rectangle(left, bottom, right - left, top - bottom, MAP_BORDER, filled=False)
 
-    def draw_bridge_map_marker(self, x, y, symbol):
+    @staticmethod
+    def bridge_map_next_stop(world):
+        bridge = world.bridge_puzzle
+        if not world.returning or bridge is None or bridge.bridge_down:
+            return None
+        if bridge.has_key:
+            return "C", "관리실", "회로 연결"
+        return "K", "경비초소", "열쇠 찾기"
+
+    def draw_bridge_map_marker(self, x, y, symbol, *, active=False):
+        if active:
+            rectangle(x - 9, y - 10, 18, 20, MAP_PICKUP)
         rectangle(x - 7, y - 8, 14, 16, MAP_LABEL)
-        rectangle(x - 7, y - 8, 14, 16, MAP_PAPER_INK, filled=False)
+        if not active:
+            rectangle(x - 7, y - 8, 14, 16, MAP_PAPER_INK, filled=False)
         self.font.draw(x - 5, y, symbol, MAP_PAPER_INK)
 
     def draw_map(self, player):
@@ -876,7 +910,11 @@ class Renderer:
         self.font.draw(side + 24, 602, "다음 목표", MAP_VIEW_TEXT)
         if len(world.contract.stops) > 1:
             self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", MAP_VIEW_TEXT)
-        if world.returning:
+        next_bridge_stop = self.bridge_map_next_stop(world)
+        if next_bridge_stop is not None:
+            _, place, action = next_bridge_stop
+            objective, target, accent = f"{place} {action}", "선택 지름길 · E 길게", ORANGE
+        elif world.returning:
             objective, accent = "북쪽 안전지점 복귀", SAFE_GREEN
             target = "추격을 끊고 복귀" if world.return_blocked else "초록색 안전지점에 도착하면 완료"
         elif world.parcel == "waiting":
@@ -915,15 +953,16 @@ class Renderer:
             self.font.draw(side + 191, 190, status, MAP_VIEW_TEXT)
         bridge = world.bridge_puzzle
         if bridge is not None:
-            self.draw_bridge_map_marker(side + 172, 435, "K")
+            active = next_bridge_stop[0] if next_bridge_stop is not None else None
+            self.draw_bridge_map_marker(side + 172, 435, "K", active=active == "K")
             status = "열쇠 수령" if bridge.has_key else "경비초소 · 열쇠"
-            self.font.draw(side + 191, 435, status, MAP_VIEW_TEXT)
-            self.draw_bridge_map_marker(side + 172, 400, "C")
-            self.font.draw(side + 191, 400, "관리실 · 회로", MAP_VIEW_TEXT)
+            self.font.draw(side + 191, 435, status, ORANGE if active == "K" else MAP_VIEW_TEXT)
+            self.draw_bridge_map_marker(side + 172, 400, "C", active=active == "C")
+            self.font.draw(side + 191, 400, "관리실 · 회로", ORANGE if active == "C" else MAP_VIEW_TEXT)
             color = MAP_OPEN_GATE if bridge.bridge_down else MAP_CLOSED_GATE
             rectangle(side + 162, 363, 20, 4, color)
-            status = "다리 · 개방" if bridge.bridge_down else "다리 · 올라감"
-            self.font.draw(side + 191, 365, status, MAP_VIEW_TEXT)
+            status = "다리 지름길" if bridge.bridge_down else "다리 · 올라감"
+            self.font.draw(side + 191, 365, status, SAFE_GREEN if bridge.bridge_down else MAP_VIEW_TEXT)
         self.draw_map_heading(side + 31, 295, 0)
         self.font.draw(side + 62, 295, "현재 위치·방향", MAP_VIEW_TEXT)
         self.draw_map_waypoint(side + 36, 120, 1)
