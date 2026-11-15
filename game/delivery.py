@@ -31,8 +31,9 @@ ZOMBIE_STARTS = (
 INTERACTION_RANGE = 42.0
 MAX_WAYPOINTS = 8
 _WAYPOINT_REACH = 32.0
-_INTERACTION_HOLD_TIMES = {"pickup": 0.50, "deliver": 1.00, "gate": 0.70}
+_INTERACTION_HOLD_TIMES = {"pickup": 0.50, "deliver": 1.00, "gate": 0.70, "shutter": 0.70}
 GATE_NOISE_RANGE = 230.0
+_SHUTTER_NOISE_RANGE = 95.0
 VEHICLE_ALARM_RANGE = 520.0
 _VEHICLE_TEXTURES = ("parked-car", "abandoned-car")
 BOTTLE_THROW_RANGE = 320.0
@@ -46,6 +47,13 @@ _SHOP_ZOMBIE_STARTS = (
     *ZOMBIE_STARTS[:16], (1865, 975), (1930, 950), (1978, 942),
     (2030, 973), (2005, 1015), *ZOMBIE_STARTS[21:],
 )
+_PARKING_ZOMBIE_STARTS = (
+    (2083, 1422), (2102, 1418), (2119, 1414), (2142, 1407),
+    (2094, 1406), (2116, 1393), (2134, 1382), (2144, 1369),
+)
+_PARKING_SHUTTER_POSITION = (2142, 1255)
+_PARKING_LURE_POSITION = (2355, 1380)
+_PARKING_BOTTLE_POSITION = (2110, 1230)
 
 
 @dataclass(frozen=True)
@@ -93,7 +101,7 @@ DELIVERY_CONTRACTS = (
     DeliveryContract(
         "상점 왕복", "상점에 전달하고 안전지점 복귀", "보통",
         _SINGLE_CONTRACTS[0].destination,
-        (*_SHOP_ZOMBIE_STARTS[16:21], (2020, 1335), (2370, 1430)),
+        (*_SHOP_ZOMBIE_STARTS[16:21], (2020, 1335), (2370, 1465)),
         _SINGLE_CONTRACTS[0].stops,
         player_start=(2315.0, 907.0), pickup=(2290.0, 907.0), return_point=(2460.0, 2285.0),
     ),
@@ -212,7 +220,11 @@ class DeliveryWorld(CombatWorld):
         self.player = Player(*self.contract.player_start)
         self.zombies = []
         has_patrol = _SINGLE_CONTRACTS[1].stops[0] in self.contract.stops
-        for index, position in enumerate(self.contract.zombie_starts):
+        has_shutter = self.contract is DELIVERY_CONTRACTS[3]
+        streetlights = type(self).streetlights
+        self.streetlights = (*streetlights, (2290, 1350)) if has_shutter else streetlights
+        parking_starts = _PARKING_ZOMBIE_STARTS if has_shutter else ()
+        for index, position in enumerate((*self.contract.zombie_starts, *parking_starts)):
             patrol = _REAR_ALLEY_PATROL if has_patrol and position == _REAR_ALLEY_PATROL[0] else None
             self.zombies.append(Zombie(
                 *position, aim_angle=math.pi if patrol else Player.aim_angle,
@@ -250,6 +262,20 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(1820, 1060, 260, 160, "shop"),
             NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
         ]
+        self.shutter_position = _PARKING_SHUTTER_POSITION if has_shutter else None
+        self.shutter_lure = _PARKING_LURE_POSITION if has_shutter else None
+        self.shutter_wall = None
+        self.shutter_closed = False
+        self.parking_walls = ()
+        if has_shutter:
+            # The west shutter is the lot's only opening. Its control is outside.
+            self.shutter_wall = NeighborhoodWall(2160, 1262, 12, 162, "parking-shutter", height=66)
+            self.parking_walls = (
+                NeighborhoodWall(2160, 1250, 320, 12, "fence", height=38),
+                NeighborhoodWall(2468, 1262, 12, 162, "fence", height=38),
+                NeighborhoodWall(2160, 1424, 320, 12, "fence", height=38),
+            )
+            self.walls.extend(self.parking_walls)
         self.parcel = "waiting"
         self._clear_interaction()
         self.waypoints: list[tuple[float, float]] = []
@@ -259,6 +285,8 @@ class DeliveryWorld(CombatWorld):
         self.bottle_pickups = list(_BOTTLE_STARTS)
         if self.contract.return_point is not None:
             self.bottle_pickups.append((2276, 902))
+        if has_shutter:
+            self.bottle_pickups.append(_PARKING_BOTTLE_POSITION)
         self.has_bottle = False
         self.bottle_flight = None
         self.bottle_impact = None
@@ -364,8 +392,12 @@ class DeliveryWorld(CombatWorld):
         if preview is None:
             return None
         landing, vehicle = preview
-        if vehicle is not None and (light is None or light.contains(landing)):
-            return "차량 경보 유인"
+        if light is None or light.contains(landing):
+            if vehicle is not None:
+                return "차량 경보 유인"
+            if (self.returning and self.shutter_lure is not None and not self.shutter_closed
+                    and math.dist(landing, self.shutter_lure) <= 18):
+                return "주차장 안쪽으로 유인"
         return "병 던지기"
 
     def bottle_throw_preview(self, target):
@@ -512,12 +544,30 @@ class DeliveryWorld(CombatWorld):
                 and not any(wall_blocks(origin, self.gate_position, wall)
                             for wall in self.walls if wall is not self.gate))
 
+    def can_close_shutter(self):
+        if self.shutter_wall is None or self.shutter_closed or not self.returning or self.player_hp <= 0:
+            return False
+        origin = (self.player.x, self.player.y)
+        if (math.dist(origin, self.shutter_position) > INTERACTION_RANGE
+                or any(wall_blocks(origin, self.shutter_position, wall) for wall in self.walls)):
+            return False
+        blockers = (self.shutter_wall,)
+        if not can_walk_direct(origin, origin, blockers):
+            return False
+        for zombie in self.zombies:
+            point = (zombie.x, zombie.y)
+            if zombie.alive and not can_walk_direct(point, point, blockers):
+                return False
+        return True
+
     def _available_interaction(self):
         target = self.interaction_target
         if target is not None:
             return ("pickup" if self.parcel == "waiting" else "deliver", target)
         if self.can_open_gate():
             return "gate", self.gate_position
+        if self.can_close_shutter():
+            return "shutter", self.shutter_position
         return None
 
     def _clear_interaction(self):
@@ -565,6 +615,14 @@ class DeliveryWorld(CombatWorld):
             self.walls.remove(self.gate)
             self.gate = None
             self._emit_noise(GATE_NOISE_RANGE, target)
+            return True
+        if action == "shutter":
+            self.walls.append(self.shutter_wall)
+            self.shutter_closed = True
+            for zombie in self.zombies:
+                zombie.investigation_route = None
+                zombie.patrol_route = None
+            self._emit_noise(_SHUTTER_NOISE_RANGE, target)
             return True
         if action == "pickup":
             self.parcel = "carrying"

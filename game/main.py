@@ -54,6 +54,7 @@ WALL_TEXTURE_SIZES = {
     "abandoned-car": [56, 31],
     "dumpster": [30, 24],
 }
+WALL_TEXTURE_ALIASES = {"parking-shutter": "iron-gate"}
 LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
 BUILDING_TEXTURES = {"west-house", "east-house", "shop", "workshop"}
 BUILDING_FADE_OUT = .16
@@ -438,10 +439,13 @@ class Renderer:
         if p.SDL_SetTextureBlendMode(self.neighborhood_ground.texture, p.SDL_BLENDMODE_BLEND) != 0:
             raise RuntimeError(f"Ground blend mode failed: {p.SDL_GetError()!r}")
         for wall in self.delivery.walls:
-            if isinstance(wall, NeighborhoodWall) and wall.texture not in self.neighborhood_walls:
-                self.neighborhood_walls[wall.texture] = load_atlas(
-                    NEIGHBORHOOD_PATH / f"{wall.texture}.png", WALL_TEXTURE_SIZES[wall.texture])
-            if isinstance(wall, NeighborhoodWall) and wall.oblique:
+            if not isinstance(wall, NeighborhoodWall):
+                continue
+            texture = WALL_TEXTURE_ALIASES.get(wall.texture, wall.texture)
+            if texture not in self.neighborhood_walls:
+                self.neighborhood_walls[texture] = load_atlas(
+                    NEIGHBORHOOD_PATH / f"{texture}.png", WALL_TEXTURE_SIZES[texture])
+            if wall.oblique:
                 key = f"{wall.texture}-side"
                 if key not in self.neighborhood_walls:
                     self.neighborhood_walls[key] = load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", WALL_TEXTURE_SIZES[key])
@@ -724,8 +728,13 @@ class Renderer:
         def map_point(x, y):
             return left + x * scale, bottom + y * scale
 
+        shutter = world.shutter_wall if contract is world.contract else None
+        map_walls = world.walls
+        if contract is not world.contract and world.parking_walls:
+            map_walls = [wall for wall in world.walls
+                         if wall is not world.shutter_wall and wall not in world.parking_walls]
         draw_map_base(rectangle, p.draw_line, (left, bottom, right, top), scale, (width, height),
-                      TOWN_ROADS, world.walls, draw_sprite=self._draw_map_sprite)
+                      TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite)
         for point, label, color in (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
             ((3110, 1007), "상점길", MAP_ALLEY_INK),
@@ -745,15 +754,18 @@ class Renderer:
         occupied = []
         labels = []
         landmark_labels = {"shop": "상점", "bus-stop": "정류장"}
-        for wall in world.walls:
+        for wall in map_walls:
             label = landmark_labels.get(getattr(wall, "texture", None))
             if label:
                 anchor_x, anchor_y = map_point(wall.x + wall.width / 2, wall.y + wall.depth)
                 label_width = 17 * len(label) + 16
                 x = min(right - label_width - 7, anchor_x + 16)
+                if shutter is not None and label == "상점":
+                    x = anchor_x - label_width - 12
                 y = min(top - 29, anchor_y + 10)
                 occupied.append((x, y, x + label_width, y + 23))
-                p.draw_line(anchor_x, anchor_y, x, y + 5, *MAP_PAPER_INK)
+                leader_x = x + label_width if x < anchor_x else x
+                p.draw_line(anchor_x, anchor_y, leader_x, y + 5, *MAP_PAPER_INK)
                 labels.append((x, y, label_width, label, MAP_PAPER_INK))
 
         pickup_x, pickup_y = map_point(*contract.pickup)
@@ -789,6 +801,18 @@ class Renderer:
             gate_closed = player is None or world.gate is not None
             rectangle(gate_x - 5, gate_y - 7, 10, 4, MAP_INK)
             rectangle(gate_x - 4, gate_y - 6, 8, 2, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
+        if shutter is not None:
+            sx, sy = map_point(shutter.x, shutter.y)
+            marker_w, marker_h = max(4, shutter.width * scale), max(4, shutter.depth * scale)
+            color = MAP_CLOSED_GATE if world.shutter_closed else MAP_OPEN_GATE
+            rectangle(sx - 1, sy - 1, marker_w + 2, marker_h + 2, MAP_INK)
+            rectangle(sx, sy, marker_w, marker_h, color)
+            occupied.append((sx - 1, sy - 1, sx + marker_w + 1, sy + marker_h + 1))
+            lot_x, lot_y = map_point(*world.shutter_lure)
+            label_x, label_y = lot_x - 32, lot_y + 5
+            occupied.append((label_x, label_y, label_x + 65, label_y + 23))
+            p.draw_line(lot_x, lot_y, lot_x, label_y, *MAP_PAPER_INK)
+            labels.append((label_x, label_y, 65, "주차장", MAP_PAPER_INK))
         if player is not None:
             self.draw_map_waypoints((left, bottom, right, top), route[1:], world.first_waypoint_number, occupied)
             self.draw_map_heading(*route[0], player.aim_angle, on_paper=True)
@@ -858,6 +882,11 @@ class Renderer:
         if world.contract.return_point is not None:
             self.draw_safe_map_marker(side + 36, 155, MAP_SAFE, backing=MAP_LABEL)
             self.font.draw(side + 62, 155, "안전지점", MAP_VIEW_TEXT)
+        if world.shutter_wall is not None:
+            color = MAP_CLOSED_GATE if world.shutter_closed else MAP_OPEN_GATE
+            rectangle(side + 162, 188, 20, 4, color)
+            status = "셔터 · 닫힘" if world.shutter_closed else "셔터 · 열림"
+            self.font.draw(side + 191, 190, status, MAP_VIEW_TEXT)
         self.draw_map_heading(side + 31, 295, 0)
         self.font.draw(side + 62, 295, "현재 위치·방향", MAP_VIEW_TEXT)
         self.draw_map_waypoint(side + 36, 120, 1)
@@ -917,10 +946,15 @@ class Renderer:
             return
 
         textured = isinstance(wall, NeighborhoodWall)
-        image = self.neighborhood_walls.get(wall.texture) if textured else None
+        texture = WALL_TEXTURE_ALIASES.get(wall.texture, wall.texture) if textured else None
+        image = self.neighborhood_walls.get(texture)
         oblique = image is not None and wall.oblique
         low_obstacle = image is not None and wall.texture in LOW_OBSTACLE_TEXTURES
-        seam = (image.h - round(height / 2)) / image.h if image is not None else 0.5
+        shutter = textured and wall.texture == "parking-shutter"
+        long_shutter = shutter and wall.depth > wall.width
+        # The shutter reuses the shorter iron gate's roof/front texture split.
+        texture_height = 38 if shutter else height
+        seam = (image.h - round(texture_height / 2)) / image.h if image is not None else 0.5
         if oblique:
             front, side, roof = house_planes(wall, x, y)
             foundation = quad(x, y, wall.width, depth + HOUSE_FOUNDATION_HEIGHT)
@@ -981,6 +1015,11 @@ class Renderer:
                     band = side_band * min(1, (end - start) * 2)
                     bounds = (0, 0, band, 1) if edge == "left" else (1 - band, 0, 1, 1)
                     self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, mask=mask, opacity=opacity)
+                if long_shutter and edge in ("left", "right"):
+                    # The shutter opening follows the alley depth in the current projection.
+                    face = quad(x, y, wall.width, height + depth)
+                    self.draw_wall_plane(image, face, 0, 1, facade_shade, (0, start, 1, end),
+                                         mask=mask, opacity=opacity)
                 self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha, mask=mask,
                                      opacity=opacity)
 
@@ -1121,6 +1160,42 @@ class Renderer:
         if self.light.contains(position):
             rectangle(x + 19, y + 26, 50, 23, (16, 24, 28))
             self.font.draw(x + 26, y + 37, "수령" if pickup else "배달", ORANGE if pickup else TEAL)
+
+    def draw_shutter_entrance(self, shutter):
+        x, y = self.project(shutter.x, shutter.y)
+        depth = shutter.depth * GROUND_SCALE_Y
+
+        def draw():
+            if shutter.depth > shutter.width:
+                for offset in range(3, int(depth), 12):
+                    rectangle(x + (shutter.width - 4) / 2, y + offset, 4, 6, (178, 143, 73))
+            else:
+                for offset in range(3, int(shutter.width), 12):
+                    rectangle(x + offset, y + (depth - 4) / 2, 6, 4, (178, 143, 73))
+
+        self.draw_lit_region((x, y, shutter.width, depth), draw)
+
+    def draw_shutter_control(self, position, *, closed):
+        x, y = self.project(*position)
+        light_color = TEAL if closed else ORANGE
+
+        def draw(*, dimmed=False):
+            for left, bottom, width, height, color in (
+                (x - 3, y, 6, 17, (77, 76, 69)),
+                (x - 8, y + 17, 16, 15, (62, 77, 76)),
+                (x - 5, y + 20, 10, 9, (107, 117, 104)),
+                (x - 2, y + 23, 4, 4, light_color),
+            ):
+                rectangle(left, bottom, width, height, dim_color(color) if dimmed else color)
+
+        bounds = (x - 8, y, 17, 33)
+        glow_spans = self.glow_at_ground_depth(position, x)
+        if glow_spans is not None:
+            self.draw_lit_region(bounds, lambda: draw(dimmed=True), row_spans=glow_spans)
+        self.draw_lit_region(bounds, draw)
+        if self.light.contains(position):
+            rectangle(x + 13, y + 20, 72, 23, (16, 24, 28))
+            self.font.draw(x + 19, y + 31, "닫힘" if closed else "셔터", light_color)
 
     def draw_safe_zone(self, position, origin, walls, *, blocked):
         if math.dist(position, origin) > 150 or any(wall_blocks(origin, position, wall) for wall in walls):
@@ -1270,6 +1345,10 @@ class Renderer:
                         else tuple(stop.position for stop in delivery.remaining_stops))
             if delivery.returning:
                 self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
+                if delivery.shutter_position is not None:
+                    stations = (*stations, delivery.shutter_position)
+                    if not delivery.shutter_closed:
+                        self.draw_shutter_entrance(delivery.shutter_wall)
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
             flight = delivery.bottle_flight
             if flight is not None:
@@ -1291,7 +1370,10 @@ class Renderer:
                 x, y, lift = actor
                 self.draw_lit_prop((x, y), self.street_prop_images["empty-bottle"], lift=lift)
             elif kind == "station":
-                self.draw_station(actor, delivery.parcel == "waiting")
+                if actor == delivery.shutter_position:
+                    self.draw_shutter_control(actor, closed=delivery.shutter_closed)
+                else:
+                    self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "wall":
@@ -1701,10 +1783,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             player_hit = world.player_hp < hp_before
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
-            gate_opened = False
+            door_sound = None
             parcel_picked_up = parcel_dropped = False
             if delivery_run:
                 gate_was_closed = world.gate is not None
+                shutter_was_closed = world.shutter_closed
                 was_waiting = world.parcel == "waiting"
                 completed = world.update_interaction(
                     dt if active else 0.0, held=active and p.SDLK_e in pressed,
@@ -1713,10 +1796,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if completed and world.just_unlocked_two_stop:
                     save_two_stop_unlock()
                 gate_opened = completed and gate_was_closed and world.gate is None
-                if completed and not gate_opened:
+                shutter_closed = completed and not shutter_was_closed and world.shutter_closed
+                if completed and not (gate_opened or shutter_closed):
                     parcel_picked_up = was_waiting
                     parcel_dropped = not was_waiting and world.result == "playing"
-                if gate_opened:
+                if gate_opened or shutter_closed:
+                    door_sound = world.gate_position if gate_opened else world.shutter_position
                     renderer.reset_streetlights()
                     renderer.light = None
             ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
@@ -1797,8 +1882,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if bottle_impact is not None:
                     sound_distance, sound_pan = sound_position(listener, bottle_impact)
                     zombie_audio.play_bottle_break(sound_distance, pan=sound_pan)
-                if gate_opened:
-                    sound_distance, sound_pan = sound_position(listener, world.gate_position)
+                if door_sound is not None:
+                    sound_distance, sound_pan = sound_position(listener, door_sound)
                     zombie_audio.play_gate_open(sound_distance, pan=sound_pan)
                 if vehicle_hit is not None:
                     sound_distance, sound_pan = sound_position(listener, vehicle_hit)

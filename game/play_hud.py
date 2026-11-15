@@ -47,6 +47,7 @@ INTERACTION_LABELS = {
     "pickup": (HINT_TEXT["E"], "택배 수령 중", TEAL),
     "deliver": ("택배 전달 · 길게 누르기", "택배 전달 중", TEAL),
     "gate": ("철문 열기 · 길게 누르기 · 소음", "철문 여는 중 · 소음", AMBER),
+    "shutter": ("셔터 닫기 · 길게 누르기", "셔터 닫는 중", AMBER),
 }
 
 
@@ -356,6 +357,14 @@ class PlayHUD:
             self._waypoint(waypoint_direction, world.first_waypoint_number)
         if alarm:
             self._notice("차량 경보", AMBER)
+        elif (world.returning and world.shutter_position is not None
+              and math.dist((world.player.x, world.player.y), world.shutter_position) <= 150
+              and light.contains(world.shutter_position)):
+            if world.shutter_closed:
+                self._notice("주차장 셔터 닫힘", TEAL)
+            else:
+                text = "주차장 안쪽에 병을 던져 유인" if world.has_bottle else "좀비가 들어가면 셔터 닫기"
+                self._notice(text, AMBER)
         elif world.sneaking:
             self._notice("잠행 · 작은 발소리", TEAL, sneak=True)
 
@@ -373,6 +382,9 @@ class PlayHUD:
                 actions.append(("E", label, color))
         elif world.can_open_gate():
             label, _, color = INTERACTION_LABELS["gate"]
+            actions.append(("E", label, color))
+        elif world.can_close_shutter():
+            label, _, color = INTERACTION_LABELS["shutter"]
             actions.append(("E", label, color))
         if world.nearby_bottle is not None:
             actions.append(("F", "빈 병 줍기", TEXT))
