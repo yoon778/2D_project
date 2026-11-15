@@ -7,6 +7,17 @@ MAP_BUILDING = (171, 160, 139)
 MAP_WRECK = (153, 75, 54)
 MAP_LANDMARK = (120, 130, 110)
 
+MAP_ICON_ATLAS_SIZE = (576, 96)
+MAP_ICON_CLIPS = {
+    "west-house": (0, 0, 96, 96),
+    "east-house": (96, 0, 96, 96),
+    "workshop": (192, 0, 96, 96),
+    "shop": (288, 0, 96, 96),
+    "bus-stop": (384, 0, 96, 96),
+    "parked-car": (480, 0, 96, 96),
+    "abandoned-car": (480, 0, 96, 96),
+}
+
 _GRID = (218, 206, 176)
 _PARCEL = (225, 215, 190)
 _VERGE = (218, 218, 187)
@@ -66,7 +77,7 @@ def _draw_paper(rectangle, draw_line, bounds):
         draw_line(left + depth + 2, y, left + depth + 2, y + length, *_CREASE_SHADE)
 
 
-def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls):
+def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, draw_sprite=None):
     """Draw the static ground layers; mission markers are drawn by the caller."""
     left, bottom, right, top = bounds
     width, height = world_size
@@ -86,7 +97,7 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls):
         sy = bottom + y * scale
         draw_line(left, sy, right, sy, *_GRID)
 
-    # Lot margins sit behind the roads and follow the actual building blocks.
+    # Lot margins sit beneath the street ink and the building illustrations.
     footprints = [(wall, getattr(wall, "texture", None)) for wall in walls]
     for wall, kind in footprints:
         if kind not in _BUILDING_TYPES:
@@ -96,7 +107,8 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls):
         margin = 13 if kind in _RESIDENCES else 8
         box(x - margin, y - margin, east + margin, north + margin,
             _VERGE if kind in _RESIDENCES else _PARCEL)
-        box(x - margin, y - margin, east + margin, north + margin, _PARCEL_EDGE, filled=False)
+        if draw_sprite is None:
+            box(x - margin, y - margin, east + margin, north + margin, _PARCEL_EDGE, filled=False)
 
     minor = (*roads["alleys"], roads["main_detour"])
     street_layers = ((tuple(_segments(minor)), MAP_ALLEY, _ALLEY_EDGE, 4),
@@ -122,6 +134,17 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls):
     for wall, kind in footprints:
         x, y = wall.x, wall.y
         east, north = x + wall.width, y + wall.depth
+        if draw_sprite is not None and kind in MAP_ICON_CLIPS:
+            west, south = max(0, x), max(0, y)
+            icon_east, icon_north = min(width, east), min(height, north)
+            if west < icon_east and south < icon_north:
+                icon_w = (icon_east - west) * scale
+                icon_h = (icon_north - south) * scale
+                inset_x = icon_w * .04 if kind in _RESIDENCES or kind == "workshop" else 0
+                inset_y = icon_h * .03 if inset_x else 0
+                if draw_sprite(kind, left + west * scale + inset_x, bottom + south * scale + inset_y,
+                               icon_w - 2 * inset_x, icon_h - 2 * inset_y):
+                    continue
         if kind in _CARS:
             box(x, y, east, north, MAP_WRECK)
             box(x, y, east, north, _CAR_EDGE, filled=False)

@@ -14,23 +14,31 @@ TEXT = (244, 239, 225)
 TEAL = (123, 221, 192)
 AMBER = (255, 191, 106)
 SAFE_GREEN = (168, 226, 120)
-WAYPOINT = (222, 174, 255)
-HEALTH = (237, 146, 129)
-PANEL = (22, 29, 27, 230)
-FRAME = (112, 123, 112, 200)
+WAYPOINT = (46, 79, 122)
+HEALTH = (203, 113, 88)
+ENERGY = (172, 195, 143)
+PANEL = (35, 30, 24, 234)
+FRAME = (144, 117, 86, 218)
 TRACK = (67, 61, 53, 255)
 KEYCAP = (225, 217, 196, 255)
 KEY_TEXT = (30, 28, 24)
 SEPARATOR = (126, 120, 101, 150)
+PAPER = (237, 221, 187, 255)
+PAPER_EDGE = (163, 127, 85, 255)
+PAPER_INK = (49, 37, 27)
+PAPER_MUTED = (104, 75, 51)
+PAPER_GREEN = (57, 88, 51)
+STAMP = (139, 59, 45)
 MAX_HEALTH = 3
 MARGIN = 24
-UTILITY_SIZE = 40
-PANEL_GAP = 10
 VITALS_WIDTH = 204
-VITALS_HEIGHT = 98
+VITALS_HEIGHT = 95
+OBJECTIVE_WIDTH = 284
+OBJECTIVE_HEIGHT = 79
 SMALL = 15
 BODY = 18
 TITLE = 26
+RECEIPT_TITLE = 36
 HINT_WINDOW = 60.0
 HINT_DURATION = 5.0
 PICKUP_CONTROLS = "WASD 이동 · 마우스 조준 · 좌클릭 공격"
@@ -48,17 +56,24 @@ def fill(x, y, width, height, color):
     p.SDL_RenderFillRect(p.renderer, ctypes.byref(bounds))
 
 
-def panel(x, y, width, height, border=FRAME):
-    fill(x, y, width, height, PANEL)
+def panel(x, y, width, height, border=FRAME, *, background=PANEL, accent=None):
+    fill(x, y, width, height, background)
     p.SDL_SetRenderDrawColor(p.renderer, *border)
     bounds = p.SDL_Rect(x, y, width, height)
     p.SDL_RenderDrawRect(p.renderer, ctypes.byref(bounds))
+    if accent is not None:
+        fill(x, y, 4, height, (*accent, 255))
 
 
 def trace(x, y, points, color):
     p.SDL_SetRenderDrawColor(p.renderer, *color, 255)
     vertices = (p.SDL_Point * len(points))(*(p.SDL_Point(x + dx, y + dy) for dx, dy in points))
     p.SDL_RenderDrawLines(p.renderer, vertices, len(vertices))
+
+
+def receipt_rule(x, y, width):
+    for start in range(x, x + width - 6, 12):
+        fill(start, y, 7, 1, (*PAPER_MUTED, 155))
 
 
 class PlayHUD:
@@ -70,7 +85,7 @@ class PlayHUD:
         self._waypoint_label = None
         self.reset_delivery()
         try:
-            for size in (SMALL, BODY, TITLE):
+            for size in (SMALL, BODY, TITLE, RECEIPT_TITLE):
                 font = p.TTF_OpenFont(str(font_path).encode("utf-8"), size)
                 if not font:
                     raise OSError(f"HUD font could not load: {font_path}")
@@ -114,59 +129,45 @@ class PlayHUD:
         p.SDL_RenderCopy(p.renderer, texture, None, ctypes.byref(bounds))
 
     def _vitals(self, world):
-        x, y = MARGIN + UTILITY_SIZE + PANEL_GAP, MARGIN
-        panel(MARGIN, y, UTILITY_SIZE, UTILITY_SIZE, (*TEAL, 220))
-        fill(MARGIN + 11, y + 17, 18, 6, (*TEXT, 255))
-        fill(MARGIN + 17, y + 11, 6, 18, (*TEXT, 255))
-
-        map_y = y + UTILITY_SIZE + 8
-        panel(MARGIN, map_y, UTILITY_SIZE, UTILITY_SIZE)
-        trace(MARGIN + 8, map_y + 8, ((0, 4), (7, 0), (14, 4), (21, 0), (21, 17),
-                                    (14, 21), (7, 17), (0, 21), (0, 4)), TEXT)
-        trace(MARGIN + 8, map_y + 8, ((7, 0), (7, 17)), TEXT)
-        trace(MARGIN + 8, map_y + 8, ((14, 4), (14, 21)), TEXT)
-        fill(MARGIN + 24, map_y + 24, 16, 16, KEYCAP)
-        self._text("M", MARGIN + 32, map_y + 32, SMALL, KEY_TEXT, align="center")
-
+        x = y = MARGIN
         panel(x, y, VITALS_WIDTH, VITALS_HEIGHT)
         self._text("체력", x + 12, y + 19, BODY)
         self._text(f"{world.player_hp} / {MAX_HEALTH}", x + VITALS_WIDTH - 12, y + 19, BODY, align="right")
         for index in range(MAX_HEALTH):
             color = (*HEALTH, 255) if index < world.player_hp else TRACK
             fill(x + 12 + 61 * index, y + 34, 57, 10, color)
-        self._text("스태미나", x + 12, y + 63, BODY)
-        track_width = VITALS_WIDTH - 24
-        fill(x + 12, y + 82, track_width, 5, TRACK)
+        self._text("스태미나", x + 12, y + 68, SMALL)
+        track_x = x + 80
+        track_width = VITALS_WIDTH - 92
+        fill(track_x, y + 66, track_width, 5, TRACK)
         stamina = round(track_width * world.stamina / MAX_STAMINA)
         if stamina:
-            fill(x + 12, y + 82, stamina, 5, (*TEAL, 255))
+            fill(track_x, y + 66, stamina, 5, (*ENERGY, 255))
+
+        map_y = self.height - MARGIN - 24
+        panel(x, map_y - 4, 86, 32)
+        self._keycap("M", x + 5, map_y, 24)
+        self._text("지도", x + 38, map_y + 12, BODY)
 
     def _objective(self, world):
         stop_count = len(world.contract.stops)
-        width, height = (212 if stop_count > 1 else 184), 68
-        if world.contract.return_point is not None:
-            width = 212
-        x, y = self.width - MARGIN - width, MARGIN
+        x, y = self.width - MARGIN - OBJECTIVE_WIDTH, MARGIN
+        panel(x, y, OBJECTIVE_WIDTH, OBJECTIVE_HEIGHT, PAPER_EDGE, background=PAPER, accent=STAMP)
         if world.returning:
-            accent = AMBER if world.return_blocked else SAFE_GREEN
             guidance = "추격을 끊고 복귀" if world.return_blocked else "도착하면 자동 완료"
-            panel(x, y, width, height)
-            fill(x, y, 3, height, (*accent, 255))
-            self._text("안전지점 복귀", x + 14, y + 24, TITLE, accent)
-            self._text(guidance, x + 14, y + 50, SMALL)
+            self._text(guidance, x + 16, y + 20, SMALL, STAMP if world.return_blocked else PAPER_MUTED)
+            self._text("북쪽 안전지점 복귀", x + 16, y + 51, TITLE, PAPER_INK)
             return
-        panel(x, y, width, height)
-        fill(x, y, 3, height, (*TEAL, 255))
         waiting = world.parcel == "waiting"
-        self._text("택배 수령" if waiting else "택배 전달", x + 14, y + 17, SMALL, TEAL)
+        self._text("택배 수령" if waiting else "택배 전달", x + 16, y + 20, SMALL, PAPER_MUTED)
         if stop_count > 1:
-            self._text(f"{len(world.completed_stops)} / {stop_count}", x + width - 14, y + 17,
-                       SMALL, TEAL, align="right")
+            self._text(f"{len(world.completed_stops)} / {stop_count}", x + OBJECTIVE_WIDTH - 14, y + 20,
+                       SMALL, PAPER_MUTED, align="right")
         if world.contract.return_point is not None:
             place = "상점 근처 거점" if waiting else world.contract.stops[0].name
         else:
             place = "남서쪽 거점" if waiting else world.contract.name
-        self._text(place, x + 14, y + 45, TITLE)
+        self._text(place, x + 16, y + 51, TITLE, PAPER_INK)
 
     def _keycap(self, key, x, y, width):
         fill(x, y, width, 24, KEYCAP)
@@ -190,9 +191,8 @@ class PlayHUD:
             if previous is not None:
                 p.SDL_DestroyTexture(previous[0])
             self._waypoint_label = label
-        width = 144 + 9 * len(str(number))
-        x, y = self.width - MARGIN - width, MARGIN + 76
-        panel(x, y, width, 32)
+        x, y = self.width - MARGIN - OBJECTIVE_WIDTH, MARGIN + OBJECTIVE_HEIGHT - 1
+        panel(x, y, OBJECTIVE_WIDTH, 32, PAPER_EDGE, background=PAPER, accent=STAMP)
         tail = round(-8 * dx), round(-8 * dy)
         head = round(8 * dx), round(8 * dy)
         left = round(2 * dx - 4 * dy), round(2 * dy + 4 * dx)
@@ -201,7 +201,7 @@ class PlayHUD:
         self._text(label, x + 38, y + 16, SMALL, WAYPOINT)
 
     def _notice(self, text, color, *, sneak=False):
-        x, y = MARGIN + UTILITY_SIZE + PANEL_GAP, MARGIN + VITALS_HEIGHT + 8
+        x, y = MARGIN, MARGIN + VITALS_HEIGHT + 8
         width = self._label(text, SMALL, TEXT)[1] + 42
         panel(x, y, width, 32)
         if sneak:
@@ -243,9 +243,10 @@ class PlayHUD:
         self._hint_until = 0.0
         self._pickup_controls_until = None
         if self._attack_label is not None:
-            label = self._labels.pop((self._attack_label, BODY, TEXT), None)
-            if label is not None:
-                p.SDL_DestroyTexture(label[0])
+            for key in tuple(self._labels):
+                if key[0] == self._attack_label:
+                    texture, _, _ = self._labels.pop(key)
+                    p.SDL_DestroyTexture(texture)
             self._attack_label = None
 
     def dismiss_hint(self, key):
@@ -296,34 +297,48 @@ class PlayHUD:
 
     def draw_result(self, world):
         success = world.result == "delivered"
-        accent = TEAL if success else AMBER
         extra_lines = []
         if len(world.contract.stops) > 1:
             for stop in world.contract.stops:
                 completed = stop in world.completed_stops
                 status = "완료" if completed else "미완료"
-                extra_lines.append((f"{stop.name} · {status}", TEAL if completed else TEXT))
+                extra_lines.append((f"{stop.name} · {status}", PAPER_GREEN if completed else PAPER_MUTED))
         if world.just_unlocked_two_stop:
-            extra_lines.append(("새 계약 열림 · R에서 3번 선택", TEAL))
-        extra_height = len(extra_lines) * 24
-        width, height = 502, 244 + extra_height
+            extra_lines.append(("새 계약 열림 · R에서 3번 선택", PAPER_GREEN))
+        extra_height = len(extra_lines) * 25
+        width, height = 454, 303 + extra_height
         x, y = (self.width - width) // 2, (self.height - height) // 2
         center = self.width // 2
-        panel(x, y, width, height, (*accent, 220))
-        self._text("배달 성공" if success else "배달 실패", center, y + 34, TITLE, accent, align="center")
+        fill(0, 0, self.width, self.height, (8, 6, 4, 130))
+        fill(x + 5, y + 7, width, height, (6, 4, 2, 150))
+        panel(x, y, width, height, PAPER_EDGE, background=PAPER)
+        left, right = x + 27, x + width - 27
+        self._text("배송 확인서", left, y + 30, SMALL, PAPER_MUTED)
+        self._text("배달 성공" if success else "배달 실패", left - 1, y + 63, RECEIPT_TITLE,
+                   PAPER_INK if success else STAMP)
+        stamp = "복귀 확인" if world.contract.return_point is not None else "배송 확인"
+        if not success:
+            stamp = "미완료"
+        panel(right - 106, y + 29, 106, 35, (*STAMP, 255), background=PAPER)
+        panel(right - 103, y + 32, 100, 29, (*STAMP, 185), background=PAPER)
+        self._text(stamp, right - 53, y + 46, SMALL, STAMP, align="center")
+        receipt_rule(left, y + 98, right - left)
+
         self._attack_label = f"{world.attack_count}회"
         rows = (("배송지", world.contract.name), ("남은 체력", f"{world.player_hp} / {MAX_HEALTH}"),
                 ("공격 횟수", self._attack_label),
                 ("교전 없이 배달", "성공" if success and world.combat_free else "미달성"))
         for index, (label, value) in enumerate(rows):
-            baseline = y + 78 + index * 30
-            self._text(label, x + 28, baseline, BODY)
-            self._text(value, x + width - 28, baseline, BODY, align="right")
-        fill(x + 28, y + 189, width - 56, 1, SEPARATOR)
+            baseline = y + 125 + index * 28
+            self._text(label, left, baseline, BODY, PAPER_MUTED)
+            self._text(value, right, baseline, BODY, PAPER_INK, align="right")
+        receipt_rule(left, y + 231, right - left)
         for index, (label, color) in enumerate(extra_lines):
-            self._text(label, center, y + 208 + index * 24, SMALL, color, align="center")
-        self._text("Enter 같은 배송 재도전  ·  R 배달 선택  ·  Esc 종료", center, y + 216 + extra_height,
-                   SMALL, align="center")
+            self._text(label, center, y + 252 + index * 25, SMALL, color, align="center")
+        if extra_lines:
+            receipt_rule(left, y + 243 + extra_height, right - left)
+        self._text("Enter 같은 배송 재도전  ·  R 배달 선택  ·  Esc 종료", center, y + 268 + extra_height,
+                   SMALL, PAPER_INK, align="center")
 
     def draw(self, world, light, aim, *, focused, alarm, near_visible_zombie=False, waypoint_direction=None):
         self._vitals(world)

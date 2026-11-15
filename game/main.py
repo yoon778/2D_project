@@ -20,7 +20,9 @@ from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import PatrolFootstep, ZombieAudio
-from town_map_art import MAP_ALLEY, MAP_BUILDING, MAP_LANDMARK, MAP_ROAD, MAP_WRECK, draw_base as draw_map_base
+from town_map_art import (MAP_ALLEY, MAP_BUILDING, MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS, MAP_LANDMARK,
+                          MAP_ROAD, MAP_WRECK)
+from town_map_art import draw_base as draw_map_base
 import opening
 
 WINDOW_WIDTH = 1280
@@ -92,6 +94,11 @@ MAP_PICKUP = (168, 85, 27)
 MAP_DROPOFF = (149, 45, 37)
 MAP_SAFE = (42, 100, 57)
 MAP_COMPLETED = (108, 114, 103)
+MAP_VIEW_BG = (27, 23, 19)
+MAP_VIEW_PANEL = (49, 39, 31)
+MAP_VIEW_EDGE = (138, 111, 79)
+MAP_VIEW_PAPER = (227, 211, 178)
+MAP_VIEW_TEXT = (243, 228, 201)
 PLAY_MAP_VIEWPORT = (64, 104, 792, 528)
 HIT_MARK_DURATION = 0.14
 NOISE_PULSE_DURATION = 0.24
@@ -383,6 +390,7 @@ class Renderer:
         self.combat_visual = None
         self.trash_can = None
         self.neighborhood_ground = None
+        self.map_icons = None
         self.neighborhood_walls = {}
         self.wall_alpha = {}
         self._building_fades = {}
@@ -446,6 +454,11 @@ class Renderer:
             key: load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", size) for key, size in PROP_TEXTURE_SIZES.items()
         }
         self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
+        self.map_icons = p.load_image(str(BASE_DIR / "assets/ui/town-map-icons.png"))
+        if (self.map_icons.w, self.map_icons.h) != MAP_ICON_ATLAS_SIZE:
+            raise ValueError("Town map icon atlas has incorrect dimensions")
+        if p.SDL_SetTextureScaleMode(self.map_icons.texture, p.SDL_ScaleModeLinear) != 0:
+            raise RuntimeError(f"Town map icon sampling failed: {p.SDL_GetError()!r}")
         self.reset_streetlights()
         self.play_hud = PlayHUD(BASE_DIR / "assets/ui/NotoSansKR-Regular.ttf", WINDOW_WIDTH, WINDOW_HEIGHT)
 
@@ -474,6 +487,7 @@ class Renderer:
         self.street_prop_images.clear()
         self.streetlamp_image = None
         self.neighborhood_ground = None
+        self.map_icons = None
         self.neighborhood_walls.clear()
         self.wall_alpha.clear()
         self.trash_can = None
@@ -690,6 +704,16 @@ class Renderer:
             return min(width, max(0.0, x)), min(height, max(0.0, y))
         return None
 
+    def _draw_map_sprite(self, kind, left, bottom, width, height):
+        clip = MAP_ICON_CLIPS.get(kind)
+        if self.map_icons is None or clip is None:
+            return False
+        x, y = round(left), round(bottom)
+        w, h = round(left + width) - x, round(bottom + height) - y
+        if w > 0 and h > 0:
+            self.map_icons.clip_draw_to_origin(*clip, x, y, w, h)
+        return True
+
     def draw_town_map(self, contract, x, y, viewport_width, viewport_height, player=None):
         world = self.delivery
         width, height = world.world_size
@@ -701,7 +725,7 @@ class Renderer:
             return left + x * scale, bottom + y * scale
 
         draw_map_base(rectangle, p.draw_line, (left, bottom, right, top), scale, (width, height),
-                      TOWN_ROADS, world.walls)
+                      TOWN_ROADS, world.walls, draw_sprite=self._draw_map_sprite)
         for point, label, color in (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
             ((3110, 1007), "상점길", MAP_ALLEY_INK),
@@ -788,55 +812,60 @@ class Renderer:
 
     def draw_map(self, player):
         world = self.delivery
-        p.SDL_SetRenderDrawColor(p.renderer, *MAP_INK, 255)
+        p.SDL_SetRenderDrawColor(p.renderer, *MAP_VIEW_BG, 255)
         p.SDL_RenderClear(p.renderer)
         self.draw_town_map(world.contract, *PLAY_MAP_VIEWPORT, player)
-        self.font.draw(64, 674, "배달 구역 지도", WHITE)
+        rectangle(64, 650, 1152, 48, MAP_VIEW_PAPER)
+        rectangle(64, 650, 1152, 48, MAP_VIEW_EDGE, filled=False)
+        self.font.draw(82, 674, "배달 구역 지도", MAP_PAPER_INK)
+        self.font.draw(1012, 674, "지도 확인 중 일시정지", MAP_PAPER_INK)
 
         side = 880
-        rectangle(side, 104, 336, 528, MAP_PANEL)
-        rectangle(side, 104, 336, 528, MAP_BORDER, filled=False)
-        self.font.draw(side + 24, 602, "다음 목표", WHITE)
+        rectangle(side, 104, 336, 528, MAP_VIEW_PANEL)
+        rectangle(side, 104, 336, 528, MAP_VIEW_EDGE, filled=False)
+        self.font.draw(side + 24, 602, "다음 목표", MAP_VIEW_TEXT)
         if len(world.contract.stops) > 1:
-            self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", TEAL)
+            self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", MAP_VIEW_TEXT)
         if world.returning:
-            objective, accent = "안전지점 복귀", SAFE_GREEN
+            objective, accent = "북쪽 안전지점 복귀", SAFE_GREEN
             target = "추격을 끊고 복귀" if world.return_blocked else "초록색 안전지점에 도착하면 완료"
         elif world.parcel == "waiting":
             objective, target, accent = "택배 수령", "주황색 수령지에서 E 길게", ORANGE
         else:
-            objective, target, accent = "택배 전달", "붉은 원 배송지에서 E 길게", WHITE
+            objective, target, accent = "택배 전달", "붉은 원 배송지에서 E 길게", MAP_VIEW_TEXT
         self.font.draw(side + 24, 566, objective, accent)
-        self.font.draw(side + 24, 532, target, WHITE)
-        p.draw_line(side + 24, 504, side + 312, 504, *MAP_BORDER)
-        self.font.draw(side + 24, 474, "지도 범례", WHITE)
-        for y, label, color, w, h in (
-            (435, "큰길", MAP_ROAD, 24, 9),
-            (400, "골목", MAP_ALLEY, 24, 5),
-            (365, "건물", MAP_BUILDING, 18, 14),
-            (330, "상점·정류장", MAP_LANDMARK, 18, 14),
-            (190, "차량", MAP_WRECK, 18, 8),
+        self.font.draw(side + 24, 532, target, MAP_VIEW_TEXT)
+        p.draw_line(side + 24, 504, side + 312, 504, *MAP_VIEW_EDGE)
+        self.font.draw(side + 24, 474, "지도 범례", MAP_VIEW_TEXT)
+        for y, label, color, w, h, icon in (
+            (435, "큰길", MAP_ROAD, 24, 9, None),
+            (400, "골목", MAP_ALLEY, 24, 5, None),
+            (365, "주택·건물", MAP_BUILDING, 25, 21, "west-house"),
+            (330, "상점·정류장", MAP_LANDMARK, 25, 18, "shop"),
+            (190, "차량", MAP_WRECK, 25, 12, "abandoned-car"),
         ):
-            rectangle(side + 36 - w / 2, y - h / 2, w, h, color)
-            self.font.draw(side + 62, y, label, WHITE)
+            x, bottom = side + 36 - w / 2, y - h / 2
+            if not self._draw_map_sprite(icon, x, bottom, w, h):
+                rectangle(x, bottom, w, h, color)
+            self.font.draw(side + 62, y, label, MAP_VIEW_TEXT)
         for y, label, color, pickup in ((260, "수령지", MAP_PICKUP, True), (225, "배송지", MAP_DROPOFF, False)):
             self.draw_map_pin(side + 36, y, color, pickup=pickup)
-            self.font.draw(side + 62, y, label, WHITE)
+            self.font.draw(side + 62, y, label, MAP_VIEW_TEXT)
         if DELIVERY_CONTRACTS[1].stops[0] in world.contract.stops:
             gate_closed = world.gate is not None
             rectangle(side + 24, 153, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
-            self.font.draw(side + 62, 155, "철문 · 닫힘" if gate_closed else "철문 · 열림", WHITE)
+            self.font.draw(side + 62, 155, "철문 · 닫힘" if gate_closed else "철문 · 열림", MAP_VIEW_TEXT)
         if world.contract.return_point is not None:
             self.draw_safe_map_marker(side + 36, 155, MAP_SAFE, backing=MAP_LABEL)
-            self.font.draw(side + 62, 155, "안전지점", WHITE)
+            self.font.draw(side + 62, 155, "안전지점", MAP_VIEW_TEXT)
         self.draw_map_heading(side + 31, 295, 0)
-        self.font.draw(side + 62, 295, "현재 위치·방향", WHITE)
+        self.font.draw(side + 62, 295, "현재 위치·방향", MAP_VIEW_TEXT)
         self.draw_map_waypoint(side + 36, 120, 1)
-        self.font.draw(side + 62, 120, "경유지", WHITE)
-        rectangle(64, 40, 29, 27, MAP_PANEL)
-        rectangle(64, 40, 29, 27, MAP_BORDER, filled=False)
-        self.font.draw(73, 54, "M", WHITE)
-        self.font.draw(105, 54, "닫기 · 지도 확인 중 일시정지", WHITE)
+        self.font.draw(side + 62, 120, "경유지", MAP_VIEW_TEXT)
+        rectangle(64, 40, 29, 27, MAP_VIEW_PAPER)
+        rectangle(64, 40, 29, 27, MAP_VIEW_EDGE, filled=False)
+        self.font.draw(73, 54, "M", MAP_PAPER_INK)
+        self.font.draw(105, 54, "닫기", MAP_VIEW_TEXT)
         self.font.draw(508, 54, "좌클릭 경유지 추가 · 우클릭 마지막 삭제", MAP_ROUTE_HINT)
         if world.waypoints:
             self.font.draw(508, 26, "Space 현재 경유지 건너뛰기", MAP_ROUTE_HINT)
