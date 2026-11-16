@@ -56,7 +56,7 @@ class AttackWalkSpriteTests(unittest.TestCase):
         image = self.visual.images["attack_stationary_front_right"]
         self.assertEqual(source["canvas_size"], [1728, 96])
         self.assertEqual(source["image"], "r2sf8-swing-front-right.png")
-        boundaries = (0, .03, .10, .16, .19, .215, .24, .285, .315, .34, .40, .46, .53, .60, .66)
+        boundaries = (0, .03, .10, .16, .19, .215, .24, .275, .30, .34, .40, .46, .53, .60, .66)
         self.assertEqual([frame["start"] for frame in source["frames"]], list(boundaries[:-1]))
         self.assertEqual([frame["end"] for frame in source["frames"]], list(boundaries[1:]))
         attack = SimpleNamespace(facing="front_right", stationary_front_right=True, hit_time=.24)
@@ -74,8 +74,8 @@ class AttackWalkSpriteTests(unittest.TestCase):
 
     def test_stationary_fr_holds_contact_on_hit_and_follows_through_on_miss(self):
         image = self.visual.images["attack_stationary_front_right"]
-        for elapsed, hit_cell, miss_cell in ((.24, 6, 6), (.285, 6, 7), (.315, 6, 8),
-                                            (.339, 6, 8), (.34, 14, 9), (.40, 15, 10),
+        for elapsed, hit_cell, miss_cell in ((.24, 6, 6), (.275, 6, 7), (.299, 6, 7),
+                                            (.30, 14, 8), (.34, 14, 9), (.40, 15, 10),
                                             (.46, 16, 11), (.53, 17, 12), (.60, 13, 13)):
             for landed, cell in ((True, hit_cell), (False, miss_cell)):
                 with self.subTest(elapsed=elapsed, landed=landed):

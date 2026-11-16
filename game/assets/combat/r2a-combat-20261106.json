@@ -13958,7 +13958,7 @@
         "name": "hit",
         "label": "타격",
         "start": 0.24,
-        "end": 0.285,
+        "end": 0.275,
         "clip_topleft": [
           576,
           0,
@@ -13973,8 +13973,8 @@
       {
         "name": "pass",
         "label": "통과",
-        "start": 0.285,
-        "end": 0.315,
+        "start": 0.275,
+        "end": 0.3,
         "clip_topleft": [
           672,
           0,
@@ -14001,7 +14001,7 @@
       {
         "name": "cross",
         "label": "몸 앞 가로지르기",
-        "start": 0.315,
+        "start": 0.3,
         "end": 0.34,
         "clip_topleft": [
           768,
@@ -14015,13 +14015,13 @@
         ],
         "on_hit": {
           "clip_topleft": [
-            576,
+            1344,
             0,
             96,
             96
           ],
           "foot_pivot_topleft": [
-            624,
+            1392,
             80
           ]
         }
