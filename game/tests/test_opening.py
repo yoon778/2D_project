@@ -207,9 +207,9 @@ class EndingTests(unittest.TestCase):
         world.reset()
         self.assertIsNone(world.fatal_zombie_strike)
 
-    def test_two_stop_delivery_only_plays_one_ending_and_skip_does_not_retry(self):
+    def test_three_stop_delivery_only_plays_one_ending_and_skip_does_not_retry(self):
         world = main.DeliveryWorld(two_stop_unlocked=True)
-        first, second = main.DELIVERY_CONTRACTS[2].stops
+        first, second, third = main.DELIVERY_CONTRACTS[2].stops
 
         def tap(*keys):
             return tuple((kind, key) for key in keys for kind in (p.SDL_KEYDOWN, p.SDL_KEYUP))
@@ -232,6 +232,8 @@ class EndingTests(unittest.TestCase):
             (None, ((p.SDL_WINDOWEVENT, p.SDL_WINDOWEVENT_FOCUS_LOST),)),
             (None, tap(p.SDLK_ESCAPE)),
             *hold(second.position, 20),
+            (None, (release_e,)),
+            *hold(third.position, 20),
             (None, (release_e, *tap(p.SDLK_d))),
             (None, tap(p.SDLK_RETURN, p.SDLK_r, p.SDLK_e)),
             (None, ()),
@@ -285,7 +287,7 @@ class EndingTests(unittest.TestCase):
 
         def draw_ending(elapsed, font, cutscene_art, delivery):
             self.assertIs(cutscene_art, art)
-            self.assertEqual(delivery.completed_stops, {first, second})
+            self.assertEqual(delivery.completed_stops, {first, second, third})
             self.assertFalse(music.update.call_args.kwargs["focused"])
             endings.append(delivery.result)
 
@@ -310,11 +312,12 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(endings, ["delivered"])
         self.assertEqual(chase_frames[:4], [False, False, True, False])
         self.assertEqual(frames, [("playing", "waiting", 0, False), ("playing", "carrying", 0, False),
-                                  ("playing", "carrying", 1, False), ("delivered", "delivered", 2, False),
+                                  ("playing", "carrying", 1, False), ("playing", "carrying", 2, False),
+                                  ("delivered", "delivered", 3, False),
                                   ("playing", "waiting", 0, False)])
         audio.play_delivery_cue.assert_called_once_with()
         audio.play_parcel_pickup.assert_called_once_with()
-        audio.play_parcel_drop.assert_called_once_with()
+        self.assertEqual(audio.play_parcel_drop.call_args_list, [call(), call()])
         audio.play_bottle_pickup.assert_called_once_with()
         audio.play_player_hit.assert_not_called()
         map_calls = [i for i, entry in enumerate(audio.mock_calls) if entry == call.play_map_toggle()]

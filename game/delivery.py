@@ -20,20 +20,13 @@ TOWN_ROADS = json.loads((Path(__file__).resolve().parent / "assets/neighborhood/
 PLAYER_START = (145.0, 145.0)
 TOWN_PICKUP = (172.0, 155.0)
 ZOMBIE_START = (675.0, 345.0)
-ZOMBIE_STARTS = (
-    ZOMBIE_START, (485, 475), (120, 565), (785, 690),
-    (1020, 190), (1180, 335), (1420, 240), (1520, 490),
-    (1100, 590), (955, 960), (1160, 815), (1450, 960),
-    (2020, 485), (2475, 380), (2865, 155), (3255, 525),
-    (2260, 932), (2930, 915), (2020, 1335), (2420, 1510),
-    (3070, 1740), (2315, 1895), (2765, 2070), (3255, 2080),
-)
 INTERACTION_RANGE = 42.0
 MAX_WAYPOINTS = 8
 _WAYPOINT_REACH = 32.0
 _INTERACTION_HOLD_TIMES = {
     "pickup": 0.50, "deliver": 1.00, "gate": 0.70, "shutter": 0.70,
     "bridge_key": 0.50, "bridge_panel": 0.70, "board_truck": 0.70,
+    "bus_broadcast": 0.70, "front_gate": 0.70,
 }
 TRUCK_ARRIVAL_SECONDS = 1.20
 TRUCK_DEPARTURE_SECONDS = 1.20
@@ -41,6 +34,9 @@ _TRUCK_EXIT_THREAT_RANGE = 100.0
 _TRUCK_TRAVEL = 180.0
 _TRUCK_SIZE = (96, 34)
 GATE_NOISE_RANGE = 230.0
+FRONT_GATE_NOISE_RANGE = 120.0
+BUS_BROADCAST_NOISE_RANGE = 310.0
+BUS_BROADCAST_COOLDOWN = 12.0
 _SHUTTER_NOISE_RANGE = 95.0
 BRIDGE_MOTOR_NOISE_RANGE = 280.0
 VEHICLE_ALARM_RANGE = 520.0
@@ -52,10 +48,15 @@ _BOTTLE_STARTS = ((177, 127), (610, 628), (1660, 932), (3230, 2070))
 REAR_ALLEY_LISTEN_POINT = (3230, 2170)
 _REAR_ALLEY_PATROL = ((3180, 2227), (3060, 2227))
 _REAR_ALLEY_ZOMBIES = ((2865, 2227), _REAR_ALLEY_PATROL[0])
-_SHOP_ZOMBIE_STARTS = (
-    *ZOMBIE_STARTS[:16], (1865, 975), (1930, 950), (1978, 942),
-    (2030, 973), (2005, 1015), *ZOMBIE_STARTS[21:],
-)
+_TOWN_APPROACH_ZOMBIES = (ZOMBIE_START, (485, 475), (120, 565), (1020, 190), (1180, 335), (955, 960))
+_SHOP_ZOMBIE_STARTS = ((1865, 975), (1930, 950), (1978, 942), (2030, 973), (2005, 1015))
+_FRONT_HOME_ZOMBIE_START = (2898, 1984)
+_BUS_EAST_ZOMBIE_START = (2390, 1850)
+_BUS_ZOMBIE_STARTS = ((2338, 1865), _BUS_EAST_ZOMBIE_START)
+_BUS_SWITCH_POSITION = (2290, 1750)
+_BUS_SPEAKER_POSITION = (2125, 1810)
+_REAR_GATE_POSITION = (3165, 2196)
+_FRONT_GATE_POSITION = (3067, 1925)
 _PARKING_ZOMBIE_STARTS = (
     (2083, 1422), (2102, 1418), (2119, 1414), (2142, 1407),
     (2094, 1406), (2116, 1393), (2134, 1382), (2144, 1369),
@@ -73,6 +74,12 @@ _SHOP_TRUCK_DOOR = (2290.0, 907.0)
 class DeliveryStop:
     name: str
     position: tuple[float, float]
+
+SHOP_STOP = DeliveryStop("상점 앞", (1958.0, 1037.0))
+FRONT_HOME_STOP = DeliveryStop("주택 앞문", (3090.0, 1969.0))
+REAR_HOME_STOP = DeliveryStop("주택 뒷문", (3149.0, 2227.0))
+BUS_STOP = DeliveryStop("정류장", (2290.0, 1860.0))
+MANAGEMENT_STOP = DeliveryStop("관리실 뒤편", (2545.0, 1422.0))
 
 
 @dataclass(frozen=True)
@@ -97,30 +104,32 @@ class DeliveryContract:
         return self.return_point if self.truck_position is not None else None
 
 
-_SINGLE_CONTRACTS = (
+_STARTER_CONTRACTS = (
     DeliveryContract(
-        "상점 앞", "가로등 아래 모여 있는 좀비 무리", "보통",
-        (1958.0, 1037.0), _SHOP_ZOMBIE_STARTS,
+        "상점·정류장", "상점 앞과 정류장에 배달", "보통",
+        SHOP_STOP.position, (*_TOWN_APPROACH_ZOMBIES, *_SHOP_ZOMBIE_STARTS, *_BUS_ZOMBIE_STARTS),
+        (SHOP_STOP, BUS_STOP),
     ),
     DeliveryContract(
-        "주택 뒷문", "순찰 좀비가 오가는 어두운 골목", "어려움",
-        (3149.0, 2227.0),
-        (*ZOMBIE_STARTS[:-2], *_REAR_ALLEY_ZOMBIES),
+        "주택가 배달", "주택 앞문과 뒷문에 배달", "어려움",
+        FRONT_HOME_STOP.position,
+        (*_TOWN_APPROACH_ZOMBIES, (3255, 525), _FRONT_HOME_ZOMBIE_START, *_REAR_ALLEY_ZOMBIES),
+        (FRONT_HOME_STOP, REAR_HOME_STOP),
     ),
 )
 DELIVERY_CONTRACTS = (
-    *_SINGLE_CONTRACTS,
+    *_STARTER_CONTRACTS,
     DeliveryContract(
-        "두 곳 배달", "상점 앞·주택 뒷문 순서 자유", "어려움",
-        _SINGLE_CONTRACTS[0].destination,
-        (*_SHOP_ZOMBIE_STARTS[:-2], *_REAR_ALLEY_ZOMBIES),
-        tuple(contract.stops[0] for contract in _SINGLE_CONTRACTS),
+        "세 곳 배달", "상점 앞과 주택 뒷문, 정류장에 배달", "어려움",
+        SHOP_STOP.position,
+        (*_TOWN_APPROACH_ZOMBIES, *_SHOP_ZOMBIE_STARTS, *_REAR_ALLEY_ZOMBIES, *_BUS_ZOMBIE_STARTS),
+        (SHOP_STOP, REAR_HOME_STOP, BUS_STOP),
     ),
     DeliveryContract(
-        "상점 왕복", "상점 앞과 관리실 뒤편에 배달하고 트럭 복귀", "보통",
-        _SINGLE_CONTRACTS[0].destination,
-        (*_SHOP_ZOMBIE_STARTS[16:21], (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START),
-        (*_SINGLE_CONTRACTS[0].stops, DeliveryStop("관리실 뒤편", (2545.0, 1422.0))),
+        "상점 왕복", "상점 앞과 관리실 뒤편, 정류장에 배달하고 트럭 복귀", "보통",
+        SHOP_STOP.position,
+        (*_SHOP_ZOMBIE_STARTS, (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START, *_BUS_ZOMBIE_STARTS),
+        (SHOP_STOP, MANAGEMENT_STOP, BUS_STOP),
         player_start=(2315.0, 907.0), pickup=_SHOP_TRUCK_DOOR, return_point=_SHOP_TRUCK_DOOR,
         truck_position=_SHOP_TRUCK_POSITION,
     ),
@@ -316,11 +325,15 @@ class DeliveryWorld(CombatWorld):
 
     @property
     def route_gimmicks_active(self):
-        return self.bridge_puzzle is not None and self.mission_phase in ("delivering", "returning")
+        return self.bridge_puzzle is not None and self.district_gimmicks_active
+
+    @property
+    def district_gimmicks_active(self):
+        return self.mission_phase in ("delivering", "returning")
 
     @property
     def available_contracts(self):
-        return DELIVERY_CONTRACTS if self.two_stop_unlocked else (*_SINGLE_CONTRACTS, DELIVERY_CONTRACTS[3])
+        return DELIVERY_CONTRACTS if self.two_stop_unlocked else (*_STARTER_CONTRACTS, DELIVERY_CONTRACTS[3])
 
     def select_contract(self, index):
         if not 0 <= index < len(DELIVERY_CONTRACTS):
@@ -347,26 +360,38 @@ class DeliveryWorld(CombatWorld):
             self.truck_wall = NeighborhoodWall(x - width / 2, y - depth / 2, width, depth,
                                                "delivery-truck", height=48)
         self.zombies = []
-        has_patrol = _SINGLE_CONTRACTS[1].stops[0] in self.contract.stops
-        shop_round_trip = self.contract is DELIVERY_CONTRACTS[3]
+        has_rear_door = REAR_HOME_STOP in self.contract.stops
+        has_front_door = FRONT_HOME_STOP in self.contract.stops
+        has_bus_stop = BUS_STOP in self.contract.stops
+        has_parking = SHOP_STOP in self.contract.stops
+        has_bridge = MANAGEMENT_STOP in self.contract.stops
         streetlights = type(self).streetlights
-        self.streetlights = (*streetlights, (2290, 1350)) if shop_round_trip else streetlights
-        parking_starts = _PARKING_ZOMBIE_STARTS if shop_round_trip else ()
+        self.streetlights = (*streetlights, (2290, 1350)) if has_parking else streetlights
+        parking_starts = _PARKING_ZOMBIE_STARTS if has_bridge else (
+            tuple(_PARKING_ZOMBIE_STARTS[index] for index in (0, 2, 5)) if has_parking else ())
         for index, position in enumerate((*self.contract.zombie_starts, *parking_starts)):
-            patrol = _REAR_ALLEY_PATROL if has_patrol and position == _REAR_ALLEY_PATROL[0] else None
+            patrol = _REAR_ALLEY_PATROL if has_rear_door and position == _REAR_ALLEY_PATROL[0] else None
             aim_angle = math.pi if patrol else Player.aim_angle
-            if shop_round_trip and position == _BRIDGE_SOUTHEAST_ZOMBIE_START:
+            if position == _BUS_EAST_ZOMBIE_START:
+                aim_angle = math.pi / 2
+            elif position == _BRIDGE_SOUTHEAST_ZOMBIE_START:
                 aim_angle = -math.pi / 2
             self.zombies.append(Zombie(
                 *position, aim_angle=aim_angle,
                 state="patrol" if patrol else "idle", patrol_points=patrol,
                 appearance=ZOMBIE_APPEARANCES[index % len(ZOMBIE_APPEARANCES)],
             ))
-        if shop_round_trip:
+        if has_bridge:
             self.zombies.append(Zombie(*_PARKING_HEAVY_ZOMBIE_START, aim_angle=math.pi / 2,
                                        hp=HEAVY_ZOMBIE_HP, appearance=HEAVY_ZOMBIE_APPEARANCE))
-        self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38)
-        self.gate_position = (self.gate.x + self.gate.width / 2, self.gate.y + self.gate.depth / 2)
+        self.gate_position = _REAR_GATE_POSITION
+        self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38) if has_rear_door else None
+        self.front_gate_position = _FRONT_GATE_POSITION if has_front_door else None
+        self.front_gate = NeighborhoodWall(3040, 1919, 54, 12, "iron-gate", height=38) if has_front_door else None
+        self.front_gate_fences = (
+            NeighborhoodWall(2960, 1919, 80, 12, "fence", height=38),
+            NeighborhoodWall(3094, 1919, 62, 12, "fence", height=38),
+        ) if has_front_door else ()
         self.walls = [
             NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
             NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
@@ -376,7 +401,6 @@ class DeliveryWorld(CombatWorld):
               for x in (2848, 2958, 3068)),
             NeighborhoodWall(3178, 2272, 72, 12, "fence", height=38),
             NeighborhoodWall(3125, 2190, 15, 12, "fence", height=38),
-            self.gate,
             NeighborhoodWall(3190, 2190, 20, 12, "fence", height=38),
             # The service alley bends around this shed and reconnects west of the fence.
             NeighborhoodWall(3306, 2273, 50, 57, "workshop", height=72),
@@ -396,13 +420,17 @@ class DeliveryWorld(CombatWorld):
             NeighborhoodWall(1820, 1060, 260, 160, "shop"),
             NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
         ]
-        self.shutter_position = _PARKING_SHUTTER_POSITION if shop_round_trip else None
-        self.shutter_lure = _PARKING_LURE_POSITION if shop_round_trip else None
+        if self.gate is not None:
+            self.walls.append(self.gate)
+        if self.front_gate is not None:
+            self.walls.extend((*self.front_gate_fences, self.front_gate))
+        self.shutter_position = _PARKING_SHUTTER_POSITION if has_parking else None
+        self.shutter_lure = _PARKING_LURE_POSITION if has_parking else None
         self.shutter_wall = None
         self.shutter_closed = False
         self.parking_walls = ()
-        self.bridge_puzzle = BridgePuzzle() if shop_round_trip else None
-        if shop_round_trip:
+        self.bridge_puzzle = BridgePuzzle() if has_bridge else None
+        if has_parking:
             # The west shutter is the lot's only opening. Its control is outside.
             self.shutter_wall = NeighborhoodWall(2160, 1262, 12, 162, "parking-shutter", height=66)
             self.parking_walls = (
@@ -411,6 +439,7 @@ class DeliveryWorld(CombatWorld):
                 NeighborhoodWall(2160, 1424, 320, 12, "fence", height=38),
             )
             self.walls.extend(self.parking_walls)
+        if has_bridge:
             puzzle = self.bridge_puzzle
             x, y, width, depth = puzzle.channel_rect
             bridge_x, _, bridge_width, _ = puzzle.bridge_rect
@@ -430,8 +459,10 @@ class DeliveryWorld(CombatWorld):
         self.bottle_pickups = list(_BOTTLE_STARTS)
         if self.contract.return_point is not None:
             self.bottle_pickups.append((2276, 902))
-        if shop_round_trip:
+        if has_parking:
             self.bottle_pickups.append(_PARKING_BOTTLE_POSITION)
+            if not has_bridge:
+                self.bottle_pickups.append((1840, 875))
         self.has_bottle = False
         self.bottle_flight = None
         self.bottle_impact = None
@@ -439,6 +470,10 @@ class DeliveryWorld(CombatWorld):
         self.vehicle_alarm_source = None
         self.vehicle_hit = None
         self._triggered_vehicle_alarms = set()
+        self.bus_switch_position = _BUS_SWITCH_POSITION if has_bus_stop else None
+        self.bus_speaker_position = _BUS_SPEAKER_POSITION if has_bus_stop else None
+        self.bus_broadcast_cooldown = 0.0
+        self.bus_broadcast_source = None
 
     @property
     def next_stop(self):
@@ -542,7 +577,7 @@ class DeliveryWorld(CombatWorld):
         if light is None or light.contains(landing):
             if vehicle is not None:
                 return "차량 경보 유인"
-            if (self.route_gimmicks_active and self.shutter_lure is not None and not self.shutter_closed
+            if (self.district_gimmicks_active and self.shutter_lure is not None and not self.shutter_closed
                     and math.dist(landing, self.shutter_lure) <= 18):
                 return "주차장 안쪽으로 유인"
         return "병 던지기"
@@ -595,6 +630,7 @@ class DeliveryWorld(CombatWorld):
         self.vehicle_alarm = None
         self.vehicle_alarm_source = None
         self.vehicle_hit = None
+        self.bus_broadcast_source = None
         super().update(0 if self.route_sequence_active else dt, axis_x, axis_y,
                        facing_hint=facing_hint, sprint=sprint, sneak=sneak)
         if self.result != "playing":
@@ -648,6 +684,9 @@ class DeliveryWorld(CombatWorld):
 
     def _advance_world_objects(self, dt):
         self.elapsed_play_time += dt
+        if self.bus_broadcast_cooldown > 0:
+            remaining = self.bus_broadcast_cooldown - dt
+            self.bus_broadcast_cooldown = remaining if remaining > 1e-9 else 0.0
         flight = self.bottle_flight
         if flight is None:
             return
@@ -675,15 +714,28 @@ class DeliveryWorld(CombatWorld):
         return self.interaction_target is not None
 
     def can_open_gate(self):
-        if self.gate is None or self.result != "playing" or self.player_hp <= 0 or self.route_sequence_active:
+        return self._gate_in_reach(self.gate, self.gate_position)
+
+    def can_open_front_gate(self):
+        return self.district_gimmicks_active and self._gate_in_reach(self.front_gate, self.front_gate_position)
+
+    def _gate_in_reach(self, gate, position):
+        if gate is None or self.result != "playing" or self.player_hp <= 0 or self.route_sequence_active:
             return False
         origin = (self.player.x, self.player.y)
-        return (math.dist(origin, self.gate_position) <= INTERACTION_RANGE
-                and not any(wall_blocks(origin, self.gate_position, wall)
-                            for wall in self.walls if wall is not self.gate))
+        return (math.dist(origin, position) <= INTERACTION_RANGE
+                and not any(wall_blocks(origin, position, wall) for wall in self.walls if wall is not gate))
+
+    def can_start_bus_broadcast(self):
+        if (self.bus_switch_position is None or self.bus_broadcast_cooldown > 0
+                or not self.district_gimmicks_active or self.player_hp <= 0):
+            return False
+        origin = (self.player.x, self.player.y)
+        return (math.dist(origin, self.bus_switch_position) <= INTERACTION_RANGE
+                and not any(wall_blocks(origin, self.bus_switch_position, wall) for wall in self.walls))
 
     def can_close_shutter(self):
-        if self.shutter_wall is None or self.shutter_closed or not self.route_gimmicks_active or self.player_hp <= 0:
+        if self.shutter_wall is None or self.shutter_closed or not self.district_gimmicks_active or self.player_hp <= 0:
             return False
         origin = (self.player.x, self.player.y)
         if (math.dist(origin, self.shutter_position) > INTERACTION_RANGE
@@ -759,6 +811,10 @@ class DeliveryWorld(CombatWorld):
             return ("pickup" if self.parcel == "waiting" else "deliver", target)
         if self.can_open_gate():
             return "gate", self.gate_position
+        if self.can_open_front_gate():
+            return "front_gate", self.front_gate_position
+        if self.can_start_bus_broadcast():
+            return "bus_broadcast", self.bus_switch_position
         if self.can_close_shutter():
             return "shutter", self.shutter_position
         if self.can_collect_bridge_key():
@@ -818,7 +874,19 @@ class DeliveryWorld(CombatWorld):
         if action == "gate":
             self.walls.remove(self.gate)
             self.gate = None
+            self._clear_zombie_routes()
             self._emit_noise(GATE_NOISE_RANGE, target)
+            return True
+        if action == "front_gate":
+            self.walls.remove(self.front_gate)
+            self.front_gate = None
+            self._clear_zombie_routes()
+            self._emit_noise(FRONT_GATE_NOISE_RANGE, target)
+            return True
+        if action == "bus_broadcast":
+            self.bus_broadcast_cooldown = BUS_BROADCAST_COOLDOWN
+            self.bus_broadcast_source = self.bus_speaker_position
+            self._emit_noise(BUS_BROADCAST_NOISE_RANGE, self.bus_broadcast_source)
             return True
         if action == "shutter":
             self.walls.append(self.shutter_wall)
@@ -854,6 +922,6 @@ class DeliveryWorld(CombatWorld):
         self.result = "delivered"
         self.attack = None
         self._resolve_result()
-        if self.contract in _SINGLE_CONTRACTS and not self.two_stop_unlocked:
+        if self.contract in _STARTER_CONTRACTS and not self.two_stop_unlocked:
             self.two_stop_unlocked = True
             self.just_unlocked_two_stop = True

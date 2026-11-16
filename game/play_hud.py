@@ -43,7 +43,9 @@ INTERACTION_LABELS = {
     "pickup": ("택배 수령 · 길게", "택배 수령 중", TEAL),
     "deliver": ("택배 전달 · 길게", "택배 전달 중", TEAL),
     "gate": ("철문 열기 · 길게", "철문 여는 중", AMBER),
+    "front_gate": ("앞문 철문 열기 · 길게", "앞문 철문 여는 중", AMBER),
     "shutter": ("셔터 닫기 · 길게", "셔터 닫는 중", AMBER),
+    "bus_broadcast": ("안내방송 켜기 · 길게", "안내방송 켜는 중", AMBER),
     "bridge_key": ("관리실 열쇠 줍기 · 길게", "열쇠 줍는 중", TEAL),
     "bridge_panel": ("관리실 열기 · 길게", "관리실 여는 중", TEAL),
     "board_truck": ("트럭 탑승 · 길게", "트럭 탑승 중", TEAL),
@@ -173,11 +175,16 @@ class PlayHUD:
         if stop_count > 1:
             self._text(f"{len(world.completed_stops)} / {stop_count}", x + OBJECTIVE_WIDTH - 14, y + 20,
                        SMALL, PAPER_MUTED, align="right")
-        if world.contract.return_point is not None:
-            place = "상점 근처 거점" if waiting else world.contract.stops[0].name
+        if waiting:
+            place = "상점 근처 거점" if world.contract.return_point is not None else "남서쪽 거점"
         else:
-            place = "남서쪽 거점" if waiting else world.contract.name
+            place = self._delivery_destination(world)
         self._text(place, x + 16, y + 51, TITLE, PAPER_INK)
+
+    @staticmethod
+    def _delivery_destination(world):
+        remaining = world.remaining_stops
+        return remaining[0].name if len(remaining) == 1 else "배송지 선택"
 
     def _truck_objective(self, world, x, y, stop_count):
         phase = world.mission_phase
@@ -193,9 +200,7 @@ class PlayHUD:
             if world.return_blocked:
                 color = STAMP
         else:
-            remaining = world.remaining_stops
-            place = remaining[0].name if len(remaining) == 1 else "배송지 선택"
-            guidance = "택배 전달"
+            place, guidance = self._delivery_destination(world), "택배 전달"
         self._text(guidance, x + 16, y + 20, SMALL, color)
         if phase in ("delivering", "returning"):
             self._text(f"{len(world.completed_stops)} / {stop_count}", x + OBJECTIVE_WIDTH - 14, y + 20,
@@ -481,7 +486,8 @@ class PlayHUD:
         receipt_rule(left, y + 98, right - left)
 
         self._attack_label = f"{world.attack_count}회"
-        rows = (("배송지", world.contract.name), ("남은 체력", f"{world.player_hp} / {MAX_HEALTH}"),
+        rows = (("계약" if len(world.contract.stops) > 1 else "배송지", world.contract.name),
+                ("남은 체력", f"{world.player_hp} / {MAX_HEALTH}"),
                 ("공격 횟수", self._attack_label),
                 ("교전 없이 배달", "성공" if success and world.combat_free else "미달성"))
         for index, (label, value) in enumerate(rows):
@@ -509,7 +515,7 @@ class PlayHUD:
             self._notice("차량 경보", AMBER)
         elif bridge is not None and world.can_reach_bridge_panel() and not (bridge.has_key or bridge.bridge_down):
             self._notice("관리실 잠김 · 경비초소에 열쇠", AMBER)
-        elif (getattr(world, "route_gimmicks_active", world.returning) and world.shutter_position is not None
+        elif (world.district_gimmicks_active and world.shutter_position is not None
               and math.dist((world.player.x, world.player.y), world.shutter_position) <= 150
               and light.contains(world.shutter_position)):
             if world.shutter_closed:

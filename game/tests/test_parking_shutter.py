@@ -19,7 +19,7 @@ class ParkingShutterTests(unittest.TestCase):
         self.assertTrue(self.hold(0.5, pressed=True))
         self.assertEqual(world.mission_phase, "delivering")
 
-    def test_shutter_only_exists_on_shop_round_trip_and_resets_open(self):
+    def test_shutter_exists_for_each_shop_contract_and_resets_open(self):
         world = self.world
         self.assertIn((2290, 1350), world.streetlights)
         for zombie in world.zombies:
@@ -37,12 +37,18 @@ class ParkingShutterTests(unittest.TestCase):
         self.assertFalse(world.shutter_closed)
         self.assertNotIn(world.shutter_wall, world.walls)
         self.assertEqual(world.streetlights.count((2290, 1350)), 1)
-        for index in (0, 1, 2):
+        for index in (0, 2):
             with self.subTest(contract=index):
                 self.assertTrue(world.select_contract(index))
-                self.assertIsNone(world.shutter_position)
-                self.assertFalse(world.can_close_shutter())
-                self.assertNotIn((2290, 1350), world.streetlights)
+                self.assertIsNotNone(world.shutter_position)
+                self.assertIn((2290, 1350), world.streetlights)
+                self.assertTrue(self.hold(0.5, pressed=True))
+                world.player.x, world.player.y = world.shutter_position
+                self.assertTrue(self.hold(0.7, pressed=True))
+        self.assertTrue(world.select_contract(1))
+        self.assertIsNone(world.shutter_position)
+        self.assertFalse(world.can_close_shutter())
+        self.assertNotIn((2290, 1350), world.streetlights)
 
     def test_closing_cancels_if_damaged_or_zombie_enters_the_doorway(self):
         world = self.world

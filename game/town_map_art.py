@@ -44,6 +44,23 @@ _CREASE_SHADE = (223, 209, 181)
 _CREASE_LIGHT = (239, 230, 204)
 
 
+def place_label(anchor, width, bounds, occupied, offset, *, height=23):
+    """Find nearby paper for a caption without covering another marker."""
+    x, y = anchor
+    left, bottom, right, top = bounds
+    for dx, dy in (offset, (12, -11), (-width - 12, -11), (12, 12),
+                   (-width - 12, 12), (-width / 2, 17), (-width / 2, -40),
+                   (24, 42), (-width - 24, 42), (24, -65), (-width - 24, -65)):
+        west = min(max(left + 4, x + dx), right - width - 4)
+        south = min(max(bottom + 4, y + dy), top - height - 4)
+        east, north = west + width, south + height
+        if all(east + 2 < a or west - 2 > c or north + 2 < b or south - 2 > d
+               for a, b, c, d in occupied):
+            occupied.append((west, south, east, north))
+            return west, south
+    return None
+
+
 def _segments(roads):
     for road in roads:
         points = road["points"]

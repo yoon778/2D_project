@@ -13,17 +13,16 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, HEAVY_ZOMBIE_APPEARANCE, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import (DELIVERY_CONTRACTS, INTERACTION_RANGE, REAR_ALLEY_LISTEN_POINT, TOWN_ROADS, DeliveryWorld,
-                      NeighborhoodWall)
+from delivery import (BUS_STOP, DELIVERY_CONTRACTS, FRONT_HOME_STOP, INTERACTION_RANGE, REAR_ALLEY_LISTEN_POINT,
+                      REAR_HOME_STOP, SHOP_STOP, TOWN_ROADS, DeliveryWorld, NeighborhoodWall)
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 from locomotion import Locomotion, select_facing
 from play_hud import INTERACTION_LABELS, PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import AudioSettings, HeavyFootstep, PatrolFootstep, ZombieAudio
-from town_map_art import (MAP_ALLEY, MAP_BUILDING, MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS, MAP_LANDMARK,
-                          MAP_ROAD, MAP_WRECK)
-from town_map_art import draw_base as draw_map_base
+from town_map_art import MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS
+from town_map_art import draw_base as draw_map_base, place_label as place_map_label
 from truck_sequence import draw_truck, truck_bounds
 import opening
 
@@ -102,6 +101,7 @@ MAP_PICKUP = (168, 85, 27)
 MAP_DROPOFF = (149, 45, 37)
 MAP_SAFE = (42, 100, 57)
 MAP_COMPLETED = (108, 114, 103)
+MAP_DETOUR = (39, 93, 90)
 MAP_VIEW_BG = (27, 23, 19)
 MAP_VIEW_PANEL = (49, 39, 31)
 MAP_VIEW_EDGE = (138, 111, 79)
@@ -665,11 +665,12 @@ class Renderer:
             rectangle(82, bottom, 342, 84, accent, filled=False)
             if contract not in world.available_contracts:
                 self.font.draw(100, bottom + 62, f"[{index + 1}]  {contract.name} · 잠금", WHITE)
-                self.font.draw(100, bottom + 30, "기존 배달 1회 성공 후 해금", WHITE)
+                self.font.draw(100, bottom + 30, "1·2번 중 하나 완료 후 해금", WHITE)
                 continue
             self.font.draw(100, bottom + 62, f"[{index + 1}]  {contract.name}", TEAL if selected else WHITE)
             self.font.draw(100, bottom + 40, f"난이도 · {contract.difficulty}", ORANGE)
-            self.font.draw(100, bottom + 18, contract.description, WHITE)
+            description = contract.description if contract.truck_position is None else "상점·관리실·정류장 / 트럭 복귀"
+            self.font.draw(100, bottom + 18, description, WHITE)
         keys = " / ".join(str(i) for i, contract in enumerate(DELIVERY_CONTRACTS, 1)
                           if contract in world.available_contracts)
         self.font.draw(100, 201, f"{keys}  계약 선택", WHITE)
@@ -681,7 +682,7 @@ class Renderer:
         for x, color, label, pickup in ((500, MAP_PICKUP, "수령지", True), (612, MAP_DROPOFF, "배송지", False)):
             self.draw_map_pin(x, 69, color, pickup=pickup)
             self.font.draw(x + 14, 69, label, WHITE)
-        if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
+        if REAR_HOME_STOP in contract.stops:
             rectangle(720, 67, 10, 4, MAP_CLOSED_GATE)
             self.font.draw(736, 69, "철문", WHITE)
         if contract.truck_position is not None:
@@ -783,6 +784,7 @@ class Renderer:
         left, bottom, scale = self._map_layout(x, y, viewport_width, viewport_height)
         right = left + width * scale
         top = bottom + height * scale
+        bounds = left, bottom, right, top
 
         def map_point(x, y):
             return left + x * scale, bottom + y * scale
@@ -793,20 +795,27 @@ class Renderer:
         show_east_detour = bridge is not None and player is not None and world.route_gimmicks_active
         map_walls = [wall for wall in world.walls
                      if getattr(wall, "texture", None) not in (*BRIDGE_TERRAIN, "delivery-truck")]
-        if contract is not world.contract and world.parking_walls:
-            map_walls = [wall for wall in map_walls if wall is not world.shutter_wall
-                         and wall not in (*world.parking_walls, *world.bridge_puzzle.station_walls)]
-        draw_map_base(rectangle, p.draw_line, (left, bottom, right, top), scale, (width, height),
+        if not active_contract:
+            scenario_walls = (*world.parking_walls, world.shutter_wall, world.gate, world.front_gate,
+                              *world.front_gate_fences)
+            if world.bridge_puzzle is not None:
+                scenario_walls += world.bridge_puzzle.station_walls
+            map_walls = [wall for wall in map_walls if wall not in scenario_walls]
+        draw_map_base(rectangle, p.draw_line, bounds, scale, (width, height),
                       TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite)
+        occupied = [(left + 10, top - 60, left + 151, top - 5)]
         for point, label, color in (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
             ((3140, 958) if show_east_detour else (3110, 1007), "상점길", MAP_ALLEY_INK),
             ((2440, 1720), "정류장길", MAP_ALLEY_INK),
         ):
-            self.font.draw(*map_point(*point), label, color)
+            px, py = map_point(*point)
+            self.font.draw(px, py, label, color)
+            occupied.append((px, py - 9, px + len(label) * 17, py + 9))
 
         route = []
         if player is not None:
+            self.draw_district_map_routes(world.contract, map_point)
             route = [map_point(player.x, player.y), *(map_point(*point) for point in world.waypoints)]
             for start, end in zip(route, route[1:]):
                 for dx, dy in ((-1, 0), (0, -1), (1, 0), (0, 1)):
@@ -814,30 +823,18 @@ class Renderer:
             for start, end in zip(route, route[1:]):
                 p.draw_line(*start, *end, *MAP_ROUTE_INK)
 
-        occupied = []
-        labels = []
-        landmark_labels = {"shop": "상점", "bus-stop": "정류장"}
-        for wall in map_walls:
-            label = landmark_labels.get(getattr(wall, "texture", None))
-            if label:
-                anchor_x, anchor_y = map_point(wall.x + wall.width / 2, wall.y + wall.depth)
-                label_width = 17 * len(label) + 16
-                x = min(right - label_width - 7, anchor_x + 16)
-                if shutter is not None and label == "상점":
-                    x = anchor_x - label_width - 12
-                y = min(top - 29, anchor_y + 10)
-                occupied.append((x, y, x + label_width, y + 23))
-                leader_x = x + label_width if x < anchor_x else x
-                p.draw_line(anchor_x, anchor_y, leader_x, y + 5, *MAP_PAPER_INK)
-                labels.append((x, y, label_width, label, MAP_PAPER_INK))
+        captions = []
+
+        def caption(position, label, ink=MAP_PAPER_INK, *, offset=(13, -11)):
+            label_width = 17 * len(label) + 16
+            captions.append((position, label, ink, label_width, offset))
 
         pickup_x, pickup_y = map_point(*contract.pickup)
         occupied.append((pickup_x - 7, pickup_y - 7, pickup_x + 7, pickup_y + 7))
         if contract.truck_position is not None:
             truck_color = MAP_SAFE if player is not None and world.returning else MAP_PICKUP
             self.draw_map_pin(pickup_x, pickup_y, truck_color, pickup=True)
-            labels.append((pickup_x + 12, pickup_y - 11, 66, "트럭", truck_color))
-            occupied.append((pickup_x + 12, pickup_y - 11, pickup_x + 78, pickup_y + 12))
+            caption((pickup_x, pickup_y), "트럭", truck_color)
         else:
             self.draw_map_pin(pickup_x, pickup_y, MAP_PICKUP, pickup=True)
         for stop in contract.stops:
@@ -846,27 +843,26 @@ class Renderer:
             x, y = map_point(*stop.position)
             occupied.append((x - 9, y - 9, x + 9, y + 9))
             self.draw_map_pin(x, y, color)
-            label = stop.name
-            if player is not None and (len(contract.stops) > 1 or completed and world.returning):
-                label += " · 완료" if completed else " · 미완료"
-            label_width = 17 * len(label) + 16
-            label_x = max(left + 4, x - label_width - 10)
-            label_y = max(bottom + 4, y - 32)
-            occupied.append((label_x, label_y, label_x + label_width, label_y + 23))
-            leader_x = label_x if label_x > x else label_x + label_width
-            p.draw_line(x, y - 7, leader_x, label_y + 19, *color)
-            labels.append((label_x, label_y, label_width, label, color))
+            caption((x, y), stop.name, color, offset=(-17 * len(stop.name) - 28, -32))
         if contract.return_point is not None and contract.truck_position is None:
             safe_x, safe_y = map_point(*contract.return_point)
-            occupied.append((safe_x - 94, safe_y - 11, safe_x - 11, safe_y + 12))
             occupied.append((safe_x - 8, safe_y - 8, safe_x + 8, safe_y + 8))
             self.draw_safe_map_marker(safe_x, safe_y, MAP_SAFE, backing=MAP_LABEL)
-            labels.append((safe_x - 94, safe_y - 11, 83, "안전지점", MAP_SAFE))
-        if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
+            caption((safe_x, safe_y), "안전지점", MAP_SAFE, offset=(-96, -11))
+        if active_contract and REAR_HOME_STOP in contract.stops:
             gate_x, gate_y = map_point(*world.gate_position)
             gate_closed = player is None or world.gate is not None
-            rectangle(gate_x - 5, gate_y - 7, 10, 4, MAP_INK)
-            rectangle(gate_x - 4, gate_y - 6, 8, 2, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
+            self.draw_bridge_map_marker(gate_x, gate_y, "G", active=not gate_closed, active_color=MAP_OPEN_GATE)
+            occupied.append((gate_x - 9, gate_y - 10, gate_x + 9, gate_y + 10))
+        if active_contract and world.front_gate_position is not None:
+            gate_x, gate_y = map_point(*world.front_gate_position)
+            self.draw_bridge_map_marker(gate_x, gate_y, "F", active=world.front_gate is None,
+                                        active_color=MAP_OPEN_GATE)
+            occupied.append((gate_x - 9, gate_y - 10, gate_x + 9, gate_y + 10))
+        if active_contract and world.bus_switch_position is not None:
+            switch_x, switch_y = map_point(*world.bus_switch_position)
+            self.draw_bridge_map_marker(switch_x, switch_y, "B", active=world.bus_broadcast_cooldown > 0)
+            occupied.append((switch_x - 9, switch_y - 10, switch_x + 9, switch_y + 10))
         if shutter is not None:
             sx, sy = map_point(shutter.x, shutter.y)
             marker_w, marker_h = max(4, shutter.width * scale), max(4, shutter.depth * scale)
@@ -874,11 +870,11 @@ class Renderer:
             rectangle(sx - 1, sy - 1, marker_w + 2, marker_h + 2, MAP_INK)
             rectangle(sx, sy, marker_w, marker_h, color)
             occupied.append((sx - 1, sy - 1, sx + marker_w + 1, sy + marker_h + 1))
+            switch_x, switch_y = map_point(*world.shutter_position)
+            self.draw_bridge_map_marker(switch_x, switch_y, "S", active=world.shutter_closed)
+            occupied.append((switch_x - 9, switch_y - 10, switch_x + 9, switch_y + 10))
             lot_x, lot_y = map_point(*world.shutter_lure)
-            label_x, label_y = lot_x - 32, lot_y + 5
-            occupied.append((label_x, label_y, label_x + 65, label_y + 23))
-            p.draw_line(lot_x, lot_y, lot_x, label_y, *MAP_PAPER_INK)
-            labels.append((label_x, label_y, 65, "주차장", MAP_PAPER_INK))
+            caption((lot_x, lot_y), "주차장", offset=(-32, 5))
         if bridge is not None:
             x, y, width, depth = bridge.channel_rect
             cx, cy = map_point(x, y)
@@ -891,12 +887,7 @@ class Renderer:
                 half_w, half_h = (9, 10) if active else (7, 8)
                 occupied.append((px - half_w, py - half_h, px + half_w, py + half_h))
                 if active:
-                    label = next_stop[1]
-                    label_x, label_y = px + 16, py - 11
-                    label_width = 17 * len(label) + 16
-                    p.draw_line(px + 9, py, label_x, py, *MAP_PICKUP)
-                    labels.append((label_x, label_y, label_width, label, MAP_PICKUP))
-                    occupied.append((label_x, label_y, label_x + label_width, label_y + 23))
+                    caption((px, py), next_stop[1], MAP_PICKUP, offset=(16, -11))
             bx, by = map_point(*bridge.bridge_position)
             if bridge.bridge_down:
                 bridge_x, bridge_y, bridge_width, bridge_depth = bridge.bridge_rect
@@ -905,31 +896,48 @@ class Renderer:
                 rectangle(deck_x, deck_y, deck_width, deck_depth, MAP_OPEN_GATE)
                 rectangle(deck_x, deck_y, deck_width, deck_depth, MAP_SAFE, filled=False)
                 p.draw_line(bx, deck_y - 4, bx, deck_y + deck_depth + 4, *MAP_SAFE)
-                label_x, label_y = cx + width * scale + 10, by + 6
-                p.draw_line(bx, deck_y + deck_depth + 4, label_x, label_y + 8, *MAP_SAFE)
-                labels.append((label_x, label_y, 118, "다리 지름길", MAP_SAFE))
-                occupied.append((label_x, label_y, label_x + 118, label_y + 23))
+                caption((bx, by), "다리 지름길", MAP_SAFE, offset=(cx + width * scale + 10 - bx, 6))
             else:
                 rectangle(bx - 9, by - 4, 18, 8, MAP_INK)
                 rectangle(bx - 7, by - 2, 14, 4, MAP_CLOSED_GATE)
             half_h = 9 if bridge.bridge_down else 4
             occupied.append((bx - 9, by - half_h, bx + 9, by + half_h))
             if show_east_detour:
-                # The completed delivery label covers the turn at y=987. Mark the same lane just north of it.
+                # Mark the same lane just north of the turn.
                 entry_x, entry_y = map_point(2750, 1058)
                 arrow_y = entry_y + 12
-                detour_ink = (39, 93, 90)
-                p.draw_line(entry_x, entry_y - 6, entry_x, arrow_y, *detour_ink)
+                p.draw_line(entry_x, entry_y - 6, entry_x, arrow_y, *MAP_DETOUR)
                 for dx in (-4, 4):
-                    p.draw_line(entry_x, arrow_y, entry_x + dx, arrow_y - 5, *detour_ink)
-                label_x, label_y, label_width = entry_x + 74, entry_y + 1, 101
-                p.draw_line(entry_x + 4, entry_y + 1, label_x, label_y + 11, *detour_ink)
-                labels.append((label_x, label_y, label_width, "동쪽 우회", detour_ink))
+                    p.draw_line(entry_x, arrow_y, entry_x + dx, arrow_y - 5, *MAP_DETOUR)
+                caption((entry_x, entry_y), "동쪽 우회", MAP_DETOUR, offset=(74, 1))
                 occupied.append((entry_x - 4, entry_y - 6, entry_x + 4, arrow_y))
-                occupied.append((label_x, label_y, label_x + label_width, label_y + 23))
+        for wall in map_walls:
+            if getattr(wall, "texture", None) == "shop" and SHOP_STOP not in contract.stops:
+                caption(map_point(wall.x + wall.width / 2, wall.y + wall.depth), "상점")
+            elif getattr(wall, "texture", None) == "bus-stop" and BUS_STOP not in contract.stops:
+                caption(map_point(wall.x + wall.width / 2, wall.y + wall.depth), "정류장")
         if player is not None:
-            self.draw_map_waypoints((left, bottom, right, top), route[1:], world.first_waypoint_number, occupied)
-            self.draw_map_heading(*route[0], player.aim_angle, on_paper=True)
+            heading_anchor = route[0]
+            marker = place_map_label(heading_anchor, 34, bounds, occupied, (-17, -17), height=34)
+            if marker is None:
+                heading = heading_anchor
+                hx, hy = heading
+                occupied.append((hx - 17, hy - 17, hx + 17, hy + 17))
+            else:
+                heading = marker[0] + 17, marker[1] + 17
+            if heading != heading_anchor:
+                p.draw_line(*heading_anchor, *heading, *MAP_PAPER_INK)
+            self.draw_map_heading(*heading, player.aim_angle, on_paper=True)
+        labels = []
+        for anchor, label, ink, label_width, offset in captions:
+            position = place_map_label(anchor, label_width, bounds, occupied, offset)
+            if position is not None:
+                label_x, label_y = position
+                leader_x = min(max(anchor[0], label_x), label_x + label_width)
+                p.draw_line(*anchor, leader_x, label_y + 11, *ink)
+                labels.append((label_x, label_y, label_width, label, ink))
+        if player is not None:
+            self.draw_map_waypoints(bounds, route[1:], world.first_waypoint_number, occupied)
         for label in labels:
             self.draw_map_label(*label)
 
@@ -949,6 +957,31 @@ class Renderer:
         rectangle(left, bottom, right - left, top - bottom, MAP_BORDER, filled=False)
 
     @staticmethod
+    def draw_district_map_routes(contract, map_point):
+        routes = []
+        if SHOP_STOP in contract.stops:
+            routes.append(((2110, 1012), (2110, 1235), (2095, 1435), (2095, 1655), (2170, 1740)))
+        if BUS_STOP in contract.stops:
+            routes.extend((((2170, 1740), (2170, 1860), BUS_STOP.position),
+                           ((2394, 1740), (2394, 1860), BUS_STOP.position)))
+        if FRONT_HOME_STOP in contract.stops:
+            routes.append(((3180, 1880), (3180, 1969), FRONT_HOME_STOP.position))
+        if REAR_HOME_STOP in contract.stops:
+            routes.extend((((3230, 2080), (3230, 2233), (3180, 2233)),
+                           ((3380, 2240), (3380, 2358), (2820, 2358), (2820, 2256),
+                            (3080, 2256), (3115, 2227))))
+        for route in routes:
+            points = [map_point(*point) for point in route]
+            for start, end in zip(points, points[1:]):
+                length = math.dist(start, end)
+                if not length:
+                    continue
+                for offset in range(0, math.ceil(length), 10):
+                    a, b = offset / length, min(length, offset + 5) / length
+                    p.draw_line(*(l + (r - l) * a for l, r in zip(start, end)),
+                                *(l + (r - l) * b for l, r in zip(start, end)), *MAP_DETOUR)
+
+    @staticmethod
     def bridge_map_next_stop(world):
         bridge = world.bridge_puzzle
         if bridge is None or not world.route_gimmicks_active or bridge.bridge_down:
@@ -957,9 +990,9 @@ class Renderer:
             return "C", "관리실", "회로 연결"
         return "K", "경비초소", "열쇠 찾기"
 
-    def draw_bridge_map_marker(self, x, y, symbol, *, active=False):
+    def draw_bridge_map_marker(self, x, y, symbol, *, active=False, active_color=MAP_PICKUP):
         if active:
-            rectangle(x - 9, y - 10, 18, 20, MAP_PICKUP)
+            rectangle(x - 9, y - 10, 18, 20, active_color)
         rectangle(x - 7, y - 8, 14, 16, MAP_LABEL)
         if not active:
             rectangle(x - 7, y - 8, 14, 16, MAP_PAPER_INK, filled=False)
@@ -979,77 +1012,23 @@ class Renderer:
         rectangle(side, 104, 336, 528, MAP_VIEW_PANEL)
         rectangle(side, 104, 336, 528, MAP_VIEW_EDGE, filled=False)
         self.font.draw(side + 24, 602, "다음 목표", MAP_VIEW_TEXT)
-        if len(world.contract.stops) > 1:
-            self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", MAP_VIEW_TEXT)
-        next_bridge_stop = self.bridge_map_next_stop(world)
+        self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", MAP_VIEW_TEXT)
         truck_route = world.contract.truck_position is not None
         if world.returning:
-            objective = "출발 트럭으로 복귀" if truck_route else "안전지점 복귀"
+            objective = "출발 트럭으로 복귀"
             accent = SAFE_GREEN
-            if world.return_blocked:
-                target = "추격을 끊고 복귀"
-            else:
-                target = "트럭 문 앞에서 E 길게" if truck_route else "안전지점에 도착하면 완료"
+            target = "추격을 끊고 복귀" if world.return_blocked else "트럭 문 앞에서 E 길게"
         elif world.parcel == "waiting":
             objective = "트럭에서 수령" if truck_route else "택배 수령"
             target, accent = "주황색 수령지에서 E 길게", ORANGE
-        elif truck_route:
-            remaining = world.remaining_stops
-            objective = "두 곳 배송 · 순서 자유" if len(remaining) > 1 else remaining[0].name
-            target, accent = "붉은 원 배송지에서 E 길게", MAP_VIEW_TEXT
         else:
-            objective, target, accent = "택배 전달", "붉은 원 배송지에서 E 길게", MAP_VIEW_TEXT
+            remaining = world.remaining_stops
+            objective = "배송 순서 자유" if len(remaining) > 1 else remaining[0].name
+            target, accent = "배송함에서 E 길게", MAP_VIEW_TEXT
         self.font.draw(side + 24, 566, objective, accent)
         self.font.draw(side + 24, 532, target, MAP_VIEW_TEXT)
         p.draw_line(side + 24, 504, side + 312, 504, *MAP_VIEW_EDGE)
-        self.font.draw(side + 24, 474, "지도 범례", MAP_VIEW_TEXT)
-        for y, label, color, w, h, icon in (
-            (435, "큰길", MAP_ROAD, 24, 9, None),
-            (400, "골목", MAP_ALLEY, 24, 5, None),
-            (365, "주택·건물", MAP_BUILDING, 25, 21, "west-house"),
-            (330, "상점·정류장", MAP_LANDMARK, 25, 18, "shop"),
-            (190, "차량", MAP_WRECK, 25, 12, "abandoned-car"),
-        ):
-            x, bottom = side + 36 - w / 2, y - h / 2
-            if not self._draw_map_sprite(icon, x, bottom, w, h):
-                rectangle(x, bottom, w, h, color)
-            self.font.draw(side + 62, y, label, MAP_VIEW_TEXT)
-        pickup_label = "트럭" if truck_route else "수령지"
-        pickup_color = MAP_SAFE if truck_route and world.returning else MAP_PICKUP
-        for y, label, color, pickup in ((260, pickup_label, pickup_color, True), (225, "배송지", MAP_DROPOFF, False)):
-            self.draw_map_pin(side + 36, y, color, pickup=pickup)
-            self.font.draw(side + 62, y, label, MAP_VIEW_TEXT)
-        if DELIVERY_CONTRACTS[1].stops[0] in world.contract.stops:
-            gate_closed = world.gate is not None
-            rectangle(side + 24, 153, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
-            self.font.draw(side + 62, 155, "철문 · 닫힘" if gate_closed else "철문 · 열림", MAP_VIEW_TEXT)
-        if world.contract.return_point is not None and not truck_route:
-            self.draw_safe_map_marker(side + 36, 155, MAP_SAFE, backing=MAP_LABEL)
-            self.font.draw(side + 62, 155, "안전지점", MAP_VIEW_TEXT)
-        if world.shutter_wall is not None:
-            color = MAP_CLOSED_GATE if world.shutter_closed else MAP_OPEN_GATE
-            rectangle(side + 162, 188, 20, 4, color)
-            status = "셔터 · 닫힘" if world.shutter_closed else "셔터 · 열림"
-            self.font.draw(side + 191, 190, status, MAP_VIEW_TEXT)
-        bridge = world.bridge_puzzle
-        if bridge is not None:
-            active = next_bridge_stop[0] if next_bridge_stop is not None else None
-            self.draw_bridge_map_marker(side + 172, 435, "K", active=active == "K")
-            status = "열쇠 수령" if bridge.has_key else "경비초소 · 열쇠"
-            self.font.draw(side + 191, 435, status, ORANGE if active == "K" else MAP_VIEW_TEXT)
-            self.draw_bridge_map_marker(side + 172, 400, "C", active=active == "C")
-            self.font.draw(side + 191, 400, "관리실 · 회로", ORANGE if active == "C" else MAP_VIEW_TEXT)
-            color = MAP_OPEN_GATE if bridge.bridge_down else MAP_CLOSED_GATE
-            rectangle(side + 162, 363, 20, 4, color)
-            status = "다리 지름길" if bridge.bridge_down else "다리 · 올라감"
-            self.font.draw(side + 191, 365, status, SAFE_GREEN if bridge.bridge_down else MAP_VIEW_TEXT)
-            if world.route_gimmicks_active:
-                self.font.draw(side + 191, 260, "동쪽 우회 가능", MAP_VIEW_TEXT)
-                self.font.draw(side + 191, 236, "정류장길로 연결", MAP_VIEW_TEXT)
-        self.draw_map_heading(side + 31, 295, 0)
-        self.font.draw(side + 62, 295, "현재 위치·방향", MAP_VIEW_TEXT)
-        self.draw_map_waypoint(side + 36, 120, 1)
-        self.font.draw(side + 62, 120, "경유지", MAP_VIEW_TEXT)
+        self.draw_map_checklist(world, side)
         rectangle(64, 40, 29, 27, MAP_VIEW_PAPER)
         rectangle(64, 40, 29, 27, MAP_VIEW_EDGE, filled=False)
         self.font.draw(73, 54, "M", MAP_PAPER_INK)
@@ -1060,6 +1039,65 @@ class Renderer:
         self.font.draw(508, 54, "좌클릭 경유지 추가 · 우클릭 마지막 삭제", MAP_ROUTE_HINT)
         if world.waypoints:
             self.font.draw(508, 26, "Space 현재 경유지 건너뛰기", MAP_ROUTE_HINT)
+
+    def draw_map_checklist(self, world, side):
+        left, right = side + 24, side + 312
+        self.font.draw(left, 478, "배송 목록", MAP_VIEW_TEXT)
+        for row, stop in enumerate(world.contract.stops):
+            y = 449 - row * 28
+            completed = stop in world.completed_stops
+            self.draw_map_pin(left + 8, y, MAP_COMPLETED if completed else MAP_DROPOFF)
+            self.font.draw(left + 24, y, stop.name, MAP_VIEW_TEXT)
+            self.font.draw(right - 62, y, "완료" if completed else "미완료", SAFE_GREEN if completed else MAP_VIEW_PAPER)
+        p.draw_line(left, 370, right, 370, *MAP_VIEW_EDGE)
+        self.font.draw(left, 348, "장치와 우회로", MAP_VIEW_TEXT)
+
+        features = []
+        if world.shutter_wall is not None:
+            state = "닫힘" if world.shutter_closed else "열림"
+            features.append(("S", f"주차장 셔터 · {state}", world.shutter_closed, MAP_PICKUP))
+        if world.bus_switch_position is not None:
+            cooldown = world.bus_broadcast_cooldown
+            status = f"대기 {math.ceil(cooldown)}초" if cooldown > 0 else "동·서 골목"
+            features.append(("B", f"정류장 안내방송 · {status}", cooldown > 0, MAP_PICKUP))
+        if world.front_gate_position is not None:
+            opened = world.front_gate is None
+            label = "앞문 철문 · 열림" if opened else "앞문 철문 · 동쪽 골목"
+            features.append(("F", label, opened, MAP_OPEN_GATE))
+        if REAR_HOME_STOP in world.contract.stops:
+            opened = world.gate is None
+            label = "뒷문 철문 · 열림" if opened else "뒷문 철문 · 창고 옆길"
+            features.append(("G", label, opened, MAP_OPEN_GATE))
+        bridge = world.bridge_puzzle
+        if bridge is not None:
+            next_stop = self.bridge_map_next_stop(world)
+            active = next_stop[0] if next_stop is not None else None
+            features.extend((("K", "경비초소 · 열쇠 수령" if bridge.has_key else "경비초소 · 열쇠 찾기",
+                              active == "K", MAP_PICKUP),
+                             ("C", "관리실 · 회로 연결", active == "C", MAP_PICKUP),
+                             (None, "다리 지름길 · 개방" if bridge.bridge_down else "다리 · 동쪽 우회",
+                              bridge.bridge_down, MAP_OPEN_GATE)))
+        for row, (symbol, label, active, color) in enumerate(features):
+            y = 320 - row * 27
+            if symbol is None:
+                rectangle(left, y - 2, 17, 4, MAP_OPEN_GATE if active else MAP_CLOSED_GATE)
+            else:
+                self.draw_bridge_map_marker(left + 8, y, symbol, active=active, active_color=color)
+            self.font.draw(left + 25, y, label, MAP_VIEW_TEXT)
+
+        p.draw_line(left, 186, right, 186, *MAP_VIEW_EDGE)
+        for dx in (0, 8, 16):
+            p.draw_line(left + dx, 162, left + dx + 4, 162, *SAFE_GREEN)
+        self.font.draw(left + 25, 162, "우회 골목", MAP_VIEW_TEXT)
+        self.draw_map_pin(left + 164, 162, MAP_SAFE if world.returning else MAP_PICKUP, pickup=True)
+        pickup_label = "수령지"
+        if world.contract.truck_position is not None:
+            pickup_label = "복귀 트럭" if world.returning else "수령 트럭"
+        self.font.draw(left + 180, 162, pickup_label, MAP_VIEW_TEXT)
+        self.draw_map_heading(left + 7, 133, 0)
+        self.font.draw(left + 25, 133, "현재 위치", MAP_VIEW_TEXT)
+        self.draw_map_waypoint(left + 164, 133, 1)
+        self.font.draw(left + 180, 133, "경유지", MAP_VIEW_TEXT)
 
     def draw_ground_light(self, light, outline, edge, falloff, *, feathered=False):
         if feathered:
@@ -1645,15 +1683,17 @@ class Renderer:
                 stations = tuple(stop.position for stop in delivery.remaining_stops)
             if delivery.returning:
                 self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
-            if delivery.route_gimmicks_active or (bridge is not None and defeated and delivery.parcel == "delivered"):
+            if delivery.district_gimmicks_active:
                 if delivery.shutter_position is not None:
                     stations = (*stations, delivery.shutter_position)
                     if not delivery.shutter_closed:
                         self.draw_shutter_entrance(delivery.shutter_wall)
-                if bridge is not None:
-                    stations = (*stations, bridge.key_position, bridge.panel_position)
-                    if delivery.route_gimmicks_active:
-                        stations = (*stations, bridge.note_position)
+                if delivery.bus_switch_position is not None:
+                    stations = (*stations, delivery.bus_switch_position, delivery.bus_speaker_position)
+            if delivery.route_gimmicks_active or (bridge is not None and defeated and delivery.parcel == "delivered"):
+                stations = (*stations, bridge.key_position, bridge.panel_position)
+                if delivery.route_gimmicks_active:
+                    stations = (*stations, bridge.note_position)
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
             flight = delivery.bottle_flight
             if flight is not None:
@@ -1677,6 +1717,12 @@ class Renderer:
             elif kind == "station":
                 if actor == delivery.shutter_position:
                     self.draw_shutter_control(actor, closed=delivery.shutter_closed)
+                elif actor == delivery.bus_switch_position:
+                    cooling = delivery.bus_broadcast_cooldown > 0
+                    self.draw_control_box(actor, "방송 대기" if cooling else "안내방송", ORANGE if cooling else TEAL,
+                                          label_width=96)
+                elif actor == delivery.bus_speaker_position:
+                    self.draw_control_box(actor, "스피커", ORANGE if delivery.bus_broadcast_cooldown > 0 else TEAL)
                 elif bridge is not None and actor == bridge.key_position:
                     self.draw_control_box(actor, "경비초소", TEAL if bridge.has_key else ORANGE,
                                           label_width=88)
@@ -2272,10 +2318,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             player_hit = world.player_hp < hp_before
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
-            door_sound = None
+            door_sound = bus_sound = None
             parcel_picked_up = parcel_dropped = False
             if delivery_run:
                 gate_was_closed = world.gate is not None
+                front_gate_was_closed = world.front_gate is not None
                 shutter_was_closed = world.shutter_closed
                 was_waiting = world.parcel == "waiting"
                 stops_before = len(world.completed_stops)
@@ -2293,12 +2340,15 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     pressed.clear()
                     mouse_held = False
                 gate_opened = completed and gate_was_closed and world.gate is None
+                front_gate_opened = completed and front_gate_was_closed and world.front_gate is None
                 shutter_closed = completed and not shutter_was_closed and world.shutter_closed
+                bus_sound = world.bus_broadcast_source if completed else None
                 parcel_picked_up = completed and was_waiting and world.parcel == "carrying"
                 parcel_dropped = (completed and len(world.completed_stops) > stops_before
                                   and world.result == "playing")
-                if gate_opened or shutter_closed:
-                    door_sound = world.gate_position if gate_opened else world.shutter_position
+                if gate_opened or front_gate_opened or shutter_closed:
+                    door_sound = (world.gate_position if gate_opened else world.front_gate_position
+                                  if front_gate_opened else world.shutter_position)
                     renderer.reset_streetlights()
                     renderer.light = None
             ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
@@ -2401,6 +2451,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if door_sound is not None:
                     sound_distance, sound_pan = sound_position(listener, door_sound)
                     zombie_audio.play_gate_open(sound_distance, pan=sound_pan)
+                if bus_sound is not None:
+                    sound_distance, sound_pan = sound_position(listener, bus_sound)
+                    zombie_audio.play_bus_broadcast(sound_distance, pan=sound_pan)
                 if motor_sound is not None:
                     sound_distance, sound_pan = sound_position(listener, motor_sound)
                     zombie_audio.play_bridge_motor(sound_distance, pan=sound_pan)

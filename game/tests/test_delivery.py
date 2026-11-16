@@ -1,11 +1,13 @@
 import math
+from itertools import permutations
 import unittest
 
 from game.combat import ATTACK_HIT_TIME, STUN_DURATION, ZOMBIE_ATTACK_HIT_TIME, Zombie, ZombieAttack
 from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player, wall_blocks
 from game.delivery import (
-    BOTTLE_FLIGHT_TIME, BOTTLE_THROW_RANGE, DELIVERY_CONTRACTS, DeliveryWorld,
-    PLAYER_START, TOWN_ROADS, TRUCK_ARRIVAL_SECONDS, TRUCK_DEPARTURE_SECONDS, ZOMBIE_START,
+    BOTTLE_FLIGHT_TIME, BOTTLE_THROW_RANGE, BUS_STOP, DELIVERY_CONTRACTS, DeliveryWorld, FRONT_HOME_STOP,
+    PLAYER_START, REAR_HOME_STOP, SHOP_STOP, TOWN_ROADS, TRUCK_ARRIVAL_SECONDS,
+    TRUCK_DEPARTURE_SECONDS, ZOMBIE_START,
 )
 from game.flashlight import Flashlight
 from game.zombie_navigation import can_walk_direct
@@ -17,6 +19,11 @@ class DeliveryTests(unittest.TestCase):
 
     def hold_e(self, dt, *, held=True, pressed=False, moving=False, damaged=False):
         return self.world.update_interaction(dt, held=held, pressed=pressed, moving=moving, damaged=damaged)
+
+    def deliver_remaining(self):
+        for stop in self.world.remaining_stops:
+            self.world.player.x, self.world.player.y = stop.position
+            self.assertTrue(self.world.interact())
 
     def test_held_pickup_and_delivery_require_their_full_durations_and_new_presses(self):
         world = self.world
@@ -34,6 +41,9 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(world.interaction_action, "deliver")
         self.assertIsNotNone(world.gate)
         self.assertTrue(self.hold_e(0.01))
+        self.assertEqual(world.result, "playing")
+        self.assertFalse(world.just_unlocked_two_stop)
+        self.deliver_remaining()
         self.assertEqual(world.result, "delivered")
         self.assertTrue(world.just_unlocked_two_stop)
         self.assertIsNotNone(world.gate)
@@ -67,7 +77,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertIsNone(world.interaction_action)
         self.assertIsNotNone(world.gate)
         self.assertTrue(self.hold_e(1.0, pressed=True))
-        self.assertEqual(world.result, "delivered")
+        self.assertEqual(world.completed_stops, {REAR_HOME_STOP})
         self.assertIsNotNone(world.gate)
 
     def test_held_gate_restarts_on_fresh_press_and_only_emits_noise_on_completion(self):
@@ -86,7 +96,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse(self.hold_e(1.0))
         self.assertIsNone(guard.heard_at)
 
-    def test_requires_pickup_and_reaches_success_only_at_destination(self):
+    def test_requires_pickup_and_completes_only_after_all_destinations(self):
         world = self.world
         world.player.x, world.player.y = world.destination
         self.assertFalse(world.can_interact())
@@ -98,9 +108,11 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse(world.interact())
         world.player.x, world.player.y = world.destination
         self.assertTrue(world.interact())
+        self.assertEqual((world.parcel, world.result), ("carrying", "playing"))
+        self.deliver_remaining()
         self.assertEqual((world.parcel, world.result), ("delivered", "delivered"))
         world.update(0.5, 1, 0, sprint=True)
-        self.assertEqual((world.player.x, world.player.y), world.destination)
+        self.assertEqual((world.player.x, world.player.y), REAR_HOME_STOP.position)
         self.assertFalse(world.interact())
 
     def test_delivery_stats_count_only_started_swings_and_active_play_time(self):
@@ -118,8 +130,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual((world.attack_count, world.combat_free), (1, False))
         self.assertAlmostEqual(world.elapsed_play_time, ATTACK_HIT_TIME)
 
-        world.player.x, world.player.y = world.destination
-        self.assertTrue(world.interact())
+        self.deliver_remaining()
         self.assertFalse(world.start_attack())
         world.update(1.0)
         self.assertEqual((world.result, world.attack_count), ("delivered", 1))
@@ -144,31 +155,44 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual((world.result, world.player_hp), ("defeated", 0))
         self.assertAlmostEqual(world.elapsed_play_time, 2 * ZOMBIE_ATTACK_HIT_TIME)
 
-    def test_both_contracts_can_complete_delivery_from_town_routes(self):
+    def test_starter_contracts_can_reach_all_stops_from_town_routes(self):
         main = TOWN_ROADS["main"][0]["points"]
         detour = TOWN_ROADS["main_detour"]["points"]
         alleys = TOWN_ROADS["alleys"][0]["points"]
+        house_connection = ((3140, 1985), (3225, 2175), (3225, 2217))
         routes = (
-            (0, (*alleys[:5], (1660, 945), (1958, 945), (1958, 980))),
-            (1, (*alleys[:7], (3190, 2080), (3230, 2080), (3230, 2227))),
-            (1, ((PLAYER_START[0], main[0][1]), *main[1:-1], *detour, main[-1], (3149, 2240))),
+            (0, (
+                (*alleys[:5], (1660, 945), (1958, 945), (1958, 980), SHOP_STOP.position),
+                ((2095, 1045), (2110, 1240), (2075, 1445), (2090, 1645), (2170, 1740),
+                 (2170, 1860), BUS_STOP.position),
+            )),
+            (1, (
+                (*alleys[:7], (3180, 1880), (3180, 1969), FRONT_HOME_STOP.position),
+                (*house_connection, REAR_HOME_STOP.position),
+            )),
+            (1, (
+                ((PLAYER_START[0], main[0][1]), *main[1:-1], *detour, main[-1], (3149, 2240),
+                 REAR_HOME_STOP.position),
+                (*reversed(house_connection), FRONT_HOME_STOP.position),
+            )),
         )
-        for index, waypoints in routes:
-            with self.subTest(contract=DELIVERY_CONTRACTS[index].name, waypoints=waypoints):
+        for index, legs in routes:
+            with self.subTest(contract=DELIVERY_CONTRACTS[index].name, legs=legs):
                 world = DeliveryWorld()
                 self.assertTrue(world.select_contract(index))
                 self.assertTrue(world.interact())
                 player = world.player
-                for x, y in (*waypoints, world.destination):
-                    dx, dy = x - player.x, y - player.y
-                    remaining = math.hypot(dx, dy) / WALK_SPEED
-                    while remaining > 0:
-                        dt = min(remaining, 1.0)
-                        move_player(player, dx, dy, dt, world.walls, world_size=world.world_size)
-                        remaining -= dt
-                    self.assertAlmostEqual(player.x, x)
-                    self.assertAlmostEqual(player.y, y)
-                self.assertTrue(world.interact())
+                for waypoints in legs:
+                    for x, y in waypoints:
+                        dx, dy = x - player.x, y - player.y
+                        remaining = math.hypot(dx, dy) / WALK_SPEED
+                        while remaining > 0:
+                            dt = min(remaining, 1.0)
+                            move_player(player, dx, dy, dt, world.walls, world_size=world.world_size)
+                            remaining -= dt
+                        self.assertAlmostEqual(player.x, x)
+                        self.assertAlmostEqual(player.y, y)
+                    self.assertTrue(world.interact())
                 self.assertEqual(world.result, "delivered")
 
     def test_selecting_a_contract_resets_run_and_uses_its_own_zombies_and_destination(self):
@@ -181,9 +205,11 @@ class DeliveryTests(unittest.TestCase):
             self.assertIs(world.contract, contract)
             self.assertEqual(world.parcel, "waiting")
             self.assertEqual(world.destination, contract.destination)
-            self.assertEqual(tuple((zombie.x, zombie.y) for zombie in world.zombies), contract.zombie_starts)
+            positions = tuple((zombie.x, zombie.y) for zombie in world.zombies)
+            self.assertEqual(positions[:len(contract.zombie_starts)], contract.zombie_starts)
+            self.assertEqual(len(set(positions)), len(positions))
             appearances = [zombie.appearance for zombie in world.zombies]
-            self.assertCountEqual(appearances, ["classic", "maintenance", "resident"] * 8)
+            self.assertEqual(set(appearances), {"classic", "maintenance", "resident"})
             self.assertTrue(world.interact())
             world.player.x, world.player.y = DELIVERY_CONTRACTS[1 - index].destination
             self.assertFalse(world.can_interact())
@@ -193,7 +219,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertIs(world.contract, contract)
             self.assertEqual([zombie.appearance for zombie in world.zombies], appearances)
 
-    def test_two_stop_unlock_requires_a_single_delivery_success_and_survives_reset(self):
+    def test_contract_unlock_requires_all_starter_stops_and_survives_reset(self):
         for index in range(2):
             with self.subTest(contract=index):
                 world = DeliveryWorld()
@@ -204,8 +230,10 @@ class DeliveryTests(unittest.TestCase):
                 self.assertFalse(world.two_stop_unlocked)
                 self.assertFalse(world.just_unlocked_two_stop)
 
-                world.player.x, world.player.y = world.destination
-                self.assertTrue(world.interact())
+                for stop in world.contract.stops:
+                    self.assertFalse(world.two_stop_unlocked)
+                    world.player.x, world.player.y = stop.position
+                    self.assertTrue(world.interact())
                 self.assertTrue(world.two_stop_unlocked)
                 self.assertTrue(world.just_unlocked_two_stop)
                 self.assertEqual(world.available_contracts, DELIVERY_CONTRACTS)
@@ -221,7 +249,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse(world.interact())
         self.assertFalse(world.two_stop_unlocked)
 
-    def test_shop_round_trip_both_stop_orders_and_truck_sequence(self):
+    def test_shop_round_trip_forward_and_reverse_truck_sequence(self):
         world = self.world
         self.assertFalse(world.select_contract(2))
         contract = DELIVERY_CONTRACTS[3]
@@ -261,8 +289,9 @@ class DeliveryTests(unittest.TestCase):
                 self.assertFalse(self.hold_e(1.00, pressed=True))
                 world.player.x, world.player.y = world.pickup
                 self.assertFalse(world.can_board_truck())
-                world.player.x, world.player.y = order[1].position
-                self.assertTrue(self.hold_e(1.00, pressed=True))
+                for stop in order[1:]:
+                    world.player.x, world.player.y = stop.position
+                    self.assertTrue(self.hold_e(1.00, pressed=True))
                 self.assertEqual(world.mission_phase, "returning")
                 self.assertEqual(world.completed_stops, set(order))
                 self.assertEqual(world.next_stop, world.pickup)
@@ -351,23 +380,27 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(world.mission_phase, "failed")
         self.assertFalse(world.skip_route_sequence())
 
-    def test_two_stop_contract_accepts_both_orders_and_only_reachable_unfinished_stops(self):
-        contract = DELIVERY_CONTRACTS[2]
-        self.assertEqual(contract.stops, tuple(single.stops[0] for single in DELIVERY_CONTRACTS[:2]))
-        for order in (contract.stops, tuple(reversed(contract.stops))):
-            with self.subTest(order=order):
+    def test_all_contracts_accept_all_sixteen_delivery_orders(self):
+        orders = [(index, order) for index, contract in enumerate(DELIVERY_CONTRACTS)
+                  for order in permutations(contract.stops)]
+        self.assertEqual(len(orders), 16)
+        for index, order in orders:
+            with self.subTest(contract=DELIVERY_CONTRACTS[index].name, order=order):
+                contract = DELIVERY_CONTRACTS[index]
                 world = DeliveryWorld(two_stop_unlocked=True)
-                self.assertTrue(world.select_contract(2))
+                self.assertTrue(world.select_contract(index))
+                if world.route_sequence_active:
+                    self.assertTrue(world.skip_route_sequence())
                 self.assertEqual(world.remaining_stops, contract.stops)
-                first, second = order
+                first = order[0]
                 world.player.x, world.player.y = first.position
                 self.assertIsNone(world.interaction_target)
-                world.player.x, world.player.y = PLAYER_START
+                world.player.x, world.player.y = contract.player_start
                 self.assertEqual(world.interaction_target, world.pickup)
                 self.assertTrue(world.interact())
 
                 x, y = first.position
-                offset = 20 if first is contract.stops[1] else -20
+                offset = 20 if first in (REAR_HOME_STOP, BUS_STOP) else -20
                 world.player.x, world.player.y = (x, y + offset)
                 blocker = Wall(x - 1, y + offset / 2 - 1, 2, 2)
                 world.walls.append(blocker)
@@ -377,13 +410,18 @@ class DeliveryTests(unittest.TestCase):
                 self.assertTrue(world.interact())
                 self.assertEqual((world.parcel, world.result), ("carrying", "playing"))
                 self.assertEqual(world.completed_stops, {first})
-                self.assertEqual(world.remaining_stops, (second,))
+                self.assertEqual(set(world.remaining_stops), set(order[1:]))
                 self.assertIsNone(world.interaction_target)
-                self.assertFalse(world.interact())
 
-                world.player.x, world.player.y = second.position
-                self.assertEqual(world.interaction_target, second.position)
-                self.assertTrue(world.interact())
+                for stop in order[1:]:
+                    world.player.x, world.player.y = stop.position
+                    self.assertEqual(world.interaction_target, stop.position)
+                    self.assertTrue(world.interact())
+                if contract.truck_door_position is not None:
+                    self.assertEqual((world.parcel, world.mission_phase), ("delivered", "returning"))
+                    world.player.x, world.player.y = contract.truck_door_position
+                    self.assertTrue(world.interact())
+                    self.assertTrue(world.skip_route_sequence())
                 self.assertEqual((world.parcel, world.result), ("delivered", "delivered"))
                 self.assertEqual(world.completed_stops, set(contract.stops))
                 self.assertEqual(world.remaining_stops, ())
@@ -394,11 +432,12 @@ class DeliveryTests(unittest.TestCase):
                 self.assertTrue(world.two_stop_unlocked)
                 self.assertEqual(world.completed_stops, set())
 
-    def test_two_stop_contract_keeps_the_shop_horde_and_rear_patrol_within_24_zombies(self):
+    def test_three_stop_contract_preserves_shop_horde_and_rear_patrol_in_its_zombie_budget(self):
         world = DeliveryWorld(two_stop_unlocked=True)
         self.assertTrue(world.select_contract(2))
         positions = {(zombie.x, zombie.y) for zombie in world.zombies}
-        self.assertEqual((len(world.zombies), len(positions)), (24, 24))
+        self.assertLessEqual(len(world.zombies), 24)
+        self.assertEqual(len(world.zombies), len(positions))
         lamp = Flashlight((1960, 990), 0, world.walls, world.world_size, radius=185, half_angle=math.pi)
         self.assertEqual(sum(lamp.contains(position) for position in positions), 5)
         guards = [zombie for zombie in world.zombies if zombie.state == "patrol"]
@@ -417,8 +456,8 @@ class DeliveryTests(unittest.TestCase):
 
         world.select_contract(1)
         self.assertFalse(any(lamp.contains(point) for lamp in lamps
-                             for point in (world.destination, (3230, 2227))))
-        walker = Player(3000, world.destination[1])
+                             for point in (REAR_HOME_STOP.position, (3230, 2227))))
+        walker = Player(3000, REAR_HOME_STOP.position[1])
         move_player(walker, 0, 1, 1, world.walls, world_size=world.world_size)
         self.assertEqual(walker.y, 2272 - PLAYER_RADIUS)
         move_player(walker, 0, -1, 1, world.walls, world_size=world.world_size)
@@ -476,7 +515,7 @@ class DeliveryTests(unittest.TestCase):
         pursuer.x, pursuer.y = 2950, 2350
         world.player = walker
         self.assertFalse(world._player_line_clear(pursuer))
-        self.assertLess(math.dist((walker.x, walker.y), world.destination), 42)
+        self.assertLess(math.dist((walker.x, walker.y), REAR_HOME_STOP.position), 42)
         self.assertIsNotNone(world.gate)
 
     def test_rear_alley_guard_resumes_patrol_around_fence_after_searching_noise(self):
@@ -570,6 +609,8 @@ class DeliveryTests(unittest.TestCase):
                     walls, world_size=world.world_size)
         self.assertAlmostEqual(world.player.y, exit_point[1])
         self.assertTrue(world.interact())
+        self.assertEqual(world.completed_stops, {REAR_HOME_STOP})
+        self.deliver_remaining()
         self.assertEqual(world.result, "delivered")
         world.reset()
         self.assertIn(world.gate, world.walls)
@@ -581,7 +622,7 @@ class DeliveryTests(unittest.TestCase):
         world.player = Player(3155, 2218)
         self.assertTrue(world.can_open_gate())
         self.assertTrue(world.interact())
-        self.assertEqual(world.result, "delivered")
+        self.assertEqual(world.completed_stops, {REAR_HOME_STOP})
         self.assertIn(world.gate, world.walls)
 
     def test_zero_health_overrides_delivery_and_reset_restores_run(self):
