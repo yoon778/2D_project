@@ -10,7 +10,7 @@ else:
 
 RANGE = 340.0
 HALF_ANGLE = math.radians(40)
-NEARBY_GLOW_RADIUS = 50.0
+NEARBY_GLOW_RADIUS = 110.0
 _BEAM_ANGLE_FADE = math.radians(8)
 _BEAM_DISTANCE_FADE = 56.0
 _ARC_STEPS = 40
@@ -90,6 +90,10 @@ def _smoothstep(amount):
     return amount * amount * (3.0 - 2.0 * amount)
 
 
+def nearby_glow_strength(distance):
+    return _smoothstep(1.0 - distance / NEARBY_GLOW_RADIUS)
+
+
 def feathered_beam_mesh(light, outline):
     """Subdivide the existing wall-clipped rays and give each vertex an opacity."""
     vertices = [(light.origin, 255)]
@@ -98,7 +102,8 @@ def feathered_beam_mesh(light, outline):
         return vertices, indices
 
     angle_fade = min(light.half_angle, _BEAM_ANGLE_FADE)
-    distance_fade = min(light.radius, _BEAM_DISTANCE_FADE)
+    omnidirectional = light.half_angle == math.pi
+    distance_fade = light.radius if omnidirectional else min(light.radius, _BEAM_DISTANCE_FADE)
     # An inner ring gives the shared apex a tiny transition into the side fade.
     inner = min(1.0, light.radius / 8)
     fade_rings = (light.radius - distance_fade * step / 4 for step in range(4, -1, -1))
@@ -112,7 +117,7 @@ def feathered_beam_mesh(light, outline):
             previous = None
             continue
         angle = abs(math.remainder(math.atan2(dy, dx) - light.angle, math.tau))
-        angular_opacity = _smoothstep((light.half_angle - angle) / angle_fade)
+        angular_opacity = 1.0 if omnidirectional else _smoothstep((light.half_angle - angle) / angle_fade)
         ray = []
         end_index = None
         for ring in rings:

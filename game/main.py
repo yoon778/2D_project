@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+from dataclasses import replace
 import math
 from pathlib import Path
 import time
@@ -15,7 +16,7 @@ from combat_visual import CombatVisual
 from delivery import (DELIVERY_CONTRACTS, INTERACTION_RANGE, REAR_ALLEY_LISTEN_POINT, TOWN_ROADS, DeliveryWorld,
                       NeighborhoodWall)
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
-from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow
+from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
@@ -74,8 +75,9 @@ HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
-NEARBY_GLOW_COLOR = (42, 38, 31)
+NEARBY_GLOW_COLOR = (118, 105, 87)
 NEARBY_GLOW_TINT = 66
+ZOMBIE_GLOW_BODY_PAD = 12.0
 ZOMBIE_LIGHT_DEPTH_SCALE = 0.35
 TRASH_CAN_POSITION = (365.0, 300.0)
 WHITE = (231, 236, 231)
@@ -210,6 +212,12 @@ def draw_dimmed_texture(texture, draw):
         p.SDL_SetTextureColorMod(texture, 255, 255, 255)
 
 
+def zombie_glow_opacity(glow, position):
+    # Start fading in at the lit edge of the body before its foot reaches the ring.
+    distance = math.dist(glow.origin, position) - ZOMBIE_GLOW_BODY_PAD
+    return round(255 * nearby_glow_strength(distance))
+
+
 def zombie_light_row(row, foot_y):
     # A standing sprite's height only partially contributes to its ground depth.
     foot_row = WINDOW_HEIGHT - 1 - foot_y
@@ -227,7 +235,7 @@ def clip_light_columns(spans, columns):
 
 
 def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0), *,
-                 wall_alpha=None, building_opacity=None):
+                 wall_alpha=None, building_opacity=None, nearby_light=None):
     screen_y = WINDOW_HEIGHT - 1 - mouse_y
     for zombie in sorted(world.zombies, key=lambda enemy: enemy.y):
         position = (zombie.x, zombie.y)
@@ -238,9 +246,12 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
             sample = zombie_light_row(mouse_y, y + shake[1])
             world_x, depth = screen_to_world(mouse_x + .5 - shake[0],
                                               WINDOW_HEIGHT - 1.5 - sample - shake[1], camera)
+            sources = light.lights
+            if nearby_light is not None and zombie_glow_opacity(nearby_light, position):
+                sources = (*sources, nearby_light)
             if not any(any(left <= world_x < right for left, right in source.spans_at(zombie.y))
                        and any(left <= world_x < right for left, right in source.spans_at(depth))
-                       for source in light.lights):
+                       for source in sources):
                 continue
         # A wall drawn in front can cover the upper part of a lit sprite.
         wx, wy = mouse_x - shake[0], screen_y - shake[1]
@@ -406,6 +417,7 @@ class Renderer:
         self.light = None
         self._light_pose = None
         self.glow_source = None
+        self.nearby_light = None
         self.camera = (0.0, 0.0)
         self.choosing_delivery = False
         self.delivery_preview = 0
@@ -568,7 +580,9 @@ class Renderer:
         pose = (origin, angle, self.camera, self.shake_offset, id(walls))
         if self.light is None or pose != self._light_pose:
             world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
-            beam = Flashlight(origin, angle, self.light_walls(walls), world_size)
+            light_walls = self.light_walls(walls)
+            beam = Flashlight(origin, angle, light_walls, world_size)
+            self.nearby_light = nearby_glow(origin, light_walls, world_size)
             self.light = LightField((beam, *self.streetlights_in_view()))
             self._light_pose = pose
         return self.light
@@ -1351,47 +1365,46 @@ class Renderer:
     def draw_delivery_result(self):
         self.play_hud.draw_result(self.delivery)
 
-    def draw_lit_zombie(self, zombie, combat, attack, *, show_nearby_glow=True):
+    def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
         bounds = self.combat_visual.zombie_rect(zombie, x, y)
 
         def draw():
             self.combat_visual.draw_zombie(zombie, x, y)
 
-        glow_spans = self.glow_at_ground_depth((zombie.x, zombie.y), x) if show_nearby_glow else None
+        position = zombie.x, zombie.y
+        glow_spans = self.glow_at_ground_depth(position, x)
         if glow_spans is not None:
-            def draw_glow():
-                draw_dimmed_texture(self.combat_visual.zombie_texture(zombie), draw)
+            opacity = zombie_glow_opacity(self.glow_source[0], position)
+            if opacity:
+                texture = self.combat_visual.zombie_texture(zombie)
+                if p.SDL_SetTextureAlphaMod(texture, opacity) != 0:
+                    raise RuntimeError(f"Nearby zombie opacity failed: {p.SDL_GetError()!r}")
+                try:
+                    self.draw_lit_region(bounds, draw, row_spans=lambda row: glow_spans(
+                        zombie_light_row(row, y) if zombie.alive else row))
+                finally:
+                    p.SDL_SetTextureAlphaMod(texture, 255)
 
-            def zombie_glow_spans(row):
-                sample = zombie_light_row(row, y) if zombie.alive else row
-                return glow_spans(sample)
+        left, _, width, _ = bounds
+        if left + width <= 0 or left >= WINDOW_WIDTH:
+            return
+        origin_x = x - zombie.x
+        sources = []
+        for light, rows in self.light_sources:
+            columns = light_depth_columns(light, zombie.y, origin_x)
+            if columns:
+                sources.append((rows, columns))
+        if not sources:
+            return
 
-            self.draw_lit_region(bounds, draw_glow, row_spans=zombie_glow_spans)
+        def zombie_row_spans(row):
+            sample = zombie_light_row(row, y) if zombie.alive else row
+            return merge_light_spans(span for rows, columns in sources
+                                     for span in clip_light_columns(rows.get(sample, ()), columns))
 
-        row_spans = None
-        if zombie.alive or not show_nearby_glow:
-            left, _, width, _ = bounds
-            if left + width <= 0 or left >= WINDOW_WIDTH:
-                return
-            origin_x = x - zombie.x
-            sources = []
-            for light, rows in self.light_sources:
-                columns = light_depth_columns(light, zombie.y, origin_x)
-                if columns:
-                    sources.append((rows, columns))
-            if not sources:
-                return
-
-            def zombie_row_spans(row):
-                sample = zombie_light_row(row, y) if zombie.alive else row
-                return merge_light_spans(span for rows, columns in sources
-                                         for span in clip_light_columns(rows.get(sample, ()), columns))
-
-            row_spans = zombie_row_spans
-
-        self.draw_lit_region(bounds, draw, row_spans=row_spans)
-        self.draw_zombie_markers(zombie, combat, attack, x, y, row_spans=row_spans)
+        self.draw_lit_region(bounds, draw, row_spans=zombie_row_spans)
+        self.draw_zombie_markers(zombie, combat, attack, x, y, row_spans=zombie_row_spans)
 
     def draw_zombie_markers(self, zombie, combat, attack, x, y, *, row_spans=None):
         scale = self.combat_visual.display_scale
@@ -1438,7 +1451,12 @@ class Renderer:
         elif self.abandon_confirmation:
             self.play_hud.draw_abandon_confirmation()
 
-    def _draw_scene(self, player, walls, target, focused):
+    def draw_defeat(self, player, walls, target, elapsed, attacker):
+        if target is None:
+            target = player.x + math.cos(player.aim_angle), player.y + math.sin(player.aim_angle)
+        self._draw_scene(player, walls, target, True, defeat_elapsed=elapsed, defeat_attacker=attacker)
+
+    def _draw_scene(self, player, walls, target, focused, *, defeat_elapsed=None, defeat_attacker=None):
         if self.choosing_delivery:
             self.draw_delivery_selection()
             return
@@ -1451,10 +1469,10 @@ class Renderer:
         aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
         beam, *lamps = self.prepare_light(player, walls, aim).lights
-        glow = nearby_glow(origin, self.light_walls(walls), world_size)
+        glow = self.nearby_light
         glow_outline = glow.outline()
         glow_walls = {id(wall) for wall in glow.walls}
-        # Only the stronger sources reveal targeting, station prompts and status marks.
+        # Station labels and status marks remain reserved for strong lighting.
         self.glow_source = (glow, light_source_rows(glow, self.project))
         self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in self.light.lights)
         self.light_rows = combined_light_rows([rows for _, rows in self.light_sources])
@@ -1467,13 +1485,14 @@ class Renderer:
             x, y = self.project(*point)
             beam_mask.append((x, y + 1))
         lamp_outlines = tuple(lamp.outline() for lamp in lamps)
-        self.draw_ground_light(glow, glow_outline, (0, 0, 0), NEARBY_GLOW_COLOR)
+        self.draw_ground_light(glow, glow_outline, NEARBY_GLOW_COLOR, (0, 0, 0), feathered=True)
         self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53), feathered=True)
         self.draw_streetlight_pools(lamps, lamp_outlines)
         delivery = self.delivery
         bridge = delivery.bridge_puzzle if delivery is not None else None
-        returning_to_safe_zone = (delivery is not None and delivery.returning
-                                  and delivery.contract is DELIVERY_CONTRACTS[3])
+        defeated = delivery is not None and delivery.result == "defeated"
+        returning_to_safe_zone = (delivery is not None and delivery.contract is DELIVERY_CONTRACTS[3]
+                                  and (delivery.returning or (defeated and delivery.parcel == "delivered")))
         if bridge is not None:
             self.draw_bridge_terrain(bridge)
         outlines = (beam_outline, *lamp_outlines)
@@ -1490,8 +1509,9 @@ class Renderer:
         if delivery is not None:
             stations = ((delivery.pickup,) if delivery.parcel == "waiting"
                         else tuple(stop.position for stop in delivery.remaining_stops))
-            if delivery.returning:
-                self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
+            if delivery.returning or returning_to_safe_zone:
+                if not defeated:
+                    self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
                 if delivery.shutter_position is not None:
                     stations = (*stations, delivery.shutter_position)
                     if not delivery.shutter_closed:
@@ -1541,12 +1561,27 @@ class Renderer:
                     self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else (),
                               opacity=opacity, ambient=returning_to_safe_zone and texture in BUILDING_TEXTURES)
             elif kind == "zombie":
-                self.draw_lit_zombie(actor, combat, attack, show_nearby_glow=not returning_to_safe_zone)
+                if defeat_attacker is not None and actor is defeat_attacker[0]:
+                    actor = defeat_attacker[1]
+                self.draw_lit_zombie(actor, combat, attack)
             else:
-                if combat is None or not self.combat_visual.draw_attack(
+                if defeated:
+                    attacker = delivery.fatal_zombie_strike
+                    fall_x = player.x - attacker[0].x if attacker else -math.cos(player.aim_angle)
+                    progress = 1.0 if defeat_elapsed is None else opening.courier_fall_progress(defeat_elapsed)
+                    fall_angle = math.copysign(math.radians(83) * progress, -fall_x)
+                    self.player_visual.draw(*foot, fall_angle=fall_angle, **courier_style)
+                elif combat is None or not self.combat_visual.draw_attack(
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index, **courier_style):
                     self.player_visual.draw(*foot, **courier_style)
-                cross(*foot, TEAL, size=4)
+                if not defeated:
+                    cross(*foot, TEAL, size=4)
+        if defeated:
+            if defeat_elapsed is None:
+                p.SDL_SetRenderDrawColor(p.renderer, 4, 7, 10, 175)
+                p.SDL_RenderFillRect(p.renderer, None)
+                self.draw_delivery_result()
+            return
         # The cursor stays at its screen position while the world shakes.
         target_screen = (world_to_screen(*target, self.camera) if self.cursor is None
                          else (self.cursor[0], WINDOW_HEIGHT - 1 - self.cursor[1]))
@@ -1564,8 +1599,7 @@ class Renderer:
                     for zombie in delivery.zombies:
                         position = zombie.x, zombie.y
                         if (zombie.alive and math.dist(origin, position) <= SNEAK_HINT_RANGE
-                                and (self.light.contains(position)
-                                     or (not returning_to_safe_zone and glow.contains(position)))
+                                and (self.light.contains(position) or glow.contains(position))
                                 and delivery._player_line_clear(zombie)):
                             near_visible_zombie = True
                             break
@@ -1657,10 +1691,17 @@ def play_opening(renderer, music, art=None):
         previous = now
 
 
-def play_ending(renderer, art, world, audio, *, player_hit):
+def play_ending(renderer, art, world, audio, *, player_hit, target=None):
     delivered = world.result == "delivered"
     duration = opening.ENDING_DURATION if delivered else opening.FAILURE_DURATION
+    attacker = None
+    if not delivered and world.fatal_zombie_strike is not None:
+        source, strike = world.fatal_zombie_strike
+        pose = renderer.combat_visual._motion_for(source)
+        visual_strike = replace(strike, facing=pose.attack_facing or strike.facing)
+        attacker = source, replace(source, attack=visual_strike)
     start = time.perf_counter()
+    previous = 0.0
     cue_played = False
     audio.stop()
     try:
@@ -1681,7 +1722,16 @@ def play_ending(renderer, art, world, audio, *, player_hit):
                 cue_played = True
             if elapsed >= duration or (skip and focused):
                 return True
-            opening.draw_ending(elapsed, renderer.font, art, world)
+            if delivered:
+                opening.draw_ending(elapsed, renderer.font, art, world)
+            else:
+                renderer.update_shake((elapsed - previous) * opening.FAILURE_MOTION_RATE)
+                if attacker is not None:
+                    visual_strike.elapsed = min(math.nextafter(strike.duration, 0.0),
+                                                strike.elapsed + elapsed * opening.FAILURE_MOTION_RATE)
+                renderer.draw_defeat(world.player, world.walls, target, elapsed, attacker)
+                opening.draw_defeat_overlay(elapsed, renderer.font, art)
+                previous = elapsed
             p.update_canvas()
     finally:
         audio.stop()
@@ -1720,7 +1770,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
         if delivery_run:
             if music is not None:
                 music.close()
-            music = BackgroundMusic(BASE_DIR / "assets/audio/night-delivery-loop.ogg")
+            audio_dir = BASE_DIR / "assets/audio"
+            music = BackgroundMusic(audio_dir / "night-delivery-loop.ogg", layers=(
+                audio_dir / "night-threat-layer.ogg", audio_dir / "night-chase-layer.ogg",
+            ))
             renderer.delivery = world
             renderer.choosing_delivery = True
             renderer.player_visual.display_scale = DELIVERY_CHARACTER_SCALE
@@ -1878,6 +1931,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         music.start()
                 else:
                     world.reset()
+                if music is not None:
+                    music.reset()
                 renderer.choosing_delivery = delivery_run and reset_requested
                 if delivery_run:
                     renderer.reset_streetlights()
@@ -1935,7 +1990,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     aim = (player.x, player.y)
                     light = renderer.prepare_light(player, walls, aim)
                 target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
-                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha)
+                                      renderer.shake_offset, wall_alpha=renderer.wall_alpha,
+                                      nearby_light=renderer.nearby_light)
             axis_x = int(p.SDLK_d in pressed) - int(p.SDLK_a in pressed)
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
@@ -2105,18 +2161,20 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 light = renderer.prepare_light(player, walls, aim)
                 target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
                                       renderer.shake_offset, wall_alpha=renderer.wall_alpha,
-                                      building_opacity=renderer.building_opacity)
+                                      building_opacity=renderer.building_opacity, nearby_light=renderer.nearby_light)
             if active and strike is None and world.result == "playing":
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
             renderer.player_visual.update(display_angle, dx, dy, sprinting=delivery_run and world.sprinting)
             if ending:
-                if not play_ending(renderer, cutscene_art, world, zombie_audio, player_hit=player_hit):
+                if not play_ending(renderer, cutscene_art, world, zombie_audio, player_hit=player_hit, target=target):
                     return
                 pressed.clear()
                 mouse_held = False
                 cursor = current_cursor()
                 renderer.cursor = cursor
+                if world.result == "defeated":
+                    renderer.update_shake(math.inf)
                 focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
                 previous = time.perf_counter()
             renderer.draw(player, walls, target, focused)

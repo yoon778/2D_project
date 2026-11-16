@@ -3,6 +3,7 @@ import ctypes
 import math
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, call, patch
 
@@ -124,6 +125,77 @@ class BackgroundMusicTests(unittest.TestCase):
         self.backend.Mix_VolumeMusic.assert_called_once_with(32)
         self.music.update(3, distance=math.nan)
         self.backend.Mix_VolumeMusic.assert_called_with(38)
+
+
+class AdaptiveMusicTests(unittest.TestCase):
+    def setUp(self):
+        directory = Path(self.enterContext(TemporaryDirectory()))
+        self.paths = tuple(directory / f"{name}.ogg" for name in ("base", "near", "chase"))
+        for path in self.paths:
+            path.write_bytes(b"test fixture")
+        self.backend = self.enterContext(patch.object(spatial_audio, "p", Mock()))
+        self.backend.Mix_QuerySpec.return_value = 1
+        self.chunks = [SimpleNamespace(contents=SimpleNamespace(alen=256)) for _ in self.paths]
+        self.backend.Mix_LoadWAV.side_effect = self.chunks
+        self.backend.Mix_AllocateChannels.side_effect = lambda size: 8 if size == -1 else size
+        self.backend.Mix_ReserveChannels.side_effect = lambda size: size
+        self.backend.Mix_Volume.return_value = 128
+        self.backend.Mix_PlayChannelTimed.side_effect = lambda channel, *_: channel
+        self.music = spatial_audio.BackgroundMusic(self.paths[0], layers=self.paths[1:])
+        self.addCleanup(self.music.close)
+
+    def test_approach_chase_and_release_mix_the_running_layers(self):
+        self.music.start()
+        self.assertEqual(self.music._score._volumes, (30, 0, 0))
+        self.music.update(.09, distance=70)
+        self.assertTrue(0 < self.music._score._volumes[1] < 23)
+        self.music.update(4, distance=70)
+        self.assertEqual(self.music._score._volumes, (19, 23, 0))
+        self.music.update(4, distance=200, chasing=True)
+        self.assertEqual(self.music._score._volumes, (19, 15, 26))
+        self.music.update(.1, distance=200)
+        self.assertTrue(0 < self.music._score._volumes[2] < 26)
+        self.music.update(8, distance=200)
+        self.assertEqual(self.music._score._volumes, (30, 0, 0))
+        self.music.update(4, distance=70, chasing=True)
+        self.music.reset()
+        self.assertEqual(self.music._score._volumes, (30, 0, 0))
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(index, chunk, -1, -1) for index, chunk in enumerate(self.chunks)])
+
+    def test_pause_resume_and_close_preserve_channel_ownership(self):
+        self.music.start()
+        for focused in (False, False, True, True):
+            self.music.update(0, focused=focused)
+        channels = [call(index) for index in range(3)]
+        self.assertEqual(self.backend.Mix_Pause.call_args_list, channels)
+        self.assertEqual(self.backend.Mix_Resume.call_args_list, channels)
+        self.music.close()
+        self.music.close()
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, channels)
+        self.assertEqual(self.backend.Mix_FreeChunk.call_args_list, [call(chunk) for chunk in self.chunks])
+        self.assertEqual(self.backend.Mix_AllocateChannels.call_args_list, [call(-1), call(11), call(8)])
+        self.assertEqual(self.backend.Mix_ReserveChannels.call_args_list, [call(3), call(0)])
+
+    def test_mismatched_stems_release_chunks_and_fall_back_to_base_music(self):
+        self.chunks[-1].contents.alen = 240
+        self.backend.Mix_PlayMusic.return_value = 0
+        self.music.start()
+        self.backend.Mix_PlayChannelTimed.assert_not_called()
+        self.backend.Mix_AllocateChannels.assert_not_called()
+        self.assertEqual(self.backend.Mix_FreeChunk.call_args_list, [call(chunk) for chunk in self.chunks])
+        self.backend.Mix_LoadMUS.assert_called_once_with(str(self.paths[0]).encode("utf-8"))
+        self.backend.Mix_PlayMusic.assert_called_once_with(self.backend.Mix_LoadMUS.return_value, -1)
+
+    def test_failed_layer_start_restores_effect_channel_volumes(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = [0, 1, -1]
+        self.backend.Mix_PlayMusic.return_value = 0
+        self.music.start()
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1)])
+        self.assertEqual(self.backend.Mix_Volume.call_args_list[-3:], [call(n, 128) for n in range(3)])
+        self.assertEqual(self.backend.Mix_FreeChunk.call_args_list, [call(chunk) for chunk in self.chunks])
+        self.backend.Mix_ReserveChannels.assert_called_with(0)
+        self.backend.Mix_PlayMusic.assert_called_once()
 
 
 class ZombieAudioTests(unittest.TestCase):

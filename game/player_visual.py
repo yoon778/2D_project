@@ -94,7 +94,7 @@ class PlayerVisual:
         frames = self.metadata["frames"][self.locomotion.facing]
         return self.locomotion.walk_frame_index(len(frames) - 1)
 
-    def draw(self, foot_x, foot_y, *, empty_handed=False):
+    def draw(self, foot_x, foot_y, *, empty_handed=False, fall_angle=0.0):
         facing = self.locomotion.facing
         frames = self.metadata["frames"][facing]
         frame = frames[self.frame_index]
@@ -109,10 +109,17 @@ class PlayerVisual:
         left, bottom, width, height = sprite_rect(
             foot_x, foot_y, clip, frame["foot_pivot_topleft"], shown_height)
         src_x, src_top, src_width, src_height = clip
-        # Each facing has its own art; never rotate or mirror the atlas.
-        image.clip_draw(
-            src_x, image.h - src_top - src_height, src_width, src_height,
-            left + width / 2, bottom + height / 2, width, height)
+        center_x, center_y = left + width / 2, bottom + height / 2
+        source = (src_x, image.h - src_top - src_height, src_width, src_height)
+        if fall_angle:
+            # Keep the boot pivot fixed as the final sprite falls toward the ground.
+            dx, dy = center_x - foot_x, center_y - foot_y
+            cosine, sine = math.cos(fall_angle), math.sin(fall_angle)
+            image.clip_composite_draw(*source, fall_angle, "",
+                                      foot_x + cosine * dx - sine * dy,
+                                      foot_y + sine * dx + cosine * dy, width, height)
+        else:
+            image.clip_draw(*source, center_x, center_y, width, height)
 
     def close(self):
         # Image.__del__ alone owns the texture; never destroy it twice.

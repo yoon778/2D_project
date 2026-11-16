@@ -2,7 +2,7 @@ import math
 import unittest
 
 from game.core import Wall
-from game.flashlight import Flashlight, HALF_ANGLE, LightField, feathered_beam_mesh, nearby_glow
+from game.flashlight import Flashlight, HALF_ANGLE, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 
 
 class FlashlightSpanTests(unittest.TestCase):
@@ -39,19 +39,19 @@ class FlashlightSpanTests(unittest.TestCase):
         toward = Flashlight((210, 60), math.pi / 2, [wall])
         self.assertEqual(len(LightField((toward, lamp)).spans_at(130)), 1)
 
-    def test_nearby_glow_covers_all_directions_up_to_50_pixels(self):
-        glow = nearby_glow((200, 100), (), (400, 300))
-        for point in ((150, 100), (250, 100), (200, 50), (200, 150)):
+    def test_nearby_glow_covers_all_directions_up_to_110_pixels(self):
+        glow = nearby_glow((200, 150), (), (400, 300))
+        for point in ((90, 150), (310, 150), (200, 40), (200, 260)):
             with self.subTest(point=point):
                 self.assertTrue(glow.contains(point))
-        for point in ((149, 100), (251, 100), (200, 49), (200, 151)):
+        for point in ((89, 150), (311, 150), (200, 39), (200, 261)):
             with self.subTest(point=point):
                 self.assertFalse(glow.contains(point))
 
     def test_nearby_glow_uses_only_local_walls_and_preserves_their_shadows(self):
         near = Wall(210, 85, 2, 30)
         overlapping = Wall(130, 95, 22, 10)
-        far = Wall(260, 85, 20, 30)
+        far = Wall(320, 85, 20, 30)
         glow = nearby_glow((200, 100), (near, overlapping, far), (400, 300))
 
         self.assertEqual(glow.walls, (near, overlapping))
@@ -59,6 +59,16 @@ class FlashlightSpanTests(unittest.TestCase):
         self.assertFalse(glow.contains((225, 100)))
         self.assertTrue(any(wall is near for _, wall in glow.outline()))
         self.assertFalse(any(left <= 225 <= right for left, right in glow.spans_at(100)))
+
+    def test_nearby_glow_feathers_evenly_including_the_angular_seam(self):
+        origin = (200, 150)
+        glow = nearby_glow(origin, (), (400, 300))
+        vertices, _ = feathered_beam_mesh(glow, glow.outline())
+        midpoint_light = round(255 * nearby_glow_strength(55))
+        for point in ((145, 150), (255, 150), (200, 95), (200, 205)):
+            self.assertEqual({alpha for vertex, alpha in vertices if math.dist(point, vertex) < 1e-8}, {midpoint_light})
+        self.assertEqual(nearby_glow_strength(110), 0)
+        self.assertTrue(all(alpha == 0 for point, alpha in vertices if math.dist(point, origin) >= 109.999))
 
     def test_beam_feather_fades_sides_and_tip_while_retaining_the_core(self):
         beam = Flashlight((400, 360), 0, ())

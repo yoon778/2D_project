@@ -14,6 +14,11 @@ _CHASE_VOLUME = 10
 _NEAR_DISTANCE = 120.0
 _FAR_DISTANCE = 180.0
 _VOLUME_TIME = .25
+_SCORE_EXPLORE = 30
+_SCORE_APPROACH_DISTANCE = 190.0
+_SCORE_CLOSE_DISTANCE = 85.0
+_SCORE_RISE_TIME = .45
+_SCORE_RELEASE_TIME = 1.35
 _HEARING_RANGE = 520.0
 _WALL_GAIN = 0.65
 _PAN_FAR_GAIN = 80
@@ -67,8 +72,9 @@ _EFFECT_VOLUME = {
 class BackgroundMusic:
     """Start after canvas initialization and close before canvas teardown."""
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, *, layers=()):
         self._path = Path(path)
+        self._score = _AdaptiveScore((self._path, *map(Path, layers))) if layers else None
         self._music = None
         self._can_start = True
         self._paused = False
@@ -79,6 +85,10 @@ class BackgroundMusic:
         if not self._can_start:
             return
         self._can_start = False
+        if self._score is not None:
+            if self._score.start():
+                return
+            self._score = None
         music = None
         try:
             if not self._path.is_file() or p.Mix_QuerySpec(None, None, None) <= 0:
@@ -97,6 +107,9 @@ class BackgroundMusic:
 
     def update(self, dt: float, *, distance: float | None = None, opening: bool = False,
                focused: bool = True, chasing: bool = False) -> None:
+        if self._score is not None:
+            self._score.update(dt, distance=distance, focused=focused, chasing=chasing)
+            return
         if self._music is None:
             return
         if not focused:
@@ -125,14 +138,115 @@ class BackgroundMusic:
             p.Mix_VolumeMusic(volume)
             self._applied_volume = volume
 
+    def reset(self) -> None:
+        if self._score is not None:
+            self._score.reset()
+
     def close(self) -> None:
         self._can_start = False
+        if self._score is not None:
+            self._score.close()
+            self._score = None
         music, self._music = self._music, None
         if music is not None:
             try:
                 p.Mix_HaltMusic()
             finally:
                 p.Mix_FreeMusic(music)
+
+
+class _AdaptiveScore:
+    """Three equal-length loops on reserved channels, mixed without restarting."""
+
+    def __init__(self, paths):
+        self._paths = paths
+        self._chunks = []
+        self._started = 0
+        self._original_channels = None
+        self._original_volumes = ()
+        self._paused = False
+        self._pressure = 0.0
+        self._pursuit = 0.0
+        self._volumes = (_SCORE_EXPLORE, 0, 0)
+
+    def start(self):
+        if not all(path.is_file() for path in self._paths) or p.Mix_QuerySpec(None, None, None) <= 0:
+            return False
+        try:
+            for path in self._paths:
+                chunk = p.Mix_LoadWAV(str(path).encode("utf-8"))
+                if not chunk:
+                    return False
+                self._chunks.append(chunk)
+            if len({chunk.contents.alen for chunk in self._chunks}) != 1:
+                return False
+            self._original_channels = p.Mix_AllocateChannels(-1)
+            count = len(self._chunks)
+            if (p.Mix_AllocateChannels(self._original_channels + count) != self._original_channels + count
+                    or p.Mix_ReserveChannels(count) != count):
+                return False
+            self._original_volumes = tuple(p.Mix_Volume(channel, -1) for channel in range(count))
+            for channel, (chunk, volume) in enumerate(zip(self._chunks, self._volumes)):
+                p.Mix_Volume(channel, volume)
+                if p.Mix_PlayChannelTimed(channel, chunk, -1, -1) != channel:
+                    return False
+                self._started += 1
+            return True
+        finally:
+            if self._started != len(self._paths):
+                self.close()
+
+    def update(self, dt, *, distance, focused, chasing):
+        if not self._started:
+            return
+        paused = not focused
+        if self._paused != paused:
+            switch = p.Mix_Resume if focused else p.Mix_Pause
+            for channel in range(self._started):
+                switch(channel)
+            self._paused = paused
+        if not focused or not math.isfinite(dt) or dt <= 0:
+            return
+
+        distance = distance if distance is not None and math.isfinite(distance) else _SCORE_APPROACH_DISTANCE
+        proximity = (_SCORE_APPROACH_DISTANCE - distance) / (_SCORE_APPROACH_DISTANCE - _SCORE_CLOSE_DISTANCE)
+        target = 1.0 if chasing else max(0.0, min(1.0, proximity))
+        self._pressure = self._fade(self._pressure, target, dt)
+        self._pursuit = self._fade(self._pursuit, float(chasing), dt)
+        self._set_volumes((round(_SCORE_EXPLORE - 11 * self._pressure),
+                           round(23 * self._pressure - 8 * self._pursuit),
+                           round(26 * self._pursuit)))
+
+    def reset(self):
+        self._pressure = self._pursuit = 0.0
+        if self._started:
+            self._set_volumes((_SCORE_EXPLORE, 0, 0))
+
+    def _set_volumes(self, volumes):
+        for channel, (previous, volume) in enumerate(zip(self._volumes, volumes)):
+            if previous != volume:
+                p.Mix_Volume(channel, volume)
+        self._volumes = volumes
+
+    @staticmethod
+    def _fade(current, target, dt):
+        duration = _SCORE_RISE_TIME if target > current else _SCORE_RELEASE_TIME
+        return current + (target - current) * -math.expm1(-dt / duration)
+
+    def close(self):
+        for channel in range(self._started):
+            p.Mix_HaltChannel(channel)
+        self._started = 0
+        for chunk in self._chunks:
+            p.Mix_FreeChunk(chunk)
+        self._chunks.clear()
+        if self._original_channels is not None:
+            for channel, volume in enumerate(self._original_volumes):
+                p.Mix_Volume(channel, volume)
+            self._original_volumes = ()
+            p.Mix_ReserveChannels(0)
+            p.Mix_AllocateChannels(self._original_channels)
+            self._original_channels = None
 
 
 @dataclass(frozen=True)

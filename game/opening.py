@@ -9,7 +9,8 @@ import pico2d.pico2d as p
 
 DURATION = 8.0
 ENDING_DURATION = 4.0
-FAILURE_DURATION = 2.0
+FAILURE_DURATION = .85
+FAILURE_MOTION_RATE = .30
 _ALLEY_START = 2.6
 _TITLE_START = 5.2
 _INK = (12, 19, 26)
@@ -254,21 +255,27 @@ def draw(elapsed, font, player_visual, zombie_metadata, art=None):
 def draw_ending(elapsed, font, art, world):
     _clear()
     height = p.canvas_height
-    if world.result == "delivered":
-        progress = _ease(elapsed / ENDING_DURATION)
-        if art is None or not art.frame("delivered", 1.0 + .07 * progress, (.53, .58)):
-            _waybill(font)
-        _caption_shade()
-        reveal = _ease((elapsed - .48) / .38)
-        stops = " · ".join(stop.name for stop in world.contract.stops)
-        _caption(font, art, "배달 완료", 76, height - 172, _TITLE, opacity=reveal)
-        _caption(font, art, "배송을 무사히 마쳤다.", 79, height - 109, _CAPTION, opacity=reveal)
-        _caption(font, art, stops, 79, height - 67, _SMALL, color=_PAPER, opacity=reveal)
-        _wash(_ease((elapsed - (ENDING_DURATION - .42)) / .42))
-    else:
-        if art is None or not art.frame("alley", 1.02 + .035 * _ease(elapsed / FAILURE_DURATION), (.55, .53)):
-            _alley()
-        _wash(_ease((elapsed - .16) / .66))
-        _caption(font, art, "골목의 불빛이 꺼졌다.", 76, height - 106, _CAPTION,
-                 opacity=_ease((elapsed - .64) / .26) * _ease((FAILURE_DURATION - elapsed) / .27))
+    progress = _ease(elapsed / ENDING_DURATION)
+    if art is None or not art.frame("delivered", 1.0 + .07 * progress, (.53, .58)):
+        _waybill(font)
+    _caption_shade()
+    reveal = _ease((elapsed - .48) / .38)
+    stops = " · ".join(stop.name for stop in world.contract.stops)
+    _caption(font, art, "배달 완료", 76, height - 172, _TITLE, opacity=reveal)
+    _caption(font, art, "배송을 무사히 마쳤다.", 79, height - 109, _CAPTION, opacity=reveal)
+    _caption(font, art, stops, 79, height - 67, _SMALL, color=_PAPER, opacity=reveal)
+    _wash(_ease((elapsed - (ENDING_DURATION - .42)) / .42))
+    _skip(font, art)
+
+
+def courier_fall_progress(elapsed):
+    return _ease((elapsed - .06) / .58)
+
+
+def draw_defeat_overlay(elapsed, font, art):
+    impact = .24 * (1 - _ease(elapsed / .18))
+    if impact > 0:
+        p.SDL_SetRenderDrawColor(p.renderer, 94, 17, 18, round(255 * impact))
+        p.SDL_RenderFillRect(p.renderer, None)
+    _wash(_ease((elapsed - .51) / (FAILURE_DURATION - .51)))
     _skip(font, art)

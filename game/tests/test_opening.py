@@ -13,6 +13,7 @@ from unittest.mock import Mock, call, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import main
+from combat import ZombieAttack
 import pico2d.pico2d as p
 
 
@@ -158,22 +159,49 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(main.sound_position(origin, (176, 180)), (36.0, 0.5))
         self.assertEqual(main.sound_position(origin, origin), (0.0, 0.0))
 
-    def test_failure_uses_its_own_duration_and_stops_the_hit_sound_on_focus_loss(self):
+    def test_failure_animates_the_hit_scene_without_updating_combat(self):
         duration = main.opening.FAILURE_DURATION
-        audio = Mock()
-        renderer, world, art = SimpleNamespace(font=object()), SimpleNamespace(result="defeated"), object()
+        renderer, world, audio, art = Mock(), main.CombatWorld(), Mock(), object()
+        world.player_hp = 1
+        zombie = world.zombie
+        zombie.x, zombie.y = world.player.x - 20, world.player.y
+        zombie.attack = ZombieAttack(0.0, "right", .29)
+        world.update(.02)
+        self.assertEqual(world.result, "defeated")
+        self.assertIsNone(zombie.attack)
+        source, attack = world.fatal_zombie_strike
+        self.assertIs(source, zombie)
+        hit_elapsed = attack.elapsed
+        pose_times = []
+        renderer.combat_visual._motion_for.return_value = SimpleNamespace(attack_facing="front_right")
+
+        def observe(player, walls, target, elapsed, attacker):
+            self.assertIs(player, world.player)
+            self.assertIs(walls, world.walls)
+            self.assertEqual(target, (123, 456))
+            self.assertIs(attacker[0], zombie)
+            self.assertIsNot(attacker[1], zombie)
+            self.assertEqual(attacker[1].attack.facing, "front_right")
+            self.assertEqual((world.player_hp, zombie.attack, attack.elapsed), (0, None, hit_elapsed))
+            pose_times.append((elapsed, attacker[1].attack.elapsed))
+
+        renderer.draw_defeat.side_effect = observe
         with (
             patch.object(main.time, "perf_counter", side_effect=[0.0, 0.0, duration / 2, duration]),
             patch.object(main, "cutscene_controls", side_effect=[(False, False), (True, True), (False, False)]),
             patch.object(p, "window", object(), create=True),
             patch.object(p, "SDL_GetWindowFlags", return_value=p.SDL_WINDOW_INPUT_FOCUS),
             patch.object(main.opening, "draw_ending") as draw,
+            patch.object(main.opening, "draw_defeat_overlay") as overlay,
             patch.object(p, "update_canvas"),
         ):
-            self.assertTrue(main.play_ending(renderer, art, world, audio, player_hit=True))
-        self.assertEqual(draw.call_args_list, [call(0, renderer.font, art, world),
-                                               call(duration / 2, renderer.font, art, world)])
+            self.assertTrue(main.play_ending(renderer, art, world, audio, player_hit=True, target=(123, 456)))
+        draw.assert_not_called()
+        self.assertEqual(overlay.call_args_list, [call(0, renderer.font, art), call(duration / 2, renderer.font, art)])
+        self.assertEqual(pose_times, [(0, hit_elapsed), (duration / 2, hit_elapsed + duration / 2 * .30)])
         self.assertEqual(audio.mock_calls, [call.stop(), call.play_player_hit(), call.stop(), call.stop()])
+        world.reset()
+        self.assertIsNone(world.fatal_zombie_strike)
 
     def test_two_stop_delivery_only_plays_one_ending_and_skip_does_not_retry(self):
         world = main.DeliveryWorld(two_stop_unlocked=True)

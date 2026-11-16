@@ -39,6 +39,7 @@ def runtime_files():
                               "parked-car.png", "abandoned-car.png", "dumpster.png", "mailbox.png", "planter.png",
                               "bicycle.png", "trash-bags.png", "metal-bin.png", "recycling-bin.png", "empty-bottle.png"))
     files.update(ASSETS / "audio" / name for name in ("last-delivery.mp3", "night-delivery-loop.ogg",
+                                                     "night-threat-layer.ogg", "night-chase-layer.ogg",
                                                      "zombie_step.wav", "zombie_step_heavy.wav", "zombie_groan.wav", "bat_swing.wav",
                                                      "zombie_hit.wav", "zombie_hit_heavy.wav", "bottle_throw.wav",
                                                      "bottle_break.wav", "gate_open.wav", "bridge_motor.wav", "vehicle_hit.wav",

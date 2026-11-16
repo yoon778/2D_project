@@ -130,6 +130,7 @@ class CombatWorld:
         self.sneaking = False
         self.player_invulnerable_remaining = 0.0
         self.attack = None
+        self.fatal_zombie_strike: tuple[Zombie, ZombieAttack] | None = None
         self.result = "playing"
 
     @property
@@ -311,6 +312,8 @@ class CombatWorld:
             if self.player_invulnerable_remaining == 0 and self._zombie_target_in_strike(zombie, attack.angle):
                 self.player_hp = max(0, self.player_hp - 1)
                 self.player_invulnerable_remaining = 1.0
+                if self.player_hp == 0:
+                    self.fatal_zombie_strike = zombie, attack
         attack.elapsed = min(end, duration)
         if attack.elapsed >= duration:
             zombie.attack = None
