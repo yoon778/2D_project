@@ -75,8 +75,8 @@ class AttackWalkSpriteTests(unittest.TestCase):
     def test_stationary_fr_holds_contact_on_hit_and_follows_through_on_miss(self):
         image = self.visual.images["attack_stationary_front_right"]
         for elapsed, hit_cell, miss_cell in ((.24, 6, 6), (.275, 6, 7), (.299, 6, 7),
-                                            (.30, 14, 8), (.34, 14, 9), (.40, 15, 10),
-                                            (.46, 16, 11), (.53, 17, 12), (.60, 13, 13)):
+                                            (.30, 14, 8), (.34, 15, 9), (.40, 16, 10),
+                                            (.46, 17, 11), (.53, 12, 12), (.60, 13, 13)):
             for landed, cell in ((True, hit_cell), (False, miss_cell)):
                 with self.subTest(elapsed=elapsed, landed=landed):
                     attack = SimpleNamespace(facing="front_right", stationary_front_right=True,

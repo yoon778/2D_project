@@ -14043,13 +14043,13 @@
         ],
         "on_hit": {
           "clip_topleft": [
-            1344,
+            1440,
             0,
             96,
             96
           ],
           "foot_pivot_topleft": [
-            1392,
+            1488,
             80
           ]
         }
@@ -14071,13 +14071,13 @@
         ],
         "on_hit": {
           "clip_topleft": [
-            1440,
+            1536,
             0,
             96,
             96
           ],
           "foot_pivot_topleft": [
-            1488,
+            1584,
             80
           ]
         }
@@ -14099,13 +14099,13 @@
         ],
         "on_hit": {
           "clip_topleft": [
-            1536,
+            1632,
             0,
             96,
             96
           ],
           "foot_pivot_topleft": [
-            1584,
+            1680,
             80
           ]
         }
@@ -14124,19 +14124,7 @@
         "foot_pivot_topleft": [
           1200,
           80
-        ],
-        "on_hit": {
-          "clip_topleft": [
-            1632,
-            0,
-            96,
-            96
-          ],
-          "foot_pivot_topleft": [
-            1680,
-            80
-          ]
-        }
+        ]
       },
       {
         "name": "recover",

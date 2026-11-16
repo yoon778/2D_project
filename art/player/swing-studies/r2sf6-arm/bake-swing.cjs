@@ -5,29 +5,24 @@ const sharp = require('sharp')
 const {poses: original} = require('./bake-eight.cjs')
 const {buildStationaryCells} = require('../../r2sf-front-right.cjs')
 
-const load = {
-  ...original[1],
-  right: [[34,43],[24,50],[27,48]], grip: [29,46], tip: [13,36]
+const batLength = 20
+
+function armed(pose, right, grip, angle) {
+  const radians = angle * Math.PI / 180
+  const tip = [grip[0] + Math.round(batLength * Math.cos(radians)),
+    grip[1] + Math.round(batLength * Math.sin(radians))]
+  return {...pose, shoulder: right[0], right, grip, tip}
 }
-const coil = {
-  ...original[2],
-  right: [[38,41],[29,48],[31,42]], grip: [32,39], tip: [19,25]
-}
-const lead = {
-  ...original[3],
-  shoulder: [41,40], right: [[41,40],[39,46],[43,41]], grip: [46,39], tip: [37,21]
-}
-const drive = {
-  ...original[3],
-  head: [-2,-1,1], shoulder: [44,39],
-  right: [[44,39],[55,40],[59,26]], grip: [62,23], tip: [70,6]
-}
-const release = {
+
+const load = armed({...original[1], head: [-2,3,0]}, [[36,43],[27,51],[30,48]], [32,47], 161)
+const coil = armed({...original[2], head: [-1,3,0]}, [[38,42],[28,50],[31,45]], [34,44], 196)
+const lead = armed({...original[3], head: [-1,2,0]}, [[41,41],[34,49],[40,46]], [42,43], 228)
+const drive = armed({...original[3], head: [-1,0,0]}, [[43,40],[49,49],[58,45]], [61,44], 287)
+const release = armed({
   ...original[4],
-  head: [3,0,0], shoulder: [45,39],
-  torso: [[39,44],[44,38],[49,35],[55,35],[58,39],[59,45],[60,51],[56,57],[50,60],[44,57]],
-  right: [[45,39],[55,41],[62,27]], grip: [65,24], tip: [84,20]
-}
+  head: [4,0,1],
+  torso: [[39,44],[44,38],[49,35],[55,35],[58,39],[59,45],[60,51],[56,57],[50,60],[44,57]]
+}, [[45,39],[54,47],[59,44]], [62,42], 334)
 const contact = {
   ...original[4],
   head: [7,1,1], pack: [43,42], shoulder: [47,39],
@@ -38,76 +33,50 @@ const contact = {
   right: [[47,39],[54,44],[58,40]], grip: [61,39], tip: [78,49],
   left: [[55,42],[59,48],[61,54]], parcel: [55,50], carry: [61,56]
 }
-const pass = {
+const pass = armed({
   ...original[5],
-  head: [5,3,1], shoulder: [45,41],
-  legs: [[[49,59],[48,66],[46,74]],[[55,58],[60,65],[56,73]]],
-  right: [[45,41],[51,42],[55,43]], grip: [54,45], tip: [57,64]
-}
-const cross = {
+  head: [5,2,1],
+  legs: [[[49,59],[48,66],[46,74]],[[55,58],[60,65],[56,73]]]
+}, [[45,41],[52,48],[57,47]], [60,46], 48)
+const cross = armed({
   ...original[5],
-  head: [2,4,0], shoulder: [43,41],
-  right: [[43,41],[50,46],[47,48]], grip: [44,46], tip: [31,61]
-}
-const rise = {
-  ...original[7],
-  head: [0,4,-2],
-  shoulder: [42,43], right: [[42,43],[35,49],[31,44]], grip: [30,41], tip: [11,40]
-}
-const finish = {
-  ...original[7],
-  head: [-2,2,-2],
-  shoulder: [41,43], right: [[41,43],[34,43],[29,36]], grip: [28,33], tip: [13,21]
-}
-const lower = {
-  ...original[7],
-  head: [-1,2,-1],
-  shoulder: [40,42], right: [[40,42],[33,45],[29,42]], grip: [28,40], tip: [10,35]
-}
-const lowerToHip = {
-  ...original[7],
-  right: [[39,43],[33,48],[33,53]], grip: [33,56], tip: [18,68]
-}
-const recoil = {
+  head: [3,3,1]
+}, [[44,42],[52,47],[58,51]], [61,53], 79)
+const across = armed({...original[6], head: [1,4,0]}, [[42,43],[47,49],[48,54]], [50,56], 127)
+const finish = armed({...original[7], head: [0,3,0]}, [[40,43],[38,52],[36,49]], [36,47], 176)
+const lower = armed({...original[7], head: [0,2,0]}, [[39,43],[34,50],[35,54]], [37,53], 143)
+const lowerToHip = armed({...original[7], head: [0,1,0]}, [[39,43],[35,51],[37,55]], [39,55], 113)
+const recoil = armed({
   ...contact,
-  head: [5,2,1], shoulder: [45,40],
-  right: [[45,40],[50,44],[54,45]], grip: [55,46], tip: [69,59]
-}
-const retract = {
-  ...original[6],
-  shoulder: [41,44], right: [[41,44],[43,50],[46,49]], grip: [47,51], tip: [56,68]
-}
-const returnToSide = {
-  ...original[7],
-  right: [[39,43],[35,50],[39,52]], grip: [41,54], tip: [45,73]
-}
-const settle = {
-  ...original[7],
-  right: [[39,43],[35,50],[38,55]], grip: [40,57], tip: [37,76]
-}
+  head: [5,2,1],
+}, [[45,41],[49,49],[54,45]], [57,44], 24)
+const retract = armed({...original[6], head: [3,3,1]}, [[43,43],[45,51],[49,49]], [52,48], 53)
+const returnToSide = armed({...original[7], head: [1,3,0]}, [[41,43],[39,51],[43,53]], [46,53], 81)
+const settle = armed({...original[7], head: [0,2,0]}, [[39,43],[34,51],[36,54]], [37,56], 107)
 const poses = [
   null, load, coil, lead, drive, release, contact,
-  pass, cross, rise, finish, lower, lowerToHip, original[7],
+  pass, cross, across, finish, lower, lowerToHip, null,
   recoil, retract, returnToSide, settle
 ]
 const cellSize = 96
 const output = path.resolve(__dirname, '../../../../game/assets/combat/r2sf8-swing-front-right.png')
 
-async function main() {
-  const {cells, contacts, pixels, width, height} = await buildStationaryCells(poses, poses.length)
+async function bake(file, empty) {
+  const {cells, contacts, pixels, width, height} = await buildStationaryCells(poses, poses.length, {empty})
   assert.deepEqual([width, height], [1728, 96])
-  assert.equal(new Set(cells.map(cell => cell.toString('base64'))).size, poses.length)
-  assert(contacts.every(({left, right}) => left && right), 'hands hold the parcel and bat')
-  const previous = await buildStationaryCells(original, original.length)
-  for (const [index, oldIndex] of [[0, 0], [13, 7]]) {
-    assert(cells[index].equals(previous.cells[oldIndex]), 'idle and recovery anchors')
-  }
-  for (const pose of poses.slice(1)) {
-    const [, elbow, wrist] = pose.right
+  assert.equal(new Set(cells.map(cell => cell.toString('base64'))).size, poses.length - 1)
+  assert(cells[13].equals(cells[0]), 'last recovery cell matches idle exactly')
+  assert(contacts.every(({left, right}) => right && (empty || left)), 'hands hold their equipment')
+  for (const pose of poses.filter(Boolean)) {
+    const [shoulder, elbow, wrist] = pose.right
+    assert.deepEqual(pose.shoulder, shoulder, 'shoulder shares the upper arm joint')
     assert(Math.hypot(wrist[0] - elbow[0], wrist[1] - elbow[1]) >= 3, 'visible forearm')
+    assert(Math.hypot(wrist[0] - pose.grip[0], wrist[1] - pose.grip[1]) <= 4, 'hand joins the forearm')
+    assert(Math.abs(Math.hypot(pose.tip[0] - pose.grip[0], pose.tip[1] - pose.grip[1]) - batLength) <= .65,
+      'bat length stays fixed within pixel rounding')
     assert.deepEqual(pose.feet, original[4].feet, 'planted feet through the stationary swing')
   }
-  const swingAngles = poses.slice(2,10).map(({grip, tip}) =>
+  const swingAngles = poses.slice(1,11).map(({grip, tip}) =>
     Math.atan2(tip[1] - grip[1], tip[0] - grip[0]))
   for (const [index, angle] of swingAngles.slice(1).entries()) {
     const change = (angle - swingAngles[index] + 2 * Math.PI) % (2 * Math.PI)
@@ -121,13 +90,18 @@ async function main() {
     }
   }
   if (process.argv.includes('--check')) {
-    const actual = await sharp(await fs.readFile(output)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
+    const actual = await sharp(await fs.readFile(file)).ensureAlpha().raw().toBuffer({resolveWithObject: true})
     assert.deepEqual([actual.info.width, actual.info.height], [width, height])
     assert(actual.data.equals(pixels), 'game sheet matches the authored swing')
   } else {
-    await sharp(pixels, {raw: {width, height, channels: 4}}).png().toFile(output)
+    await sharp(pixels, {raw: {width, height, channels: 4}}).png().toFile(file)
   }
-  console.log(output)
+  console.log(file)
+}
+
+async function main() {
+  await bake(output, false)
+  await bake(output.replace(/\.png$/, '-empty.png'), true)
 }
 
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1 })
