@@ -39,18 +39,16 @@ SMALL = 15
 BODY = 18
 TITLE = 26
 RECEIPT_TITLE = 36
-HINT_WINDOW = 60.0
-HINT_DURATION = 5.0
-PICKUP_CONTROLS = "WASD 이동 · 마우스 조준 · 좌클릭 공격"
-HINT_TEXT = {"E": "택배 수령 · 길게 누르기", "M": "지도에서 배송지 확인", "Ctrl": "발소리를 줄여 지나가기"}
 INTERACTION_LABELS = {
-    "pickup": (HINT_TEXT["E"], "택배 수령 중", TEAL),
-    "deliver": ("택배 전달 · 길게 누르기", "택배 전달 중", TEAL),
-    "gate": ("철문 열기 · 길게 누르기 · 소음", "철문 여는 중 · 소음", AMBER),
-    "shutter": ("셔터 닫기 · 길게 누르기", "셔터 닫는 중", AMBER),
-    "bridge_key": ("관리실 열쇠 줍기 · 길게 누르기", "열쇠 줍는 중", TEAL),
-    "bridge_panel": ("관리실 열기 · 길게 누르기", "관리실 여는 중", TEAL),
+    "pickup": ("택배 수령 · 길게", "택배 수령 중", TEAL),
+    "deliver": ("택배 전달 · 길게", "택배 전달 중", TEAL),
+    "gate": ("철문 열기 · 길게", "철문 여는 중", AMBER),
+    "shutter": ("셔터 닫기 · 길게", "셔터 닫는 중", AMBER),
+    "bridge_key": ("관리실 열쇠 줍기 · 길게", "열쇠 줍는 중", TEAL),
+    "bridge_panel": ("관리실 열기 · 길게", "관리실 여는 중", TEAL),
 }
+PAUSE_MENU = ("계속하기", "조작법", "소리", "계약 포기", "게임 종료")
+SOUND_LABELS = ("전체", "음악", "효과음")
 
 
 def fill(x, y, width, height, color):
@@ -151,6 +149,9 @@ class PlayHUD:
         panel(x, map_y - 4, 86, 32)
         self._keycap("M", x + 5, map_y, 24)
         self._text("지도", x + 38, map_y + 12, BODY)
+        panel(x + 92, map_y - 4, 101, 32)
+        self._keycap("Esc", x + 97, map_y, 42)
+        self._text("설정", x + 148, map_y + 12, BODY)
 
     def _objective(self, world):
         stop_count = len(world.contract.stops)
@@ -175,12 +176,6 @@ class PlayHUD:
     def _keycap(self, key, x, y, width):
         fill(x, y, width, 24, KEYCAP)
         self._text(key, x + width // 2, y + 12, BODY, KEY_TEXT, align="center")
-
-    def _draw_pickup_controls(self):
-        width = self._label(PICKUP_CONTROLS, BODY, TEXT)[1] + 28
-        center = self.width // 2
-        panel(center - width // 2, MARGIN, width, 36)
-        self._text(PICKUP_CONTROLS, center, MARGIN + 18, BODY, align="center")
 
     def _waypoint(self, direction, number):
         dx, dy = direction
@@ -216,73 +211,38 @@ class PlayHUD:
             fill(x + 16, y + 20, 1, 1, (*color, 255))
         self._text(text, x + 31, y + 16, SMALL)
 
-    def _actions(self, actions, *, progress=None):
-        if not actions:
-            return
-        key_widths = [max(23, self._label(key, BODY, KEY_TEXT)[1] + 12) for key, _, _ in actions]
-        widths = [self._label(label, BODY, color)[1] + key_width + 30
-                  for (_, label, color), key_width in zip(actions, key_widths)]
-        total = sum(widths)
-        x = (self.width - total) // 2
-        height = 49 if progress is not None else 40
-        y = self.height - MARGIN - height
-        panel(x, y, total, height)
-        for index, ((key, label, color), key_width, width) in enumerate(zip(actions, key_widths, widths)):
-            if index:
-                fill(x, y + 8, 1, 24, SEPARATOR)
-            self._keycap(key, x + 10, y + 8, key_width)
-            self._text(label, x + key_width + 18, y + 20, BODY, color)
-            if key == "E" and progress is not None:
-                track_width = width - 20
-                fill(x + 10, y + 38, track_width, 4, TRACK)
-                filled = round(track_width * progress)
-                if filled:
-                    fill(x + 10, y + 38, filled, 4, (*color, 255))
-            x += width
+    def draw_action_prompt(self, x, y, key, label, *, progress=None):
+        key_width = max(24, self._label(key, BODY, KEY_TEXT)[1] + 12)
+        width = key_width + self._label(label, BODY, TEXT)[1] + 29
+        height = 42 if progress is not None else 33
+        padding = 8
+        head_row = round(self.height - 1 - y)
+        left = round(x - width / 2)
+        top = head_row - height - 9
+        # A head at the edge may leave no room above it. Put the badge beside it.
+        if top < padding:
+            side = 28
+            left = round(x + side if x + side + width <= self.width - padding else x - side - width)
+            top = head_row
+        left = max(padding, min(self.width - width - padding, left))
+        top = max(padding, min(self.height - height - padding, top))
+        panel(left, top, width, height)
+        self._keycap(key, left + 5, top + 4, key_width)
+        self._text(label, left + key_width + 13, top + 16, BODY)
+        if progress is not None:
+            track_width = width - 10
+            fill(left + 5, top + 33, track_width, 4, TRACK)
+            filled = round(track_width * min(1.0, max(0.0, progress)))
+            if filled:
+                fill(left + 5, top + 33, filled, 4, (*TEAL, 255))
 
     def reset_delivery(self):
-        self._seen_hints = set()
-        self._hint = None
-        self._hint_until = 0.0
-        self._pickup_controls_until = None
         if self._attack_label is not None:
             for key in tuple(self._labels):
                 if key[0] == self._attack_label:
                     texture, _, _ = self._labels.pop(key)
                     p.SDL_DestroyTexture(texture)
             self._attack_label = None
-
-    def dismiss_hint(self, key):
-        self._seen_hints.add(key)
-        if self._hint == key:
-            self._hint = None
-
-    def watch_for_sneak_hint(self, world):
-        if world.sneaking:
-            self.dismiss_hint("Ctrl")
-        if any(zombie.alive and zombie.state == "chase" for zombie in world.zombies):
-            if self._hint == "Ctrl":
-                self.dismiss_hint("Ctrl")
-            return False
-        return "Ctrl" not in self._seen_hints and world.elapsed_play_time < HINT_WINDOW
-
-    def _active_hint(self, world, near_visible_zombie, interaction_target):
-        elapsed = world.elapsed_play_time
-        if elapsed >= HINT_WINDOW:
-            self._hint = None
-            return None
-        can_pick_up = world.parcel == "waiting" and interaction_target is not None
-        if (self._hint == "E" and not can_pick_up) or elapsed >= self._hint_until:
-            self._hint = None
-        if self._hint is None:
-            for key, available in (("E", can_pick_up), ("M", world.parcel == "carrying"),
-                                   ("Ctrl", near_visible_zombie)):
-                if available and key not in self._seen_hints:
-                    self._seen_hints.add(key)
-                    self._hint = key
-                    self._hint_until = elapsed + HINT_DURATION
-                    break
-        return self._hint
 
     def draw_abandon_confirmation(self):
         fill(0, 0, self.width, self.height, (0, 0, 0, 170))
@@ -297,6 +257,95 @@ class PlayHUD:
         self._text("포기", x + 145, y + 120, BODY, AMBER)
         self._keycap("Esc", x + 234, y + 108, 42)
         self._text("계속하기", x + 284, y + 120, BODY)
+
+    def _pause_sheet(self, heading, width, height):
+        fill(0, 0, self.width, self.height, (0, 0, 0, 175))
+        x, y = (self.width - width) // 2, (self.height - height) // 2
+        fill(x + 6, y + 7, width, height, (7, 5, 3, 145))
+        panel(x, y, width, height, PAPER_EDGE, background=PAPER, accent=STAMP)
+        self._text(heading, x + 28, y + 33, TITLE, PAPER_INK)
+        receipt_rule(x + 28, y + 58, width - 56)
+        return x, y
+
+    def draw_pause(self, page, index, volumes):
+        if page == "controls":
+            self._draw_controls()
+        elif page == "audio":
+            self._draw_audio(index, volumes)
+        else:
+            width, height = 444, 370
+            x, y = self._pause_sheet("일시정지", width, height)
+            for row, label in enumerate(PAUSE_MENU):
+                top = y + 75 + row * 47
+                if row == index:
+                    panel(x + 27, top, width - 54, 39, PAPER_EDGE,
+                          background=(224, 201, 163, 255), accent=STAMP)
+                self._text(label, x + 43, top + 20, BODY, STAMP if row == index else PAPER_INK)
+            receipt_rule(x + 28, y + 320, width - 56)
+            self._text("↑ ↓ 선택    Enter 확인    Esc 계속하기", x + 28, y + 342, SMALL, PAPER_MUTED)
+
+    def _draw_controls(self):
+        width, height = 746, 428
+        x, y = self._pause_sheet("조작법", width, height)
+        left, right = x + 28, x + 386
+        fill(x + 365, y + 76, 1, 273, (*PAPER_MUTED, 74))
+
+        self._keycap("W", left + 28, y + 76, 26)
+        for offset, key in enumerate("ASD"):
+            self._keycap(key, left + 28 * offset, y + 102, 26)
+        self._text("이동", left + 99, y + 103, BODY, PAPER_INK)
+        for offset, (key, action) in enumerate((("Shift", "달리기"), ("Ctrl", "잠행"))):
+            xx = left + offset * 151
+            self._keycap(key, xx, y + 151, 53)
+            self._text(action, xx + 64, y + 163, BODY, PAPER_INK)
+
+        self._keycap("E", left, y + 207, 26)
+        self._text("길게 눌러 수령·전달·문 조작", left + 38, y + 217, BODY, PAPER_INK)
+        self._text("짧게 눌러 쪽지 읽기", left + 38, y + 244, SMALL, PAPER_MUTED)
+        for offset, key in enumerate("123"):
+            self._keycap(key, left + 28 * offset, y + 289, 26)
+        self._text("회로 타일 회전", left + 98, y + 301, BODY, PAPER_INK)
+
+        mouse = ((5, 5), (12, 0), (23, 0), (30, 5), (33, 13), (33, 29), (29, 36),
+                 (23, 41), (12, 41), (5, 36), (2, 29), (2, 13), (5, 5))
+        trace(right, y + 78, mouse, PAPER_MUTED)
+        trace(right, y + 78, ((17, 1), (17, 17), (3, 17), (32, 17)), PAPER_MUTED)
+        fill(right + 7, y + 85, 7, 7, (*STAMP, 210))
+        self._text("마우스 조준 · 좌클릭 배트", right + 49, y + 100, BODY, PAPER_INK)
+        for offset, (key, action) in enumerate((("F", "빈 병 줍기"), ("Q", "병 던지기"))):
+            xx = right + offset * 156
+            self._keycap(key, xx, y + 151, 26)
+            self._text(action, xx + 38, y + 163, BODY, PAPER_INK)
+
+        self._keycap("M", right, y + 207, 26)
+        self._text("지도", right + 38, y + 217, BODY, PAPER_INK)
+        self._text("좌클릭 경유지 추가 · 우클릭 마지막 삭제", right + 38, y + 244, SMALL, PAPER_MUTED)
+        self._keycap("Space", right, y + 270, 67)
+        self._text("경유지 건너뛰기", right + 79, y + 282, SMALL, PAPER_INK)
+        self._keycap("R", right, y + 309, 26)
+        self._text("계약 포기", right + 38, y + 321, BODY, PAPER_INK)
+
+        receipt_rule(x + 28, y + 368, width - 56)
+        self._keycap("Esc", left, y + 380, 42)
+        self._text("뒤로", left + 52, y + 392, SMALL, PAPER_INK)
+
+    def _draw_audio(self, index, volumes):
+        width, height = 492, 338
+        x, y = self._pause_sheet("소리", width, height)
+        for row, (name, volume) in enumerate(zip(SOUND_LABELS, volumes)):
+            top = y + 76 + row * 65
+            if row == index:
+                panel(x + 27, top, width - 54, 55, PAPER_EDGE,
+                      background=(224, 201, 163, 255), accent=STAMP)
+            self._text(name, x + 43, top + 27, BODY, PAPER_INK)
+            bar_x, bar_width = x + 137, 215
+            fill(bar_x, top + 23, bar_width, 8, (*PAPER_MUTED, 55))
+            filled = round(bar_width * volume / 100)
+            if filled:
+                fill(bar_x, top + 23, filled, 8, (*(STAMP if row == index else PAPER_GREEN), 255))
+            self._text(f"{volume}%", x + width - 44, top + 27, BODY, PAPER_INK, align="right")
+        receipt_rule(x + 28, y + 275, width - 56)
+        self._text("↑ ↓ 항목    ← → 조절    Esc 뒤로", x + 28, y + 305, SMALL, PAPER_MUTED)
 
     def draw_bridge_note(self):
         fill(0, 0, self.width, self.height, (0, 0, 0, 170))
@@ -415,18 +464,12 @@ class PlayHUD:
         self._text("Enter 같은 배송 재도전  ·  R 배달 선택  ·  Esc 종료", center, y + 268 + extra_height,
                    SMALL, PAPER_INK, align="center")
 
-    def draw(self, world, light, aim, *, focused, alarm, near_visible_zombie=False, waypoint_direction=None):
+    def draw(self, world, light, aim, *, focused, alarm, waypoint_direction=None):
         self._vitals(world)
         self._objective(world)
         if not focused:
             self._notice("포커스 없음 · 이동 입력 초기화", AMBER)
             return
-        if world.parcel == "carrying":
-            elapsed = world.elapsed_play_time
-            if self._pickup_controls_until is None:
-                self._pickup_controls_until = elapsed + HINT_DURATION
-            if elapsed < self._pickup_controls_until:
-                self._draw_pickup_controls()
         if waypoint_direction is not None:
             self._waypoint(waypoint_direction, world.first_waypoint_number)
         bridge = world.bridge_puzzle
@@ -444,34 +487,3 @@ class PlayHUD:
                 self._notice(text, AMBER)
         elif world.sneaking:
             self._notice("잠행 · 작은 발소리", TEAL, sneak=True)
-
-        interaction_target = world.interaction_target
-        hint = self._active_hint(world, near_visible_zombie, interaction_target)
-        action = world.interaction_action
-        progress = world.interaction_progress if action is not None else None
-        actions = [(hint, HINT_TEXT[hint], TEAL)] if hint is not None and hint != "E" else []
-        if action is not None:
-            _, label, color = INTERACTION_LABELS[action]
-            actions.append(("E", label, color))
-        elif interaction_target is not None:
-            if hint == "E" or light.contains(interaction_target):
-                label, _, color = INTERACTION_LABELS["pickup" if world.parcel == "waiting" else "deliver"]
-                actions.append(("E", label, color))
-        elif world.can_open_gate():
-            label, _, color = INTERACTION_LABELS["gate"]
-            actions.append(("E", label, color))
-        elif world.can_close_shutter():
-            label, _, color = INTERACTION_LABELS["shutter"]
-            actions.append(("E", label, color))
-        elif world.can_collect_bridge_key():
-            label, _, color = INTERACTION_LABELS["bridge_key"]
-            actions.append(("E", label, color))
-        elif world.can_open_bridge_panel():
-            label, _, color = INTERACTION_LABELS["bridge_panel"]
-            actions.append(("E", label, color))
-        if world.nearby_bottle is not None:
-            actions.append(("F", "빈 병 줍기", TEXT))
-        bottle_hint = world.bottle_throw_hint(aim, light=light)
-        if bottle_hint is not None:
-            actions.append(("Q", bottle_hint, AMBER if bottle_hint == "차량 경보 유인" else TEXT))
-        self._actions(actions, progress=progress)

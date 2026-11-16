@@ -18,9 +18,9 @@ from delivery import (DELIVERY_CONTRACTS, INTERACTION_RANGE, REAR_ALLEY_LISTEN_P
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 from locomotion import Locomotion, select_facing
-from play_hud import PlayHUD, SAFE_GREEN
+from play_hud import INTERACTION_LABELS, PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
-from spatial_audio import HeavyFootstep, PatrolFootstep, ZombieAudio
+from spatial_audio import AudioSettings, HeavyFootstep, PatrolFootstep, ZombieAudio
 from town_map_art import (MAP_ALLEY, MAP_BUILDING, MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS, MAP_LANDMARK,
                           MAP_ROAD, MAP_WRECK)
 from town_map_art import draw_base as draw_map_base
@@ -115,7 +115,8 @@ AUDIO_PAN_NEAR_RADIUS = 72.0
 REAR_ALLEY_LISTEN_RADIUS = 65.0
 PULSE_RING = tuple((math.cos(i * math.tau / 24), math.sin(i * math.tau / 24)) for i in range(25))
 ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("?", TEAL)}
-SNEAK_HINT_RANGE = 160.0
+PAUSE_VOLUME_FIELDS = ("master", "music", "effects")
+PAUSE_VOLUME_STEP = 10
 TURN_SPEED = math.radians(450)
 SHAKE_DURATIONS = {3: 0.08, 4: 0.10, 5: 0.12}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
@@ -434,6 +435,9 @@ class Renderer:
         self.map_open = False
         self.abandon_confirmation = False
         self.bridge_note_open = False
+        self.pause_page = None
+        self.pause_index = 0
+        self.audio_settings = AudioSettings()
         self.shake_remaining = 0.0
         self.shake_strength = 0
         self.shake_offset = (0, 0)
@@ -1515,6 +1519,39 @@ class Renderer:
             self.play_hud.draw_bridge_panel(bridge)
         elif self.abandon_confirmation:
             self.play_hud.draw_abandon_confirmation()
+        elif self.pause_page is not None:
+            volumes = tuple(getattr(self.audio_settings, field) for field in PAUSE_VOLUME_FIELDS)
+            self.play_hud.draw_pause(self.pause_page, self.pause_index, volumes)
+
+    def handle_pause_key(self, key):
+        if key == p.SDLK_ESCAPE:
+            if self.pause_page == "main":
+                self.pause_page = None
+            else:
+                self.pause_index = 1 if self.pause_page == "controls" else 2
+                self.pause_page = "main"
+            return None
+        if self.pause_page == "controls":
+            return None
+        if key in (p.SDLK_UP, p.SDLK_DOWN):
+            options = 5 if self.pause_page == "main" else len(PAUSE_VOLUME_FIELDS)
+            step = 1 if key == p.SDLK_DOWN else -1
+            self.pause_index = (self.pause_index + step) % options
+        elif self.pause_page == "audio" and key in (p.SDLK_LEFT, p.SDLK_RIGHT):
+            field = PAUSE_VOLUME_FIELDS[self.pause_index]
+            step = PAUSE_VOLUME_STEP if key == p.SDLK_RIGHT else -PAUSE_VOLUME_STEP
+            setattr(self.audio_settings, field, max(0, min(100, getattr(self.audio_settings, field) + step)))
+        elif self.pause_page == "main" and key in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
+            if self.pause_index == 0:
+                self.pause_page = None
+            elif self.pause_index == 1:
+                self.pause_page = "controls"
+            elif self.pause_index == 2:
+                self.pause_page = "audio"
+                self.pause_index = 0
+            else:
+                return "abandon" if self.pause_index == 3 else "quit"
+        return None
 
     def draw_defeat(self, player, walls, target, elapsed, attacker):
         if target is None:
@@ -1648,6 +1685,24 @@ class Renderer:
                 if not defeated:
                     cross(*foot, TEAL, size=4)
 
+    def draw_nearby_action(self, foot_x, foot_y):
+        world = self.delivery
+        key = "E"
+        progress = None
+        if (action := world.interaction_action) is not None:
+            _, label, _ = INTERACTION_LABELS[action]
+            progress = world.interaction_progress
+        elif (action := world.interaction_candidate) is not None:
+            label, _, _ = INTERACTION_LABELS[action]
+        elif world.can_read_bridge_note():
+            label = "쪽지 읽기"
+        elif world.nearby_bottle is not None:
+            key, label = "F", "빈 병 줍기"
+        else:
+            return
+        head_y = foot_y + self.player_visual.metadata["display_height"] * self.player_visual.display_scale
+        self.play_hud.draw_action_prompt(foot_x, head_y, key, label, progress=progress)
+
     def _draw_overlay(self, player, target, aim, focused, defeat_elapsed):
         delivery = self.delivery
         if delivery is not None and delivery.result == "defeated":
@@ -1672,28 +1727,17 @@ class Renderer:
             cross(*tip, TEAL, size=2)
         if delivery is not None:
             if delivery.result == "playing":
-                if (focused and not self.bridge_note_open and not self.abandon_confirmation
-                        and delivery.can_read_bridge_note()):
-                    x, y = self.project(*delivery.bridge_puzzle.note_position)
-                    rectangle(x - 70, y + 81, 140, 26, (23, 25, 24))
-                    rectangle(x - 70, y + 81, 140, 26, (137, 110, 67), filled=False)
-                    self.font.draw(x - 55, y + 94, "E  쪽지 읽기", (239, 218, 172))
-                near_visible_zombie = False
-                if focused and self.play_hud.watch_for_sneak_hint(delivery):
-                    for zombie in delivery.zombies:
-                        position = zombie.x, zombie.y
-                        if (zombie.alive and math.dist(origin, position) <= SNEAK_HINT_RANGE
-                                and (self.light.contains(position) or self.nearby_light.contains(position))
-                                and delivery._player_line_clear(zombie)):
-                            near_visible_zombie = True
-                            break
                 waypoint_direction = None
                 if delivery.waypoints:
                     waypoint_x, waypoint_y = self.project(*delivery.waypoints[0])
                     waypoint_direction = (waypoint_x - foot[0], foot[1] - waypoint_y)
                 self.play_hud.draw(delivery, self.light, aim, focused=focused,
-                                   alarm=self.vehicle_alarm_remaining > 0, near_visible_zombie=near_visible_zombie,
+                                   alarm=self.vehicle_alarm_remaining > 0,
                                    waypoint_direction=waypoint_direction)
+                bridge = delivery.bridge_puzzle
+                if (focused and self.pause_page is None and not self.bridge_note_open
+                        and not self.abandon_confirmation and (bridge is None or not bridge.panel_open)):
+                    self.draw_nearby_action(*foot)
             else:
                 self.draw_delivery_result()
             return
@@ -1844,11 +1888,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             from spatial_audio import BackgroundMusic
 
             if show_opening:
-                music = BackgroundMusic(BASE_DIR / "assets/audio/last-delivery.mp3")
+                music = BackgroundMusic(BASE_DIR / "assets/audio/last-delivery.mp3", settings=renderer.audio_settings)
                 music.start()
                 if not play_opening(renderer, music, cutscene_art):
                     return
-            zombie_audio = ZombieAudio(BASE_DIR / "assets/audio")
+            zombie_audio = ZombieAudio(BASE_DIR / "assets/audio", settings=renderer.audio_settings)
         world = DeliveryWorld(two_stop_unlocked=load_two_stop_unlock()) if delivery_run else CombatWorld()
         renderer.combat = world
         if delivery_run:
@@ -1857,7 +1901,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             audio_dir = BASE_DIR / "assets/audio"
             music = BackgroundMusic(audio_dir / "night-delivery-loop.ogg", layers=(
                 audio_dir / "night-threat-layer.ogg", audio_dir / "night-chase-layer.ogg",
-            ))
+            ), settings=renderer.audio_settings)
             renderer.delivery = world
             renderer.choosing_delivery = True
             renderer.player_visual.display_scale = DELIVERY_CHARACTER_SCALE
@@ -1867,6 +1911,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             renderer.load_neighborhood()
         player, walls = world.player, world.walls
         pressed = set()
+        # Modal transitions clear gameplay inputs, but a held key must still be released.
+        physical_keys = set()
         target = world.pickup if delivery_run else (world.zombie.x, world.zombie.y)
         aim_player(player, *target)
         cursor = current_cursor()
@@ -1895,40 +1941,61 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             waypoint_actions = []
             abandon_requested = False
             abandon_decision = None
+            pause_requested = False
+            pause_keys = []
+            discard_actions = False
             bridge = world.bridge_puzzle if delivery_run else None
             circuit_keys = []
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
-                elif renderer.bridge_note_open:
-                    if event.type == p.SDL_KEYDOWN and not event.key.repeat:
-                        if event.key.keysym.sym in (p.SDLK_e, p.SDLK_ESCAPE):
-                            note_close_requested = True
-                    elif (event.type == p.SDL_WINDOWEVENT
-                          and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
-                        lost_focus = True
+                    continue
+                if (event.type == p.SDL_WINDOWEVENT
+                        and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
+                    pressed.clear()
+                    physical_keys.clear()
+                    mouse_held = False
+                    lost_focus = True
+                    discard_actions = True
+                    continue
+                if event.type == p.SDL_KEYUP:
+                    key = event.key.keysym.sym
+                    physical_keys.discard(key)
+                    pressed.discard(key)
+                    continue
+                if event.type == p.SDL_MOUSEBUTTONUP and event.button.button == p.SDL_BUTTON_LEFT:
+                    mouse_held = False
+                    continue
+                key = None
+                if event.type == p.SDL_KEYDOWN:
+                    key = event.key.keysym.sym
+                    if event.key.repeat or key in physical_keys:
+                        continue
+                    physical_keys.add(key)
+                if discard_actions:
+                    continue
+                if renderer.bridge_note_open:
+                    if key in (p.SDLK_e, p.SDLK_ESCAPE):
+                        note_close_requested = True
                 elif bridge is not None and bridge.panel_open:
-                    if event.type == p.SDL_KEYDOWN and not event.key.repeat:
-                        circuit_keys.append(event.key.keysym.sym)
-                    elif (event.type == p.SDL_WINDOWEVENT
-                          and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
-                        lost_focus = True
+                    if key is not None:
+                        circuit_keys.append(key)
                 elif renderer.abandon_confirmation or abandon_requested:
                     if (renderer.abandon_confirmation and abandon_decision is None
-                            and event.type == p.SDL_KEYDOWN and not event.key.repeat):
-                        key = event.key.keysym.sym
-                        if key in (p.SDLK_RETURN, p.SDLK_KP_ENTER, p.SDLK_ESCAPE):
-                            abandon_decision = key != p.SDLK_ESCAPE
-                    elif (event.type == p.SDL_WINDOWEVENT
-                          and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
-                        lost_focus = True
-                elif event.type == p.SDL_KEYDOWN and not event.key.repeat:
-                    key = event.key.keysym.sym
+                            and key in (p.SDLK_RETURN, p.SDLK_KP_ENTER, p.SDLK_ESCAPE)):
+                        abandon_decision = key != p.SDLK_ESCAPE
+                elif renderer.pause_page is not None:
+                    if key is not None:
+                        pause_keys.append(key)
+                elif key is not None:
                     if key == p.SDLK_ESCAPE:
                         if renderer.map_open or (delivery_run and world.result == "playing" and map_toggle):
                             map_toggle = renderer.map_open
+                        elif delivery_run and not renderer.choosing_delivery and world.result == "playing":
+                            pause_requested = True
                         else:
                             running = False
+                        discard_actions = True
                         continue
                     if renderer.choosing_delivery:
                         if contract_choice is None:
@@ -1939,13 +2006,13 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                             elif key in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
                                 contract_choice = preview_choice
                         continue
-                    if key == p.SDLK_e and key not in pressed:
+                    if key == p.SDLK_e:
                         pending_interact = True
-                    elif delivery_run and key == p.SDLK_f and key not in pressed:
+                    elif delivery_run and key == p.SDLK_f:
                         pending_bottle_pickup = True
-                    elif delivery_run and key == p.SDLK_q and key not in pressed:
+                    elif delivery_run and key == p.SDLK_q:
                         pending_bottle_throw = True
-                    elif key == p.SDLK_m and key not in pressed:
+                    elif key == p.SDLK_m:
                         map_toggle = not map_toggle
                     elif (key == p.SDLK_SPACE and delivery_run and world.result == "playing"
                           and renderer.map_open != map_toggle):
@@ -1959,8 +2026,6 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                             abandon_requested = True
                         else:
                             reset_requested = True
-                elif event.type == p.SDL_KEYUP and not event.key.repeat:
-                    pressed.discard(event.key.keysym.sym)
                 elif event.type == p.SDL_MOUSEMOTION:
                     cursor = (event.motion.x, event.motion.y)
                 elif event.type == p.SDL_MOUSEBUTTONDOWN:
@@ -1976,15 +2041,6 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         if not renderer.choosing_delivery and not mouse_held:
                             pending_click = True
                         mouse_held = True
-                elif event.type == p.SDL_MOUSEBUTTONUP and event.button.button == p.SDL_BUTTON_LEFT:
-                    mouse_held = False
-                elif (event.type == p.SDL_WINDOWEVENT
-                      and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
-                    pressed.clear()
-                    pending_click = False
-                    pending_interact = False
-                    mouse_held = False
-                    lost_focus = True
             if not running:
                 break
             focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
@@ -1995,9 +2051,29 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 mouse_held = False
             if not focused or lost_focus:
                 contract_choice = None
+                reset_requested = False
                 retry_requested = False
             else:
                 renderer.delivery_preview = preview_choice
+            pause_changed = False
+            if focused and not lost_focus:
+                if pause_requested:
+                    renderer.pause_page = "main"
+                    renderer.pause_index = 0
+                    pressed.clear()
+                    mouse_held = False
+                    pause_changed = True
+                for key in pause_keys:
+                    previous_page = renderer.pause_page
+                    action = renderer.handle_pause_key(key)
+                    if action == "quit":
+                        return
+                    if action == "abandon":
+                        abandon_requested = True
+                        break
+                    if renderer.pause_page != previous_page:
+                        pause_changed = True
+                        break
             motor_sound = None
             if focused and not lost_focus and bridge is not None and bridge.panel_open:
                 for key in circuit_keys:
@@ -2046,6 +2122,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 renderer.light = None
                 renderer.map_open = False
                 renderer.bridge_note_open = False
+                renderer.pause_page = None
                 renderer.update_shake(math.inf)
                 renderer.update_sprint_pulse(math.inf)
                 renderer.update_bottle_pulse(math.inf)
@@ -2055,8 +2132,6 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             elif map_toggle and focused and not lost_focus and delivery_run and world.result == "playing":
                 renderer.map_open = not renderer.map_open
                 map_toggled = True
-                if renderer.map_open and world.parcel == "carrying":
-                    renderer.play_hud.dismiss_hint("M")
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
                 pending_bottle_pickup = pending_bottle_throw = False
@@ -2078,6 +2153,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 continue
             active = (focused and not lost_focus and not renderer.map_open
                       and not renderer.abandon_confirmation and not confirmation_changed and not renderer.bridge_note_open
+                      and renderer.pause_page is None and not pause_changed
                       and (bridge is None or not bridge.panel_open)
                       and contract_choice is None and not retry_requested)
             note_opened = (active and not map_toggled and pending_interact and delivery_run
@@ -2281,6 +2357,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if not play_ending(renderer, cutscene_art, world, zombie_audio, player_hit=player_hit, target=target):
                     return
                 pressed.clear()
+                physical_keys.clear()
                 mouse_held = False
                 cursor = current_cursor()
                 renderer.cursor = cursor

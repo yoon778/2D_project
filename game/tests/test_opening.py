@@ -28,9 +28,12 @@ class OpeningTests(unittest.TestCase):
         original_init = main.Renderer.__init__
         batches = iter(batches)
         ticks = clock if clock is not None else (i / 60 for i in count())
+        settings = None
 
         def initialize(renderer):
+            nonlocal settings
             original_init(renderer)
+            settings = renderer.audio_settings
             p.SDL_FlushEvents(p.SDL_FIRSTEVENT, p.SDL_LASTEVENT)
 
         def poll():
@@ -93,7 +96,8 @@ class OpeningTests(unittest.TestCase):
         if smoke:
             factory.assert_not_called()
         else:
-            factory.assert_called_once_with(main.BASE_DIR / "assets/audio/last-delivery.mp3")
+            factory.assert_called_once_with(main.BASE_DIR / "assets/audio/last-delivery.mp3", settings=settings)
+            self.assertIs(factory.call_args.kwargs["settings"], settings)
             music.start.assert_called_once_with()
             music.close.assert_called_once_with()
         return opening_times, game, worlds, music.update.call_args_list

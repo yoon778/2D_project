@@ -1,4 +1,4 @@
-"""Delivery hints and result labels at the HUD's normal draw entry points."""
+"""Delivery status, contextual prompts, pause pages and receipts."""
 from pathlib import Path
 import sys
 import unittest
@@ -21,41 +21,66 @@ class PlayHUDTests(unittest.TestCase):
         self.hud.reset_delivery()
         self.hud._vitals = Mock()
         self.hud._objective = Mock()
-        self.hud._draw_pickup_controls = Mock()
         self.hud._notice = Mock()
-        self.hud._actions = Mock()
         self.light = Mock()
 
-    def actions(self, *, visible=False):
-        self.hud.draw(self.world, self.light, self.world.next_stop, focused=True, alarm=False,
-                      near_visible_zombie=visible)
-        return {key: text for key, text, _ in self.hud._actions.call_args.args[0]}
-
-    def test_pickup_replaces_e_then_opening_map_and_sneaking_discard_hints(self):
-        self.assertEqual(self.actions()["E"], play_hud.HINT_TEXT["E"])
-        self.assertEqual(sum(key == "E" for key, _, _ in self.hud._actions.call_args.args[0]), 1)
+    def test_normal_hud_keeps_status_without_drawn_actions_after_pickup(self):
         self.assertTrue(self.world.interact())
-        self.assertEqual(self.actions()["M"], play_hud.HINT_TEXT["M"])
-        self.hud.dismiss_hint("M")
-        self.assertNotIn("M", self.actions())
-        self.assertNotIn("Ctrl", self.actions())
-        self.assertEqual(self.actions(visible=True)["Ctrl"], play_hud.HINT_TEXT["Ctrl"])
-        self.world.sneaking = True
-        self.assertFalse(self.hud.watch_for_sneak_hint(self.world))
-        self.assertNotIn("Ctrl", self.actions(visible=True))
+        with (patch.object(self.hud, "draw_action_prompt") as prompt,
+              patch.object(self.hud, "_text") as text):
+            self.hud.draw(self.world, self.light, self.world.next_stop, focused=True, alarm=False)
+        self.hud._vitals.assert_called_once_with(self.world)
+        self.hud._objective.assert_called_once_with(self.world)
+        prompt.assert_not_called()
+        text.assert_not_called()
 
-    def test_hints_expire_without_repeating_and_chase_does_not_spend_an_unseen_hint(self):
-        self.assertIn("E", self.actions())
-        self.world.elapsed_play_time = play_hud.HINT_DURATION
-        self.assertEqual(self.actions()["E"], "택배 수령 · 길게 누르기")
-        self.assertTrue(self.world.interact())
-        self.hud.dismiss_hint("M")
-        self.world.zombie.state = "chase"
-        self.assertFalse(self.hud.watch_for_sneak_hint(self.world))
-        self.world.zombie.state = "idle"
-        self.assertTrue(self.hud.watch_for_sneak_hint(self.world))
-        self.world.elapsed_play_time = play_hud.HINT_WINDOW
-        self.assertNotIn("Ctrl", self.actions(visible=True))
+    def test_head_prompt_uses_y_up_and_shows_progress_in_one_badge(self):
+        with (patch.object(self.hud, "_label", return_value=(None, 48, 24)),
+              patch.object(self.hud, "_keycap") as cap, patch.object(self.hud, "_text") as text,
+              patch.object(play_hud, "panel") as panel, patch.object(play_hud, "fill") as fill):
+            self.hud.draw_action_prompt(640, 440, "E", "택배 수령 중", progress=.25)
+        left, top, width, height = panel.call_args.args
+        self.assertLessEqual(top + height, 719 - 440 - 9)
+        self.assertLessEqual(abs(left + width / 2 - 640), 1)
+        cap.assert_called_once_with("E", left + 5, top + 4, 60)
+        text.assert_called_once_with("택배 수령 중", left + 73, top + 16, play_hud.BODY)
+        self.assertEqual(fill.call_args_list[0].args[:4], (left + 5, top + 33, width - 10, 4))
+        self.assertEqual(fill.call_args_list[1].args[:4], (left + 5, top + 33, round((width - 10) * .25), 4))
+
+    def test_prompt_moves_to_one_side_when_head_is_too_close_to_top(self):
+        with (patch.object(self.hud, "_label", return_value=(None, 46, 20)),
+              patch.object(self.hud, "_keycap"), patch.object(self.hud, "_text"),
+              patch.object(play_hud, "panel") as panel, patch.object(play_hud, "fill") as fill):
+            for x in (15, 1265):
+                self.hud.draw_action_prompt(x, 715, "F", "빈 병 줍기")
+                left, top, width, height = panel.call_args.args
+                self.assertTrue(left + width <= x - 28 or left >= x + 28)
+                self.assertGreaterEqual(top, 8)
+                self.assertLessEqual(left + width, 1280 - 8)
+                self.assertLessEqual(top + height, 720 - 8)
+        fill.assert_not_called()
+
+    def test_pause_pages_show_navigation_controls_and_selected_volume(self):
+        with (patch.object(self.hud, "_text") as text, patch.object(self.hud, "_keycap") as cap,
+              patch.object(play_hud, "panel"), patch.object(play_hud, "receipt_rule"),
+              patch.object(play_hud, "trace"), patch.object(play_hud, "fill") as fill):
+            self.hud.draw_pause("main", 1, (100, 45, 0))
+            labels = [call.args for call in text.call_args_list]
+            self.assertEqual([entry[0] for entry in labels[1:6]], list(play_hud.PAUSE_MENU))
+            self.assertEqual(labels[2][4], play_hud.STAMP)
+            text.reset_mock()
+            self.hud.draw_pause("controls", 0, (100, 45, 0))
+            keys = {call.args[0] for call in cap.call_args_list}
+            self.assertTrue({"W", "A", "S", "D", "F", "Q", "M", "E", "Shift", "Ctrl", "Esc", "R", "Space",
+                             "1", "2", "3"} <= keys)
+            self.assertIn("마우스 조준 · 좌클릭 배트", {call.args[0] for call in text.call_args_list})
+            text.reset_mock()
+            fill.reset_mock()
+            self.hud.draw_pause("audio", 1, (100, 45, 0))
+            self.assertTrue({"전체", "음악", "효과음", "100%", "45%", "0%"} <= {
+                call.args[0] for call in text.call_args_list})
+            self.assertTrue(any(call.args[2:] == (97, 8, (*play_hud.STAMP, 255))
+                                for call in fill.call_args_list))
 
     def test_result_draws_stats_and_retry_releases_dynamic_count_label(self):
         self.world.result = "delivered"
@@ -79,9 +104,7 @@ class PlayHUDTests(unittest.TestCase):
         self.assertTrue(self.world.interact())
         shop, rear_door = self.world.contract.stops
         self.world.player.x, self.world.player.y = rear_door.position
-        self.light.contains.side_effect = lambda position: position == rear_door.position
-        self.assertEqual(self.actions()["E"], "택배 전달 · 길게 누르기")
-        self.light.contains.assert_called_once_with(rear_door.position)
+        self.assertEqual(self.world.interaction_target, rear_door.position)
         self.assertTrue(self.world.interact())
 
         with patch.object(self.hud, "_text") as text, patch.object(play_hud, "panel"), patch.object(play_hud, "fill"):
@@ -102,17 +125,6 @@ class PlayHUDTests(unittest.TestCase):
             self.hud.draw_result(self.world)
         labels = {args[0] for args, _ in text.call_args_list}
         self.assertIn("새 계약 열림 · R에서 3번 선택", labels)
-
-    def test_active_hold_shows_progress_even_when_the_target_is_dark(self):
-        self.world.elapsed_play_time = play_hud.HINT_WINDOW
-        self.light.contains.return_value = False
-        self.assertNotIn("E", self.actions())
-        self.world.update_interaction(.125, held=True, pressed=True, moving=False, damaged=False)
-        self.assertEqual(self.actions()["E"], "택배 수령 중")
-        self.assertAlmostEqual(self.hud._actions.call_args.kwargs["progress"], .25)
-        self.world.update_interaction(0, held=False, pressed=False, moving=False, damaged=False)
-        self.assertNotIn("E", self.actions())
-        self.assertIsNone(self.hud._actions.call_args.kwargs["progress"])
 
     def test_waypoint_arrow_uses_screen_direction_and_hides_on_focus_loss(self):
         with (patch.object(play_hud, "panel"), patch.object(play_hud, "trace") as trace,

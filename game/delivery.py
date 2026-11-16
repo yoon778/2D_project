@@ -688,6 +688,11 @@ class DeliveryWorld(CombatWorld):
         self._interaction_elapsed = 0.0
 
     @property
+    def interaction_candidate(self):
+        candidate = self._available_interaction()
+        return candidate[0] if candidate is not None else None
+
+    @property
     def interaction_action(self):
         return None if self._held_interaction is None else self._held_interaction[0]
 
