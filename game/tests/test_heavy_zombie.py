@@ -64,9 +64,8 @@ class HeavyZombieTests(unittest.TestCase):
     def test_heavy_follows_bottle_then_shutter_blocks_its_return(self):
         world = DeliveryWorld()
         self.assertTrue(world.select_contract(3))
+        self.assertTrue(world.skip_route_sequence())
         self.assertTrue(hold_interaction(world, 0.5))
-        world.player.x, world.player.y = world.destination
-        self.assertTrue(hold_interaction(world, 1.0))
         # Isolate the new parking group from the shop encounter for deterministic inputs.
         del world.zombies[:len(world.contract.zombie_starts)]
         heavy = world.zombies[-1]

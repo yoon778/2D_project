@@ -24,6 +24,7 @@ from spatial_audio import AudioSettings, HeavyFootstep, PatrolFootstep, ZombieAu
 from town_map_art import (MAP_ALLEY, MAP_BUILDING, MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS, MAP_LANDMARK,
                           MAP_ROAD, MAP_WRECK)
 from town_map_art import draw_base as draw_map_base
+from truck_sequence import draw_truck, truck_bounds
 import opening
 
 WINDOW_WIDTH = 1280
@@ -155,19 +156,21 @@ def current_cursor():
 
 
 def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stations=(), lamps=(), street_props=(),
-                     bottles=()):
+                     bottles=(), truck=None):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
     objects.extend(("station", position) for position in stations)
     objects.extend(("lamp", position) for position in lamps)
     objects.extend(("street-prop", decoration) for decoration in street_props)
     objects.extend(("bottle", bottle) for bottle in bottles)
+    if truck is not None:
+        objects.append(("truck", truck))
     objects.extend(("wall", wall) for wall in walls)
     if zombie is not None:
         objects.append(("zombie", zombie))
     objects.extend(("zombie", enemy) for enemy in zombies)
     objects.append(("player", player))
-    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp", "bottle")
+    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp", "bottle", "truck")
                                                else item[1].y))
 
 
@@ -468,7 +471,7 @@ class Renderer:
         if p.SDL_SetTextureBlendMode(self.neighborhood_ground.texture, p.SDL_BLENDMODE_BLEND) != 0:
             raise RuntimeError(f"Ground blend mode failed: {p.SDL_GetError()!r}")
         for wall in self.delivery.walls:
-            if not isinstance(wall, NeighborhoodWall) or wall.texture in BRIDGE_TERRAIN:
+            if not isinstance(wall, NeighborhoodWall) or wall.texture in (*BRIDGE_TERRAIN, "delivery-truck"):
                 continue
             texture = WALL_TEXTURE_ALIASES.get(wall.texture, wall.texture)
             if texture not in self.neighborhood_walls:
@@ -681,9 +684,8 @@ class Renderer:
         if DELIVERY_CONTRACTS[1].stops[0] in contract.stops:
             rectangle(720, 67, 10, 4, MAP_CLOSED_GATE)
             self.font.draw(736, 69, "철문", WHITE)
-        if contract.return_point is not None:
-            self.draw_safe_map_marker(724, 69, MAP_SAFE, backing=MAP_LABEL)
-            self.font.draw(736, 69, "안전지점", WHITE)
+        if contract.truck_position is not None:
+            self.font.draw(508, 39, "수령·복귀는 같은 트럭  ·  배송 순서 자유", WHITE)
 
     @staticmethod
     def draw_map_heading(x, y, angle, *, on_paper=False):
@@ -788,8 +790,9 @@ class Renderer:
         active_contract = contract is world.contract
         shutter = world.shutter_wall if active_contract else None
         bridge = world.bridge_puzzle if active_contract else None
-        show_east_detour = bridge is not None and player is not None and world.returning
-        map_walls = [wall for wall in world.walls if getattr(wall, "texture", None) not in BRIDGE_TERRAIN]
+        show_east_detour = bridge is not None and player is not None and world.route_gimmicks_active
+        map_walls = [wall for wall in world.walls
+                     if getattr(wall, "texture", None) not in (*BRIDGE_TERRAIN, "delivery-truck")]
         if contract is not world.contract and world.parking_walls:
             map_walls = [wall for wall in map_walls if wall is not world.shutter_wall
                          and wall not in (*world.parking_walls, *world.bridge_puzzle.station_walls)]
@@ -830,11 +833,16 @@ class Renderer:
 
         pickup_x, pickup_y = map_point(*contract.pickup)
         occupied.append((pickup_x - 7, pickup_y - 7, pickup_x + 7, pickup_y + 7))
-        pickup_done = contract.return_point is not None and player is not None and world.parcel != "waiting"
-        self.draw_map_pin(pickup_x, pickup_y, MAP_COMPLETED if pickup_done else MAP_PICKUP, pickup=True)
+        if contract.truck_position is not None:
+            truck_color = MAP_SAFE if player is not None and world.returning else MAP_PICKUP
+            self.draw_map_pin(pickup_x, pickup_y, truck_color, pickup=True)
+            labels.append((pickup_x + 12, pickup_y - 11, 66, "트럭", truck_color))
+            occupied.append((pickup_x + 12, pickup_y - 11, pickup_x + 78, pickup_y + 12))
+        else:
+            self.draw_map_pin(pickup_x, pickup_y, MAP_PICKUP, pickup=True)
         for stop in contract.stops:
             completed = player is not None and stop in world.completed_stops
-            color = MAP_COMPLETED if completed and contract.return_point is None else MAP_DROPOFF
+            color = MAP_COMPLETED if completed else MAP_DROPOFF
             x, y = map_point(*stop.position)
             occupied.append((x - 9, y - 9, x + 9, y + 9))
             self.draw_map_pin(x, y, color)
@@ -843,14 +851,12 @@ class Renderer:
                 label += " · 완료" if completed else " · 미완료"
             label_width = 17 * len(label) + 16
             label_x = max(left + 4, x - label_width - 10)
-            if contract.return_point is not None:
-                label_x = min(right - label_width - 4, max(x, pickup_x) + 10)
             label_y = max(bottom + 4, y - 32)
             occupied.append((label_x, label_y, label_x + label_width, label_y + 23))
             leader_x = label_x if label_x > x else label_x + label_width
             p.draw_line(x, y - 7, leader_x, label_y + 19, *color)
             labels.append((label_x, label_y, label_width, label, color))
-        if contract.return_point is not None:
+        if contract.return_point is not None and contract.truck_position is None:
             safe_x, safe_y = map_point(*contract.return_point)
             occupied.append((safe_x - 94, safe_y - 11, safe_x - 11, safe_y + 12))
             occupied.append((safe_x - 8, safe_y - 8, safe_x + 8, safe_y + 8))
@@ -945,7 +951,7 @@ class Renderer:
     @staticmethod
     def bridge_map_next_stop(world):
         bridge = world.bridge_puzzle
-        if not world.returning or bridge is None or bridge.bridge_down:
+        if bridge is None or not world.route_gimmicks_active or bridge.bridge_down:
             return None
         if bridge.has_key:
             return "C", "관리실", "회로 연결"
@@ -976,14 +982,21 @@ class Renderer:
         if len(world.contract.stops) > 1:
             self.font.draw(side + 238, 602, f"{len(world.completed_stops)} / {len(world.contract.stops)}", MAP_VIEW_TEXT)
         next_bridge_stop = self.bridge_map_next_stop(world)
-        if next_bridge_stop is not None:
-            _, place, action = next_bridge_stop
-            objective, target, accent = f"{place} {action}", "선택 지름길 · E 길게", ORANGE
-        elif world.returning:
-            objective, accent = "북쪽 안전지점 복귀", SAFE_GREEN
-            target = "추격을 끊고 복귀" if world.return_blocked else "초록색 안전지점에 도착하면 완료"
+        truck_route = world.contract.truck_position is not None
+        if world.returning:
+            objective = "출발 트럭으로 복귀" if truck_route else "안전지점 복귀"
+            accent = SAFE_GREEN
+            if world.return_blocked:
+                target = "추격을 끊고 복귀"
+            else:
+                target = "트럭 문 앞에서 E 길게" if truck_route else "안전지점에 도착하면 완료"
         elif world.parcel == "waiting":
-            objective, target, accent = "택배 수령", "주황색 수령지에서 E 길게", ORANGE
+            objective = "트럭에서 수령" if truck_route else "택배 수령"
+            target, accent = "주황색 수령지에서 E 길게", ORANGE
+        elif truck_route:
+            remaining = world.remaining_stops
+            objective = "두 곳 배송 · 순서 자유" if len(remaining) > 1 else remaining[0].name
+            target, accent = "붉은 원 배송지에서 E 길게", MAP_VIEW_TEXT
         else:
             objective, target, accent = "택배 전달", "붉은 원 배송지에서 E 길게", MAP_VIEW_TEXT
         self.font.draw(side + 24, 566, objective, accent)
@@ -1001,14 +1014,16 @@ class Renderer:
             if not self._draw_map_sprite(icon, x, bottom, w, h):
                 rectangle(x, bottom, w, h, color)
             self.font.draw(side + 62, y, label, MAP_VIEW_TEXT)
-        for y, label, color, pickup in ((260, "수령지", MAP_PICKUP, True), (225, "배송지", MAP_DROPOFF, False)):
+        pickup_label = "트럭" if truck_route else "수령지"
+        pickup_color = MAP_SAFE if truck_route and world.returning else MAP_PICKUP
+        for y, label, color, pickup in ((260, pickup_label, pickup_color, True), (225, "배송지", MAP_DROPOFF, False)):
             self.draw_map_pin(side + 36, y, color, pickup=pickup)
             self.font.draw(side + 62, y, label, MAP_VIEW_TEXT)
         if DELIVERY_CONTRACTS[1].stops[0] in world.contract.stops:
             gate_closed = world.gate is not None
             rectangle(side + 24, 153, 24, 4, MAP_CLOSED_GATE if gate_closed else MAP_OPEN_GATE)
             self.font.draw(side + 62, 155, "철문 · 닫힘" if gate_closed else "철문 · 열림", MAP_VIEW_TEXT)
-        if world.contract.return_point is not None:
+        if world.contract.return_point is not None and not truck_route:
             self.draw_safe_map_marker(side + 36, 155, MAP_SAFE, backing=MAP_LABEL)
             self.font.draw(side + 62, 155, "안전지점", MAP_VIEW_TEXT)
         if world.shutter_wall is not None:
@@ -1028,7 +1043,7 @@ class Renderer:
             rectangle(side + 162, 363, 20, 4, color)
             status = "다리 지름길" if bridge.bridge_down else "다리 · 올라감"
             self.font.draw(side + 191, 365, status, SAFE_GREEN if bridge.bridge_down else MAP_VIEW_TEXT)
-            if world.returning:
+            if world.route_gimmicks_active:
                 self.font.draw(side + 191, 260, "동쪽 우회 가능", MAP_VIEW_TEXT)
                 self.font.draw(side + 191, 236, "정류장길로 연결", MAP_VIEW_TEXT)
         self.draw_map_heading(side + 31, 295, 0)
@@ -1572,6 +1587,9 @@ class Renderer:
     def _draw_world(self, player, walls, aim, defeat_elapsed, defeat_attacker):
         p.SDL_SetRenderDrawColor(p.renderer, 0, 0, 0, 255)
         p.SDL_RenderClear(p.renderer)
+        delivery = self.delivery
+        courier_in_truck = (delivery is not None and delivery.contract.truck_position is not None
+                            and delivery.mission_phase in ("arriving", "departing", "finished"))
         origin = (player.x, player.y)
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
         beam, *lamps = self.prepare_light(player, walls, aim).lights
@@ -1580,9 +1598,10 @@ class Renderer:
         glow_walls = {id(wall) for wall in glow.walls}
         # Station labels and status marks remain reserved for strong lighting.
         self.glow_source = (glow, light_source_rows(glow, self.project))
-        self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in self.light.lights)
+        light_sources = lamps if courier_in_truck else self.light.lights
+        self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in light_sources)
         self.light_rows = combined_light_rows([rows for _, rows in self.light_sources])
-        beam_outline = beam.outline()
+        beam_outline = () if courier_in_truck else beam.outline()
         # The ground cone ends at a wall's foot. Use the beam's shape before that collision
         # to clip the visible face, while the hit outline still selects which face gets light.
         open_beam = Flashlight(origin, beam.angle, (), world_size)
@@ -1592,9 +1611,9 @@ class Renderer:
             beam_mask.append((x, y + 1))
         lamp_outlines = tuple(lamp.outline() for lamp in lamps)
         self.draw_ground_light(glow, glow_outline, NEARBY_GLOW_COLOR, (0, 0, 0), feathered=True)
-        self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53), feathered=True)
+        if not courier_in_truck:
+            self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53), feathered=True)
         self.draw_streetlight_pools(lamps, lamp_outlines)
-        delivery = self.delivery
         bridge = delivery.bridge_puzzle if delivery is not None else None
         defeated = delivery is not None and delivery.result == "defeated"
         if bridge is not None:
@@ -1610,19 +1629,30 @@ class Renderer:
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
         bottles = []
         stations = ()
+        truck = None
+        truck_reveal = 0.0
         if delivery is not None:
-            stations = ((delivery.pickup,) if delivery.parcel == "waiting"
-                        else tuple(stop.position for stop in delivery.remaining_stops))
-            if delivery.returning or (bridge is not None and defeated and delivery.parcel == "delivered"):
-                if not defeated:
-                    self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
+            truck = delivery.truck_footprint
+            if truck is not None:
+                door = delivery.contract.truck_door_position
+                if delivery.route_sequence_active:
+                    truck_reveal = 1.0
+                elif self.nearby_light.contains(door):
+                    truck_reveal = min(1.0, max(0.0, (self.nearby_light.radius - math.dist(origin, door)) / 40))
+            if delivery.parcel == "waiting":
+                stations = (delivery.pickup,) if truck is None else ()
+            else:
+                stations = tuple(stop.position for stop in delivery.remaining_stops)
+            if delivery.returning:
+                self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
+            if delivery.route_gimmicks_active or (bridge is not None and defeated and delivery.parcel == "delivered"):
                 if delivery.shutter_position is not None:
                     stations = (*stations, delivery.shutter_position)
                     if not delivery.shutter_closed:
                         self.draw_shutter_entrance(delivery.shutter_wall)
                 if bridge is not None:
                     stations = (*stations, bridge.key_position, bridge.panel_position)
-                    if delivery.returning:
+                    if delivery.route_gimmicks_active:
                         stations = (*stations, bridge.note_position)
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
             flight = delivery.bottle_flight
@@ -1636,7 +1666,7 @@ class Renderer:
                                             stations=stations,
                                             lamps=(lamp.origin for lamp in lamps),
                                             street_props=delivery.props if delivery is not None else (),
-                                            bottles=bottles):
+                                            bottles=bottles, truck=truck):
             if kind == "prop":
                 self.draw_lit_prop(actor, self.trash_can)
             elif kind == "street-prop":
@@ -1658,13 +1688,33 @@ class Renderer:
                     self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
+            elif kind == "truck":
+                phase = delivery.mission_phase
+                door = "cargo" if phase == "unloading" else "closed"
+                if phase == "departing" and delivery.phase_elapsed < .12:
+                    door = "cab"
+                if delivery.route_sequence_active:
+                    draw_truck(self.project, actor, door=door)
+                else:
+                    bounds = truck_bounds(self.project, actor)
+                    if truck_reveal > 0:
+                        draw_truck(self.project, actor, door=door, dimmed=True)
+                    self.draw_lit_region(bounds, lambda: draw_truck(self.project, actor, door=door))
             elif kind == "wall":
                 texture = getattr(actor, "texture", None)
+                if texture == "delivery-truck":
+                    continue
                 if texture in BRIDGE_TERRAIN:
                     if texture == "bridge-raised":
                         self.draw_raised_bridge(actor)
                     continue
                 opacity = self.building_opacity(actor)
+                if (truck_reveal > 0 and texture in BUILDING_TEXTURES
+                        and actor.y + actor.depth <= truck[1]
+                        and actor.x < truck[0] + truck[2] and actor.x + actor.width > truck[0]
+                        and self.project(actor.x, actor.y + actor.depth)[1] + wall_height(actor)
+                        > self.project(truck[0], truck[1])[1]):
+                    opacity = min(opacity, 1 - truck_reveal)
                 if opacity > 0.0:
                     self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else (),
                               opacity=opacity)
@@ -1673,6 +1723,8 @@ class Renderer:
                     actor = defeat_attacker[1]
                 self.draw_lit_zombie(actor, combat, attack)
             else:
+                if courier_in_truck:
+                    continue
                 if defeated:
                     attacker = delivery.fatal_zombie_strike
                     fall_x = player.x - attacker[0].x if attacker else -math.cos(player.aim_angle)
@@ -1705,6 +1757,9 @@ class Renderer:
 
     def _draw_overlay(self, player, target, aim, focused, defeat_elapsed):
         delivery = self.delivery
+        if delivery is not None and delivery.route_sequence_active:
+            self.play_hud.draw(delivery, self.light, aim, focused=focused, alarm=False)
+            return
         if delivery is not None and delivery.result == "defeated":
             if defeat_elapsed is None:
                 p.SDL_SetRenderDrawColor(p.renderer, 4, 7, 10, 175)
@@ -1937,6 +1992,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             lost_focus = False
             map_toggle = False
             map_toggled = False
+            sequence_skip_requested = False
             note_close_requested = False
             waypoint_actions = []
             abandon_requested = False
@@ -2005,6 +2061,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                                     preview_choice = index
                             elif key in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
                                 contract_choice = preview_choice
+                        continue
+                    if (delivery_run and world.route_sequence_active
+                            and key in (p.SDLK_RETURN, p.SDLK_KP_ENTER)):
+                        sequence_skip_requested = True
+                        discard_actions = True
                         continue
                     if key == p.SDLK_e:
                         pending_interact = True
@@ -2151,11 +2212,22 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 renderer.draw(player, walls, target, focused)
                 p.update_canvas()
                 continue
+            was_playing = world.result == "playing"
             active = (focused and not lost_focus and not renderer.map_open
                       and not renderer.abandon_confirmation and not confirmation_changed and not renderer.bridge_note_open
                       and renderer.pause_page is None and not pause_changed
                       and (bridge is None or not bridge.panel_open)
                       and contract_choice is None and not retry_requested)
+            if delivery_run and world.route_sequence_active:
+                if active:
+                    sequence_completed = (world.skip_route_sequence() if sequence_skip_requested
+                                          else world.advance_route_sequence(dt))
+                    if sequence_completed:
+                        renderer.reset_streetlights()
+                        renderer.light = None
+                        pressed.clear()
+                        mouse_held = False
+                active = False
             note_opened = (active and not map_toggled and pending_interact and delivery_run
                            and world.can_read_bridge_note())
             note_closed = note_close_requested and focused and not lost_focus
@@ -2176,7 +2248,6 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
             facing_hint = motion.facing if motion._initialized else None
-            was_playing = world.result == "playing"
             swing_started = False
             if pending_click and active:
                 facing = select_facing(player.aim_angle, facing_hint)
@@ -2212,8 +2283,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     dt if active else 0.0, held=active and p.SDLK_e in pressed,
                     pressed=active and pending_interact, moving=player.moved, damaged=player_hit,
                 )
-                if completed and world.just_unlocked_two_stop:
-                    save_two_stop_unlock()
+                if completed and world.mission_phase == "departing":
+                    renderer.reset_streetlights()
+                    renderer.light = None
+                    pressed.clear()
+                    mouse_held = False
+                    active = False
                 if completed and bridge is not None and bridge.panel_open:
                     pressed.clear()
                     mouse_held = False
@@ -2227,6 +2302,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     renderer.reset_streetlights()
                     renderer.light = None
             ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
+            truck_success = ending and world.result == "delivered" and world.contract.truck_position is not None
+            if ending and world.result == "delivered" and world.just_unlocked_two_stop:
+                save_two_stop_unlock()
             audio_active = active and not reset_requested
             hearing_active = audio_active and world.result == "playing"
             renderer.update_sprint_pulse(dt if hearing_active else math.inf,
@@ -2353,7 +2431,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
             renderer.player_visual.update(display_angle, dx, dy, sprinting=delivery_run and world.sprinting)
-            if ending:
+            if truck_success:
+                if zombie_audio is not None:
+                    zombie_audio.stop()
+                    if focused and not lost_focus:
+                        zombie_audio.play_delivery_cue()
+            elif ending:
                 if not play_ending(renderer, cutscene_art, world, zombie_audio, player_hit=player_hit, target=target):
                     return
                 pressed.clear()

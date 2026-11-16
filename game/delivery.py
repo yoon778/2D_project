@@ -33,8 +33,13 @@ MAX_WAYPOINTS = 8
 _WAYPOINT_REACH = 32.0
 _INTERACTION_HOLD_TIMES = {
     "pickup": 0.50, "deliver": 1.00, "gate": 0.70, "shutter": 0.70,
-    "bridge_key": 0.50, "bridge_panel": 0.70,
+    "bridge_key": 0.50, "bridge_panel": 0.70, "board_truck": 0.70,
 }
+TRUCK_ARRIVAL_SECONDS = 1.20
+TRUCK_DEPARTURE_SECONDS = 1.20
+_TRUCK_EXIT_THREAT_RANGE = 100.0
+_TRUCK_TRAVEL = 180.0
+_TRUCK_SIZE = (96, 34)
 GATE_NOISE_RANGE = 230.0
 _SHUTTER_NOISE_RANGE = 95.0
 BRIDGE_MOTOR_NOISE_RANGE = 280.0
@@ -60,6 +65,8 @@ _PARKING_SHUTTER_POSITION = (2142, 1255)
 _PARKING_LURE_POSITION = (2355, 1380)
 _PARKING_BOTTLE_POSITION = (2110, 1230)
 _BRIDGE_SOUTHEAST_ZOMBIE_START = (2898, 1274)
+_SHOP_TRUCK_POSITION = (2290.0, 873.0)
+_SHOP_TRUCK_DOOR = (2290.0, 907.0)
 
 
 @dataclass(frozen=True)
@@ -79,10 +86,15 @@ class DeliveryContract:
     player_start: tuple[float, float] = PLAYER_START
     pickup: tuple[float, float] = TOWN_PICKUP
     return_point: tuple[float, float] | None = None
+    truck_position: tuple[float, float] | None = None
 
     def __post_init__(self):
         if not self.stops:
             object.__setattr__(self, "stops", (DeliveryStop(self.name, self.destination),))
+
+    @property
+    def truck_door_position(self):
+        return self.return_point if self.truck_position is not None else None
 
 
 _SINGLE_CONTRACTS = (
@@ -105,11 +117,12 @@ DELIVERY_CONTRACTS = (
         tuple(contract.stops[0] for contract in _SINGLE_CONTRACTS),
     ),
     DeliveryContract(
-        "상점 왕복", "상점에 전달하고 안전지점 복귀", "보통",
+        "상점 왕복", "상점 앞과 관리실 뒤편에 배달하고 트럭 복귀", "보통",
         _SINGLE_CONTRACTS[0].destination,
         (*_SHOP_ZOMBIE_STARTS[16:21], (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START),
-        _SINGLE_CONTRACTS[0].stops,
-        player_start=(2315.0, 907.0), pickup=(2290.0, 907.0), return_point=(2460.0, 2285.0),
+        (*_SINGLE_CONTRACTS[0].stops, DeliveryStop("관리실 뒤편", (2545.0, 1422.0))),
+        player_start=(2315.0, 907.0), pickup=_SHOP_TRUCK_DOOR, return_point=_SHOP_TRUCK_DOOR,
+        truck_position=_SHOP_TRUCK_POSITION,
     ),
 )
 
@@ -236,12 +249,74 @@ class DeliveryWorld(CombatWorld):
         return self.contract.pickup
 
     @property
+    def mission_phase(self):
+        if self.result == "defeated":
+            return "failed"
+        if self.result == "delivered":
+            return "finished"
+        if self._route_sequence is not None:
+            return self._route_sequence
+        return {"waiting": "unloading", "carrying": "delivering", "delivered": "returning"}[self.parcel]
+
+    @property
+    def route_sequence_active(self):
+        return self._route_sequence is not None and self.result == "playing"
+
+    @property
+    def truck_footprint(self):
+        truck = self.truck_wall
+        if truck is None:
+            return None
+        offset = 0.0
+        if self.mission_phase == "arriving":
+            progress = self.phase_elapsed / TRUCK_ARRIVAL_SECONDS
+            offset = _TRUCK_TRAVEL * (1 - progress) ** 2
+        elif self.mission_phase == "departing":
+            progress = self.phase_elapsed / TRUCK_DEPARTURE_SECONDS
+            offset = -_TRUCK_TRAVEL * progress ** 2
+        elif truck not in self.walls:
+            return None
+        return (truck.x + offset, truck.y, truck.width, truck.depth)
+
+    def advance_route_sequence(self, dt):
+        if not self.route_sequence_active or not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
+            return False
+        duration = TRUCK_ARRIVAL_SECONDS if self._route_sequence == "arriving" else TRUCK_DEPARTURE_SECONDS
+        self.phase_elapsed = min(duration, self.phase_elapsed + dt)
+        if self.phase_elapsed < duration - 1e-9:
+            return False
+        return self.skip_route_sequence()
+
+    def skip_route_sequence(self):
+        self._resolve_result()
+        if not self.route_sequence_active:
+            return False
+        arriving = self._route_sequence == "arriving"
+        self._route_sequence = None
+        self.phase_elapsed = 0.0
+        if arriving:
+            self.walls.append(self.truck_wall)
+            self._clear_zombie_routes()
+        else:
+            self._finish_delivery()
+        return True
+
+    @property
     def returning(self):
-        return self.result == "playing" and self.parcel == "delivered" and self.contract.return_point is not None
+        return self.contract.truck_door_position is not None and self.mission_phase == "returning"
 
     @property
     def return_blocked(self):
-        return self.returning and any(zombie.alive and zombie.state == "chase" for zombie in self.zombies)
+        if not self.returning:
+            return False
+        door = self.contract.truck_door_position
+        return any(zombie.alive and zombie.state == "chase"
+                   and math.dist((zombie.x, zombie.y), door) <= _TRUCK_EXIT_THREAT_RANGE
+                   and self._player_line_clear(zombie) for zombie in self.zombies)
+
+    @property
+    def route_gimmicks_active(self):
+        return self.bridge_puzzle is not None and self.mission_phase in ("delivering", "returning")
 
     @property
     def available_contracts(self):
@@ -263,6 +338,14 @@ class DeliveryWorld(CombatWorld):
         self.attack_count = 0
         self.elapsed_play_time = 0.0
         self.player = Player(*self.contract.player_start)
+        self._route_sequence = "arriving" if self.contract.truck_position is not None else None
+        self.phase_elapsed = 0.0
+        self.truck_wall = None
+        if self.contract.truck_position is not None:
+            x, y = self.contract.truck_position
+            width, depth = _TRUCK_SIZE
+            self.truck_wall = NeighborhoodWall(x - width / 2, y - depth / 2, width, depth,
+                                               "delivery-truck", height=48)
         self.zombies = []
         has_patrol = _SINGLE_CONTRACTS[1].stops[0] in self.contract.stops
         shop_round_trip = self.contract is DELIVERY_CONTRACTS[3]
@@ -410,6 +493,8 @@ class DeliveryWorld(CombatWorld):
         return self.attack_count == 0 and self.player_hp == self._starting_player_hp
 
     def start_attack(self, facing="front_right", *, stationary_front_right=False):
+        if self.route_sequence_active:
+            return False
         started = super().start_attack(facing, stationary_front_right=stationary_front_right)
         if started:
             self.attack_count += 1
@@ -417,7 +502,7 @@ class DeliveryWorld(CombatWorld):
 
     @property
     def nearby_bottle(self):
-        if self.has_bottle or self.result != "playing" or self.player_hp <= 0:
+        if self.has_bottle or self.result != "playing" or self.player_hp <= 0 or self.route_sequence_active:
             return None
         origin = (self.player.x, self.player.y)
         return min((point for point in self.bottle_pickups
@@ -457,7 +542,7 @@ class DeliveryWorld(CombatWorld):
         if light is None or light.contains(landing):
             if vehicle is not None:
                 return "차량 경보 유인"
-            if (self.returning and self.shutter_lure is not None and not self.shutter_closed
+            if (self.route_gimmicks_active and self.shutter_lure is not None and not self.shutter_closed
                     and math.dist(landing, self.shutter_lure) <= 18):
                 return "주차장 안쪽으로 유인"
         return "병 던지기"
@@ -465,7 +550,7 @@ class DeliveryWorld(CombatWorld):
     def bottle_throw_preview(self, target):
         """Return a reachable landing point and the armed vehicle struck, if any."""
         if (not self.has_bottle or self.bottle_flight is not None or self.attack is not None
-                or self.result != "playing" or self.player_hp <= 0):
+                or self.result != "playing" or self.player_hp <= 0 or self.route_sequence_active):
             return None
         origin = (self.player.x, self.player.y)
         dx, dy = target[0] - origin[0], target[1] - origin[1]
@@ -510,19 +595,10 @@ class DeliveryWorld(CombatWorld):
         self.vehicle_alarm = None
         self.vehicle_alarm_source = None
         self.vehicle_hit = None
-        super().update(dt, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
+        super().update(0 if self.route_sequence_active else dt, axis_x, axis_y,
+                       facing_hint=facing_hint, sprint=sprint, sneak=sneak)
         if self.result != "playing":
             self.bottle_flight = None
-
-    def _update_tick(self, dt, axis_x, axis_y, walk_scale, wants_sprint, sneak):
-        super()._update_tick(dt, axis_x, axis_y, walk_scale, wants_sprint, sneak)
-        if self.returning:
-            origin = (self.player.x, self.player.y)
-            target = self.contract.return_point
-            if (math.dist(origin, target) <= INTERACTION_RANGE
-                    and not self.return_blocked
-                    and not any(wall_blocks(origin, target, wall) for wall in self.walls)):
-                self._finish_delivery()
 
     @staticmethod
     def _is_vehicle(wall):
@@ -586,7 +662,7 @@ class DeliveryWorld(CombatWorld):
 
     @property
     def interaction_target(self):
-        if self.result != "playing" or self.player_hp <= 0:
+        if self.result != "playing" or self.player_hp <= 0 or self.route_sequence_active:
             return None
         origin = (self.player.x, self.player.y)
         targets = ((self.pickup,) if self.parcel == "waiting"
@@ -599,7 +675,7 @@ class DeliveryWorld(CombatWorld):
         return self.interaction_target is not None
 
     def can_open_gate(self):
-        if self.gate is None or self.result != "playing" or self.player_hp <= 0:
+        if self.gate is None or self.result != "playing" or self.player_hp <= 0 or self.route_sequence_active:
             return False
         origin = (self.player.x, self.player.y)
         return (math.dist(origin, self.gate_position) <= INTERACTION_RANGE
@@ -607,7 +683,7 @@ class DeliveryWorld(CombatWorld):
                             for wall in self.walls if wall is not self.gate))
 
     def can_close_shutter(self):
-        if self.shutter_wall is None or self.shutter_closed or not self.returning or self.player_hp <= 0:
+        if self.shutter_wall is None or self.shutter_closed or not self.route_gimmicks_active or self.player_hp <= 0:
             return False
         origin = (self.player.x, self.player.y)
         if (math.dist(origin, self.shutter_position) > INTERACTION_RANGE
@@ -624,7 +700,7 @@ class DeliveryWorld(CombatWorld):
 
     def _bridge_interaction_in_reach(self, target):
         origin = (self.player.x, self.player.y)
-        return (self.returning and self.player_hp > 0 and math.dist(origin, target) <= INTERACTION_RANGE
+        return (self.route_gimmicks_active and self.player_hp > 0 and math.dist(origin, target) <= INTERACTION_RANGE
                 and not any(wall_blocks(origin, target, wall) for wall in self.walls))
 
     def can_collect_bridge_key(self):
@@ -669,6 +745,14 @@ class DeliveryWorld(CombatWorld):
             zombie.investigation_route = None
             zombie.patrol_route = None
 
+    def can_board_truck(self):
+        if not self.returning or self.player_hp <= 0 or self.truck_wall not in self.walls:
+            return False
+        origin = (self.player.x, self.player.y)
+        door = self.contract.truck_door_position
+        return (math.dist(origin, door) <= INTERACTION_RANGE and not self.return_blocked
+                and not any(wall_blocks(origin, door, wall) for wall in self.walls))
+
     def _available_interaction(self):
         target = self.interaction_target
         if target is not None:
@@ -681,6 +765,8 @@ class DeliveryWorld(CombatWorld):
             return "bridge_key", self.bridge_puzzle.key_position
         if self.can_open_bridge_panel():
             return "bridge_panel", self.bridge_puzzle.panel_position
+        if self.can_board_truck():
+            return "board_truck", self.contract.truck_door_position
         return None
 
     def _clear_interaction(self):
@@ -745,6 +831,14 @@ class DeliveryWorld(CombatWorld):
             return True
         if action == "bridge_panel":
             self.bridge_puzzle.panel_open = True
+            return True
+        if action == "board_truck":
+            self._route_sequence = "departing"
+            self.phase_elapsed = 0.0
+            self.attack = None
+            self.bottle_flight = None
+            self.walls.remove(self.truck_wall)
+            self._clear_zombie_routes()
             return True
         if action == "pickup":
             self.parcel = "carrying"

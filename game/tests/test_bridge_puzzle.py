@@ -17,17 +17,17 @@ class BridgePuzzleTests(unittest.TestCase):
     def move_to(self, position):
         self.world.player.x, self.world.player.y = position
 
-    def deliver(self):
+    def collect_parcels(self):
+        self.assertTrue(self.world.skip_route_sequence())
         self.move_to(self.world.pickup)
         self.assertTrue(self.hold(0.50))
-        self.move_to(self.world.destination)
-        self.assertTrue(self.hold(1.00))
+        self.assertEqual(self.world.mission_phase, "delivering")
 
-    def test_note_requires_return_route_clear_sight_and_yields_to_circuit(self):
+    def test_note_requires_parcel_and_clear_sight_and_yields_to_circuit(self):
         world, puzzle = self.world, self.puzzle
         self.move_to(puzzle.note_position)
         self.assertFalse(world.can_read_bridge_note())
-        self.deliver()
+        self.collect_parcels()
         x, y = puzzle.note_position
         self.move_to((x + 43, y))
         self.assertFalse(world.can_read_bridge_note())
@@ -47,7 +47,7 @@ class BridgePuzzleTests(unittest.TestCase):
         world, puzzle = self.world, self.puzzle
         self.move_to(puzzle.key_position)
         self.assertFalse(self.hold(0.5))
-        self.deliver()
+        self.collect_parcels()
         self.move_to(puzzle.panel_position)
         self.assertTrue(world.can_reach_bridge_panel())
         self.assertFalse(self.hold(0.7))
@@ -67,11 +67,12 @@ class BridgePuzzleTests(unittest.TestCase):
     def test_shortcut_opens_only_on_connection_and_motor_draws_nearby_zombie(self):
         world, puzzle = self.world, self.puzzle
         crossing = (puzzle.panel_position, (2545, 1403))
-        bypass = ((2750, 987), (2750, 1400), (2960, 1400), (2960, 1740), (2435, 1740), (2435, 2235))
+        second_stop = world.contract.stops[1].position
+        self.collect_parcels()
+        bypass = (second_stop, (2750, 1422), (2750, 987), (2285, 987), world.pickup)
         self.assertFalse(can_walk_direct(*crossing, world.walls))
         self.assertTrue(all(can_walk_direct(a, b, world.walls) for a, b in zip(bypass, bypass[1:])))
 
-        self.deliver()
         self.move_to(puzzle.key_position)
         self.assertTrue(self.hold(0.5))
         self.move_to(puzzle.panel_position)
@@ -83,6 +84,8 @@ class BridgePuzzleTests(unittest.TestCase):
         self.assertTrue(world.rotate_bridge_tile(2))
         self.assertTrue(puzzle.bridge_down)
         self.assertTrue(can_walk_direct(*crossing, world.walls))
+        shortcut = (second_stop, (2545, 1328), (2608, 1280), (2608, 1000), (2290, 980), world.pickup)
+        self.assertTrue(all(can_walk_direct(a, b, world.walls) for a, b in zip(shortcut, shortcut[1:])))
         self.assertFalse(puzzle.panel_open)
 
         nearby = next(z for z in world.zombies if (z.x, z.y) == (2370, 1465))
@@ -95,7 +98,7 @@ class BridgePuzzleTests(unittest.TestCase):
         self.assertIsNone(nearby.heard_at)
 
     def test_restart_restores_the_raised_bridge_and_other_contracts_exclude_it(self):
-        self.deliver()
+        self.collect_parcels()
         self.move_to(self.puzzle.key_position)
         self.assertTrue(self.hold(0.5))
         self.world.reset()
@@ -113,7 +116,7 @@ class BridgePuzzleTests(unittest.TestCase):
         southeast = next(zombie for zombie in world.zombies
                          if (zombie.x, zombie.y) == southeast_start)
         northwest = next(zombie for zombie in world.zombies if (zombie.x, zombie.y) == (2370, 1465))
-        self.deliver()
+        self.collect_parcels()
         self.move_to(puzzle.key_position)
         self.assertTrue(self.hold(0.5))
         swing_position = (2545, 1328)

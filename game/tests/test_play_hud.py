@@ -126,6 +126,36 @@ class PlayHUDTests(unittest.TestCase):
         labels = {args[0] for args, _ in text.call_args_list}
         self.assertIn("새 계약 열림 · R에서 3번 선택", labels)
 
+    def test_truck_route_objective_and_receipt_follow_both_deliveries(self):
+        self.assertTrue(self.world.select_contract(3))
+
+        def shown_text():
+            with (patch.object(self.hud, "_text") as text, patch.object(play_hud, "panel"),
+                  patch.object(play_hud, "fill"), patch.object(play_hud, "receipt_rule")):
+                if self.world.result == "delivered":
+                    self.hud.draw_result(self.world)
+                else:
+                    play_hud.PlayHUD._objective(self.hud, self.world)
+            return {args[0] for args, _ in text.call_args_list}
+
+        self.assertTrue({"트럭 도착 중", "Enter 건너뛰기"} <= shown_text())
+        self.assertTrue(self.world.skip_route_sequence())
+        self.assertIn("트럭에서 택배 수령", shown_text())
+        self.assertTrue(self.world.interact())
+        self.assertTrue({"배송지 선택", "0 / 2"} <= shown_text())
+        shop, rear = self.world.contract.stops
+        self.world.player.x, self.world.player.y = rear.position
+        self.assertTrue(self.world.interact())
+        self.assertTrue({shop.name, "1 / 2"} <= shown_text())
+        self.world.player.x, self.world.player.y = shop.position
+        self.assertTrue(self.world.interact())
+        self.assertTrue({"트럭으로 복귀", "2 / 2"} <= shown_text())
+        self.world.player.x, self.world.player.y = self.world.contract.truck_door_position
+        self.assertTrue(self.world.interact())
+        self.assertIn("트럭 출차 중", shown_text())
+        self.assertTrue(self.world.skip_route_sequence())
+        self.assertTrue({"배달 성공", "출차 완료", f"{shop.name} · 완료", f"{rear.name} · 완료"} <= shown_text())
+
     def test_waypoint_arrow_uses_screen_direction_and_hides_on_focus_loss(self):
         with (patch.object(play_hud, "panel"), patch.object(play_hud, "trace") as trace,
               patch.object(self.hud, "_text") as text):

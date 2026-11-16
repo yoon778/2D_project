@@ -46,6 +46,7 @@ INTERACTION_LABELS = {
     "shutter": ("셔터 닫기 · 길게", "셔터 닫는 중", AMBER),
     "bridge_key": ("관리실 열쇠 줍기 · 길게", "열쇠 줍는 중", TEAL),
     "bridge_panel": ("관리실 열기 · 길게", "관리실 여는 중", TEAL),
+    "board_truck": ("트럭 탑승 · 길게", "트럭 탑승 중", TEAL),
 }
 PAUSE_MENU = ("계속하기", "조작법", "소리", "계약 포기", "게임 종료")
 SOUND_LABELS = ("전체", "음악", "효과음")
@@ -145,6 +146,8 @@ class PlayHUD:
         if stamina:
             fill(track_x, y + 66, stamina, 5, (*ENERGY, 255))
 
+        if getattr(world, "route_sequence_active", False):
+            return
         map_y = self.height - MARGIN - 24
         panel(x, map_y - 4, 86, 32)
         self._keycap("M", x + 5, map_y, 24)
@@ -157,6 +160,9 @@ class PlayHUD:
         stop_count = len(world.contract.stops)
         x, y = self.width - MARGIN - OBJECTIVE_WIDTH, MARGIN
         panel(x, y, OBJECTIVE_WIDTH, OBJECTIVE_HEIGHT, PAPER_EDGE, background=PAPER, accent=STAMP)
+        if getattr(world.contract, "truck_position", None) is not None:
+            self._truck_objective(world, x, y, stop_count)
+            return
         if world.returning:
             guidance = "추격을 끊고 복귀" if world.return_blocked else "도착하면 자동 완료"
             self._text(guidance, x + 16, y + 20, SMALL, STAMP if world.return_blocked else PAPER_MUTED)
@@ -171,6 +177,29 @@ class PlayHUD:
             place = "상점 근처 거점" if waiting else world.contract.stops[0].name
         else:
             place = "남서쪽 거점" if waiting else world.contract.name
+        self._text(place, x + 16, y + 51, TITLE, PAPER_INK)
+
+    def _truck_objective(self, world, x, y, stop_count):
+        phase = world.mission_phase
+        color = PAPER_MUTED
+        if phase in ("arriving", "departing"):
+            place = "트럭 도착 중" if phase == "arriving" else "트럭 출차 중"
+            guidance = "Enter 건너뛰기"
+        elif phase == "unloading":
+            place, guidance = "트럭에서 택배 수령", "문 앞에서 E 길게"
+        elif phase == "returning":
+            place = "트럭으로 복귀"
+            guidance = "추격을 끊고 탑승" if world.return_blocked else "문 앞에서 E 길게"
+            if world.return_blocked:
+                color = STAMP
+        else:
+            remaining = world.remaining_stops
+            place = remaining[0].name if len(remaining) == 1 else "배송지 선택"
+            guidance = "택배 전달"
+        self._text(guidance, x + 16, y + 20, SMALL, color)
+        if phase in ("delivering", "returning"):
+            self._text(f"{len(world.completed_stops)} / {stop_count}", x + OBJECTIVE_WIDTH - 14, y + 20,
+                       SMALL, PAPER_MUTED, align="right")
         self._text(place, x + 16, y + 51, TITLE, PAPER_INK)
 
     def _keycap(self, key, x, y, width):
@@ -440,7 +469,10 @@ class PlayHUD:
         self._text("배송 확인서", left, y + 30, SMALL, PAPER_MUTED)
         self._text("배달 성공" if success else "배달 실패", left - 1, y + 63, RECEIPT_TITLE,
                    PAPER_INK if success else STAMP)
-        stamp = "복귀 확인" if world.contract.return_point is not None else "배송 확인"
+        if getattr(world.contract, "truck_position", None) is not None:
+            stamp = "출차 완료"
+        else:
+            stamp = "복귀 확인" if world.contract.return_point is not None else "배송 확인"
         if not success:
             stamp = "미완료"
         panel(right - 106, y + 29, 106, 35, (*STAMP, 255), background=PAPER)
@@ -477,7 +509,7 @@ class PlayHUD:
             self._notice("차량 경보", AMBER)
         elif bridge is not None and world.can_reach_bridge_panel() and not (bridge.has_key or bridge.bridge_down):
             self._notice("관리실 잠김 · 경비초소에 열쇠", AMBER)
-        elif (world.returning and world.shutter_position is not None
+        elif (getattr(world, "route_gimmicks_active", world.returning) and world.shutter_position is not None
               and math.dist((world.player.x, world.player.y), world.shutter_position) <= 150
               and light.contains(world.shutter_position)):
             if world.shutter_closed:

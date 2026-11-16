@@ -13,12 +13,11 @@ class ParkingShutterTests(unittest.TestCase):
     def hold(self, dt, *, pressed=False, damaged=False):
         return self.world.update_interaction(dt, held=True, pressed=pressed, moving=False, damaged=damaged)
 
-    def deliver_at_shop(self):
+    def collect_parcels(self):
         world = self.world
+        self.assertTrue(world.skip_route_sequence())
         self.assertTrue(self.hold(0.5, pressed=True))
-        world.player.x, world.player.y = world.destination
-        self.assertTrue(self.hold(1.0, pressed=True))
-        self.assertTrue(world.returning)
+        self.assertEqual(world.mission_phase, "delivering")
 
     def test_shutter_only_exists_on_shop_round_trip_and_resets_open(self):
         world = self.world
@@ -29,7 +28,7 @@ class ParkingShutterTests(unittest.TestCase):
         world.player.x, world.player.y = world.shutter_position
         self.assertFalse(self.hold(0.7, pressed=True))
         world.player.x, world.player.y = world.contract.player_start
-        self.deliver_at_shop()
+        self.collect_parcels()
         world.player.x, world.player.y = world.shutter_position
         self.assertTrue(self.hold(0.7, pressed=True))
         self.assertTrue(world.shutter_closed)
@@ -47,7 +46,7 @@ class ParkingShutterTests(unittest.TestCase):
 
     def test_closing_cancels_if_damaged_or_zombie_enters_the_doorway(self):
         world = self.world
-        self.deliver_at_shop()
+        self.collect_parcels()
         world.player.x, world.player.y = world.shutter_position
         self.assertFalse(self.hold(0.4, pressed=True))
         self.assertEqual(world.interaction_action, "shutter")
@@ -69,7 +68,7 @@ class ParkingShutterTests(unittest.TestCase):
 
     def test_bottle_lures_group_into_parking_lot_and_closed_shutter_contains_it(self):
         world = self.world
-        self.deliver_at_shop()
+        self.collect_parcels()
         # Keep the shop guards out of this focused test of the parking group.
         world.zombies = [zombie for zombie in world.zombies[len(world.contract.zombie_starts):]
                          if zombie.appearance != HEAVY_ZOMBIE_APPEARANCE]
