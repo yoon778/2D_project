@@ -752,6 +752,7 @@ class Renderer:
         active_contract = contract is world.contract
         shutter = world.shutter_wall if active_contract else None
         bridge = world.bridge_puzzle if active_contract else None
+        show_east_detour = bridge is not None and player is not None and world.returning
         map_walls = [wall for wall in world.walls if getattr(wall, "texture", None) not in BRIDGE_TERRAIN]
         if contract is not world.contract and world.parking_walls:
             map_walls = [wall for wall in map_walls if wall is not world.shutter_wall
@@ -760,7 +761,7 @@ class Renderer:
                       TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite)
         for point, label, color in (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
-            ((3110, 1007), "상점길", MAP_ALLEY_INK),
+            ((3140, 958) if show_east_detour else (3110, 1007), "상점길", MAP_ALLEY_INK),
             ((2440, 1720), "정류장길", MAP_ALLEY_INK),
         ):
             self.font.draw(*map_point(*point), label, color)
@@ -871,6 +872,19 @@ class Renderer:
                 rectangle(bx - 7, by - 2, 14, 4, MAP_CLOSED_GATE)
             half_h = 9 if bridge.bridge_down else 4
             occupied.append((bx - 9, by - half_h, bx + 9, by + half_h))
+            if show_east_detour:
+                # The completed delivery label covers the turn at y=987. Mark the same lane just north of it.
+                entry_x, entry_y = map_point(2750, 1058)
+                arrow_y = entry_y + 12
+                detour_ink = (39, 93, 90)
+                p.draw_line(entry_x, entry_y - 6, entry_x, arrow_y, *detour_ink)
+                for dx in (-4, 4):
+                    p.draw_line(entry_x, arrow_y, entry_x + dx, arrow_y - 5, *detour_ink)
+                label_x, label_y, label_width = entry_x + 74, entry_y + 1, 101
+                p.draw_line(entry_x + 4, entry_y + 1, label_x, label_y + 11, *detour_ink)
+                labels.append((label_x, label_y, label_width, "동쪽 우회", detour_ink))
+                occupied.append((entry_x - 4, entry_y - 6, entry_x + 4, arrow_y))
+                occupied.append((label_x, label_y, label_x + label_width, label_y + 23))
         if player is not None:
             self.draw_map_waypoints((left, bottom, right, top), route[1:], world.first_waypoint_number, occupied)
             self.draw_map_heading(*route[0], player.aim_angle, on_paper=True)
@@ -978,6 +992,9 @@ class Renderer:
             rectangle(side + 162, 363, 20, 4, color)
             status = "다리 지름길" if bridge.bridge_down else "다리 · 올라감"
             self.font.draw(side + 191, 365, status, SAFE_GREEN if bridge.bridge_down else MAP_VIEW_TEXT)
+            if world.returning:
+                self.font.draw(side + 191, 260, "동쪽 우회 가능", MAP_VIEW_TEXT)
+                self.font.draw(side + 191, 236, "정류장길로 연결", MAP_VIEW_TEXT)
         self.draw_map_heading(side + 31, 295, 0)
         self.font.draw(side + 62, 295, "현재 위치·방향", MAP_VIEW_TEXT)
         self.draw_map_waypoint(side + 36, 120, 1)
@@ -985,7 +1002,10 @@ class Renderer:
         rectangle(64, 40, 29, 27, MAP_VIEW_PAPER)
         rectangle(64, 40, 29, 27, MAP_VIEW_EDGE, filled=False)
         self.font.draw(73, 54, "M", MAP_PAPER_INK)
-        self.font.draw(105, 54, "닫기", MAP_VIEW_TEXT)
+        rectangle(101, 40, 43, 27, MAP_VIEW_PAPER)
+        rectangle(101, 40, 43, 27, MAP_VIEW_EDGE, filled=False)
+        self.font.draw(109, 54, "Esc", MAP_PAPER_INK)
+        self.font.draw(156, 54, "닫기", MAP_VIEW_TEXT)
         self.font.draw(508, 54, "좌클릭 경유지 추가 · 우클릭 마지막 삭제", MAP_ROUTE_HINT)
         if world.waypoints:
             self.font.draw(508, 26, "Space 현재 경유지 건너뛰기", MAP_ROUTE_HINT)
@@ -1833,7 +1853,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 elif event.type == p.SDL_KEYDOWN and not event.key.repeat:
                     key = event.key.keysym.sym
                     if key == p.SDLK_ESCAPE:
-                        running = False
+                        if renderer.map_open or (delivery_run and world.result == "playing" and map_toggle):
+                            map_toggle = renderer.map_open
+                        else:
+                            running = False
                         continue
                     if renderer.choosing_delivery:
                         if contract_choice is None:
