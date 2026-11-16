@@ -2070,7 +2070,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if swing_started:
                     zombie_audio.play_bat_swing()
                 if strike_landed:
-                    zombie_audio.play_zombie_hit(heavy=heavy_hit)
+                    heavy_impact = heavy_hit or any(zombie.appearance == HEAVY_ZOMBIE_APPEARANCE
+                                                    for zombie in strike.hit_targets)
+                    zombie_audio.play_zombie_hit(heavy=heavy_impact)
                 if player_hit:
                     zombie_audio.play_player_hit()
                 if bottle_impact is not None:

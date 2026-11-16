@@ -130,7 +130,7 @@ class ZombieAudioTests(unittest.TestCase):
     def setUp(self):
         self.backend = self.enterContext(patch.object(spatial_audio, "p", Mock()))
         self.backend.Mix_QuerySpec.return_value = 1
-        names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "bat_swing", "zombie_hit",
+        names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "bat_swing", "zombie_hit", "zombie_hit_heavy",
                  "player_walk", "player_run", "player_sneak", "player_hit",
                  "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle",
                  "bottle_break", "gate_open", "bridge_motor", "vehicle_alarm")
@@ -242,6 +242,12 @@ class ZombieAudioTests(unittest.TestCase):
         self.backend.Mix_HaltChannel.assert_not_called()
         self.audio.stop()
         self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1)])
+
+    def test_heavy_zombie_hit_uses_the_low_impact_clip(self):
+        hit = self.sounds["zombie_hit_heavy"]
+        self.audio.play_zombie_hit(heavy=True)
+        self.backend.Mix_VolumeChunk.assert_called_once_with(hit, 88)
+        self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, hit, 0, -1)
 
     def test_player_gaits_use_distinct_distance_and_volume(self):
         self.backend.Mix_PlayChannelTimed.side_effect = (0, 1, 2)
