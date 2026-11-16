@@ -69,12 +69,26 @@ _EFFECT_VOLUME = {
 }
 
 
+@dataclass
+class AudioSettings:
+    master: int = 100
+    music: int = 100
+    effects: int = 100
+
+    def music_volume(self, volume):
+        return round(volume * self.master * self.music / 10000)
+
+    def effect_volume(self, volume):
+        return round(volume * self.master * self.effects / 10000)
+
+
 class BackgroundMusic:
     """Start after canvas initialization and close before canvas teardown."""
 
-    def __init__(self, path: str | Path, *, layers=()):
+    def __init__(self, path: str | Path, *, layers=(), settings: AudioSettings | None = None):
         self._path = Path(path)
-        self._score = _AdaptiveScore((self._path, *map(Path, layers))) if layers else None
+        self._settings = settings if settings is not None else AudioSettings()
+        self._score = _AdaptiveScore((self._path, *map(Path, layers)), self._settings) if layers else None
         self._music = None
         self._can_start = True
         self._paused = False
@@ -96,6 +110,7 @@ class BackgroundMusic:
             music = p.Mix_LoadMUS(str(self._path).encode("utf-8"))
             if not music:
                 return
+            self._applied_volume = self._settings.music_volume(round(self._volume))
             p.Mix_VolumeMusic(self._applied_volume)
             if p.Mix_PlayMusic(music, -1) == 0:
                 self._music = music
@@ -116,11 +131,13 @@ class BackgroundMusic:
             if not self._paused:
                 p.Mix_PauseMusic()
                 self._paused = True
+            self._apply_volume()
             return
         if self._paused:
             p.Mix_ResumeMusic()
             self._paused = False
         if not math.isfinite(dt) or dt <= 0:
+            self._apply_volume()
             return
 
         if opening:
@@ -133,7 +150,10 @@ class BackgroundMusic:
         else:
             target = _EXPLORE_VOLUME
         self._volume += (target - self._volume) * -math.expm1(-dt / _VOLUME_TIME)
-        volume = round(self._volume)
+        self._apply_volume()
+
+    def _apply_volume(self):
+        volume = self._settings.music_volume(round(self._volume))
         if volume != self._applied_volume:
             p.Mix_VolumeMusic(volume)
             self._applied_volume = volume
@@ -158,8 +178,9 @@ class BackgroundMusic:
 class _AdaptiveScore:
     """Three equal-length loops on reserved channels, mixed without restarting."""
 
-    def __init__(self, paths):
+    def __init__(self, paths, settings):
         self._paths = paths
+        self._settings = settings
         self._chunks = []
         self._started = 0
         self._original_channels = None
@@ -186,6 +207,7 @@ class _AdaptiveScore:
                     or p.Mix_ReserveChannels(count) != count):
                 return False
             self._original_volumes = tuple(p.Mix_Volume(channel, -1) for channel in range(count))
+            self._volumes = (self._settings.music_volume(_SCORE_EXPLORE), 0, 0)
             for channel, (chunk, volume) in enumerate(zip(self._chunks, self._volumes)):
                 p.Mix_Volume(channel, volume)
                 if p.Mix_PlayChannelTimed(channel, chunk, -1, -1) != channel:
@@ -205,14 +227,12 @@ class _AdaptiveScore:
             for channel in range(self._started):
                 switch(channel)
             self._paused = paused
-        if not focused or not math.isfinite(dt) or dt <= 0:
-            return
-
-        distance = distance if distance is not None and math.isfinite(distance) else _SCORE_APPROACH_DISTANCE
-        proximity = (_SCORE_APPROACH_DISTANCE - distance) / (_SCORE_APPROACH_DISTANCE - _SCORE_CLOSE_DISTANCE)
-        target = 1.0 if chasing else max(0.0, min(1.0, proximity))
-        self._pressure = self._fade(self._pressure, target, dt)
-        self._pursuit = self._fade(self._pursuit, float(chasing), dt)
+        if focused and math.isfinite(dt) and dt > 0:
+            distance = distance if distance is not None and math.isfinite(distance) else _SCORE_APPROACH_DISTANCE
+            proximity = (_SCORE_APPROACH_DISTANCE - distance) / (_SCORE_APPROACH_DISTANCE - _SCORE_CLOSE_DISTANCE)
+            target = 1.0 if chasing else max(0.0, min(1.0, proximity))
+            self._pressure = self._fade(self._pressure, target, dt)
+            self._pursuit = self._fade(self._pursuit, float(chasing), dt)
         self._set_volumes((round(_SCORE_EXPLORE - 11 * self._pressure),
                            round(23 * self._pressure - 8 * self._pursuit),
                            round(26 * self._pursuit)))
@@ -223,6 +243,7 @@ class _AdaptiveScore:
             self._set_volumes((_SCORE_EXPLORE, 0, 0))
 
     def _set_volumes(self, volumes):
+        volumes = tuple(self._settings.music_volume(volume) for volume in volumes)
         for channel, (previous, volume) in enumerate(zip(self._volumes, volumes)):
             if previous != volume:
                 p.Mix_Volume(channel, volume)
@@ -275,7 +296,8 @@ def _zombie_gain(distance, occluded):
 
 
 class ZombieAudio:
-    def __init__(self, directory: Path):
+    def __init__(self, directory: Path, *, settings: AudioSettings | None = None):
+        self._settings = settings if settings is not None else AudioSettings()
         self._sounds = {}
         self._channels = {}
         self._step_distance = 0.0
@@ -350,7 +372,7 @@ class ZombieAudio:
         if not playing:
             self._channels.pop(kind, None)
         if playing or due:
-            p.Mix_VolumeChunk(sound, max(1, round(volume)))
+            p.Mix_VolumeChunk(sound, self._settings.effect_volume(max(1, round(volume))))
         if due and not playing:
             # Keep each sound on its starting side until its channel ends.
             self._start_channel(kind, sound, pan)
@@ -415,7 +437,8 @@ class ZombieAudio:
             return
         self._stop_channel(kind)
         gain = 1.0 - distance / _HEARING_RANGE
-        p.Mix_VolumeChunk(sound, max(1, round(_EFFECT_VOLUME[kind] * gain)))
+        volume = max(1, round(_EFFECT_VOLUME[kind] * gain))
+        p.Mix_VolumeChunk(sound, self._settings.effect_volume(volume))
         self._start_channel(kind, sound, pan)
 
     def _start_channel(self, kind, sound, pan):

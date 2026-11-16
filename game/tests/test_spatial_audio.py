@@ -85,6 +85,21 @@ class BackgroundMusicTests(unittest.TestCase):
         self.backend.Mix_VolumeMusic.assert_called_with(16)
         self.backend.Mix_PlayMusic.assert_called_once_with(self.music_handle, -1)
 
+    def test_music_gain_applies_to_stream_while_paused(self):
+        settings = spatial_audio.AudioSettings(master=50, music=50, effects=0)
+        music = spatial_audio.BackgroundMusic(self.path, settings=settings)
+        self.addCleanup(music.close)
+        music.start()
+        self.backend.Mix_VolumeMusic.assert_called_once_with(8)
+        settings.master = 0
+        music.update(0, focused=False)
+        self.backend.Mix_VolumeMusic.assert_called_with(0)
+        settings.master = 100
+        music.update(0, focused=False)
+        self.backend.Mix_VolumeMusic.assert_called_with(16)
+        music.update(0, focused=True)
+        self.backend.Mix_PlayMusic.assert_called_once_with(self.music_handle, -1)
+
     def test_missing_file_is_silent(self):
         music = spatial_audio.BackgroundMusic(self.path.with_name("missing.mp3"))
         music.start()
@@ -176,6 +191,22 @@ class AdaptiveMusicTests(unittest.TestCase):
         self.assertEqual(self.backend.Mix_FreeChunk.call_args_list, [call(chunk) for chunk in self.chunks])
         self.assertEqual(self.backend.Mix_AllocateChannels.call_args_list, [call(-1), call(11), call(8)])
         self.assertEqual(self.backend.Mix_ReserveChannels.call_args_list, [call(3), call(0)])
+
+    def test_stem_gains_change_while_paused_without_restarting_layers(self):
+        settings = spatial_audio.AudioSettings(master=50)
+        music = spatial_audio.BackgroundMusic(self.paths[0], layers=self.paths[1:], settings=settings)
+        self.addCleanup(music.close)
+        music.start()
+        self.assertEqual(music._score._volumes, (15, 0, 0))
+        music.update(4, distance=70, chasing=True)
+        scaled_chase = music._score._volumes
+        settings.music = 0
+        music.update(.05, focused=False, distance=200)
+        self.assertEqual(music._score._volumes, (0, 0, 0))
+        settings.music = 100
+        music.update(0, focused=True)
+        self.assertEqual(music._score._volumes, scaled_chase)
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_count, 3)
 
     def test_mismatched_stems_release_chunks_and_fall_back_to_base_music(self):
         self.chunks[-1].contents.alen = 240
@@ -320,6 +351,15 @@ class ZombieAudioTests(unittest.TestCase):
         self.audio.play_zombie_hit(heavy=True)
         self.backend.Mix_VolumeChunk.assert_called_once_with(hit, 88)
         self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, hit, 0, -1)
+
+    def test_effect_gain_scales_one_shots_and_can_mute_spatial_steps(self):
+        settings = spatial_audio.AudioSettings(master=50, music=0, effects=50)
+        audio = spatial_audio.ZombieAudio(Path("sounds"), settings=settings)
+        audio.play_parcel_pickup()
+        self.backend.Mix_VolumeChunk.assert_called_once_with(self.sounds["parcel_pickup"], 10)
+        settings.effects = 0
+        audio.update(.01, distance=20, stride=32, active=True)
+        self.backend.Mix_VolumeChunk.assert_called_with(self.sounds["zombie_step"], 0)
 
     def test_player_gaits_use_distinct_distance_and_volume(self):
         self.backend.Mix_PlayChannelTimed.side_effect = (0, 1, 2)
