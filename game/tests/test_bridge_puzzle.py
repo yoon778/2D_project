@@ -107,6 +107,36 @@ class BridgePuzzleTests(unittest.TestCase):
             self.assertFalse(self.world.can_reach_bridge_panel())
             self.assertTrue(can_walk_direct((2545, 1302), (2545, 1403), self.world.walls))
 
+    def test_bat_alerts_the_southeast_zombie_that_the_bridge_motor_does_not(self):
+        world, puzzle = self.world, self.puzzle
+        southeast_start = (2898, 1274)
+        southeast = next(zombie for zombie in world.zombies
+                         if (zombie.x, zombie.y) == southeast_start)
+        northwest = next(zombie for zombie in world.zombies if (zombie.x, zombie.y) == (2370, 1465))
+        self.deliver()
+        self.move_to(puzzle.key_position)
+        self.assertTrue(self.hold(0.5))
+        swing_position = (2545, 1328)
+        self.move_to(swing_position)
+        self.assertTrue(self.hold(0.7))
+        for index in (0, 0, 1, 1, 1, 2):
+            world.rotate_bridge_tile(index)
+        self.assertTrue(puzzle.bridge_down)
+        self.assertEqual(northwest.heard_at, puzzle.bridge_position)
+        self.assertIsNone(southeast.heard_at)
+        world.update(0.2)
+        self.assertEqual(southeast.state, "idle")
+        self.assertEqual((southeast.x, southeast.y), southeast_start)
+
+        self.assertTrue(world.start_attack())
+        self.assertEqual((northwest.heard_at, southeast.heard_at), (swing_position, swing_position))
+        world.update(0.05)
+        self.assertEqual((southeast.state, southeast.target), ("investigate", swing_position))
+        self.assertTrue(southeast.moved)
+        for index in (0, 1, 2):
+            self.assertTrue(world.select_contract(index))
+            self.assertNotIn(southeast_start, ((zombie.x, zombie.y) for zombie in world.zombies))
+
 
 if __name__ == "__main__":
     unittest.main()

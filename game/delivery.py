@@ -59,6 +59,7 @@ _PARKING_HEAVY_ZOMBIE_START = (2056, 1430)
 _PARKING_SHUTTER_POSITION = (2142, 1255)
 _PARKING_LURE_POSITION = (2355, 1380)
 _PARKING_BOTTLE_POSITION = (2110, 1230)
+_BRIDGE_SOUTHEAST_ZOMBIE_START = (2898, 1274)
 
 
 @dataclass(frozen=True)
@@ -106,7 +107,7 @@ DELIVERY_CONTRACTS = (
     DeliveryContract(
         "상점 왕복", "상점에 전달하고 안전지점 복귀", "보통",
         _SINGLE_CONTRACTS[0].destination,
-        (*_SHOP_ZOMBIE_STARTS[16:21], (2020, 1335), (2370, 1465)),
+        (*_SHOP_ZOMBIE_STARTS[16:21], (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START),
         _SINGLE_CONTRACTS[0].stops,
         player_start=(2315.0, 907.0), pickup=(2290.0, 907.0), return_point=(2460.0, 2285.0),
     ),
@@ -270,8 +271,11 @@ class DeliveryWorld(CombatWorld):
         parking_starts = _PARKING_ZOMBIE_STARTS if shop_round_trip else ()
         for index, position in enumerate((*self.contract.zombie_starts, *parking_starts)):
             patrol = _REAR_ALLEY_PATROL if has_patrol and position == _REAR_ALLEY_PATROL[0] else None
+            aim_angle = math.pi if patrol else Player.aim_angle
+            if shop_round_trip and position == _BRIDGE_SOUTHEAST_ZOMBIE_START:
+                aim_angle = -math.pi / 2
             self.zombies.append(Zombie(
-                *position, aim_angle=math.pi if patrol else Player.aim_angle,
+                *position, aim_angle=aim_angle,
                 state="patrol" if patrol else "idle", patrol_points=patrol,
                 appearance=ZOMBIE_APPEARANCES[index % len(ZOMBIE_APPEARANCES)],
             ))
