@@ -324,9 +324,9 @@ class ZombieAudioTests(unittest.TestCase):
     def test_player_gaits_use_distinct_distance_and_volume(self):
         self.backend.Mix_PlayChannelTimed.side_effect = (0, 1, 2)
         for kind, sprinting, sneaking, distance, volume in (
-            ("player_walk", False, False, 32, 42),
-            ("player_run", True, False, 48, 67),
-            ("player_sneak", True, True, 32, 20),
+            ("player_walk", False, False, 32, 34),
+            ("player_run", True, False, 48, 50),
+            ("player_sneak", True, True, 32, 16),
         ):
             with self.subTest(kind=kind):
                 sound = self.sounds[kind]

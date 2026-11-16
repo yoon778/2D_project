@@ -108,6 +108,7 @@ MAP_VIEW_PAPER = (227, 211, 178)
 MAP_VIEW_TEXT = (243, 228, 201)
 PLAY_MAP_VIEWPORT = (64, 104, 792, 528)
 HIT_MARK_DURATION = 0.14
+FRONT_RIGHT_SWING_SOUND_DELAY = 0.060
 NOISE_PULSE_DURATION = 0.24
 VEHICLE_ALARM_DURATION = 1.2
 AUDIO_PAN_NEAR_RADIUS = 72.0
@@ -2112,6 +2113,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             before = (player.x, player.y)
             zombie_origins = [(zombie.x, zombie.y) for zombie in world.zombies]
             strike = world.attack
+            strike_elapsed = strike.elapsed if strike is not None else 0.0
             was_landed = strike is not None and strike.landed
             hp_before = world.player_hp
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
@@ -2156,6 +2158,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             vehicle_alarm = world.vehicle_alarm if delivery_run and hearing_active else None
             vehicle_hit = world.vehicle_hit if delivery_run and hearing_active else None
             renderer.update_vehicle_alarm(dt if hearing_active else math.inf, vehicle_alarm)
+            swing_sound_due = swing_started
+            if strike is not None and strike.stationary_front_right and FRONT_RIGHT_SWING_SOUND_DELAY > 0.0:
+                # Use the combat clock so pausing or resetting cannot leave a queued sound.
+                cue_time = FRONT_RIGHT_SWING_SOUND_DELAY - 1e-9
+                swing_sound_due = strike is world.attack and strike_elapsed < cue_time <= strike.elapsed
             strike_landed = strike is not None and strike.landed and not was_landed
             heavy_hit = strike_landed and (len(strike.hit_targets) > 1
                                            or any(not zombie.alive for zombie in strike.hit_targets))
@@ -2226,7 +2233,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     zombie_audio.play_parcel_pickup()
                 if parcel_dropped:
                     zombie_audio.play_parcel_drop()
-                if swing_started:
+                if audio_active and swing_sound_due:
                     zombie_audio.play_bat_swing()
                 if strike_landed:
                     heavy_impact = heavy_hit or any(zombie.appearance == HEAVY_ZOMBIE_APPEARANCE
