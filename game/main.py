@@ -58,6 +58,7 @@ WALL_TEXTURE_ALIASES = {"parking-shutter": "iron-gate"}
 BRIDGE_TERRAIN = {"bridge-channel", "bridge-raised"}
 LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
 BUILDING_TEXTURES = {"west-house", "east-house", "shop", "workshop"}
+BUILDING_NIGHT_TINTS = ((57, 61, 68), (67, 70, 79), (45, 50, 59))
 BUILDING_FADE_OUT = .16
 BUILDING_FADE_IN = .20
 PROP_TEXTURE_SIZES = {
@@ -1014,7 +1015,7 @@ class Renderer:
         finally:
             p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_BLEND)
 
-    def wall(self, wall, outlines, beam_mask=None, *, glow_outline=(), opacity=1.0):
+    def wall(self, wall, outlines, beam_mask=None, *, glow_outline=(), opacity=1.0, ambient=False):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
         depth = wall.depth * GROUND_SCALE_Y
@@ -1034,16 +1035,25 @@ class Renderer:
         if oblique:
             front, side, roof = house_planes(wall, x, y)
             foundation = quad(x, y, wall.width, depth + HOUSE_FOUNDATION_HEIGHT)
-            for plane in (foundation, front, side, roof):
-                self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0), opacity=opacity)
+            self.draw_wall_plane(None, foundation, 0, 1, (0, 0, 0), opacity=opacity)
+            if not ambient:
+                for plane in (front, side, roof):
+                    self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0), opacity=opacity)
         else:
             front = quad(x, y, wall.width, height)
             roof = quad(x, y + height, wall.width, depth)
             if low_obstacle:
                 self.draw_wall_plane(image, front, seam, 1, (0, 0, 0), opacity=opacity)
                 self.draw_wall_plane(image, roof, 0, seam, (0, 0, 0), opacity=opacity)
-            else:
+            elif not ambient:
                 self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0), opacity=opacity)
+        side_image = self.neighborhood_walls[f"{texture}-side"] if oblique else None
+        if ambient:
+            facade_tint, roof_tint, side_tint = BUILDING_NIGHT_TINTS
+            self.draw_wall_plane(image, front, seam, 1, facade_tint, opacity=opacity)
+            if oblique:
+                self.draw_wall_plane(side_image, side, 0, 1, side_tint, opacity=opacity)
+            self.draw_wall_plane(image, roof, 0, seam, roof_tint, opacity=opacity)
 
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
@@ -1056,7 +1066,7 @@ class Renderer:
         strong_shades = ((178, 147, 105), (140, 123, 102), (155, 131, 103)) if image is not None else (
             (53, 47, 40), (45, 41, 38), (155, 131, 103))
         passes = []
-        if glow_outline:
+        if glow_outline and not ambient:
             dim_shades = tuple(map(dim_color, strong_shades))
             passes.extend((edge, glow_outline, None, dim_shades) for edge in edges)
         passes.extend((edge, outline, beam_mask if index == 0 else None, strong_shades)
@@ -1083,7 +1093,6 @@ class Renderer:
                     roof_bounds = (1 - side_band, start, 1, end)
                     roof_alpha = (0, 255, 255, 0)
                     if oblique:
-                        side_image = self.neighborhood_walls[f"{wall.texture}-side"]
                         self.draw_wall_plane(side_image, side, 0, 1, side_shade, (start, 0, end, 1), mask=mask,
                                              opacity=opacity)
                 if low_obstacle and edge in ("left", "right"):
@@ -1342,14 +1351,14 @@ class Renderer:
     def draw_delivery_result(self):
         self.play_hud.draw_result(self.delivery)
 
-    def draw_lit_zombie(self, zombie, combat, attack):
+    def draw_lit_zombie(self, zombie, combat, attack, *, show_nearby_glow=True):
         x, y = self.project(zombie.x, zombie.y)
         bounds = self.combat_visual.zombie_rect(zombie, x, y)
 
         def draw():
             self.combat_visual.draw_zombie(zombie, x, y)
 
-        glow_spans = self.glow_at_ground_depth((zombie.x, zombie.y), x)
+        glow_spans = self.glow_at_ground_depth((zombie.x, zombie.y), x) if show_nearby_glow else None
         if glow_spans is not None:
             def draw_glow():
                 draw_dimmed_texture(self.combat_visual.zombie_texture(zombie), draw)
@@ -1361,7 +1370,7 @@ class Renderer:
             self.draw_lit_region(bounds, draw_glow, row_spans=zombie_glow_spans)
 
         row_spans = None
-        if zombie.alive:
+        if zombie.alive or not show_nearby_glow:
             left, _, width, _ = bounds
             if left + width <= 0 or left >= WINDOW_WIDTH:
                 return
@@ -1375,7 +1384,7 @@ class Renderer:
                 return
 
             def zombie_row_spans(row):
-                sample = zombie_light_row(row, y)
+                sample = zombie_light_row(row, y) if zombie.alive else row
                 return merge_light_spans(span for rows, columns in sources
                                          for span in clip_light_columns(rows.get(sample, ()), columns))
 
@@ -1463,6 +1472,8 @@ class Renderer:
         self.draw_streetlight_pools(lamps, lamp_outlines)
         delivery = self.delivery
         bridge = delivery.bridge_puzzle if delivery is not None else None
+        returning_to_safe_zone = (delivery is not None and delivery.returning
+                                  and delivery.contract is DELIVERY_CONTRACTS[3])
         if bridge is not None:
             self.draw_bridge_terrain(bridge)
         outlines = (beam_outline, *lamp_outlines)
@@ -1528,9 +1539,9 @@ class Renderer:
                 opacity = self.building_opacity(actor)
                 if opacity > 0.0:
                     self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else (),
-                              opacity=opacity)
+                              opacity=opacity, ambient=returning_to_safe_zone and texture in BUILDING_TEXTURES)
             elif kind == "zombie":
-                self.draw_lit_zombie(actor, combat, attack)
+                self.draw_lit_zombie(actor, combat, attack, show_nearby_glow=not returning_to_safe_zone)
             else:
                 if combat is None or not self.combat_visual.draw_attack(
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index, **courier_style):
@@ -1553,7 +1564,8 @@ class Renderer:
                     for zombie in delivery.zombies:
                         position = zombie.x, zombie.y
                         if (zombie.alive and math.dist(origin, position) <= SNEAK_HINT_RANGE
-                                and (self.light.contains(position) or glow.contains(position))
+                                and (self.light.contains(position)
+                                     or (not returning_to_safe_zone and glow.contains(position)))
                                 and delivery._player_line_clear(zombie)):
                             near_visible_zombie = True
                             break
