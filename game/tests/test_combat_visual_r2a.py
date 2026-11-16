@@ -191,6 +191,7 @@ class CombatSpriteTests(unittest.TestCase):
         self.assertEqual(main.mouse_target(world, visual, x, head_row), (300, 320))
         renderer = main.Renderer.__new__(main.Renderer)
         renderer.camera = (0.0, 0.0)
+        renderer.delivery = None
         renderer._building_fades = {}
         renderer.update_building_fades(world.player, world.walls, main.BUILDING_FADE_OUT / 2)
         self.assertEqual(main.mouse_target(world, visual, x, head_row, building_opacity=renderer.building_opacity),
@@ -206,6 +207,7 @@ class CombatSpriteTests(unittest.TestCase):
     def test_building_fade_reverses_from_current_opacity_and_resets(self):
         renderer = main.Renderer.__new__(main.Renderer)
         renderer.camera = (150, 100)
+        renderer.delivery = None
         renderer._building_fades = {}
         wall = NeighborhoodWall(100, 300, 140, 190, "east-house", oblique=True)
         fence = NeighborhoodWall(100, 300, 140, 190, "fence")

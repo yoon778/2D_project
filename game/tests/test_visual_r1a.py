@@ -12,10 +12,10 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core import Player, Wall
-from main import (CAMERA_TIME, DELIVERY_CONTRACTS, RETURN_PERSPECTIVE_STRENGTH, Renderer, screen_to_world,
-                  sdl_to_world, sorted_drawables, world_to_screen)
+from main import (CAMERA_TIME, DELIVERY_CONTRACTS, GROUND_SCALE_Y, RETURN_PERSPECTIVE_STRENGTH,
+                  NeighborhoodWall, Renderer, house_planes, screen_to_world, sdl_to_world, sorted_drawables,
+                  world_to_screen)
 from player_visual import METADATA_PATH, sprite_rect
-from return_perspective import project as warp, unproject as unwarp
 
 
 class ProjectionTests(unittest.TestCase):
@@ -24,18 +24,24 @@ class ProjectionTests(unittest.TestCase):
         self.assertAlmostEqual(actual[0], expected[0], places=9)
         self.assertAlmostEqual(actual[1], expected[1], places=9)
 
-    def test_weak_perspective_widens_near_objects_and_round_trips_pixels(self):
-        strength = RETURN_PERSPECTIVE_STRENGTH
-        for point in ((1.25, 719.5), (831.125, 263.875), (640, 360), (1279, 0)):
-            warped = warp(*point, 1280, 720, strength)
-            self.assertPointAlmostEqual(unwarp(*warped, 1280, 720, strength), point)
-        widths = [warp(680, y, 1280, 720, strength)[0] - warp(600, y, 1280, 720, strength)[0]
-                  for y in (120, 620)]
-        self.assertGreater(widths[1], widths[0])
+    def test_lower_pitch_changes_ground_depth_while_preserving_wall_height(self):
+        wall = NeighborhoodWall(2470, 1370, 140, 120, "west-house", height=96, oblique=True)
+        camera = (2060, 1000)
+        for scale in (GROUND_SCALE_Y, GROUND_SCALE_Y - RETURN_PERSPECTIVE_STRENGTH):
+            project = lambda x, y: world_to_screen(x, y, camera, ground_scale=scale)
+            self.assertPointAlmostEqual(project(2540, 1360), (640, 306))
+            base = project(wall.x, wall.y)
+            front, side, roof = house_planes(wall, *base, ground_scale=scale)
+            for foot, top in ((front[0], front[3]), (side[0], side[3]), (side[1], side[2])):
+                self.assertPointAlmostEqual(top, (foot[0], foot[1] + wall.height))
+            self.assertAlmostEqual(roof[2][1] - roof[1][1], wall.depth * scale)
+            self.assertAlmostEqual(side[1][1], project(wall.x, wall.y + wall.depth)[1])
+            self.assertPointAlmostEqual(sdl_to_world(base[0], 719 - base[1], camera, ground_scale=scale),
+                                        (wall.x, wall.y))
 
     def test_perspective_only_blends_inside_the_round_trip_return_alley(self):
         renderer = Renderer.__new__(Renderer)
-        renderer.perspective = SimpleNamespace(available=True)
+        renderer.camera = (2060, 1000)
         player = Player(2545, 1302)
         world = renderer.delivery = SimpleNamespace(contract=DELIVERY_CONTRACTS[3], player=player, parcel="carrying")
         self.assertEqual(renderer.perspective_strength(), 0.0)
@@ -46,9 +52,9 @@ class ProjectionTests(unittest.TestCase):
         player.y = 1220
         self.assertEqual(renderer.perspective_strength(), 0.0)
         player.y = 1302
-        renderer.perspective.available = False
-        self.assertEqual(renderer.unwarp_cursor((864, 384)), (864, 384))
-        renderer.perspective.available = True
+        cursor = (864, 384)
+        self.assertPointAlmostEqual(renderer.cursor_world(cursor),
+                                    sdl_to_world(*cursor, renderer.camera, ground_scale=.50))
         world.contract = DELIVERY_CONTRACTS[2]
         self.assertEqual(renderer.perspective_strength(), 0.0)
 

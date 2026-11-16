@@ -20,7 +20,6 @@ from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow,
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
-from return_perspective import PerspectiveTarget, project as perspective_project, unproject as perspective_unproject
 from spatial_audio import HeavyFootstep, PatrolFootstep, ZombieAudio
 from town_map_art import (MAP_ALLEY, MAP_BUILDING, MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS, MAP_LANDMARK,
                           MAP_ROAD, MAP_WRECK)
@@ -37,7 +36,7 @@ CAMERA_LEAD_FRACTION = 0.25
 CAMERA_MAX_LEAD = 72.0
 RETURN_PERSPECTIVE_BOUNDS = (2470, 1220, 2650, 1410)
 RETURN_PERSPECTIVE_BLEND = 36.0
-RETURN_PERSPECTIVE_STRENGTH = .06
+RETURN_PERSPECTIVE_STRENGTH = .10
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
 DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1,
@@ -121,16 +120,21 @@ SHAKE_DURATIONS = {3: 0.08, 4: 0.10, 5: 0.12}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
 
 
-def world_to_screen(x, y, camera=(0.0, 0.0)):
-    return GROUND_X + x - camera[0], GROUND_Y + GROUND_SCALE_Y * (y - camera[1])
+def ground_offset(ground_scale):
+    # Hold the center of the ground view steady while changing the camera pitch.
+    return GROUND_Y + (GROUND_SCALE_Y - ground_scale) * WORLD_HEIGHT / 2
 
 
-def screen_to_world(x, y, camera=(0.0, 0.0)):
-    return x - GROUND_X + camera[0], (y - GROUND_Y) / GROUND_SCALE_Y + camera[1]
+def world_to_screen(x, y, camera=(0.0, 0.0), *, ground_scale=GROUND_SCALE_Y):
+    return GROUND_X + x - camera[0], ground_offset(ground_scale) + ground_scale * (y - camera[1])
 
 
-def sdl_to_world(x, y, camera=(0.0, 0.0)):
-    return screen_to_world(x, WINDOW_HEIGHT - 1 - y, camera)
+def screen_to_world(x, y, camera=(0.0, 0.0), *, ground_scale=GROUND_SCALE_Y):
+    return x - GROUND_X + camera[0], (y - ground_offset(ground_scale)) / ground_scale + camera[1]
+
+
+def sdl_to_world(x, y, camera=(0.0, 0.0), *, ground_scale=GROUND_SCALE_Y):
+    return screen_to_world(x, WINDOW_HEIGHT - 1 - y, camera, ground_scale=ground_scale)
 
 
 def sound_position(listener, source):
@@ -221,10 +225,11 @@ def zombie_glow_opacity(glow, position):
     return round(255 * nearby_glow_strength(distance))
 
 
-def zombie_light_row(row, foot_y):
+def zombie_light_row(row, foot_y, ground_scale=GROUND_SCALE_Y):
     # A standing sprite's height only partially contributes to its ground depth.
     foot_row = WINDOW_HEIGHT - 1 - foot_y
-    return math.floor(foot_row + (row + .5 - foot_row) * ZOMBIE_LIGHT_DEPTH_SCALE)
+    return math.floor(foot_row + (row + .5 - foot_row) * (ground_scale / GROUND_SCALE_Y)
+                      * ZOMBIE_LIGHT_DEPTH_SCALE)
 
 
 def light_depth_columns(light, ground_y, offset_x):
@@ -238,17 +243,18 @@ def clip_light_columns(spans, columns):
 
 
 def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0), *,
-                 wall_alpha=None, building_opacity=None, nearby_light=None):
+                 wall_alpha=None, building_opacity=None, nearby_light=None, ground_scale=GROUND_SCALE_Y):
     screen_y = WINDOW_HEIGHT - 1 - mouse_y
     for zombie in sorted(world.zombies, key=lambda enemy: enemy.y):
         position = (zombie.x, zombie.y)
-        x, y = world_to_screen(*position, camera)
+        x, y = world_to_screen(*position, camera, ground_scale=ground_scale)
         if not visual.zombie_contains(zombie, x + shake[0], y + shake[1], mouse_x, screen_y):
             continue
         if light is not None:
-            sample = zombie_light_row(mouse_y, y + shake[1])
+            sample = zombie_light_row(mouse_y, y + shake[1], ground_scale)
             world_x, depth = screen_to_world(mouse_x + .5 - shake[0],
-                                              WINDOW_HEIGHT - 1.5 - sample - shake[1], camera)
+                                              WINDOW_HEIGHT - 1.5 - sample - shake[1], camera,
+                                              ground_scale=ground_scale)
             sources = light.lights
             if nearby_light is not None and zombie_glow_opacity(nearby_light, position):
                 sources = (*sources, nearby_light)
@@ -262,24 +268,24 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
             if wall.y >= zombie.y:
                 continue
             hidden = (building_opacity(wall) == 0 if building_opacity is not None
-                      else building_covers_player(wall, world.player, camera))
+                      else building_covers_player(wall, world.player, camera, ground_scale=ground_scale))
             if hidden:
                 continue
-            left, bottom = world_to_screen(wall.x, wall.y, camera)
+            left, bottom = world_to_screen(wall.x, wall.y, camera, ground_scale=ground_scale)
             alpha_rows = wall_alpha.get(wall.texture) if wall_alpha and isinstance(wall, NeighborhoodWall) else None
-            if wall_covers(wall, left, bottom, wx, wy, alpha_rows):
+            if wall_covers(wall, left, bottom, wx, wy, alpha_rows, ground_scale=ground_scale):
                 break
         else:
             return position
-    return sdl_to_world(mouse_x, mouse_y, camera)
+    return sdl_to_world(mouse_x, mouse_y, camera, ground_scale=ground_scale)
 
 
 def wall_height(wall):
     return wall.height if isinstance(wall, NeighborhoodWall) else WALL_HEIGHT
 
 
-def house_planes(wall, x, y):
-    depth = wall.depth * GROUND_SCALE_Y
+def house_planes(wall, x, y, *, ground_scale=GROUND_SCALE_Y):
+    depth = wall.depth * ground_scale
     inset = round(min(wall.width * .26, depth * .42))
     near_right = x + wall.width - inset
     far_right = x + wall.width
@@ -291,12 +297,12 @@ def house_planes(wall, x, y):
     )
 
 
-def wall_covers(wall, left, bottom, x, y, alpha_rows=None):
+def wall_covers(wall, left, bottom, x, y, alpha_rows=None, *, ground_scale=GROUND_SCALE_Y):
     oblique = isinstance(wall, NeighborhoodWall) and wall.oblique
     if oblique or alpha_rows is not None:
         # SDL fills triangles at the pixel center.
         x, y = x + .5, y + .5
-    height, depth = wall_height(wall), wall.depth * GROUND_SCALE_Y
+    height, depth = wall_height(wall), wall.depth * ground_scale
     if not (left <= x < left + wall.width and bottom <= y < bottom + height + depth):
         return False
     if alpha_rows is not None:
@@ -316,17 +322,17 @@ def wall_covers(wall, left, bottom, x, y, alpha_rows=None):
     # The projected house planes are convex and ordered counterclockwise.
     return any(all((bx - ax) * (y - ay) >= (by - ay) * (x - ax)
                    for (ax, ay), (bx, by) in zip(plane, (*plane[1:], plane[0])))
-               for plane in house_planes(wall, left, bottom))
+               for plane in house_planes(wall, left, bottom, ground_scale=ground_scale))
 
 
-def building_covers_player(wall, player, camera):
+def building_covers_player(wall, player, camera, *, ground_scale=GROUND_SCALE_Y):
     if (not isinstance(wall, NeighborhoodWall) or wall.texture not in BUILDING_TEXTURES
             or player.y < wall.y + wall.depth):
         return False
     # The ground anchor keeps the cutaway stable across poses and held equipment.
-    left, bottom = world_to_screen(wall.x, wall.y, camera)
-    x, y = world_to_screen(player.x, player.y, camera)
-    return wall_covers(wall, left, bottom, x, y)
+    left, bottom = world_to_screen(wall.x, wall.y, camera, ground_scale=ground_scale)
+    x, y = world_to_screen(player.x, player.y, camera, ground_scale=ground_scale)
+    return wall_covers(wall, left, bottom, x, y, ground_scale=ground_scale)
 
 
 def wall_edge_spans(wall, outline, axis, boundary):
@@ -436,7 +442,6 @@ class Renderer:
         self.bottle_pulse_remaining = 0.0
         self.vehicle_alarm = None
         self.vehicle_alarm_remaining = 0.0
-        self.perspective = PerspectiveTarget(WINDOW_WIDTH, WINDOW_HEIGHT)
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
@@ -499,12 +504,11 @@ class Renderer:
     def streetlights_in_view(self):
         for light in self.streetlights:
             x, y = self.project(*light.origin)
-            radius_y = light.radius * GROUND_SCALE_Y
+            radius_y = light.radius * self.ground_scale()
             if -light.radius <= x <= WINDOW_WIDTH + light.radius and -radius_y <= y <= WINDOW_HEIGHT + radius_y:
                 yield light
 
     def close(self):
-        self.perspective.close()
         if self.play_hud is not None:
             self.play_hud.close()
             self.play_hud = None
@@ -533,7 +537,7 @@ class Renderer:
             self.shake_remaining = SHAKE_DURATIONS[strength]
             self.shake_axis = (1.0, 0.0)
             if hit_angle is not None:
-                x, y = math.cos(hit_angle), GROUND_SCALE_Y * math.sin(hit_angle)
+                x, y = math.cos(hit_angle), self.ground_scale() * math.sin(hit_angle)
                 length = math.hypot(x, y)
                 self.shake_axis = x / length, y / length
         else:
@@ -548,7 +552,7 @@ class Renderer:
             self.shake_offset = (round((dx * x - dy * y) * amplitude), round((dx * y + dy * x) * amplitude))
 
     def project(self, x, y):
-        sx, sy = world_to_screen(x, y, self.camera)
+        sx, sy = world_to_screen(x, y, self.camera, ground_scale=self.ground_scale())
         dx, dy = self.shake_offset
         return sx + dx, sy + dy
 
@@ -559,25 +563,17 @@ class Renderer:
         left, bottom, right, top = RETURN_PERSPECTIVE_BOUNDS
         x, y = world.player.x, world.player.y
         distance = min(x - left, right - x, y - bottom, top - y)
-        if distance <= 0.0 or not self.perspective.available:
+        if distance <= 0.0:
             return 0.0
         t = min(1.0, distance / RETURN_PERSPECTIVE_BLEND)
         return RETURN_PERSPECTIVE_STRENGTH * t * t * (3 - 2 * t)
 
-    def unwarp_cursor(self, cursor):
-        if cursor is None:
-            return None
-        strength = self.perspective_strength()
-        if strength:
-            return perspective_unproject(*cursor, WINDOW_WIDTH, WINDOW_HEIGHT, strength)
-        return cursor
+    def ground_scale(self):
+        return GROUND_SCALE_Y - self.perspective_strength()
 
-    def display_point(self, x, y):
-        strength = self.perspective_strength()
-        if strength:
-            x, native_y = perspective_project(x, WINDOW_HEIGHT - 1 - y, WINDOW_WIDTH, WINDOW_HEIGHT, strength)
-            return x, WINDOW_HEIGHT - 1 - native_y
-        return x, y
+    def cursor_world(self, cursor):
+        if cursor is not None:
+            return sdl_to_world(*cursor, self.camera, ground_scale=self.ground_scale())
 
     def follow(self, player, dt=None, *, cursor=None):
         if self.delivery is None:
@@ -591,16 +587,17 @@ class Renderer:
             return
 
         destination = base
-        if (cursor := self.unwarp_cursor(cursor)) is not None:
+        if cursor is not None:
+            ground_scale = self.ground_scale()
             # Measure from the unshifted foot so the lead never feeds itself.
-            foot_x, foot_y = world_to_screen(player.x, player.y, base)
+            foot_x, foot_y = world_to_screen(player.x, player.y, base, ground_scale=ground_scale)
             dx = cursor[0] - foot_x
             dy = WINDOW_HEIGHT - 1 - cursor[1] - foot_y
             distance = math.hypot(dx, dy)
             if distance:
                 factor = min(CAMERA_LEAD_FRACTION, CAMERA_MAX_LEAD / distance)
                 destination = (min(max(0.0, base[0] + dx * factor), right),
-                               min(max(0.0, base[1] + dy * factor / GROUND_SCALE_Y), top))
+                               min(max(0.0, base[1] + dy * factor / ground_scale), top))
         weight = -math.expm1(-dt / CAMERA_TIME)
         self.camera = tuple(current + (desired - current) * weight
                             for current, desired in zip(self.camera, destination))
@@ -609,7 +606,7 @@ class Renderer:
         origin = (player.x, player.y)
         dx, dy = aim[0] - origin[0], aim[1] - origin[1]
         angle = math.atan2(dy, dx) if dx or dy else player.aim_angle
-        pose = (origin, angle, self.camera, self.shake_offset, id(walls))
+        pose = (origin, angle, self.camera, self.shake_offset, self.ground_scale(), id(walls))
         if self.light is None or pose != self._light_pose:
             world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
             light_walls = self.light_walls(walls)
@@ -630,10 +627,11 @@ class Renderer:
         return self._building_fades.get(id(wall), 1.0)
 
     def update_building_fades(self, player, walls, dt):
+        ground_scale = self.ground_scale()
         for wall in walls:
             key = id(wall)
             opacity = self.building_opacity(wall)
-            if building_covers_player(wall, player, self.camera):
+            if building_covers_player(wall, player, self.camera, ground_scale=ground_scale):
                 remaining = opacity - dt / BUILDING_FADE_OUT
                 self._building_fades[key] = 0.0 if remaining <= 1e-12 else remaining
             elif opacity < 1.0:
@@ -1084,7 +1082,8 @@ class Renderer:
     def wall(self, wall, outlines, beam_mask=None, *, glow_outline=(), opacity=1.0):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
-        depth = wall.depth * GROUND_SCALE_Y
+        ground_scale = self.ground_scale()
+        depth = wall.depth * ground_scale
         if x >= WINDOW_WIDTH or x + wall.width <= 0 or y >= WINDOW_HEIGHT or y + height + depth <= 0:
             return
 
@@ -1099,7 +1098,7 @@ class Renderer:
         texture_height = 38 if shutter else height
         seam = (image.h - round(texture_height / 2)) / image.h if image is not None else 0.5
         if oblique:
-            front, side, roof = house_planes(wall, x, y)
+            front, side, roof = house_planes(wall, x, y, ground_scale=ground_scale)
             foundation = quad(x, y, wall.width, depth + HOUSE_FOUNDATION_HEIGHT)
             for plane in (foundation, front, side, roof):
                 self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0), opacity=opacity)
@@ -1306,7 +1305,7 @@ class Renderer:
 
     def draw_shutter_entrance(self, shutter):
         x, y = self.project(shutter.x, shutter.y)
-        depth = shutter.depth * GROUND_SCALE_Y
+        depth = shutter.depth * self.ground_scale()
 
         def draw():
             if shutter.depth > shutter.width:
@@ -1345,7 +1344,8 @@ class Renderer:
     def draw_bridge_terrain(self, puzzle):
         x, y, width, depth = puzzle.channel_rect
         sx, sy = self.project(x, y)
-        depth *= GROUND_SCALE_Y
+        ground_scale = self.ground_scale()
+        depth *= ground_scale
         parts = [(sx, sy, width, depth, (38, 58, 61)),
                  (sx, sy, width, 3, (94, 88, 74)),
                  (sx, sy + depth - 4, width, 4, (95, 99, 87))]
@@ -1354,7 +1354,7 @@ class Renderer:
         if puzzle.bridge_down:
             bx, by, bridge_width, bridge_depth = puzzle.bridge_rect
             left, bottom = self.project(bx, by)
-            rise = bridge_depth * GROUND_SCALE_Y
+            rise = bridge_depth * ground_scale
             parts.extend(((left, bottom, bridge_width, rise, (115, 111, 93)),
                           (left, bottom, 4, rise, (164, 142, 83)),
                           (left + bridge_width - 4, bottom, 4, rise, (164, 142, 83))))
@@ -1411,6 +1411,7 @@ class Renderer:
 
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
+        ground_scale = self.ground_scale()
         bounds = self.combat_visual.zombie_rect(zombie, x, y)
 
         def draw():
@@ -1426,7 +1427,7 @@ class Renderer:
                     raise RuntimeError(f"Nearby zombie opacity failed: {p.SDL_GetError()!r}")
                 try:
                     self.draw_lit_region(bounds, draw, row_spans=lambda row: glow_spans(
-                        zombie_light_row(row, y) if zombie.alive else row))
+                        zombie_light_row(row, y, ground_scale) if zombie.alive else row))
                 finally:
                     p.SDL_SetTextureAlphaMod(texture, 255)
 
@@ -1443,7 +1444,7 @@ class Renderer:
             return
 
         def zombie_row_spans(row):
-            sample = zombie_light_row(row, y) if zombie.alive else row
+            sample = zombie_light_row(row, y, ground_scale) if zombie.alive else row
             return merge_light_spans(span for rows, columns in sources
                                      for span in clip_light_columns(rows.get(sample, ()), columns))
 
@@ -1507,19 +1508,8 @@ class Renderer:
         if self.map_open:
             self.draw_map(player)
             return
-        strength = self.perspective_strength()
-        captured = bool(strength and self.perspective.begin())
-        cursor = self.unwarp_cursor(self.cursor)
-        aim = sdl_to_world(*cursor, self.camera) if cursor is not None else target
-        try:
-            self._draw_world(player, walls, aim, defeat_elapsed, defeat_attacker)
-        except BaseException:
-            if captured:
-                self.perspective.cancel()
-            raise
-        if captured and not self.perspective.present(strength):
-            aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
-            self._draw_world(player, walls, aim, defeat_elapsed, defeat_attacker)
+        aim = self.cursor_world(self.cursor) if self.cursor is not None else target
+        self._draw_world(player, walls, aim, defeat_elapsed, defeat_attacker)
         self._draw_overlay(player, target, aim, focused, defeat_elapsed)
 
     def _draw_world(self, player, walls, aim, defeat_elapsed, defeat_attacker):
@@ -1643,17 +1633,17 @@ class Renderer:
                 self.draw_delivery_result()
             return
         # The cursor stays at its screen position while the world shakes.
-        target_screen = (self.display_point(*world_to_screen(*target, self.camera)) if self.cursor is None
+        target_screen = (world_to_screen(*target, self.camera, ground_scale=self.ground_scale()) if self.cursor is None
                          else (self.cursor[0], WINDOW_HEIGHT - 1 - self.cursor[1]))
         cross(*target_screen, ORANGE, size=7)
         origin = (player.x, player.y)
-        foot = self.display_point(*self.project(*origin))
+        foot = self.project(*origin)
         combat = self.combat
         attack = combat.attack if combat is not None else None
         angle = attack.angle if attack is not None else player.aim_angle
         desired = math.atan2(target[1] - player.y, target[0] - player.x)
         if abs(math.remainder(desired - angle, math.tau)) > math.radians(5):
-            tip = self.display_point(*self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle)))
+            tip = self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle))
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
         if delivery is not None:
@@ -1669,7 +1659,7 @@ class Renderer:
                             break
                 waypoint_direction = None
                 if delivery.waypoints:
-                    waypoint_x, waypoint_y = self.display_point(*self.project(*delivery.waypoints[0]))
+                    waypoint_x, waypoint_y = self.project(*delivery.waypoints[0])
                     waypoint_direction = (waypoint_x - foot[0], foot[1] - waypoint_y)
                 self.play_hud.draw(delivery, self.light, aim, focused=focused,
                                    alarm=self.vehicle_alarm_remaining > 0, near_visible_zombie=near_visible_zombie,
@@ -2071,8 +2061,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             bottle_picked_up = delivery_run and active and pending_bottle_pickup and world.pick_up_bottle()
             bottle_thrown = False
             if delivery_run and active and pending_bottle_throw:
-                scene_cursor = renderer.unwarp_cursor(cursor)
-                throw_target = sdl_to_world(*scene_cursor, renderer.camera) if scene_cursor is not None else target
+                throw_target = renderer.cursor_world(cursor) if cursor is not None else target
                 bottle_thrown = world.throw_bottle(throw_target)
             before = (player.x, player.y)
             zombie_origins = [(zombie.x, zombie.y) for zombie in world.zombies]
@@ -2225,12 +2214,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     renderer.update_building_fades(player, walls, dt)
             renderer.cursor = cursor
             if delivery_run and cursor is not None and not renderer.map_open:
-                scene_cursor = renderer.unwarp_cursor(cursor)
-                aim = sdl_to_world(*scene_cursor, renderer.camera)
+                aim = renderer.cursor_world(cursor)
                 light = renderer.prepare_light(player, walls, aim)
-                target = mouse_target(world, renderer.combat_visual, *scene_cursor, light, renderer.camera,
+                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
                                       renderer.shake_offset, wall_alpha=renderer.wall_alpha,
-                                      building_opacity=renderer.building_opacity, nearby_light=renderer.nearby_light)
+                                      building_opacity=renderer.building_opacity, nearby_light=renderer.nearby_light,
+                                      ground_scale=renderer.ground_scale())
             if active and strike is None and world.result == "playing":
                 aim_player(player, *target, max_turn=TURN_SPEED * dt)
             display_angle = world.attack.angle if world.attack is not None else player.aim_angle
