@@ -432,6 +432,7 @@ class Renderer:
         self.delivery_preview = 0
         self.map_open = False
         self.abandon_confirmation = False
+        self.bridge_note_open = False
         self.shake_remaining = 0.0
         self.shake_strength = 0
         self.shake_offset = (0, 0)
@@ -1320,6 +1321,22 @@ class Renderer:
     def draw_shutter_control(self, position, *, closed):
         self.draw_control_box(position, "닫힘" if closed else "셔터", TEAL if closed else ORANGE)
 
+    def draw_bridge_note_marker(self, position):
+        x, y = self.project(*position)
+        parts = ((-2, 0, 4, 29, (77, 61, 45)), (-13, 13, 26, 17, (117, 93, 64)),
+                 (-9, 15, 18, 12, (209, 181, 127)), (-8, 26, 16, 3, (158, 128, 79)),
+                 (-6, 22, 12, 1, (106, 80, 49)), (-6, 18, 8, 1, (116, 90, 57)))
+
+        def draw(*, dimmed=False):
+            for dx, dy, width, height, color in parts:
+                rectangle(x + dx, y + dy, width, height, dim_color(color) if dimmed else color)
+
+        bounds = (x - 13, y, 27, 31)
+        glow_spans = self.glow_at_ground_depth(position, x)
+        if glow_spans is not None:
+            self.draw_lit_region(bounds, lambda: draw(dimmed=True), row_spans=glow_spans)
+        self.draw_lit_region(bounds, draw)
+
     def draw_control_box(self, position, label, light_color, *, label_width=72):
         x, y = self.project(*position)
 
@@ -1491,7 +1508,9 @@ class Renderer:
     def draw(self, player, walls, target, focused=True):
         self._draw_scene(player, walls, target, focused)
         bridge = self.delivery.bridge_puzzle if self.delivery is not None else None
-        if bridge is not None and bridge.panel_open:
+        if self.bridge_note_open:
+            self.play_hud.draw_bridge_note()
+        elif bridge is not None and bridge.panel_open:
             self.play_hud.draw_bridge_panel(bridge)
         elif self.abandon_confirmation:
             self.play_hud.draw_abandon_confirmation()
@@ -1565,6 +1584,8 @@ class Renderer:
                         self.draw_shutter_entrance(delivery.shutter_wall)
                 if bridge is not None:
                     stations = (*stations, bridge.key_position, bridge.panel_position)
+                    if delivery.returning:
+                        stations = (*stations, bridge.note_position)
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
             flight = delivery.bottle_flight
             if flight is not None:
@@ -1593,6 +1614,8 @@ class Renderer:
                                           label_width=88)
                 elif bridge is not None and actor == bridge.panel_position:
                     self.draw_control_box(actor, "관리실", TEAL if bridge.bridge_down else ORANGE)
+                elif bridge is not None and actor == bridge.note_position:
+                    self.draw_bridge_note_marker(actor)
                 else:
                     self.draw_station(actor, delivery.parcel == "waiting")
             elif kind == "lamp":
@@ -1648,6 +1671,12 @@ class Renderer:
             cross(*tip, TEAL, size=2)
         if delivery is not None:
             if delivery.result == "playing":
+                if (focused and not self.bridge_note_open and not self.abandon_confirmation
+                        and delivery.can_read_bridge_note()):
+                    x, y = self.project(*delivery.bridge_puzzle.note_position)
+                    rectangle(x - 70, y + 81, 140, 26, (23, 25, 24))
+                    rectangle(x - 70, y + 81, 140, 26, (137, 110, 67), filled=False)
+                    self.font.draw(x - 55, y + 94, "E  쪽지 읽기", (239, 218, 172))
                 near_visible_zombie = False
                 if focused and self.play_hud.watch_for_sneak_hint(delivery):
                     for zombie in delivery.zombies:
@@ -1861,6 +1890,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             lost_focus = False
             map_toggle = False
             map_toggled = False
+            note_close_requested = False
             waypoint_actions = []
             abandon_requested = False
             abandon_decision = None
@@ -1869,6 +1899,13 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             for event in poll_events():
                 if event.type == p.SDL_QUIT:
                     running = False
+                elif renderer.bridge_note_open:
+                    if event.type == p.SDL_KEYDOWN and not event.key.repeat:
+                        if event.key.keysym.sym in (p.SDLK_e, p.SDLK_ESCAPE):
+                            note_close_requested = True
+                    elif (event.type == p.SDL_WINDOWEVENT
+                          and event.window.event == p.SDL_WINDOWEVENT_FOCUS_LOST):
+                        lost_focus = True
                 elif bridge is not None and bridge.panel_open:
                     if event.type == p.SDL_KEYDOWN and not event.key.repeat:
                         circuit_keys.append(event.key.keysym.sym)
@@ -2007,6 +2044,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 cursor = current_cursor()
                 renderer.light = None
                 renderer.map_open = False
+                renderer.bridge_note_open = False
                 renderer.update_shake(math.inf)
                 renderer.update_sprint_pulse(math.inf)
                 renderer.update_bottle_pulse(math.inf)
@@ -2038,9 +2076,17 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 p.update_canvas()
                 continue
             active = (focused and not lost_focus and not renderer.map_open
-                      and not renderer.abandon_confirmation and not confirmation_changed
+                      and not renderer.abandon_confirmation and not confirmation_changed and not renderer.bridge_note_open
                       and (bridge is None or not bridge.panel_open)
                       and contract_choice is None and not retry_requested)
+            note_opened = (active and not map_toggled and pending_interact and delivery_run
+                           and world.can_read_bridge_note())
+            note_closed = note_close_requested and focused and not lost_focus
+            if note_opened or note_closed:
+                renderer.bridge_note_open = note_opened
+                pressed.clear()
+                mouse_held = False
+                active = False
             if not delivery_run and cursor is not None:
                 light = renderer.light
                 if light is None:
@@ -2166,11 +2212,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 occluded = hearing_active and nearest_zombie is not None and any(
                     wall_blocks(listener, (nearest_zombie.x, nearest_zombie.y), wall)
                     for wall in walls)
-                preserve_map_cue = renderer.map_open and focused and not lost_focus
+                preserve_map_cue = (renderer.map_open or renderer.bridge_note_open) and focused and not lost_focus
                 zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
                                     occluded=occluded, preserve_map_cue=preserve_map_cue,
                                     pan=pan if hearing_active else 0.0, patrol_step=patrol_step, heavy_step=heavy_step)
-                if map_toggled:
+                if map_toggled or note_opened or note_closed:
                     zombie_audio.play_map_toggle()
                 if bottle_picked_up:
                     zombie_audio.play_bottle_pickup()

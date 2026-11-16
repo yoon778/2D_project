@@ -298,6 +298,37 @@ class PlayHUD:
         self._keycap("Esc", x + 234, y + 108, 42)
         self._text("계속하기", x + 284, y + 120, BODY)
 
+    def draw_bridge_note(self):
+        fill(0, 0, self.width, self.height, (0, 0, 0, 170))
+        width, height = 500, 336
+        x, y = (self.width - width) // 2, (self.height - height) // 2
+        fill(x + 6, y + 7, width, height, (8, 6, 2, 150))
+        panel(x, y, width, height, PAPER_EDGE, background=(232, 213, 174, 255))
+
+        crease = x + 314
+        fill(crease, y + 8, 1, height - 16, (*PAPER_MUTED, 84))
+        fill(crease + 1, y + 8, 2, height - 16, (255, 242, 207, 95))
+        for row in range(23):
+            fill(x + width - 23 + row, y + 1 + row, 22 - row, 1, (201, 177, 140, 255))
+        fill(x + 187, y - 7, 126, 21, (194, 166, 109, 221))
+        fill(x + 191, y + 9, 118, 2, (151, 122, 80, 100))
+        for dx, dy, stain_width in ((18, 166, 12), (20, 168, 15), (445, 86, 26), (454, 88, 15), (394, 293, 20)):
+            fill(x + dx, y + dy, stain_width, 2, (*PAPER_MUTED, 43))
+
+        left = x + 36
+        self._text("다리 건너는 사람에게", left, y + 47, TITLE, PAPER_INK)
+        self._text("경비초소에 관리실 열쇠를 뒀다.", left, y + 96, BODY, PAPER_INK)
+        self._text("관리실에서 전원부터 모터까지 회로를 이으면", left + 2, y + 123, BODY, PAPER_INK)
+        self._text("다리가 내려온다.", left, y + 150, BODY, PAPER_INK)
+        self._text("모터 소리가 크다. 좀비 조심.", left + 1, y + 196, BODY, STAMP)
+        self._text("급하면 동쪽 골목으로 돌아가.", left, y + 224, BODY, PAPER_INK)
+        self._text("— 시설 담당", x + width - 36, y + 261, SMALL, PAPER_MUTED, align="right")
+
+        self._keycap("E", left, y + 289, 24)
+        self._text("/", left + 33, y + 301, BODY, PAPER_MUTED)
+        self._keycap("Esc", left + 47, y + 289, 42)
+        self._text("접기", left + 100, y + 301, BODY, PAPER_INK)
+
     def draw_bridge_panel(self, puzzle):
         fill(0, 0, self.width, self.height, (0, 0, 0, 175))
         width, height = 560, 364

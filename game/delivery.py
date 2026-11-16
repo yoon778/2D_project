@@ -143,6 +143,7 @@ class NeighborhoodWall(Wall):
 class BridgePuzzle:
     key_position = (2608, 1190)
     panel_position = (2545, 1302)
+    note_position = (2588, 1264)
     bridge_rect = (2510, 1342, 70, 38)
     channel_rect = (2480, 1342, 240, 38)
     bridge_position = (2545, 1361)
@@ -630,6 +631,11 @@ class DeliveryWorld(CombatWorld):
     def can_reach_bridge_panel(self):
         puzzle = self.bridge_puzzle
         return puzzle is not None and self._bridge_interaction_in_reach(puzzle.panel_position)
+
+    def can_read_bridge_note(self):
+        puzzle = self.bridge_puzzle
+        return (puzzle is not None and self._bridge_interaction_in_reach(puzzle.note_position)
+                and self._available_interaction() is None)
 
     def can_open_bridge_panel(self):
         puzzle = self.bridge_puzzle

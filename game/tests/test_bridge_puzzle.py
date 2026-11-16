@@ -1,6 +1,6 @@
 import unittest
 
-from game.core import wall_blocks
+from game.core import Wall, wall_blocks
 from game.delivery import DeliveryWorld
 from game.zombie_navigation import can_walk_direct
 
@@ -22,6 +22,26 @@ class BridgePuzzleTests(unittest.TestCase):
         self.assertTrue(self.hold(0.50))
         self.move_to(self.world.destination)
         self.assertTrue(self.hold(1.00))
+
+    def test_note_requires_return_route_clear_sight_and_yields_to_circuit(self):
+        world, puzzle = self.world, self.puzzle
+        self.move_to(puzzle.note_position)
+        self.assertFalse(world.can_read_bridge_note())
+        self.deliver()
+        x, y = puzzle.note_position
+        self.move_to((x + 43, y))
+        self.assertFalse(world.can_read_bridge_note())
+        self.move_to((x + 22, y))
+        self.assertTrue(world.can_read_bridge_note())
+        world.walls.append(Wall(x + 8, y - 10, 4, 20))
+        self.assertFalse(world.can_read_bridge_note())
+        world.walls.pop()
+
+        self.move_to(puzzle.key_position)
+        self.assertTrue(self.hold(0.5))
+        self.move_to((2568, 1282))
+        self.assertTrue(world.can_open_bridge_panel())
+        self.assertFalse(world.can_read_bridge_note())
 
     def test_panel_requires_key_and_keeps_tile_rotations_when_closed(self):
         world, puzzle = self.world, self.puzzle
