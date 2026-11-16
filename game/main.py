@@ -20,6 +20,7 @@ from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow,
 from locomotion import Locomotion, select_facing
 from play_hud import PlayHUD, SAFE_GREEN
 from player_visual import PlayerVisual, load_atlas
+from return_perspective import PerspectiveTarget, project as perspective_project, unproject as perspective_unproject
 from spatial_audio import HeavyFootstep, PatrolFootstep, ZombieAudio
 from town_map_art import (MAP_ALLEY, MAP_BUILDING, MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS, MAP_LANDMARK,
                           MAP_ROAD, MAP_WRECK)
@@ -34,6 +35,9 @@ GROUND_SCALE_Y = 0.60
 CAMERA_TIME = 0.145
 CAMERA_LEAD_FRACTION = 0.25
 CAMERA_MAX_LEAD = 72.0
+RETURN_PERSPECTIVE_BOUNDS = (2470, 1220, 2650, 1410)
+RETURN_PERSPECTIVE_BLEND = 36.0
+RETURN_PERSPECTIVE_STRENGTH = .045
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
 DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1,
@@ -433,6 +437,7 @@ class Renderer:
         self.bottle_pulse_remaining = 0.0
         self.vehicle_alarm = None
         self.vehicle_alarm_remaining = 0.0
+        self.perspective = PerspectiveTarget(WINDOW_WIDTH, WINDOW_HEIGHT)
         try:
             font_path = Path(p.__file__).parent / "data/ConsolaMalgun.ttf"
             self.font = p.load_font(str(font_path), 18)
@@ -500,6 +505,7 @@ class Renderer:
                 yield light
 
     def close(self):
+        self.perspective.close()
         if self.play_hud is not None:
             self.play_hud.close()
             self.play_hud = None
@@ -547,6 +553,33 @@ class Renderer:
         dx, dy = self.shake_offset
         return sx + dx, sy + dy
 
+    def perspective_strength(self):
+        world = self.delivery
+        if getattr(world, "contract", None) is not DELIVERY_CONTRACTS[3] or world.parcel != "delivered":
+            return 0.0
+        left, bottom, right, top = RETURN_PERSPECTIVE_BOUNDS
+        x, y = world.player.x, world.player.y
+        distance = min(x - left, right - x, y - bottom, top - y)
+        if distance <= 0.0 or not self.perspective.available:
+            return 0.0
+        t = min(1.0, distance / RETURN_PERSPECTIVE_BLEND)
+        return RETURN_PERSPECTIVE_STRENGTH * t * t * (3 - 2 * t)
+
+    def unwarp_cursor(self, cursor):
+        if cursor is None:
+            return None
+        strength = self.perspective_strength()
+        if strength:
+            return perspective_unproject(*cursor, WINDOW_WIDTH, WINDOW_HEIGHT, strength)
+        return cursor
+
+    def display_point(self, x, y):
+        strength = self.perspective_strength()
+        if strength:
+            x, native_y = perspective_project(x, WINDOW_HEIGHT - 1 - y, WINDOW_WIDTH, WINDOW_HEIGHT, strength)
+            return x, WINDOW_HEIGHT - 1 - native_y
+        return x, y
+
     def follow(self, player, dt=None, *, cursor=None):
         if self.delivery is None:
             return
@@ -559,7 +592,7 @@ class Renderer:
             return
 
         destination = base
-        if cursor is not None:
+        if (cursor := self.unwarp_cursor(cursor)) is not None:
             # Measure from the unshifted foot so the lead never feeds itself.
             foot_x, foot_y = world_to_screen(player.x, player.y, base)
             dx = cursor[0] - foot_x
@@ -1483,10 +1516,25 @@ class Renderer:
         if self.map_open:
             self.draw_map(player)
             return
+        strength = self.perspective_strength()
+        captured = bool(strength and self.perspective.begin())
+        cursor = self.unwarp_cursor(self.cursor)
+        aim = sdl_to_world(*cursor, self.camera) if cursor is not None else target
+        try:
+            self._draw_world(player, walls, aim, defeat_elapsed, defeat_attacker)
+        except BaseException:
+            if captured:
+                self.perspective.cancel()
+            raise
+        if captured and not self.perspective.present(strength):
+            aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
+            self._draw_world(player, walls, aim, defeat_elapsed, defeat_attacker)
+        self._draw_overlay(player, target, aim, focused, defeat_elapsed)
+
+    def _draw_world(self, player, walls, aim, defeat_elapsed, defeat_attacker):
         p.SDL_SetRenderDrawColor(p.renderer, 0, 0, 0, 255)
         p.SDL_RenderClear(p.renderer)
         origin = (player.x, player.y)
-        aim = sdl_to_world(*self.cursor, self.camera) if self.cursor is not None else target
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
         beam, *lamps = self.prepare_light(player, walls, aim).lights
         glow = self.nearby_light
@@ -1596,20 +1644,27 @@ class Renderer:
                     self.player_visual.draw(*foot, **courier_style)
                 if not defeated:
                     cross(*foot, TEAL, size=4)
-        if defeated:
+
+    def _draw_overlay(self, player, target, aim, focused, defeat_elapsed):
+        delivery = self.delivery
+        if delivery is not None and delivery.result == "defeated":
             if defeat_elapsed is None:
                 p.SDL_SetRenderDrawColor(p.renderer, 4, 7, 10, 175)
                 p.SDL_RenderFillRect(p.renderer, None)
                 self.draw_delivery_result()
             return
         # The cursor stays at its screen position while the world shakes.
-        target_screen = (world_to_screen(*target, self.camera) if self.cursor is None
+        target_screen = (self.display_point(*world_to_screen(*target, self.camera)) if self.cursor is None
                          else (self.cursor[0], WINDOW_HEIGHT - 1 - self.cursor[1]))
         cross(*target_screen, ORANGE, size=7)
+        origin = (player.x, player.y)
+        foot = self.display_point(*self.project(*origin))
+        combat = self.combat
+        attack = combat.attack if combat is not None else None
         angle = attack.angle if attack is not None else player.aim_angle
         desired = math.atan2(target[1] - player.y, target[0] - player.x)
         if abs(math.remainder(desired - angle, math.tau)) > math.radians(5):
-            tip = self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle))
+            tip = self.display_point(*self.project(player.x + 27 * math.cos(angle), player.y + 27 * math.sin(angle)))
             p.draw_line(*foot, *tip, *TEAL)
             cross(*tip, TEAL, size=2)
         if delivery is not None:
@@ -1619,13 +1674,13 @@ class Renderer:
                     for zombie in delivery.zombies:
                         position = zombie.x, zombie.y
                         if (zombie.alive and math.dist(origin, position) <= SNEAK_HINT_RANGE
-                                and (self.light.contains(position) or glow.contains(position))
+                                and (self.light.contains(position) or self.nearby_light.contains(position))
                                 and delivery._player_line_clear(zombie)):
                             near_visible_zombie = True
                             break
                 waypoint_direction = None
                 if delivery.waypoints:
-                    waypoint_x, waypoint_y = self.project(*delivery.waypoints[0])
+                    waypoint_x, waypoint_y = self.display_point(*self.project(*delivery.waypoints[0]))
                     waypoint_direction = (waypoint_x - foot[0], foot[1] - waypoint_y)
                 self.play_hud.draw(delivery, self.light, aim, focused=focused,
                                    alarm=self.vehicle_alarm_remaining > 0, near_visible_zombie=near_visible_zombie,
@@ -2027,7 +2082,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             bottle_picked_up = delivery_run and active and pending_bottle_pickup and world.pick_up_bottle()
             bottle_thrown = False
             if delivery_run and active and pending_bottle_throw:
-                throw_target = sdl_to_world(*cursor, renderer.camera) if cursor is not None else target
+                scene_cursor = renderer.unwarp_cursor(cursor)
+                throw_target = sdl_to_world(*scene_cursor, renderer.camera) if scene_cursor is not None else target
                 bottle_thrown = world.throw_bottle(throw_target)
             before = (player.x, player.y)
             zombie_origins = [(zombie.x, zombie.y) for zombie in world.zombies]
@@ -2180,9 +2236,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     renderer.update_building_fades(player, walls, dt)
             renderer.cursor = cursor
             if delivery_run and cursor is not None and not renderer.map_open:
-                aim = sdl_to_world(*cursor, renderer.camera)
+                scene_cursor = renderer.unwarp_cursor(cursor)
+                aim = sdl_to_world(*scene_cursor, renderer.camera)
                 light = renderer.prepare_light(player, walls, aim)
-                target = mouse_target(world, renderer.combat_visual, *cursor, light, renderer.camera,
+                target = mouse_target(world, renderer.combat_visual, *scene_cursor, light, renderer.camera,
                                       renderer.shake_offset, wall_alpha=renderer.wall_alpha,
                                       building_opacity=renderer.building_opacity, nearby_light=renderer.nearby_light)
             if active and strike is None and world.result == "playing":

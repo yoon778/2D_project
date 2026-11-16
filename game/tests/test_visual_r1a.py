@@ -12,8 +12,10 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core import Player, Wall
-from main import CAMERA_TIME, Renderer, screen_to_world, sdl_to_world, sorted_drawables, world_to_screen
+from main import (CAMERA_TIME, DELIVERY_CONTRACTS, RETURN_PERSPECTIVE_STRENGTH, Renderer, screen_to_world,
+                  sdl_to_world, sorted_drawables, world_to_screen)
 from player_visual import METADATA_PATH, sprite_rect
+from return_perspective import project as warp, unproject as unwarp
 
 
 class ProjectionTests(unittest.TestCase):
@@ -21,6 +23,34 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(len(actual), 2)
         self.assertAlmostEqual(actual[0], expected[0], places=9)
         self.assertAlmostEqual(actual[1], expected[1], places=9)
+
+    def test_weak_perspective_widens_near_objects_and_round_trips_pixels(self):
+        strength = RETURN_PERSPECTIVE_STRENGTH
+        for point in ((1.25, 719.5), (831.125, 263.875), (640, 360), (1279, 0)):
+            warped = warp(*point, 1280, 720, strength)
+            self.assertPointAlmostEqual(unwarp(*warped, 1280, 720, strength), point)
+        widths = [warp(680, y, 1280, 720, strength)[0] - warp(600, y, 1280, 720, strength)[0]
+                  for y in (120, 620)]
+        self.assertGreater(widths[1], widths[0])
+
+    def test_perspective_only_blends_inside_the_round_trip_return_alley(self):
+        renderer = Renderer.__new__(Renderer)
+        renderer.perspective = SimpleNamespace(available=True)
+        player = Player(2545, 1302)
+        world = renderer.delivery = SimpleNamespace(contract=DELIVERY_CONTRACTS[3], player=player, parcel="carrying")
+        self.assertEqual(renderer.perspective_strength(), 0.0)
+        world.parcel = "delivered"
+        self.assertAlmostEqual(renderer.perspective_strength(), RETURN_PERSPECTIVE_STRENGTH)
+        player.y = 1238
+        self.assertAlmostEqual(renderer.perspective_strength(), RETURN_PERSPECTIVE_STRENGTH / 2)
+        player.y = 1220
+        self.assertEqual(renderer.perspective_strength(), 0.0)
+        player.y = 1302
+        renderer.perspective.available = False
+        self.assertEqual(renderer.unwarp_cursor((864, 384)), (864, 384))
+        renderer.perspective.available = True
+        world.contract = DELIVERY_CONTRACTS[2]
+        self.assertEqual(renderer.perspective_strength(), 0.0)
 
     def test_ground_corners_have_expected_screen_positions(self):
         cases = (
