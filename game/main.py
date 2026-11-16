@@ -63,7 +63,6 @@ WALL_TEXTURE_ALIASES = {"parking-shutter": "iron-gate"}
 BRIDGE_TERRAIN = {"bridge-channel", "bridge-raised"}
 LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
 BUILDING_TEXTURES = {"west-house", "east-house", "shop", "workshop"}
-BUILDING_NIGHT_TINTS = ((57, 61, 68), (67, 70, 79), (45, 50, 59))
 BUILDING_FADE_OUT = .16
 BUILDING_FADE_IN = .20
 PROP_TEXTURE_SIZES = {
@@ -1082,7 +1081,7 @@ class Renderer:
         finally:
             p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_BLEND)
 
-    def wall(self, wall, outlines, beam_mask=None, *, glow_outline=(), opacity=1.0, ambient=False):
+    def wall(self, wall, outlines, beam_mask=None, *, glow_outline=(), opacity=1.0):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
         depth = wall.depth * GROUND_SCALE_Y
@@ -1102,25 +1101,17 @@ class Renderer:
         if oblique:
             front, side, roof = house_planes(wall, x, y)
             foundation = quad(x, y, wall.width, depth + HOUSE_FOUNDATION_HEIGHT)
-            self.draw_wall_plane(None, foundation, 0, 1, (0, 0, 0), opacity=opacity)
-            if not ambient:
-                for plane in (front, side, roof):
-                    self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0), opacity=opacity)
+            for plane in (foundation, front, side, roof):
+                self.draw_wall_plane(None, plane, 0, 1, (0, 0, 0), opacity=opacity)
         else:
             front = quad(x, y, wall.width, height)
             roof = quad(x, y + height, wall.width, depth)
             if low_obstacle:
                 self.draw_wall_plane(image, front, seam, 1, (0, 0, 0), opacity=opacity)
                 self.draw_wall_plane(image, roof, 0, seam, (0, 0, 0), opacity=opacity)
-            elif not ambient:
+            else:
                 self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0), opacity=opacity)
         side_image = self.neighborhood_walls[f"{texture}-side"] if oblique else None
-        if ambient:
-            facade_tint, roof_tint, side_tint = BUILDING_NIGHT_TINTS
-            self.draw_wall_plane(image, front, seam, 1, facade_tint, opacity=opacity)
-            if oblique:
-                self.draw_wall_plane(side_image, side, 0, 1, side_tint, opacity=opacity)
-            self.draw_wall_plane(image, roof, 0, seam, roof_tint, opacity=opacity)
 
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
@@ -1133,7 +1124,7 @@ class Renderer:
         strong_shades = ((178, 147, 105), (140, 123, 102), (155, 131, 103)) if image is not None else (
             (53, 47, 40), (45, 41, 38), (155, 131, 103))
         passes = []
-        if glow_outline and not ambient:
+        if glow_outline:
             dim_shades = tuple(map(dim_color, strong_shades))
             passes.extend((edge, glow_outline, None, dim_shades) for edge in edges)
         passes.extend((edge, outline, beam_mask if index == 0 else None, strong_shades)
@@ -1559,8 +1550,6 @@ class Renderer:
         delivery = self.delivery
         bridge = delivery.bridge_puzzle if delivery is not None else None
         defeated = delivery is not None and delivery.result == "defeated"
-        returning_to_safe_zone = (delivery is not None and delivery.contract is DELIVERY_CONTRACTS[3]
-                                  and (delivery.returning or (defeated and delivery.parcel == "delivered")))
         if bridge is not None:
             self.draw_bridge_terrain(bridge)
         outlines = (beam_outline, *lamp_outlines)
@@ -1577,7 +1566,7 @@ class Renderer:
         if delivery is not None:
             stations = ((delivery.pickup,) if delivery.parcel == "waiting"
                         else tuple(stop.position for stop in delivery.remaining_stops))
-            if delivery.returning or returning_to_safe_zone:
+            if delivery.returning or (bridge is not None and defeated and delivery.parcel == "delivered"):
                 if not defeated:
                     self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
                 if delivery.shutter_position is not None:
@@ -1627,7 +1616,7 @@ class Renderer:
                 opacity = self.building_opacity(actor)
                 if opacity > 0.0:
                     self.wall(actor, outlines, beam_mask, glow_outline=glow_outline if id(actor) in glow_walls else (),
-                              opacity=opacity, ambient=returning_to_safe_zone and texture in BUILDING_TEXTURES)
+                              opacity=opacity)
             elif kind == "zombie":
                 if defeat_attacker is not None and actor is defeat_attacker[0]:
                     actor = defeat_attacker[1]
