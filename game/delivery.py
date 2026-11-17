@@ -570,10 +570,12 @@ class DeliveryWorld(CombatWorld):
     def combat_free(self):
         return self.attack_count == 0 and self.player_hp == self._starting_player_hp
 
-    def start_attack(self, facing="front_right", *, stationary_front_right=False):
+    def start_attack(self, facing="front_right", *, stationary_front_right=False, stationary_swing=False):
         if self.route_sequence_active:
             return False
-        started = super().start_attack(facing, stationary_front_right=stationary_front_right)
+        started = super().start_attack(
+            facing, stationary_front_right=stationary_front_right, stationary_swing=stationary_swing,
+        )
         if started:
             self.attack_count += 1
         return started

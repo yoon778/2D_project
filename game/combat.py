@@ -16,8 +16,8 @@ ATTACK_DURATION = 0.6
 ATTACK_HIT_TIME = 0.18
 ATTACK_RANGE = 70.0
 ATTACK_HALF_ANGLE = math.radians(30)
-_STATIONARY_FRONT_RIGHT_DURATION = 0.66
-_STATIONARY_FRONT_RIGHT_HIT_TIME = 0.24
+_STATIONARY_SWING_DURATION = 0.66
+_STATIONARY_SWING_HIT_TIME = 0.24
 STUN_DURATION = 0.70
 BACKSTEP_SPEED = 65.0
 SNEAK_SPEED = 55.0
@@ -96,15 +96,20 @@ class Attack:
     _hit_done: bool = False
     landed: bool = False
     stationary_front_right: bool = False
+    stationary_swing: bool = field(default=False, kw_only=True)
     hit_targets: tuple[Zombie, ...] = field(default=(), init=False)
 
     @property
+    def uses_stationary_swing(self) -> bool:
+        return self.stationary_swing or self.stationary_front_right
+
+    @property
     def hit_time(self) -> float:
-        return _STATIONARY_FRONT_RIGHT_HIT_TIME if self.stationary_front_right else ATTACK_HIT_TIME
+        return _STATIONARY_SWING_HIT_TIME if self.uses_stationary_swing else ATTACK_HIT_TIME
 
     @property
     def duration(self) -> float:
-        return _STATIONARY_FRONT_RIGHT_DURATION if self.stationary_front_right else ATTACK_DURATION
+        return _STATIONARY_SWING_DURATION if self.uses_stationary_swing else ATTACK_DURATION
 
 
 class CombatWorld:
@@ -138,12 +143,15 @@ class CombatWorld:
         """Primary enemy for the single-zombie combat practice."""
         return self.zombies[0]
 
-    def start_attack(self, facing="front_right", *, stationary_front_right=False):
+    def start_attack(self, facing="front_right", *, stationary_front_right=False, stationary_swing=False):
         self._resolve_result()
         if self.attack is not None or self.result != "playing" or self.player_hp <= 0:
             return False
-        self.attack = Attack(self.player.aim_angle, facing,
-                             stationary_front_right=facing == "front_right" and bool(stationary_front_right))
+        full_swing = bool(stationary_swing)
+        self.attack = Attack(
+            self.player.aim_angle, facing, stationary_swing=full_swing,
+            stationary_front_right=facing == "front_right" and (full_swing or bool(stationary_front_right)),
+        )
         self._emit_noise(_ATTACK_NOISE_RANGE)
         return True
 

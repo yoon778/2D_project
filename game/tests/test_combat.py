@@ -2,8 +2,10 @@
 import math
 import unittest
 
-from game.combat import CombatWorld, ATTACK_DURATION, ATTACK_HIT_TIME, STUN_DURATION
+from game.combat import CombatWorld, ATTACK_DURATION, ATTACK_HIT_TIME, STUN_DURATION, Zombie
 from game.core import Wall
+from game.delivery import DeliveryWorld
+from game.locomotion import select_facing
 
 
 class CombatTests(unittest.TestCase):
@@ -149,6 +151,78 @@ class CombatTests(unittest.TestCase):
                                       world.zombie.stun_remaining, world.player_invulnerable_remaining))
             for single, split in zip(*positions):
                 self.assertAlmostEqual(single, split)
+
+    def test_stationary_swing_locks_all_eight_directions_and_hits_at_the_same_time(self):
+        for direction in range(8):
+            angle = direction * math.pi / 4
+            facing = select_facing(angle)
+            for fps in (30, 60, 120):
+                with self.subTest(facing=facing, fps=fps):
+                    world = DeliveryWorld()
+                    world.walls.clear()
+                    origin = (480.0, 380.0)
+                    world.player.x, world.player.y = origin
+                    world.player.aim_angle = angle
+                    world.zombies = [Zombie(
+                        origin[0] + radius * math.cos(angle + spread),
+                        origin[1] + radius * math.sin(angle + spread),
+                        stun_remaining=0.66,
+                    ) for radius, spread in ((70, 0), (60, math.radians(29.9)), (70.1, 0),
+                                             (60, math.radians(30.1)), (40, math.pi))]
+                    self.assertTrue(world.start_attack(facing, stationary_swing=True))
+                    strike = world.attack
+                    self.assertTrue(strike.stationary_swing)
+                    self.assertEqual(strike.stationary_front_right, facing == "front_right")
+                    self.assertEqual((strike.hit_time, strike.duration), (.24, .66))
+                    world.player.aim_angle = angle + math.pi
+                    elapsed = 0.0
+
+                    def advance(target):
+                        nonlocal elapsed
+                        while elapsed < target:
+                            dt = min(1 / fps, target - elapsed)
+                            world.update(dt, 1, 0, sprint=True)
+                            elapsed += dt
+
+                    advance(.239)
+                    self.assertEqual([zombie.hp for zombie in world.zombies], [5] * 5)
+                    self.assertFalse(strike._hit_done)
+                    advance(.24)
+                    self.assertEqual([zombie.hp for zombie in world.zombies], [4, 4, 5, 5, 5])
+                    self.assertTrue(strike.landed)
+                    self.assertEqual(strike.hit_targets, tuple(world.zombies[:2]))
+                    self.assertEqual((strike.angle, strike.facing), (angle, facing))
+                    advance(.30)
+                    advance(.659)
+                    self.assertEqual([zombie.hp for zombie in world.zombies], [4, 4, 5, 5, 5])
+                    self.assertIs(world.attack, strike)
+                    self.assertFalse(world.start_attack(facing, stationary_swing=True))
+                    advance(.66)
+                    self.assertIsNone(world.attack)
+                    self.assertEqual((world.player.x, world.player.y), origin)
+                    advance(.66 + 1 / fps)
+                    self.assertGreater(world.player.x, origin[0])
+                    self.assertEqual(world.attack_count, 1)
+
+    def test_stationary_swing_blocked_at_contact_stays_a_miss_after_the_wall_opens(self):
+        for direction in range(8):
+            angle = direction * math.pi / 4
+            facing = select_facing(angle)
+            with self.subTest(facing=facing):
+                world = self.make_world(angle=angle)
+                origin_x, origin_y = world.player.x, world.player.y
+                world.zombie.stun_remaining = .66
+                world.walls.append(Wall(origin_x + 30 * math.cos(angle) - 1,
+                                        origin_y + 30 * math.sin(angle) - 1, 2, 2))
+                self.assertTrue(world.start_attack(facing, stationary_swing=True))
+                world.update(.24)
+                self.assertTrue(world.attack._hit_done)
+                self.assertFalse(world.attack.landed)
+                self.assertEqual(world.attack.hit_targets, ())
+                world.walls.clear()
+                world.update(.06)
+                self.assertEqual(world.zombie.hp, 5)
+                self.assertIsNotNone(world.attack)
 
     def test_range_and_cone_boundaries_work_for_general_aim_angles(self):
         for aim in (0.0, math.pi / 2, math.pi, -math.pi / 2, 2 * math.tau + 0.4):
