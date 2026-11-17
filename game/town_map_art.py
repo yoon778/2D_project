@@ -25,6 +25,8 @@ _PARCEL_EDGE = (199, 188, 158)
 _ALLEY_EDGE = (142, 116, 78)
 _ROAD_EDGE = (128, 91, 51)
 _LANE = (146, 113, 69)
+_DETAIL_ALLEY = (250, 242, 221)
+_DETAIL_ALLEY_EDGE = (128, 105, 75)
 _ROOF_EDGE = (121, 109, 91)
 _ROOF_LIGHT = (191, 179, 156)
 _ROOF_SHADOW = (145, 127, 101)
@@ -94,25 +96,34 @@ def _draw_paper(rectangle, draw_line, bounds):
         draw_line(left + depth + 2, y, left + depth + 2, y + length, *_CREASE_SHADE)
 
 
-def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, draw_sprite=None, min_road_edge=0):
+def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *,
+              draw_sprite=None, min_road_edge=0, world_bounds=None):
     """Draw the static ground layers; mission markers are drawn by the caller."""
     left, bottom, right, top = bounds
     width, height = world_size
+    view_west, view_south, view_east, view_north = world_bounds or (0, 0, width, height)
+
+    def map_x(x):
+        return left + (x - view_west) * scale
+
+    def map_y(y):
+        return bottom + (y - view_south) * scale
 
     def box(west, south, east, north, color, *, filled=True):
-        west, east = max(0, west), min(width, east)
-        south, north = max(0, south), min(height, north)
+        west, east = max(view_west, west), min(view_east, east)
+        south, north = max(view_south, south), min(view_north, north)
         if west < east and south < north:
-            rectangle(left + west * scale, bottom + south * scale,
+            rectangle(map_x(west), map_y(south),
                       (east - west) * scale, (north - south) * scale, color, filled=filled)
 
     _draw_paper(rectangle, draw_line, bounds)
-    for x in range(600, int(width), 600):
-        sx = left + x * scale
-        draw_line(sx, bottom, sx, top, *_GRID)
-    for y in range(600, int(height), 600):
-        sy = bottom + y * scale
-        draw_line(left, sy, right, sy, *_GRID)
+    if world_bounds is None:
+        for x in range(600, int(width), 600):
+            sx = map_x(x)
+            draw_line(sx, bottom, sx, top, *_GRID)
+        for y in range(600, int(height), 600):
+            sy = map_y(y)
+            draw_line(left, sy, right, sy, *_GRID)
 
     # Lot margins sit beneath the street ink and the building illustrations.
     footprints = [(wall, getattr(wall, "texture", None)) for wall in walls]
@@ -129,7 +140,8 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, 
 
     minor = (*roads["alleys"], roads["main_detour"])
     min_curb = min_road_edge / scale
-    street_layers = ((tuple(_segments(minor)), MAP_ALLEY, _ALLEY_EDGE, max(4, min_curb)),
+    alley, alley_edge = (MAP_ALLEY, _ALLEY_EDGE) if world_bounds is None else (_DETAIL_ALLEY, _DETAIL_ALLEY_EDGE)
+    street_layers = ((tuple(_segments(minor)), alley, alley_edge, max(4, min_curb)),
                      (tuple(_segments(roads["main"])), MAP_ROAD, _ROAD_EDGE, max(5, min_curb)))
     # Draw both outlines before either fill so junctions don't have seams.
     for casing in (True, False):
@@ -139,19 +151,22 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, 
                 box(min(ax, bx) - half, min(ay, by) - half,
                     max(ax, bx) + half, max(ay, by) + half, edge if casing else fill)
 
-    for (ax, ay), (bx, by), _ in street_layers[1][0]:
-        if ay == by and ax != bx:
-            y = bottom + ay * scale
-            for x in range(int(min(ax, bx)) + 40, int(max(ax, bx)) - 55, 80):
-                draw_line(left + x * scale, y, left + (x + 32) * scale, y, *_LANE)
-        elif ax == bx and ay != by:
-            x = left + ax * scale
-            for y in range(int(min(ay, by)) + 40, int(max(ay, by)) - 55, 80):
-                draw_line(x, bottom + y * scale, x, bottom + (y + 32) * scale, *_LANE)
+    if world_bounds is None:
+        for (ax, ay), (bx, by), _ in street_layers[1][0]:
+            if ay == by and ax != bx:
+                y = map_y(ay)
+                for x in range(int(min(ax, bx)) + 40, int(max(ax, bx)) - 55, 80):
+                    draw_line(map_x(x), y, map_x(x + 32), y, *_LANE)
+            elif ax == bx and ay != by:
+                x = map_x(ax)
+                for y in range(int(min(ay, by)) + 40, int(max(ay, by)) - 55, 80):
+                    draw_line(x, map_y(y), x, map_y(y + 32), *_LANE)
 
     for wall, kind in footprints:
         x, y = wall.x, wall.y
         east, north = x + wall.width, y + wall.depth
+        if x >= view_east or east <= view_west or y >= view_north or north <= view_south:
+            continue
         if draw_sprite is not None and kind in MAP_ICON_CLIPS:
             west, south = max(0, x), max(0, y)
             icon_east, icon_north = min(width, east), min(height, north)
@@ -160,7 +175,7 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, 
                 icon_h = (icon_north - south) * scale
                 inset_x = icon_w * .04 if kind in _RESIDENCES or kind == "workshop" else 0
                 inset_y = icon_h * .03 if inset_x else 0
-                if draw_sprite(kind, left + west * scale + inset_x, bottom + south * scale + inset_y,
+                if draw_sprite(kind, map_x(west) + inset_x, map_y(south) + inset_y,
                                icon_w - 2 * inset_x, icon_h - 2 * inset_y):
                     continue
         if kind in _CARS:
@@ -178,6 +193,5 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, 
                 box(x + 6, y + 6, east - 6, y + 12, _ROOF_LINE)
                 box(x + 6, north - 12, east - 6, north - 6, _ROOF_LIGHT)
                 if kind in _RESIDENCES:
-                    ridge_y = bottom + (y + wall.depth * .53) * scale
-                    draw_line(left + (x + 15) * scale, ridge_y,
-                              left + (east - 15) * scale, ridge_y, *_ROOF_LINE)
+                    ridge_y = map_y(y + wall.depth * .53)
+                    draw_line(map_x(x + 15), ridge_y, map_x(east - 15), ridge_y, *_ROOF_LINE)

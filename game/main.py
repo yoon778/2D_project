@@ -79,8 +79,10 @@ HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
-NEARBY_GLOW_COLOR = (118, 105, 87)
-NEARBY_GLOW_TINT = 66
+BEAM_GROUND_EDGE = (50, 46, 37)
+BEAM_GROUND_FALLOFF = (89, 75, 60)
+NEARBY_GLOW_COLOR = (132, 118, 99)
+NEARBY_GLOW_TINT = 84
 ZOMBIE_GLOW_BODY_PAD = 12.0
 ZOMBIE_LIGHT_DEPTH_SCALE = 0.35
 TRASH_CAN_POSITION = (365.0, 300.0)
@@ -113,6 +115,8 @@ MAP_VIEW_PAPER = (227, 211, 178)
 MAP_VIEW_TEXT = (243, 228, 201)
 MAP_VIEW_MUTED = (170, 158, 140)
 PLAY_MAP_VIEWPORT = (64, 104, 792, 528)
+TRUCK_MAP_AREA = (1440, 650, 3440, 2000)
+MAP_VIEW_BUTTON = (700, 657, 206, 34)
 HIT_MARK_DURATION = 0.14
 STATIONARY_SWING_SOUND_DELAY = 0.060
 NOISE_PULSE_DURATION = 0.24
@@ -443,6 +447,7 @@ class Renderer:
         self.choosing_delivery = False
         self.delivery_preview = 0
         self.map_open = False
+        self.map_full_view = False
         self.abandon_confirmation = False
         self.bridge_note_open = False
         self.pause_page = None
@@ -626,8 +631,11 @@ class Renderer:
         origin = (player.x, player.y)
         dx, dy = aim[0] - origin[0], aim[1] - origin[1]
         angle = math.atan2(dy, dx) if dx or dy else player.aim_angle
-        pose = (origin, angle, self.camera, self.shake_offset, self.ground_scale(), id(walls))
+        wall_geometry = tuple((id(wall), wall.x, wall.y, wall.width, wall.depth) for wall in walls)
+        pose = (origin, angle, self.camera, self.shake_offset, self.ground_scale(), wall_geometry)
         if self.light is None or pose != self._light_pose:
+            if self.delivery is not None and self._light_pose is not None and wall_geometry != self._light_pose[-1]:
+                self.reset_streetlights()
             world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
             light_walls = self.light_walls(walls)
             beam = Flashlight(origin, angle, light_walls, world_size)
@@ -744,6 +752,8 @@ class Renderer:
     def draw_map_waypoints(self, bounds, points, first_number, occupied):
         left, bottom, right, top = bounds
         for index, (x, y) in enumerate(points, first_number):
+            if not (left <= x <= right and bottom <= y <= top):
+                continue
             half_width = 3 + 5 * len(str(index))
             step = half_width + 13
             offsets = ((0, 0), (step, 0), (-step, 0), (0, 24), (0, -24),
@@ -774,21 +784,42 @@ class Renderer:
             p.draw_line(*start, *end, *color)
         rectangle(x - 2, y - 2, 4, 4, color)
 
-    def _map_layout(self, x, y, viewport_width, viewport_height):
-        width, height = self.delivery.world_size
+    def _map_layout(self, x, y, viewport_width, viewport_height, *, world_bounds=None):
+        west, south, east, north = world_bounds or (0, 0, *self.delivery.world_size)
+        width, height = east - west, north - south
         scale = min(viewport_width / width, viewport_height / height)
-        left = x + (viewport_width - width * scale) / 2
-        bottom = y + (viewport_height - height * scale) / 2
+        left = x + (viewport_width - width * scale) / 2 - west * scale
+        bottom = y + (viewport_height - height * scale) / 2 - south * scale
         return left, bottom, scale
+
+    def _map_detail_available(self):
+        player = self.delivery.player
+        west, south, east, north = TRUCK_MAP_AREA
+        return (self.delivery.contract.truck_position is not None
+                and west <= player.x <= east and south <= player.y <= north)
+
+    def _play_map_bounds(self):
+        return TRUCK_MAP_AREA if self._map_detail_available() and not self.map_full_view else None
+
+    @staticmethod
+    def map_view_button_at(mouse_x, mouse_y):
+        x, y, width, height = MAP_VIEW_BUTTON
+        mouse_y = WINDOW_HEIGHT - 1 - mouse_y
+        return x <= mouse_x < x + width and y <= mouse_y < y + height
+
+    def toggle_map_view(self):
+        if self._map_detail_available():
+            self.map_full_view = not self.map_full_view
 
     def map_world_at(self, mouse_x, mouse_y):
         """Convert an SDL mouse position inside the live map to ground coordinates."""
-        left, bottom, scale = self._map_layout(*PLAY_MAP_VIEWPORT)
+        world_bounds = self._play_map_bounds()
+        left, bottom, scale = self._map_layout(*PLAY_MAP_VIEWPORT, world_bounds=world_bounds)
         x = (mouse_x - left) / scale
         y = (WINDOW_HEIGHT - 1 - mouse_y - bottom) / scale
-        width, height = self.delivery.world_size
-        if -1e-9 <= x <= width + 1e-9 and -1e-9 <= y <= height + 1e-9:
-            return min(width, max(0.0, x)), min(height, max(0.0, y))
+        west, south, east, north = world_bounds or (0, 0, *self.delivery.world_size)
+        if west - 1e-9 <= x <= east + 1e-9 and south - 1e-9 <= y <= north + 1e-9:
+            return min(east, max(west, x)), min(north, max(south, y))
         return None
 
     def _draw_map_sprite(self, kind, left, bottom, width, height):
@@ -810,30 +841,36 @@ class Renderer:
                 ignored += world.bridge_puzzle.station_walls
         return [wall for wall in world.walls if wall not in ignored and getattr(wall, "texture", None) not in BRIDGE_TERRAIN]
 
-    def draw_town_map(self, contract, x, y, viewport_width, viewport_height, player=None):
+    def draw_town_map(self, contract, x, y, viewport_width, viewport_height, player=None, *, world_bounds=None):
         world = self.delivery
         width, height = world.world_size
-        left, bottom, scale = self._map_layout(x, y, viewport_width, viewport_height)
-        right = left + width * scale
-        top = bottom + height * scale
-        bounds = left, bottom, right, top
+        origin_x, origin_y, scale = self._map_layout(x, y, viewport_width, viewport_height, world_bounds=world_bounds)
 
         def map_point(x, y):
-            return left + x * scale, bottom + y * scale
+            return origin_x + x * scale, origin_y + y * scale
 
+        west, south, east, north = world_bounds or (0, 0, width, height)
+        left, bottom = map_point(west, south)
+        right, top = map_point(east, north)
+        bounds = left, bottom, right, top
         active_contract = contract is world.contract
         shutter = world.shutter_wall if active_contract else None
         bridge = world.bridge_puzzle if active_contract else None
         show_east_detour = bridge is not None and player is not None and world.route_gimmicks_active
         map_walls = self.map_walls_for(contract)
         draw_map_base(rectangle, p.draw_line, bounds, scale, (width, height),
-                      TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite, min_road_edge=1.5)
-        occupied = [(left + 10, top - 60, left + 151, top - 5)]
+                      TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite, min_road_edge=1.5,
+                      world_bounds=world_bounds)
+        legend_right = left + (48 if world_bounds is not None else 151)
+        occupied = [(left + 10, top - 60, legend_right, top - 5)]
+        bus_road_y = 1702 if world_bounds is not None else 1720
         for point, label, color in (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
             ((3140, 958) if show_east_detour else (3110, 1007), "상점길", MAP_ALLEY_INK),
-            ((2440, 1720), "정류장길", MAP_ALLEY_INK),
+            ((2440, bus_road_y), "정류장길", MAP_ALLEY_INK),
         ):
+            if not (west <= point[0] <= east and south <= point[1] <= north):
+                continue
             px, py = map_point(*point)
             self.font.draw(px, py, label, color)
             occupied.append((px, py - 9, px + len(label) * 17, py + 9))
@@ -851,8 +888,10 @@ class Renderer:
         captions = []
 
         def caption(position, label, ink=MAP_PAPER_INK, *, offset=(13, -11)):
-            label_width = 17 * len(label) + 16
-            captions.append((position, label, ink, label_width, offset))
+            px, py = position
+            if left <= px <= right and bottom <= py <= top:
+                label_width = 17 * len(label) + 16
+                captions.append((position, label, ink, label_width, offset))
 
         if player is not None:
             hx, hy = route[0]
@@ -946,7 +985,8 @@ class Renderer:
                 p.draw_line(entry_x, entry_y - 6, entry_x, arrow_y, *MAP_DETOUR)
                 for dx in (-4, 4):
                     p.draw_line(entry_x, arrow_y, entry_x + dx, arrow_y - 5, *MAP_DETOUR)
-                caption((entry_x, entry_y), "동쪽 우회", MAP_DETOUR, offset=(74, 1))
+                offset = (24, 1) if world_bounds is not None else (74, 1)
+                caption((entry_x, entry_y), "동쪽 우회", MAP_DETOUR, offset=offset)
                 occupied.append((entry_x - 4, entry_y - 6, entry_x + 4, arrow_y))
         for wall in map_walls:
             if getattr(wall, "texture", None) == "shop" and SHOP_STOP not in contract.stops:
@@ -973,12 +1013,13 @@ class Renderer:
         p.draw_line(compass_x, compass_y - 9, compass_x, compass_y + 9, *MAP_PAPER_INK)
         p.draw_line(compass_x - 5, compass_y + 2, compass_x, compass_y + 9, *MAP_PAPER_INK)
         p.draw_line(compass_x + 5, compass_y + 2, compass_x, compass_y + 9, *MAP_PAPER_INK)
-        scale_x, scale_y = left + 60, compass_y - 6
-        half_scale = 200 * scale
-        rectangle(scale_x, scale_y, half_scale, 4, MAP_PAPER_INK)
-        rectangle(scale_x + half_scale, scale_y, half_scale, 4, MAP_LABEL)
-        rectangle(scale_x, scale_y, 2 * half_scale, 4, MAP_PAPER_INK, filled=False)
-        self.font.draw(scale_x, scale_y + 15, "400 px", MAP_PAPER_INK)
+        if world_bounds is None:
+            scale_x, scale_y = left + 60, compass_y - 6
+            half_scale = 200 * scale
+            rectangle(scale_x, scale_y, half_scale, 4, MAP_PAPER_INK)
+            rectangle(scale_x + half_scale, scale_y, half_scale, 4, MAP_LABEL)
+            rectangle(scale_x, scale_y, 2 * half_scale, 4, MAP_PAPER_INK, filled=False)
+            self.font.draw(scale_x, scale_y + 15, "400 px", MAP_PAPER_INK)
         rectangle(left, bottom, right - left, top - bottom, MAP_BORDER, filled=False)
         if player is not None:
             self.draw_map_heading(*route[0], player.aim_angle)
@@ -1035,10 +1076,34 @@ class Renderer:
         world = self.delivery
         p.SDL_SetRenderDrawColor(p.renderer, *MAP_VIEW_BG, 255)
         p.SDL_RenderClear(p.renderer)
-        self.draw_town_map(world.contract, *PLAY_MAP_VIEWPORT, player)
+        world_bounds = self._play_map_bounds()
+        if world_bounds is None:
+            self.draw_town_map(world.contract, *PLAY_MAP_VIEWPORT, player)
+        else:
+            west, south, east, north = world_bounds
+            left, bottom, scale = self._map_layout(*PLAY_MAP_VIEWPORT, world_bounds=world_bounds)
+            x, right = round(left + west * scale), round(left + east * scale)
+            y = WINDOW_HEIGHT - 1 - round(bottom + north * scale)
+            end = WINDOW_HEIGHT - 1 - round(bottom + south * scale)
+            clip = p.SDL_Rect(x, y, right - x + 1, end - y + 1)
+            p.SDL_RenderSetClipRect(p.renderer, ctypes.byref(clip))
+            try:
+                self.draw_town_map(world.contract, *PLAY_MAP_VIEWPORT, player, world_bounds=world_bounds)
+            finally:
+                p.SDL_RenderSetClipRect(p.renderer, None)
         rectangle(64, 650, 1152, 48, MAP_VIEW_PAPER)
         rectangle(64, 650, 1152, 48, MAP_VIEW_EDGE, filled=False)
-        self.font.draw(82, 674, "배달 구역 지도", MAP_PAPER_INK)
+        if self._map_detail_available():
+            self.font.draw(82, 674, "배달 구역 지도" if world_bounds else "마을 전체 지도", MAP_PAPER_INK)
+            x, y, width, height = MAP_VIEW_BUTTON
+            rectangle(x, y, width, height, MAP_LABEL)
+            rectangle(x, y, width, height, MAP_LABEL_EDGE, filled=False)
+            button = "Tab  마을 전체" if world_bounds else "Tab  배달 구역"
+            self.font.draw(x + 14, y + height / 2, button, MAP_PAPER_INK)
+        else:
+            self.font.draw(82, 674, "마을 전체 지도", MAP_PAPER_INK)
+            if world.contract.truck_position is not None:
+                self.font.draw(700, 674, "현재 위치가 배달 구역 밖", MAP_PAPER_INK)
         self.font.draw(1012, 674, "지도 확인 중 일시정지", MAP_PAPER_INK)
 
         side = 880
@@ -1207,6 +1272,7 @@ class Renderer:
                 self.draw_wall_plane(None, quad(x, y, wall.width, height + depth), 0, 1, (0, 0, 0), opacity=opacity)
         side_image = self.neighborhood_walls[f"{texture}-side"] if oblique else None
 
+        roof_mask = [(px, py + height) for px, py in beam_mask] if beam_mask else None
         front_band = min(1, ROOF_LIGHT_BAND / depth)
         side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
         edges = (
@@ -1221,7 +1287,7 @@ class Renderer:
         if glow_outline:
             dim_shades = tuple(map(dim_color, strong_shades))
             passes.extend((edge, glow_outline, None, dim_shades) for edge in edges)
-        passes.extend((edge, outline, beam_mask if index == 0 else None, strong_shades)
+        passes.extend((edge, outline, roof_mask if index == 0 else None, strong_shades)
                       for edge in edges for index, outline in enumerate(outlines))
         for (axis, boundary, offset, length, edge), outline, mask, shades in passes:
             facade_shade, roof_shade, side_shade = shades
@@ -1231,8 +1297,7 @@ class Renderer:
                 if start >= end:
                     continue
                 if edge == "front":
-                    self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), mask=mask,
-                                         opacity=opacity)
+                    self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), opacity=opacity)
                     roof_bounds = (start, 0, end, front_band)
                     roof_alpha = (255, 255, 0, 0)
                 elif edge == "back":
@@ -1245,18 +1310,16 @@ class Renderer:
                     roof_bounds = (1 - side_band, start, 1, end)
                     roof_alpha = (0, 255, 255, 0)
                     if oblique:
-                        self.draw_wall_plane(side_image, side, 0, 1, side_shade, (start, 0, end, 1), mask=mask,
-                                             opacity=opacity)
+                        self.draw_wall_plane(side_image, side, 0, 1, side_shade, (start, 0, end, 1), opacity=opacity)
                 if low_obstacle and edge in ("left", "right"):
                     # Show the end of a low obstacle when approached along the lane.
                     band = side_band * min(1, (end - start) * 2)
                     bounds = (0, 0, band, 1) if edge == "left" else (1 - band, 0, 1, 1)
-                    self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, mask=mask, opacity=opacity)
+                    self.draw_wall_plane(image, front, seam, 1, facade_shade, bounds, opacity=opacity)
                 if long_shutter and edge in ("left", "right"):
                     # The shutter opening follows the alley depth in the current projection.
                     face = quad(x, y, wall.width, height + depth)
-                    self.draw_wall_plane(image, face, 0, 1, facade_shade, (0, start, 1, end),
-                                         mask=mask, opacity=opacity)
+                    self.draw_wall_plane(image, face, 0, 1, facade_shade, (0, start, 1, end), opacity=opacity)
                 self.draw_wall_plane(image, roof, 0, seam, roof_shade, roof_bounds, alpha=roof_alpha, mask=mask,
                                      opacity=opacity)
 
@@ -1692,8 +1755,7 @@ class Renderer:
         self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in light_sources)
         self.light_rows = combined_light_rows([rows for _, rows in self.light_sources])
         beam_outline = () if truck_lights_only or courier_in_truck else beam.outline()
-        # The ground cone ends at a wall's foot. Use the beam's shape before that collision
-        # to clip the visible face, while the hit outline still selects which face gets light.
+        # Wall hits select the facade spans. The roof uses the open beam projected at roof height.
         open_beam = Flashlight(origin, beam.angle, (), world_size)
         beam_mask = []
         for point in (origin, *(point for point, _ in open_beam.outline())):
@@ -1705,7 +1767,7 @@ class Renderer:
                           tuple(round(value * truck_step.opacity) for value in NEARBY_GLOW_COLOR))
             self.draw_ground_light(glow, glow_outline, glow_color, (0, 0, 0), feathered=True)
         if not truck_lights_only and not courier_in_truck:
-            self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53), feathered=True)
+            self.draw_ground_light(beam, beam_outline, BEAM_GROUND_EDGE, BEAM_GROUND_FALLOFF, feathered=True)
         self.draw_streetlight_pools(lamps, lamp_outlines)
         bridge = delivery.bridge_puzzle if delivery is not None else None
         defeated = delivery is not None and delivery.result == "defeated"
@@ -2204,6 +2266,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     elif (key == p.SDLK_SPACE and delivery_run and world.result == "playing"
                           and renderer.map_open != map_toggle):
                         waypoint_actions.append(("skip", None))
+                    elif (key == p.SDLK_TAB and delivery_run and world.result == "playing"
+                          and renderer.map_open != map_toggle):
+                        waypoint_actions.append(("view", None))
                     elif (delivery_run and world.result != "playing"
                           and key in (p.SDLK_RETURN, p.SDLK_KP_ENTER)):
                         retry_requested = True
@@ -2226,7 +2291,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     if (delivery_run and world.result == "playing"
                             and renderer.map_open != map_toggle):
                         if button == p.SDL_BUTTON_LEFT:
-                            waypoint_actions.append(("add", cursor))
+                            if renderer.map_view_button_at(*cursor):
+                                waypoint_actions.append(("view", None))
+                            else:
+                                waypoint_actions.append(("add", cursor))
                         elif button == p.SDL_BUTTON_RIGHT:
                             waypoint_actions.append(("remove", None))
                     elif button == p.SDL_BUTTON_LEFT:
@@ -2316,6 +2384,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 cursor = current_cursor()
                 renderer.light = None
                 renderer.map_open = False
+                renderer.map_full_view = False
                 renderer.bridge_note_open = False
                 renderer.pause_page = None
                 renderer.update_shake(math.inf)
@@ -2336,6 +2405,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         world.skip_waypoint()
                     elif action == "remove":
                         world.remove_last_waypoint()
+                    elif action == "view":
+                        renderer.toggle_map_view()
                     elif (point := renderer.map_world_at(*map_cursor)) is not None:
                         world.add_waypoint(point)
             if renderer.choosing_delivery:

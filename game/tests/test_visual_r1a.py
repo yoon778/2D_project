@@ -151,7 +151,7 @@ class CameraTests(unittest.TestCase):
 class MapProjectionTests(unittest.TestCase):
     def test_sdl_mouse_maps_inside_actual_map_area_only(self):
         renderer = Renderer.__new__(Renderer)
-        renderer.delivery = SimpleNamespace(world_size=(3600, 2400))
+        renderer.delivery = main.DeliveryWorld()
         for screen, world in (((64, 615), (0, 0)), ((856, 87), (3600, 2400)), ((460, 351), (1800, 1200))):
             with self.subTest(screen=screen):
                 actual = renderer.map_world_at(*screen)
@@ -159,6 +159,31 @@ class MapProjectionTests(unittest.TestCase):
                 self.assertAlmostEqual(actual[1], world[1])
         for screen in ((63, 400), (857, 400), (400, 86), (400, 616), (1000, 350)):
             self.assertIsNone(renderer.map_world_at(*screen))
+
+    def test_truck_map_views_share_click_projection_and_return_to_overview_outside_the_area(self):
+        renderer = Renderer.__new__(Renderer)
+        renderer.delivery = world = main.DeliveryWorld()
+        renderer.map_full_view = False
+        self.assertTrue(world.select_contract(3))
+        self.assertTrue(world.skip_route_sequence())
+        self.assertEqual(renderer._play_map_bounds(), main.TRUCK_MAP_AREA)
+        west, south, east, north = main.TRUCK_MAP_AREA
+        waypoints = ((west, south), (west, north), (east, south), (east, north), world.contract.pickup,
+                     *(stop.position for stop in world.contract.stops))
+        for bounds in (main.TRUCK_MAP_AREA, None):
+            left, bottom, scale = renderer._map_layout(*main.PLAY_MAP_VIEWPORT, world_bounds=bounds)
+            for x, y in waypoints:
+                with self.subTest(bounds=bounds, point=(x, y)):
+                    mouse = left + x * scale, main.WINDOW_HEIGHT - 1 - (bottom + y * scale)
+                    actual = renderer.map_world_at(*mouse)
+                    self.assertAlmostEqual(actual[0], x)
+                    self.assertAlmostEqual(actual[1], y)
+            renderer.toggle_map_view()
+        self.assertIsNone(renderer.map_world_at(65, 350))
+        world.player.x = west - 1
+        self.assertIsNone(renderer._play_map_bounds())
+        self.assertFalse(renderer.map_full_view)
+        self.assertIsNotNone(renderer.map_world_at(65, 350))
 
     def test_player_heading_draws_last_at_the_position_shared_with_a_map_pin(self):
         renderer = Renderer.__new__(Renderer)

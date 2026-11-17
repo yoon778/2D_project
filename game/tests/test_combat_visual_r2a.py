@@ -204,6 +204,64 @@ class CombatSpriteTests(unittest.TestCase):
                                            building_opacity=renderer.building_opacity), fallback)
         self.assertEqual(world.walls, [wall])
 
+    def test_light_caches_refresh_for_wall_changes_at_the_same_pose(self):
+        renderer = main.Renderer.__new__(main.Renderer)
+        renderer.camera = (0.0, 0.0)
+        renderer.shake_offset = (0, 0)
+        renderer.light = renderer._light_pose = None
+        walls = []
+        player, target = Player(200, 200), (280, 200)
+        world = SimpleNamespace(world_size=(1000, 1000), walls=walls, streetlights=((200, 200),))
+        renderer.delivery = renderer.combat = world
+        renderer.reset_streetlights()
+
+        def visibility(sources):
+            return tuple(any(left <= target[0] < right for left, right in source.spans_at(target[1]))
+                         for source in (*sources.lights, renderer.nearby_light))
+
+        clear = renderer.prepare_light(player, walls, target)
+        self.assertEqual(visibility(clear), (True, True, True))
+        self.assertIs(renderer.prepare_light(player, walls, target), clear)
+        barrier = Wall(235, 188, 8, 24)
+        walls.append(barrier)
+        blocked = renderer.prepare_light(player, walls, target)
+        self.assertIsNot(blocked, clear)
+        self.assertEqual(visibility(blocked), (False, False, False))
+
+        barrier.y = 245
+        moved = renderer.prepare_light(player, walls, target)
+        self.assertIsNot(moved, blocked)
+        self.assertEqual(visibility(moved), (True, True, True))
+        barrier.y = 188
+        self.assertEqual(visibility(renderer.prepare_light(player, walls, target)), (False, False, False))
+        walls.remove(barrier)
+        self.assertEqual(visibility(renderer.prepare_light(player, walls, target)), (True, True, True))
+
+    def test_wall_planes_keep_hit_width_and_apply_the_lifted_beam_mask_only_to_the_roof(self):
+        renderer = main.Renderer.__new__(main.Renderer)
+        renderer.project = lambda x, y: (x, y)
+        renderer.ground_scale = lambda: main.GROUND_SCALE_Y
+        renderer.neighborhood_walls = {
+            "east-house": SimpleNamespace(h=96),
+            "east-house-side": SimpleNamespace(h=96),
+        }
+        renderer.draw_wall_plane = Mock()
+        wall = NeighborhoodWall(330, 350, 100, 60, "east-house", oblique=True)
+        front, side, roof = main.house_planes(wall, wall.x, wall.y)
+        outline = tuple((point, wall) for point in ((345, 350), (385, 350), (430, 362), (430, 392)))
+        mask = ((300, 300), (435, 315), (450, 395))
+        renderer.wall(wall, (outline,), mask)
+
+        lit = [draw for draw in renderer.draw_wall_plane.call_args_list if draw.args[4] != (0, 0, 0)]
+        for plane, expected in ((front, (.15, 0, .55, 1)), (side, (.2, 0, .7, 1))):
+            face, = [draw for draw in lit if draw.args[1] == plane]
+            self.assertEqual(face.args[5], expected)
+            self.assertIsNone(face.kwargs.get("mask"))
+        roof_draws = [draw for draw in lit if draw.args[1] == roof]
+        self.assertEqual(len(roof_draws), 2)
+        for draw in roof_draws:
+            self.assertEqual(tuple(draw.kwargs["mask"]), tuple((x, y + wall.height) for x, y in mask))
+
     def test_building_fade_reverses_from_current_opacity_and_resets(self):
         renderer = main.Renderer.__new__(main.Renderer)
         renderer.camera = (150, 100)
