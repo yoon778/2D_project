@@ -2,7 +2,7 @@
 import math
 import unittest
 
-from game.combat import CombatWorld, ATTACK_DURATION, ATTACK_HIT_TIME, STUN_DURATION, Zombie
+from game.combat import CombatWorld, ATTACK_DURATION, ATTACK_HIT_TIME, SECONDARY_STUN_DURATION, STUN_DURATION, Zombie
 from game.core import Wall
 from game.delivery import DeliveryWorld
 from game.locomotion import select_facing
@@ -367,6 +367,22 @@ class CombatTests(unittest.TestCase):
         self.assertAlmostEqual(world.zombie.stun_remaining, STUN_DURATION - 0.10)
         world.update(0.20)
         self.assertEqual((world.zombie.x, world.zombie.y), (544.0, 180.0))
+
+    def test_secondary_recoil_keeps_the_same_first_tenth_and_stops_at_a_wall(self):
+        world = self.make_world()
+        secondary = Zombie(540, 175, stun_remaining=.24)
+        world.zombies = [secondary, Zombie(530, 180, stun_remaining=.24)]
+        world.walls = [Wall(558.0, 160.0, 20.0, 40.0)]
+        self.assertTrue(world.start_attack("right", stationary_swing=True))
+        world.update(.24)
+        self.assertEqual((secondary.hp, secondary.stun_remaining), (4, SECONDARY_STUN_DURATION))
+        world.update(.10)
+        self.assertAlmostEqual(secondary.x, 544)
+        self.assertAlmostEqual(secondary.stun_remaining, .18)
+        self.assertIsNone(secondary.recoil_angle)
+        position = (secondary.x, secondary.y)
+        world.update(.17)
+        self.assertEqual((secondary.x, secondary.y), position)
 
     def test_existing_stun_only_blocks_its_remaining_movement_time(self):
         world = self.make_world(100.0)

@@ -19,6 +19,7 @@ ATTACK_HALF_ANGLE = math.radians(30)
 _STATIONARY_SWING_DURATION = 0.66
 _STATIONARY_SWING_HIT_TIME = 0.24
 STUN_DURATION = 0.70
+SECONDARY_STUN_DURATION = 0.28
 BACKSTEP_SPEED = 65.0
 SNEAK_SPEED = 55.0
 SPRINT_SPEED = 135.0
@@ -66,6 +67,7 @@ class ZombieAttack:
 class Zombie(Player):
     hp: int = 5
     stun_remaining: float = 0.0
+    stun_duration: float = field(default=STUN_DURATION, init=False)
     attack: ZombieAttack | None = None
     recoil_angle: float | None = None
     recoil_offset: tuple[float, float] = field(default=(0.0, 0.0), init=False)
@@ -178,6 +180,18 @@ class CombatWorld:
                 continue
             if self._player_line_clear(zombie):
                 yield zombie
+
+    def _primary_strike_target(self, hits, angle):
+        primary = None
+        closest_angle = closest_distance = math.inf
+        for zombie in hits:
+            dx, dy = zombie.x - self.player.x, zombie.y - self.player.y
+            distance = math.hypot(dx, dy)
+            offset = 0.0 if distance <= _EPSILON else abs(math.remainder(math.atan2(dy, dx) - angle, math.tau))
+            if (offset < closest_angle - _EPSILON
+                    or (abs(offset - closest_angle) <= _EPSILON and distance < closest_distance)):
+                primary, closest_angle, closest_distance = zombie, offset, distance
+        return primary
 
     def _player_line_clear(self, zombie):
         player = (self.player.x, self.player.y)
@@ -341,9 +355,11 @@ class CombatWorld:
             self._on_attack_impact(attack.angle)
             hits = attack.hit_targets = tuple(self._strike_targets(attack.angle))
             attack.landed = bool(hits)
+            primary = self._primary_strike_target(hits, attack.angle)
             for hit in hits:
                 hit.hp -= 1
-                hit.stun_remaining = STUN_DURATION
+                hit.stun_duration = STUN_DURATION if hit is primary else SECONDARY_STUN_DURATION
+                hit.stun_remaining = hit.stun_duration
                 hit.attack = None
                 if hit.alive:
                     dx = hit.x - self.player.x
@@ -480,7 +496,7 @@ class CombatWorld:
         if previous_stun > 0:
             zombie.attack = None
         if zombie.recoil_angle is not None:
-            recoil_left = previous_stun - (STUN_DURATION - _HIT_RECOIL_DURATION)
+            recoil_left = previous_stun - (zombie.stun_duration - _HIT_RECOIL_DURATION)
             recoil_dt = min(dt, max(0.0, recoil_left))
             angle = zombie.recoil_angle
             x, y = zombie.x, zombie.y

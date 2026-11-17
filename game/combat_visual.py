@@ -9,7 +9,7 @@ from pathlib import Path
 import pico2d.pico2d as p
 
 from player_visual import PARCEL_OCCLUDED_FACINGS, load_atlas, load_empty_atlas, sprite_rect
-from combat import ATTACK_HIT_TIME, HEAVY_ZOMBIE_APPEARANCE, STUN_DURATION, ZOMBIE_APPEARANCES
+from combat import ATTACK_HIT_TIME, HEAVY_ZOMBIE_APPEARANCE, ZOMBIE_APPEARANCES
 from locomotion import Locomotion, STRIDE_DISTANCE, select_facing
 
 
@@ -220,11 +220,14 @@ class CombatVisual:
         state = self._motion_for(zombie)
         poses = source["facings"][state.locomotion.facing]
         if zombie.stun_remaining > 0:
-            # The combat clock alone determines the hit pose; no visual timer.
-            for frame in poses["hit"]:
-                if zombie.stun_remaining > STUN_DURATION - frame["end"]:
+            # Short hits fit the authored recoil and return into the combat clock.
+            frames = poses["hit"]
+            duration = zombie.stun_duration
+            scale = min(1.0, duration / frames[-1]["end"])
+            for frame in frames:
+                if zombie.stun_remaining > duration - frame["end"] * scale:
                     return base_name, frame
-            return base_name, poses["hit"][-1]
+            return base_name, frames[-1]
         attack = zombie.attack
         if attack is not None:
             attack_name = f"{prefix}zombie_attack"

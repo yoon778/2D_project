@@ -134,6 +134,20 @@ class ZombiePoseTests(unittest.TestCase):
         self.assertEqual(world.result, "cleared")
         self.assertFalse(self.visual.zombie_contains(world.zombie, 100, 200, 100, 200))
 
+    def test_short_stun_shows_all_hit_poses_before_returning_to_walk(self):
+        zombie = CombatWorld().zombie
+        zombie.aim_angle = math.pi
+        zombie.stun_duration = .28
+        self.visual.update_zombie(zombie, 0, 0)
+        poses = self.visual.metadata["zombie"]["facings"]["left"]
+        for elapsed, index in ((0, 0), (.034, 0), (.05, 1), (.10, 2), (.19, 3), (.279, 3)):
+            with self.subTest(elapsed=elapsed):
+                zombie.stun_remaining = zombie.stun_duration - elapsed
+                self.assertIs(self.visual._zombie_frame(zombie), poses["hit"][index])
+        zombie.stun_remaining = 0
+        self.visual.update_zombie(zombie, -.5, 0)
+        self.assertIs(self.visual._zombie_frame(zombie), poses["walk"][0])
+
     def test_every_current_pose_uses_its_own_mask_and_the_same_ground_anchor(self):
         zombie = CombatWorld().zombie
         for col, (facing, angle) in enumerate(FACINGS):
