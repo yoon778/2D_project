@@ -60,6 +60,17 @@ _REAR_ALLEY_PATROL = ((3180, 2227), (3060, 2227))
 _REAR_ALLEY_ZOMBIES = ((2865, 2227), _REAR_ALLEY_PATROL[0])
 _TOWN_APPROACH_ZOMBIES = (ZOMBIE_START, (485, 475), (120, 565), (1020, 190), (1180, 335), (955, 960))
 _SHOP_ZOMBIE_STARTS = ((1865, 975), (1930, 950), (1978, 942), (2030, 973), (2005, 1015))
+_ROUND_TRIP_SHOP_STARTS = (*_SHOP_ZOMBIE_STARTS[:2], (2038, 938), *_SHOP_ZOMBIE_STARTS[3:])
+_ROUND_TRIP_SHOP_HEADINGS = {
+    (1865, 975): -3 * math.pi / 4,
+    (1930, 950): math.pi,
+    (2038, 938): math.radians(75),
+}
+# The longer northern approach staggers the arrivals after a swing.
+_SHOP_SIDE_PATROLS = {
+    (2130, 1200): ((2130, 1200), (2160, 1200)),
+    (1995, 1250): ((1995, 1250), (2035, 1250)),
+}
 _FRONT_HOME_ZOMBIE_START = (2898, 1984)
 _BUS_EAST_ZOMBIE_START = (2390, 1850)
 _BUS_ZOMBIE_STARTS = ((2338, 1865), _BUS_EAST_ZOMBIE_START)
@@ -152,7 +163,7 @@ DELIVERY_CONTRACTS = (
     DeliveryContract(
         "상점 왕복", "상점 앞과 관리실 뒤편, 정류장에 배달하고 트럭 복귀", "보통",
         SHOP_STOP.position,
-        (*_SHOP_ZOMBIE_STARTS, (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START, *_BUS_ZOMBIE_STARTS),
+        (*_ROUND_TRIP_SHOP_STARTS, (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START, *_BUS_ZOMBIE_STARTS),
         (SHOP_STOP, MANAGEMENT_STOP, BUS_STOP),
         player_start=(2315.0, 907.0), pickup=_SHOP_TRUCK_DOOR, return_point=_SHOP_TRUCK_DOOR,
         truck_position=_SHOP_TRUCK_POSITION,
@@ -412,13 +423,22 @@ class DeliveryWorld(CombatWorld):
         self.streetlights = (*streetlights, (2290, 1350)) if has_parking else streetlights
         parking_starts = _PARKING_ZOMBIE_STARTS if has_bridge else (
             tuple(_PARKING_ZOMBIE_STARTS[index] for index in (0, 2, 5)) if has_parking else ())
-        for index, position in enumerate((*self.contract.zombie_starts, *parking_starts)):
-            patrol = _REAR_ALLEY_PATROL if has_rear_door and position == _REAR_ALLEY_PATROL[0] else None
-            aim_angle = math.pi if patrol else Player.aim_angle
+        shop_round_trip = self.contract is DELIVERY_CONTRACTS[3]
+        shop_patrols = _SHOP_SIDE_PATROLS if shop_round_trip else {}
+        for index, position in enumerate((*self.contract.zombie_starts, *parking_starts, *shop_patrols)):
+            patrol = shop_patrols.get(position)
+            if has_rear_door and position == _REAR_ALLEY_PATROL[0]:
+                patrol = _REAR_ALLEY_PATROL
+            aim_angle = Player.aim_angle
+            if patrol is not None:
+                end_x, end_y = patrol[1]
+                aim_angle = math.atan2(end_y - position[1], end_x - position[0])
             if position == _BUS_EAST_ZOMBIE_START:
                 aim_angle = math.pi / 2
             elif position == _BRIDGE_SOUTHEAST_ZOMBIE_START:
                 aim_angle = -math.pi / 2
+            elif shop_round_trip:
+                aim_angle = _ROUND_TRIP_SHOP_HEADINGS.get(position, aim_angle)
             self.zombies.append(Zombie(
                 *position, aim_angle=aim_angle,
                 state="patrol" if patrol else "idle", patrol_points=patrol,

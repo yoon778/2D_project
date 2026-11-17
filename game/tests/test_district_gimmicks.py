@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from game.combat import Zombie
+from game.combat import SNEAK_SPEED, Zombie
 from game.core import WALK_SPEED, Wall, wall_blocks
 from game.delivery import BUS_BROADCAST_COOLDOWN, BUS_STOP, FRONT_HOME_STOP, DeliveryWorld
 from game.zombie_navigation import can_walk_direct, find_route
@@ -20,15 +20,15 @@ class DistrictGimmickTests(unittest.TestCase):
     def assert_route(self, *points):
         self.assertTrue(all(can_walk_direct(a, b, self.world.walls) for a, b in zip(points, points[1:])))
 
-    def walk(self, target):
+    def walk(self, target, *, sneak=False):
         player = self.world.player
         dx, dy = target[0] - player.x, target[1] - player.y
         distance = math.hypot(dx, dy)
         player.aim_angle = math.atan2(dy, dx)
-        remaining = distance / WALK_SPEED
+        remaining = distance / (SNEAK_SPEED if sneak else WALK_SPEED)
         while remaining > 0:
             dt = min(remaining, 1 / 60)
-            self.world.update(dt, dx / distance, dy / distance)
+            self.world.update(dt, dx / distance, dy / distance, sneak=sneak)
             remaining -= dt
         self.assertAlmostEqual(player.x, target[0])
         self.assertAlmostEqual(player.y, target[1])
@@ -176,3 +176,65 @@ class DistrictGimmickTests(unittest.TestCase):
         self.assertGreater(math.dist((guard.x, guard.y), FRONT_HOME_STOP.position), 45)
         self.walk((3180, 1969))
         self.assertEqual(world.player_hp, 3)
+
+    def test_shop_side_patrols_investigate_a_swing_from_behind_the_wall_at_different_times(self):
+        world = self.world
+        strike_position = (1987, 901)
+        for patrol_elapsed in (0.0, .7):
+            with self.subTest(patrol_elapsed=patrol_elapsed):
+                self.assertTrue(world.select_contract(3))
+                self.assertTrue(world.skip_route_sequence())
+                self.assertTrue(self.hold(.50))
+                patrols = [zombie for zombie in world.zombies if zombie.patrol_points]
+                self.assertEqual(len(patrols), 2)
+                for zombie in patrols:
+                    self.assertEqual(zombie.state, "patrol")
+                    self.assert_route(*zombie.patrol_points)
+                world.update(patrol_elapsed)
+                self.move(strike_position)
+                world.player_invulnerable_remaining = 5.0
+                self.assertTrue(all(not world._player_line_clear(zombie) for zombie in patrols))
+                self.assertTrue(world.start_attack("back", stationary_swing=True))
+                self.assertTrue(all(zombie.heard_at == strike_position for zombie in patrols))
+                world.update(.05)
+                self.assertTrue(all(zombie.state == "investigate" and zombie.target == strike_position
+                                    for zombie in patrols))
+                arrivals = {}
+                for tick in range(2, 101):
+                    world.update(.05)
+                    for index, zombie in enumerate(patrols):
+                        if math.dist((zombie.x, zombie.y), strike_position) <= 100:
+                            arrivals.setdefault(index, tick * .05)
+                    if len(arrivals) == 2:
+                        break
+                self.assertGreaterEqual(arrivals[0], 2.5)
+                self.assertLess(arrivals[0], 3.1)
+                self.assertGreater(arrivals[1] - arrivals[0], .75)
+                self.assertLess(arrivals[1], 4.5)
+        patrol_routes = {zombie.patrol_points for zombie in patrols}
+        for index in (0, 1, 2):
+            self.assertTrue(world.select_contract(index))
+            self.assertFalse(any(zombie.patrol_points in patrol_routes for zombie in world.zombies))
+
+    def test_bottle_and_ctrl_keep_the_shop_patrols_from_entering_the_delivery_route(self):
+        world = self.world
+        self.assertTrue(world.select_contract(3))
+        self.assertTrue(world.skip_route_sequence())
+        self.assertTrue(self.hold(.50))
+        patrols = [zombie for zombie in world.zombies if zombie.patrol_points]
+        self.assertEqual(len(patrols), 2)
+        self.walk((2280, 907), sneak=True)
+        self.assertTrue(world.pick_up_bottle())
+        for point in ((2220, 907), (2220, 875), (2053, 875)):
+            self.walk(point, sneak=True)
+        self.assertTrue(world.throw_bottle((1758, 872)))
+        world.update(28 / 30)
+        for point in ((1987, 875), (1987, 1012)):
+            self.walk(point, sneak=True)
+        self.assertTrue(self.hold_in_world(60))
+        self.assertIn(world.contract.stops[0], world.completed_stops)
+        for point in ((2110, 1012), (2110, 987), (2608, 987)):
+            self.walk(point, sneak=True)
+        self.assertEqual(world.attack_count, 0)
+        self.assertEqual(world.player_hp, 3)
+        self.assertTrue(all(zombie.state == "patrol" for zombie in patrols))

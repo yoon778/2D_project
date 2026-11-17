@@ -66,8 +66,9 @@ class HeavyZombieTests(unittest.TestCase):
         self.assertTrue(world.select_contract(3))
         self.assertTrue(world.skip_route_sequence())
         self.assertTrue(hold_interaction(world, 0.5))
-        # Isolate the new parking group from the shop encounter for deterministic inputs.
-        del world.zombies[:len(world.contract.zombie_starts)]
+        # Isolate the parking group from the other shop enemies.
+        world.zombies = [zombie for zombie in world.zombies[len(world.contract.zombie_starts):]
+                         if not zombie.patrol_points]
         heavy = world.zombies[-1]
         wall = world.shutter_wall
         inside = wall.x + wall.width + PLAYER_RADIUS

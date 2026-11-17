@@ -75,9 +75,9 @@ class ParkingShutterTests(unittest.TestCase):
     def test_bottle_lures_group_into_parking_lot_and_closed_shutter_contains_it(self):
         world = self.world
         self.collect_parcels()
-        # Keep the shop guards out of this focused test of the parking group.
+        # Isolate the parking group from the other shop enemies.
         world.zombies = [zombie for zombie in world.zombies[len(world.contract.zombie_starts):]
-                         if zombie.appearance != HEAVY_ZOMBIE_APPEARANCE]
+                         if zombie.appearance != HEAVY_ZOMBIE_APPEARANCE and not zombie.patrol_points]
         self.assertEqual(len(world.zombies), 8)
         outside = (2105, 1258)
         world.player.x, world.player.y = outside
