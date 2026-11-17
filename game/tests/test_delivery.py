@@ -7,7 +7,8 @@ from game.core import PLAYER_RADIUS, WALK_SPEED, Player, Wall, move_player, wall
 from game.delivery import (
     BOTTLE_FLIGHT_TIME, BOTTLE_THROW_RANGE, BUS_STOP, DELIVERY_CONTRACTS, DeliveryWorld, FRONT_HOME_STOP,
     PLAYER_START, REAR_HOME_STOP, SHOP_STOP, TOWN_ROADS, TRUCK_ARRIVAL_SECONDS,
-    TRUCK_DEPARTURE_SECONDS, ZOMBIE_START,
+    TRUCK_BOARDING_SECONDS, TRUCK_DEPARTURE_SECONDS, TRUCK_DISEMBARK_SECONDS,
+    TRUCK_PARKING_SECONDS, ZOMBIE_START,
 )
 from game.flashlight import Flashlight
 from game.zombie_navigation import can_walk_direct
@@ -253,6 +254,8 @@ class DeliveryTests(unittest.TestCase):
         world = self.world
         self.assertFalse(world.select_contract(2))
         contract = DELIVERY_CONTRACTS[3]
+        arrivals = []
+        results = []
         for skip, order in ((False, contract.stops), (True, tuple(reversed(contract.stops)))):
             with self.subTest(order=order):
                 self.assertTrue(world.select_contract(3))
@@ -261,6 +264,7 @@ class DeliveryTests(unittest.TestCase):
                 self.assertEqual(world.pickup, contract.return_point)
                 self.assertEqual((world.player.x, world.player.y), contract.player_start)
                 self.assertEqual(world.mission_phase, "arriving")
+                self.assertEqual(world.route_sequence_duration, TRUCK_ARRIVAL_SECONDS)
                 self.assertNotIn(world.truck_wall, world.walls)
                 self.assertFalse(self.hold_e(0.50, pressed=True))
                 self.assertFalse(world.start_attack())
@@ -275,11 +279,26 @@ class DeliveryTests(unittest.TestCase):
                     self.assertFalse(world.advance_route_sequence(TRUCK_ARRIVAL_SECONDS - .01))
                     self.assertLess(world.truck_footprint[0], first_x)
                     self.assertTrue(world.advance_route_sequence(.01))
+                    self.assertEqual((world.mission_phase, world.phase_elapsed), ("parking", 0.0))
+                    self.assertIn(world.truck_wall, world.walls)
+                    self.assertFalse(self.hold_e(.50, pressed=True))
+                    self.assertTrue(world.advance_route_sequence(TRUCK_PARKING_SECONDS))
+                    self.assertEqual((world.mission_phase, world.phase_elapsed), ("disembarking", 0.0))
+                    self.assertIn(world.truck_wall, world.walls)
+                    self.assertFalse(self.hold_e(.50, pressed=True))
+                    self.assertTrue(world.advance_route_sequence(TRUCK_DISEMBARK_SECONDS))
                 self.assertEqual((world.mission_phase, world.phase_elapsed), ("unloading", 0.0))
                 self.assertIn(world.truck_wall, world.walls)
+                self.assertEqual(world.route_sequence_duration, 0.0)
+                arrivals.append(((world.player.x, world.player.y), world.parcel, world.truck_footprint,
+                                 world.remaining_stops, world.two_stop_unlocked))
                 self.assertTrue(can_walk_direct(contract.player_start, world.pickup, world.walls))
                 self.assertFalse(world.skip_route_sequence())
                 self.assertFalse(self.hold_e(0.50))
+                self.assertFalse(self.hold_e(.49, pressed=True))
+                self.assertAlmostEqual(world.interaction_progress, .98)
+                self.assertFalse(self.hold_e(.01, moving=True))
+                self.assertEqual((world.parcel, world.interaction_progress), ("waiting", 0.0))
                 self.assertTrue(self.hold_e(0.50, pressed=True))
 
                 world.player.x, world.player.y = order[0].position
@@ -305,26 +324,65 @@ class DeliveryTests(unittest.TestCase):
                 world.update(0.02)
                 self.assertEqual(world.result, "playing")
                 self.assertFalse(self.hold_e(.69, pressed=True))
+                self.assertFalse(world.skip_route_sequence())
                 self.assertTrue(self.hold_e(.01))
-                self.assertEqual((world.mission_phase, world.result), ("departing", "playing"))
-                self.assertNotIn(world.truck_wall, world.walls)
+                self.assertEqual((world.mission_phase, world.result), ("boarding", "playing"))
+                self.assertIn(world.truck_wall, world.walls)
                 self.assertFalse(world.start_attack())
                 self.assertFalse(self.hold_e(.70, pressed=True))
+                board_time = world.elapsed_play_time
+                world.update(.5, axis_x=1)
+                self.assertEqual(board_time, world.elapsed_play_time)
                 if skip:
                     self.assertTrue(world.skip_route_sequence())
                 else:
                     parked_x = world.truck_footprint[0]
+                    self.assertFalse(world.advance_route_sequence(TRUCK_BOARDING_SECONDS - .01))
+                    self.assertEqual(world.truck_footprint[0], parked_x)
+                    self.assertTrue(world.advance_route_sequence(.01))
+                    self.assertEqual((world.mission_phase, world.result), ("departing", "playing"))
+                    self.assertNotIn(world.truck_wall, world.walls)
                     self.assertFalse(world.advance_route_sequence(TRUCK_DEPARTURE_SECONDS - .01))
-                    self.assertLess(world.truck_footprint[0], parked_x)
+                    self.assertLess(world.truck_footprint[0], parked_x - 700)
                     self.assertTrue(world.advance_route_sequence(.01))
                 self.assertEqual((world.mission_phase, world.result), ("finished", "delivered"))
                 self.assertIsNone(world.truck_footprint)
                 self.assertFalse(world.skip_route_sequence())
                 self.assertFalse(world.two_stop_unlocked)
                 self.assertFalse(world.just_unlocked_two_stop)
+                results.append((world.result, world.completed_stops.copy(), world.parcel,
+                                (world.player.x, world.player.y), world.two_stop_unlocked))
                 world.reset()
                 self.assertEqual((world.mission_phase, world.parcel, world.completed_stops),
                                  ("arriving", "waiting", set()))
+        self.assertEqual(*arrivals)
+        self.assertEqual(*results)
+
+    def test_truck_service_lane_and_disembark_route_are_clear(self):
+        world = self.world
+        self.assertTrue(world.select_contract(3))
+        x, y, width, depth = world.truck_footprint
+        self.assertEqual((x + width / 2, y + depth / 2), (3010, 873))
+        left = 1570 - width / 2
+        self.assertFalse(any(
+            wall.x < x + width and wall.x + wall.width > left
+            and wall.y < y + depth and wall.y + wall.depth > y
+            for wall in world.walls
+        ))
+        self.assertTrue(world.advance_route_sequence(TRUCK_ARRIVAL_SECONDS + .10))
+        self.assertEqual(world.mission_phase, "parking")
+        self.assertAlmostEqual(world.phase_elapsed, .10)
+        self.assertTrue(world.advance_route_sequence(TRUCK_PARKING_SECONDS - .05))
+        self.assertEqual(world.mission_phase, "disembarking")
+        self.assertAlmostEqual(world.phase_elapsed, .05)
+        contract = world.contract
+        self.assertTrue(can_walk_direct(contract.truck_driver_exit, contract.player_start, world.walls))
+        self.assertTrue(can_walk_direct(contract.truck_driver_exit, contract.truck_door_position, world.walls))
+        world.player.x, world.player.y = contract.truck_driver_exit
+        self.assertTrue(world.skip_route_sequence())
+        self.assertEqual((world.player.x, world.player.y), contract.player_start)
+        self.assertEqual((world.mission_phase, world.parcel), ("unloading", "waiting"))
+        self.assertEqual(world.walls.count(world.truck_wall), 1)
 
     def test_shop_round_trip_boarding_requires_clear_local_exit_and_continuous_hold(self):
         world = self.world

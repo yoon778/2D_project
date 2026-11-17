@@ -189,8 +189,10 @@ class PlayHUD:
     def _truck_objective(self, world, x, y, stop_count):
         phase = world.mission_phase
         color = PAPER_MUTED
-        if phase in ("arriving", "departing"):
-            place = "트럭 도착 중" if phase == "arriving" else "트럭 출차 중"
+        cinematic = {"arriving": "트럭 도착 중", "parking": "트럭 정차 중", "disembarking": "트럭에서 내리는 중",
+                     "boarding": "트럭 탑승 중", "departing": "트럭 출차 중"}
+        if phase in cinematic:
+            place = cinematic[phase]
             guidance = "Enter 건너뛰기"
         elif phase == "unloading":
             place, guidance = "트럭에서 택배 수령", "문 앞에서 E 길게"

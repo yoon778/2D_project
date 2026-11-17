@@ -33,6 +33,7 @@ def runtime_files():
     files.update(ASSETS / "ui" / name for name in ("NotoSansKR-Regular.ttf", "OFL-NotoSansKR.txt", "town-map-icons.png"))
     files.update(ASSETS / "contract_previews" / name
                  for name in ("01-shop.png", "02-homes.png", "03-town.png", "04-bridge.png"))
+    files.update(ASSETS / "vehicles" / name for name in ("delivery-truck.png", "courier-pickup.png"))
     files.update(ASSETS / "cutscenes" / name for name in ("waybill.png", "alley.png", "delivered.png"))
     files.update(ASSETS / "neighborhood" / name
                  for name in ("ground.png", "west-house.png", "east-house.png", "fence.png", "iron-gate.png",

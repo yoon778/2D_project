@@ -94,15 +94,18 @@ class PlayerVisual:
         frames = self.metadata["frames"][self.locomotion.facing]
         return self.locomotion.walk_frame_index(len(frames) - 1)
 
-    def draw(self, foot_x, foot_y, *, empty_handed=False, fall_angle=0.0):
-        facing = self.locomotion.facing
+    def draw(self, foot_x, foot_y, *, empty_handed=False, fall_angle=0.0, pose=None, opacity=1.0):
+        if opacity <= 0:
+            return
+        facing, index = pose if pose is not None else (self.locomotion.facing, self.frame_index)
+        sprinting = self.sprinting and pose is None
         frames = self.metadata["frames"][facing]
-        frame = frames[self.frame_index]
-        key = f"sprint_{facing}" if self.sprinting else frame.get("source", "atlas")
+        frame = frames[index]
+        key = f"sprint_{facing}" if sprinting else frame.get("source", "atlas")
         images = self.empty_images if empty_handed and key in self.empty_images else self.images
         image = images[key]
         # Sprint cells share the walking order, grid and ground pivots.
-        clip = frame["cell_topleft"] if self.sprinting else frame["clip_topleft"]
+        clip = frame["cell_topleft"] if sprinting else frame["clip_topleft"]
         # Keep the idle-based scale for all poses of this facing.
         reference_height = frame.get("scale_reference_height", frames[0]["clip_topleft"][3])
         shown_height = clip[3] * self.metadata["display_height"] / reference_height * self.display_scale
@@ -111,15 +114,21 @@ class PlayerVisual:
         src_x, src_top, src_width, src_height = clip
         center_x, center_y = left + width / 2, bottom + height / 2
         source = (src_x, image.h - src_top - src_height, src_width, src_height)
-        if fall_angle:
-            # Keep the boot pivot fixed as the final sprite falls toward the ground.
-            dx, dy = center_x - foot_x, center_y - foot_y
-            cosine, sine = math.cos(fall_angle), math.sin(fall_angle)
-            image.clip_composite_draw(*source, fall_angle, "",
-                                      foot_x + cosine * dx - sine * dy,
-                                      foot_y + sine * dx + cosine * dy, width, height)
-        else:
-            image.clip_draw(*source, center_x, center_y, width, height)
+        if opacity < 1:
+            image.opacify(opacity)
+        try:
+            if fall_angle:
+                # Keep the boot pivot fixed as the final sprite falls toward the ground.
+                dx, dy = center_x - foot_x, center_y - foot_y
+                cosine, sine = math.cos(fall_angle), math.sin(fall_angle)
+                image.clip_composite_draw(*source, fall_angle, "",
+                                          foot_x + cosine * dx - sine * dy,
+                                          foot_y + sine * dx + cosine * dy, width, height)
+            else:
+                image.clip_draw(*source, center_x, center_y, width, height)
+        finally:
+            if opacity < 1:
+                image.opacify(1)
 
     def close(self):
         # Image.__del__ alone owns the texture; never destroy it twice.

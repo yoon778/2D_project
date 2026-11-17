@@ -29,9 +29,19 @@ _INTERACTION_HOLD_TIMES = {
     "bus_broadcast": 0.70, "front_gate": 0.70,
 }
 TRUCK_ARRIVAL_SECONDS = 1.20
-TRUCK_DEPARTURE_SECONDS = 1.20
+TRUCK_PARKING_SECONDS = 0.30
+TRUCK_DISEMBARK_SECONDS = 0.50
+TRUCK_BOARDING_SECONDS = 0.50
+TRUCK_DEPARTURE_SECONDS = 1.50
+_TRUCK_SEQUENCE = {
+    "arriving": (TRUCK_ARRIVAL_SECONDS, "parking"),
+    "parking": (TRUCK_PARKING_SECONDS, "disembarking"),
+    "disembarking": (TRUCK_DISEMBARK_SECONDS, None),
+    "boarding": (TRUCK_BOARDING_SECONDS, "departing"),
+    "departing": (TRUCK_DEPARTURE_SECONDS, None),
+}
 _TRUCK_EXIT_THREAT_RANGE = 100.0
-_TRUCK_TRAVEL = 180.0
+_TRUCK_TRAVEL = 720.0
 _TRUCK_SIZE = (96, 34)
 GATE_NOISE_RANGE = 230.0
 FRONT_GATE_NOISE_RANGE = 120.0
@@ -102,6 +112,20 @@ class DeliveryContract:
     @property
     def truck_door_position(self):
         return self.return_point if self.truck_position is not None else None
+
+    @property
+    def truck_driver_exit(self):
+        if self.truck_position is not None:
+            x, y = self.truck_position
+            return (x - 27, y + 32)
+        return None
+
+    @property
+    def truck_driver_socket(self):
+        if self.truck_position is not None:
+            x, y = self.truck_position
+            return (x - 27, y + 6)
+        return None
 
 
 _STARTER_CONTRACTS = (
@@ -272,6 +296,10 @@ class DeliveryWorld(CombatWorld):
         return self._route_sequence is not None and self.result == "playing"
 
     @property
+    def route_sequence_duration(self):
+        return _TRUCK_SEQUENCE[self._route_sequence][0] if self.route_sequence_active else 0.0
+
+    @property
     def truck_footprint(self):
         truck = self.truck_wall
         if truck is None:
@@ -290,25 +318,40 @@ class DeliveryWorld(CombatWorld):
     def advance_route_sequence(self, dt):
         if not self.route_sequence_active or not isinstance(dt, (int, float)) or not math.isfinite(dt) or dt <= 0:
             return False
-        duration = TRUCK_ARRIVAL_SECONDS if self._route_sequence == "arriving" else TRUCK_DEPARTURE_SECONDS
-        self.phase_elapsed = min(duration, self.phase_elapsed + dt)
-        if self.phase_elapsed < duration - 1e-9:
-            return False
-        return self.skip_route_sequence()
+        self._resolve_result()
+        transitioned = False
+        while self.route_sequence_active:
+            remaining = self.route_sequence_duration - self.phase_elapsed
+            if dt < remaining - 1e-9:
+                self.phase_elapsed += dt
+                break
+            dt = max(0.0, dt - remaining)
+            self._advance_route_phase()
+            transitioned = True
+        return transitioned
 
     def skip_route_sequence(self):
         self._resolve_result()
         if not self.route_sequence_active:
             return False
-        arriving = self._route_sequence == "arriving"
-        self._route_sequence = None
+        while self.route_sequence_active:
+            self._advance_route_phase()
+        return True
+
+    def _advance_route_phase(self):
+        phase = self._route_sequence
+        _, self._route_sequence = _TRUCK_SEQUENCE[phase]
         self.phase_elapsed = 0.0
-        if arriving:
+        if phase == "arriving":
             self.walls.append(self.truck_wall)
             self._clear_zombie_routes()
-        else:
+        elif phase == "disembarking":
+            self.player.x, self.player.y = self.contract.player_start
+        elif phase == "boarding":
+            self.walls.remove(self.truck_wall)
+            self._clear_zombie_routes()
+        elif phase == "departing":
             self._finish_delivery()
-        return True
 
     @property
     def returning(self):
@@ -901,12 +944,10 @@ class DeliveryWorld(CombatWorld):
             self.bridge_puzzle.panel_open = True
             return True
         if action == "board_truck":
-            self._route_sequence = "departing"
+            self._route_sequence = "boarding"
             self.phase_elapsed = 0.0
             self.attack = None
             self.bottle_flight = None
-            self.walls.remove(self.truck_wall)
-            self._clear_zombie_routes()
             return True
         if action == "pickup":
             self.parcel = "carrying"

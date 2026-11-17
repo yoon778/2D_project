@@ -24,7 +24,7 @@ from player_visual import PlayerVisual, load_atlas
 from spatial_audio import AudioSettings, HeavyFootstep, PatrolFootstep, ZombieAudio
 from town_map_art import MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS
 from town_map_art import draw_base as draw_map_base, place_label as place_map_label
-from truck_sequence import draw_truck, truck_bounds
+from truck_sequence import TruckVisual, courier_step, pickup_facing, pickup_frame, truck_bounds
 import opening
 
 WINDOW_WIDTH = 1280
@@ -420,6 +420,7 @@ class Renderer:
         self.neighborhood_ground = None
         self.map_icons = None
         self.contract_previews = []
+        self.truck_visual = None
         self.neighborhood_walls = {}
         self.wall_alpha = {}
         self._building_fades = {}
@@ -497,6 +498,7 @@ class Renderer:
         if p.SDL_SetTextureScaleMode(self.map_icons.texture, p.SDL_ScaleModeLinear) != 0:
             raise RuntimeError(f"Town map icon sampling failed: {p.SDL_GetError()!r}")
         self.contract_previews = load_contract_previews(BASE_DIR / "assets/contract_previews")
+        self.truck_visual = TruckVisual(BASE_DIR / "assets/vehicles")
         self.reset_streetlights()
         self.play_hud = PlayHUD(BASE_DIR / "assets/ui/NotoSansKR-Regular.ttf", WINDOW_WIDTH, WINDOW_HEIGHT)
 
@@ -528,6 +530,7 @@ class Renderer:
         self.neighborhood_ground = None
         self.map_icons = None
         self.contract_previews.clear()
+        self.truck_visual = None
         self.neighborhood_walls.clear()
         self.wall_alpha.clear()
         self.trash_can = None
@@ -1446,8 +1449,9 @@ class Renderer:
                 rectangle(px, py, w, h, dim_color(color) if dimmed else color)
 
         bounds = (sx, sy, width, depth + 1)
-        self.draw_lit_region(bounds, lambda: draw(dimmed=True),
-                             row_spans=lambda row: self.glow_source[1].get(row, ()))
+        if self.glow_source is not None:
+            self.draw_lit_region(bounds, lambda: draw(dimmed=True),
+                                 row_spans=lambda row: self.glow_source[1].get(row, ()))
         self.draw_lit_region(bounds, draw)
 
     def draw_raised_bridge(self, wall):
@@ -1469,9 +1473,10 @@ class Renderer:
             return light_depth_columns(light, near, x - wall.x)
 
         bounds = (x, y, wall.width + 1, wall.height + 1)
-        glow_columns = outline_columns(self.glow_source[0])
-        self.draw_lit_region(bounds, lambda: draw(dimmed=True), row_spans=lambda _: glow_columns)
-        columns = merge_light_spans(span for light in self.light.lights for span in outline_columns(light))
+        if self.glow_source is not None:
+            glow_columns = outline_columns(self.glow_source[0])
+            self.draw_lit_region(bounds, lambda: draw(dimmed=True), row_spans=lambda _: glow_columns)
+        columns = merge_light_spans(span for light, _ in self.light_sources for span in outline_columns(light))
         self.draw_lit_region(bounds, draw, row_spans=lambda _: columns)
 
     def draw_safe_zone(self, position, origin, walls, *, blocked):
@@ -1631,20 +1636,34 @@ class Renderer:
         p.SDL_SetRenderDrawColor(p.renderer, 0, 0, 0, 255)
         p.SDL_RenderClear(p.renderer)
         delivery = self.delivery
+        phase = delivery.mission_phase if delivery is not None else None
+        truck = delivery.truck_footprint if delivery is not None else None
+        truck_step = courier_step(delivery) if truck is not None else None
         courier_in_truck = (delivery is not None and delivery.contract.truck_position is not None
-                            and delivery.mission_phase in ("arriving", "departing", "finished"))
+                            and phase in ("arriving", "parking", "departing", "finished"))
+        action_pickup = (truck is not None and phase == "unloading" and delivery.interaction_action == "pickup")
+        pickup_index = pickup_frame(delivery.interaction_progress) if action_pickup else None
         origin = (player.x, player.y)
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
         beam, *lamps = self.prepare_light(player, walls, aim).lights
-        glow = self.nearby_light
-        glow_outline = glow.outline()
-        glow_walls = {id(wall) for wall in glow.walls}
+        street_lamps = tuple(lamps)
+        truck_lights_only = truck is not None and delivery.route_sequence_active
+        if truck_lights_only:
+            x, y, _, depth = truck
+            lamps.append(Flashlight((x - 2, y + depth * .45), math.pi, self.light_walls(walls), world_size,
+                                    radius=175.0, half_angle=.34))
+        glow = None if courier_in_truck else self.nearby_light
+        if truck_step is not None:
+            glow = (nearby_glow(truck_step.position, self.light_walls(walls), world_size)
+                    if truck_step.opacity > 0 else None)
+        glow_outline = glow.outline() if glow is not None else ()
+        glow_walls = {id(wall) for wall in glow.walls} if glow is not None else set()
         # Station labels and status marks remain reserved for strong lighting.
-        self.glow_source = (glow, light_source_rows(glow, self.project))
-        light_sources = lamps if courier_in_truck else self.light.lights
+        self.glow_source = (glow, light_source_rows(glow, self.project)) if glow is not None else None
+        light_sources = lamps if truck_lights_only or courier_in_truck else (beam, *lamps)
         self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in light_sources)
         self.light_rows = combined_light_rows([rows for _, rows in self.light_sources])
-        beam_outline = () if courier_in_truck else beam.outline()
+        beam_outline = () if truck_lights_only or courier_in_truck else beam.outline()
         # The ground cone ends at a wall's foot. Use the beam's shape before that collision
         # to clip the visible face, while the hit outline still selects which face gets light.
         open_beam = Flashlight(origin, beam.angle, (), world_size)
@@ -1653,8 +1672,11 @@ class Renderer:
             x, y = self.project(*point)
             beam_mask.append((x, y + 1))
         lamp_outlines = tuple(lamp.outline() for lamp in lamps)
-        self.draw_ground_light(glow, glow_outline, NEARBY_GLOW_COLOR, (0, 0, 0), feathered=True)
-        if not courier_in_truck:
+        if glow is not None:
+            glow_color = (NEARBY_GLOW_COLOR if truck_step is None else
+                          tuple(round(value * truck_step.opacity) for value in NEARBY_GLOW_COLOR))
+            self.draw_ground_light(glow, glow_outline, glow_color, (0, 0, 0), feathered=True)
+        if not truck_lights_only and not courier_in_truck:
             self.draw_ground_light(beam, beam_outline, (28, 26, 23), (104, 84, 53), feathered=True)
         self.draw_streetlight_pools(lamps, lamp_outlines)
         bridge = delivery.bridge_puzzle if delivery is not None else None
@@ -1666,16 +1688,14 @@ class Renderer:
         self.draw_noise_pulse(self.bottle_pulse, self.bottle_pulse_remaining, ORANGE)
         self.draw_noise_pulse(self.vehicle_alarm, self.vehicle_alarm_remaining, ORANGE,
                               duration=VEHICLE_ALARM_DURATION)
-        foot = self.project(*origin)
+        foot = self.project(*(origin if truck_step is None else truck_step.position))
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
         bottles = []
         stations = ()
-        truck = None
         truck_reveal = 0.0
         if delivery is not None:
-            truck = delivery.truck_footprint
             if truck is not None:
                 door = delivery.contract.truck_door_position
                 if delivery.route_sequence_active:
@@ -1706,10 +1726,11 @@ class Renderer:
                 x, y = (start + (end - start) * progress for start, end in zip(flight.origin, flight.destination))
                 lift = (1 - progress) * (18 + 88 * progress)
                 bottles.append((x, y, lift))
-        for kind, actor in sorted_drawables(player, walls, zombies=combat.zombies if combat else (),
+        courier_depth = player if truck_step is None else replace(player, x=truck_step.position[0], y=truck_step.position[1])
+        for kind, actor in sorted_drawables(courier_depth, walls, zombies=combat.zombies if combat else (),
                                             prop=TRASH_CAN_POSITION if delivery is None else None,
                                             stations=stations,
-                                            lamps=(lamp.origin for lamp in lamps),
+                                            lamps=(lamp.origin for lamp in street_lamps),
                                             street_props=delivery.props if delivery is not None else (),
                                             bottles=bottles, truck=truck):
             if kind == "prop":
@@ -1740,17 +1761,18 @@ class Renderer:
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "truck":
-                phase = delivery.mission_phase
-                door = "cargo" if phase == "unloading" else "closed"
-                if phase == "departing" and delivery.phase_elapsed < .12:
+                door = "closed"
+                if phase == "unloading":
+                    door = "cargo_empty" if pickup_index is not None and pickup_index >= 2 else "cargo"
+                elif truck_step is not None:
                     door = "cab"
+                bounds = truck_bounds(self.project, actor)
                 if delivery.route_sequence_active:
-                    draw_truck(self.project, actor, door=door)
+                    self.truck_visual.draw(bounds, door)
                 else:
-                    bounds = truck_bounds(self.project, actor)
                     if truck_reveal > 0:
-                        draw_truck(self.project, actor, door=door, dimmed=True)
-                    self.draw_lit_region(bounds, lambda: draw_truck(self.project, actor, door=door))
+                        draw_dimmed_texture(self.truck_visual.image.texture, lambda: self.truck_visual.draw(bounds, door))
+                    self.draw_lit_region(bounds, lambda: self.truck_visual.draw(bounds, door))
             elif kind == "wall":
                 texture = getattr(actor, "texture", None)
                 if texture == "delivery-truck":
@@ -1776,7 +1798,15 @@ class Renderer:
             else:
                 if courier_in_truck:
                     continue
-                if defeated:
+                if truck_step is not None:
+                    self.player_visual.draw(*foot, empty_handed=True, pose=(truck_step.facing, truck_step.frame),
+                                            opacity=truck_step.opacity)
+                    continue
+                if pickup_index is not None:
+                    facing = pickup_facing(origin, delivery.contract.truck_door_position)
+                    scale = self.player_visual.metadata["display_height"] / 64 * self.player_visual.display_scale
+                    self.truck_visual.draw_pickup(foot, facing, pickup_index, scale)
+                elif defeated:
                     attacker = delivery.fatal_zombie_strike
                     fall_x = player.x - attacker[0].x if attacker else -math.cos(player.aim_angle)
                     progress = 1.0 if defeat_elapsed is None else opening.courier_fall_progress(defeat_elapsed)
@@ -2293,11 +2323,21 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                       and renderer.pause_page is None and not pause_changed
                       and (bridge is None or not bridge.panel_open)
                       and contract_choice is None and not retry_requested)
+            truck_cue = None
+            truck_audio_active = False
             if delivery_run and world.route_sequence_active:
                 if active:
-                    sequence_completed = (world.skip_route_sequence() if sequence_skip_requested
-                                          else world.advance_route_sequence(dt))
-                    if sequence_completed:
+                    if sequence_skip_requested:
+                        phase_changed = world.skip_route_sequence()
+                    else:
+                        starting_arrival = world.mission_phase == "arriving" and world.phase_elapsed == 0.0
+                        phase_changed = world.advance_route_sequence(dt)
+                        truck_audio_active = True
+                        if phase_changed and world.result == "playing":
+                            truck_cue = world.mission_phase
+                        elif starting_arrival and world.phase_elapsed > 0.0:
+                            truck_cue = "arriving"
+                    if phase_changed:
                         renderer.reset_streetlights()
                         renderer.light = None
                         pressed.clear()
@@ -2359,12 +2399,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     dt if active else 0.0, held=active and p.SDLK_e in pressed,
                     pressed=active and pending_interact, moving=player.moved, damaged=player_hit,
                 )
-                if completed and world.mission_phase == "departing":
-                    renderer.reset_streetlights()
-                    renderer.light = None
+                if completed and world.mission_phase == "boarding":
                     pressed.clear()
                     mouse_held = False
                     active = False
+                    truck_audio_active = True
+                    truck_cue = "boarding"
                 if completed and bridge is not None and bridge.panel_open:
                     pressed.clear()
                     mouse_held = False
@@ -2455,7 +2495,13 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 preserve_map_cue = (renderer.map_open or renderer.bridge_note_open) and focused and not lost_focus
                 zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
                                     occluded=occluded, preserve_map_cue=preserve_map_cue,
+                                    preserve_truck_cues=truck_audio_active,
                                     pan=pan if hearing_active else 0.0, patrol_step=patrol_step, heavy_step=heavy_step)
+                if truck_cue is not None:
+                    x, y, width, depth = world.truck_footprint
+                    sound_distance, sound_pan = sound_position(listener, (x + width / 2, y + depth / 2))
+                    # The approaching engine remains faintly audible while the truck is off-screen.
+                    zombie_audio.play_truck_cue(truck_cue, min(sound_distance, 380), pan=sound_pan)
                 if map_toggled or note_opened or note_closed:
                     zombie_audio.play_map_toggle()
                 if bottle_picked_up:
