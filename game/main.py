@@ -1291,6 +1291,12 @@ class Renderer:
                       for edge in edges for index, outline in enumerate(outlines))
         for (axis, boundary, offset, length, edge), outline, mask, shades in passes:
             facade_shade, roof_shade, side_shade = shades
+            # The roof of a low obstacle fits in the beam instead of the
+            # narrow rim used to suggest the height of a building.
+            low_roof = low_obstacle and mask is not None
+            roof_depth = 1 if low_roof else front_band
+            roof_width = 1 if low_roof else side_band
+            falloff = 80 if low_roof else 0
             for low, high in wall_edge_spans(wall, outline, axis, boundary):
                 start = max(0, (low - offset) / length)
                 end = min(1, (high - offset) / length)
@@ -1298,17 +1304,17 @@ class Renderer:
                     continue
                 if edge == "front":
                     self.draw_wall_plane(image, front, seam, 1, facade_shade, (start, 0, end, 1), opacity=opacity)
-                    roof_bounds = (start, 0, end, front_band)
-                    roof_alpha = (255, 255, 0, 0)
+                    roof_bounds = (start, 0, end, roof_depth)
+                    roof_alpha = (255, 255, falloff, falloff)
                 elif edge == "back":
-                    roof_bounds = (start, 1 - front_band, end, 1)
-                    roof_alpha = (0, 0, 255, 255)
+                    roof_bounds = (start, 1 - roof_depth, end, 1)
+                    roof_alpha = (falloff, falloff, 255, 255)
                 elif edge == "left":
-                    roof_bounds = (0, start, side_band, end)
-                    roof_alpha = (255, 0, 0, 255)
+                    roof_bounds = (0, start, roof_width, end)
+                    roof_alpha = (255, falloff, falloff, 255)
                 else:
-                    roof_bounds = (1 - side_band, start, 1, end)
-                    roof_alpha = (0, 255, 255, 0)
+                    roof_bounds = (1 - roof_width, start, 1, end)
+                    roof_alpha = (falloff, 255, 255, falloff)
                     if oblique:
                         self.draw_wall_plane(side_image, side, 0, 1, side_shade, (start, 0, end, 1), opacity=opacity)
                 if low_obstacle and edge in ("left", "right"):
@@ -1423,9 +1429,26 @@ class Renderer:
             return None
         return lambda row: clip_light_columns(rows.get(row, ()), columns)
 
+    def actor_light_spans(self, position, screen_x, foot_y, *, standing=True):
+        sources = []
+        for light, rows in self.light_sources:
+            columns = light_depth_columns(light, position[1], screen_x - position[0])
+            if columns:
+                sources.append((rows, columns))
+        if not sources:
+            return None
+        ground_scale = self.ground_scale()
+
+        def spans(row):
+            sample = zombie_light_row(row, foot_y, ground_scale) if standing else row
+            return merge_light_spans(span for rows, columns in sources
+                                     for span in clip_light_columns(rows.get(sample, ()), columns))
+
+        return spans
+
     def draw_lit_prop(self, position, image, *, lift=0):
-        x, y = self.project(*position)
-        y += lift
+        x, foot_y = self.project(*position)
+        y = foot_y + lift
         width, height = image.w * 2, image.h * 2
         bounds = (x - image.w, y, width, height)
 
@@ -1434,9 +1457,12 @@ class Renderer:
 
         glow_spans = self.glow_at_ground_depth(position, x)
         if glow_spans is not None:
+            ground_scale = self.ground_scale()
             self.draw_lit_region(bounds, lambda: draw_dimmed_texture(image.texture, draw),
-                                 row_spans=glow_spans)
-        self.draw_lit_region(bounds, draw)
+                                 row_spans=lambda row: glow_spans(zombie_light_row(row, foot_y, ground_scale)))
+        spans = self.actor_light_spans(position, x, foot_y)
+        if spans is not None:
+            self.draw_lit_region(bounds, draw, row_spans=spans)
 
     def draw_station(self, position, pickup):
         x, y = self.project(*position)
@@ -1610,22 +1636,11 @@ class Renderer:
         left, _, width, _ = bounds
         if left + width <= 0 or left >= WINDOW_WIDTH:
             return
-        origin_x = x - zombie.x
-        sources = []
-        for light, rows in self.light_sources:
-            columns = light_depth_columns(light, zombie.y, origin_x)
-            if columns:
-                sources.append((rows, columns))
-        if not sources:
+        spans = self.actor_light_spans(position, x, y, standing=zombie.alive)
+        if spans is None:
             return
-
-        def zombie_row_spans(row):
-            sample = zombie_light_row(row, y, ground_scale) if zombie.alive else row
-            return merge_light_spans(span for rows, columns in sources
-                                     for span in clip_light_columns(rows.get(sample, ()), columns))
-
-        self.draw_lit_region(bounds, draw, row_spans=zombie_row_spans)
-        self.draw_zombie_markers(zombie, combat, attack, x, y, row_spans=zombie_row_spans)
+        self.draw_lit_region(bounds, draw, row_spans=spans)
+        self.draw_zombie_markers(zombie, combat, attack, x, y, row_spans=spans)
 
     def draw_zombie_markers(self, zombie, combat, attack, x, y, *, row_spans=None):
         scale = self.combat_visual.display_scale
