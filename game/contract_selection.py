@@ -1,0 +1,114 @@
+"""Contract dispatch sheet, in SDL screen coordinates."""
+import pico2d.pico2d as p
+
+from play_hud import BODY, PAPER_EDGE, PAPER_GREEN, PAPER_INK, PAPER_MUTED, RECEIPT_TITLE, SMALL, STAMP, TITLE
+from play_hud import fill, panel, receipt_rule
+
+
+PREVIEW_FILES = ("01-shop.png", "02-homes.png", "03-town.png", "04-bridge.png")
+CARD_RECTS = tuple((61, 163 + index * 81, 359, 70) for index in range(4))
+DISPATCH_RECT = (61, 529, 359, 57)
+PHOTO_RECT = (480, 51, 748, 342)
+MAP_RECT = (470, 417, 398, 263)
+
+BACKGROUND = (27, 25, 22, 255)
+SHEET = (235, 218, 184, 255)
+CARD = (239, 223, 192, 255)
+CARD_SELECTED = (247, 232, 200, 255)
+CARD_LOCKED = (225, 209, 178, 255)
+FOCUS_BORDER = (138, 89, 54, 255)
+DISPATCH = (52, 84, 67, 255)
+DISPATCH_HOVER = (69, 104, 82, 255)
+DISPATCH_DISABLED = (171, 150, 114, 255)
+ROUTE_GUIDANCE = ("주차장 서쪽 · 정류장 양쪽 골목", "앞문 동쪽 골목 · 뒷문 창고 옆길",
+                  "주차장 서쪽 · 창고 옆길 · 정류장", "관리실 다리 또는 동쪽 우회")
+
+
+def _contains(rect, x, y):
+    left, top, width, height = rect
+    return left <= x < left + width and top <= y < top + height
+
+
+def contract_card_at(x, y):
+    return next((index for index, rect in enumerate(CARD_RECTS) if _contains(rect, x, y)), None)
+
+
+def contract_dispatch_at(x, y):
+    return _contains(DISPATCH_RECT, x, y)
+
+
+def load_contract_previews(directory):
+    previews = []
+    for name in PREVIEW_FILES:
+        path = directory / name
+        image = p.load_image(str(path)) if path.is_file() else None
+        if image is not None and p.SDL_SetTextureScaleMode(image.texture, p.SDL_ScaleModeLinear) != 0:
+            raise RuntimeError(f"Contract image sampling failed: {p.SDL_GetError()!r}")
+        previews.append(image)
+    return previews
+
+
+def draw_contract_selection(hud, contracts, available, selected, cursor, previews, draw_route, draw_pin):
+    text = hud._text
+    unlocked = contracts[selected] in available
+    hovered = None if cursor is None else contract_card_at(*cursor)
+    fill(0, 0, hud.width, hud.height, BACKGROUND)
+
+    panel(46, 45, 404, 640, (64, 51, 39, 255), background=(48, 39, 30, 255))
+    panel(42, 40, 397, 640, PAPER_EDGE, background=SHEET, accent=STAMP)
+    text("DEAD ROUTE", 66, 67, SMALL, PAPER_MUTED)
+    text("배송 운송장", 64, 101, RECEIPT_TITLE, PAPER_INK)
+    receipt_rule(63, 137, 355)
+
+    for index, (contract, rect) in enumerate(zip(contracts, CARD_RECTS)):
+        x, y, width, _ = rect
+        active, locked = index == selected, contract not in available
+        border = (*STAMP, 255) if active else FOCUS_BORDER if index == hovered else PAPER_EDGE
+        paper = CARD_SELECTED if active else CARD_LOCKED if locked else CARD
+        panel(*rect, border, background=paper, accent=STAMP if active else None)
+        fill(x + 14, y + 14, 26, 25, (*PAPER_MUTED, 255) if active else (*PAPER_EDGE[:3], 255))
+        text(str(index + 1), x + 27, y + 26, BODY, SHEET[:3], align="center")
+        text(contract.name, x + 50, y + 24, TITLE, PAPER_INK)
+        text(f"배송 {len(contract.stops)}곳", x + 50, y + 51, SMALL, PAPER_MUTED)
+        text(f"위험도 {contract.difficulty}", x + width - 14, y + 50, SMALL, PAPER_MUTED, align="right")
+        if active or locked:
+            text("잠김" if locked else "선택", x + width - 14, y + 23, SMALL, STAMP, align="right")
+
+    receipt_rule(63, 504, 355)
+    dispatch_hover = cursor is not None and contract_dispatch_at(*cursor)
+    dispatch_color = (DISPATCH_HOVER if dispatch_hover else DISPATCH) if unlocked else DISPATCH_DISABLED
+    panel(*DISPATCH_RECT, PAPER_EDGE, background=dispatch_color)
+    text("출발" if unlocked else "계약 잠김", 240, 555, TITLE, SHEET[:3] if unlocked else PAPER_INK, align="center")
+    if unlocked:
+        text("Enter", 404, 556, SMALL, SHEET[:3], align="right")
+    else:
+        text("1·2번 중 하나 완료 후 해금", 240, 607, BODY, STAMP, align="center")
+    text("1–4 선택   ·   Esc 종료", 240, 648, SMALL, PAPER_MUTED, align="center")
+
+    panel(470, 41, 768, 362, PAPER_EDGE, background=CARD_LOCKED)
+    x, y, width, height = PHOTO_RECT
+    image = previews[selected]
+    if image is not None:
+        image.draw_to_origin(x, hud.height - y - height, width, height)
+    else:
+        draw_route(contracts[selected], PHOTO_RECT)
+    panel(*MAP_RECT, PAPER_EDGE, background=SHEET)
+    draw_route(contracts[selected], (478, 425, 382, 247))
+
+    details = (887, 417, 351, 263)
+    panel(*details, PAPER_EDGE, background=SHEET)
+    text("배송지", 910, 445, TITLE, PAPER_INK)
+    text("순서 자유", 1215, 448, SMALL, PAPER_MUTED, align="right")
+    contract = contracts[selected]
+    for index, stop in enumerate(contract.stops):
+        row = 485 + index * 30
+        draw_pin(918, hud.height - 1 - row, STAMP)
+        text(stop.name, 935, row, BODY, PAPER_INK)
+    if contract.truck_position is not None:
+        draw_pin(918, hud.height - 1 - 575, PAPER_GREEN, pickup=True)
+        text("같은 트럭으로 복귀", 935, 575, BODY, PAPER_GREEN)
+    receipt_rule(910, 607, 305)
+    for offset in (0, 8, 16):
+        fill(910 + offset, 631, 5, 2, (*PAPER_GREEN, 255))
+    text(ROUTE_GUIDANCE[selected], 942, 632, SMALL, PAPER_GREEN)
+    text("플레이 중 M으로 지도 열기", 910, 655, SMALL, PAPER_MUTED)

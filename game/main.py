@@ -13,12 +13,13 @@ import pico2d.pico2d as p
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, HEAVY_ZOMBIE_APPEARANCE, MAX_STAMINA
 from combat_visual import CombatVisual
-from delivery import (BUS_STOP, DELIVERY_CONTRACTS, FRONT_HOME_STOP, INTERACTION_RANGE, REAR_ALLEY_LISTEN_POINT,
-                      REAR_HOME_STOP, SHOP_STOP, TOWN_ROADS, DeliveryWorld, NeighborhoodWall)
+from contract_selection import contract_card_at, contract_dispatch_at, draw_contract_selection, load_contract_previews
+from delivery import (BUS_STOP, DELIVERY_CONTRACTS, FRONT_HOME_STOP, INTERACTION_RANGE, MANAGEMENT_STOP,
+                      REAR_ALLEY_LISTEN_POINT, REAR_HOME_STOP, SHOP_STOP, TOWN_ROADS, DeliveryWorld, NeighborhoodWall)
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 from locomotion import Locomotion, select_facing
-from play_hud import INTERACTION_LABELS, PlayHUD, SAFE_GREEN
+from play_hud import INTERACTION_LABELS, PlayHUD, SAFE_GREEN, SMALL as HUD_SMALL
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import AudioSettings, HeavyFootstep, PatrolFootstep, ZombieAudio
 from town_map_art import MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS
@@ -86,7 +87,6 @@ WHITE = (231, 236, 231)
 TEAL = (86, 225, 194)
 ORANGE = (255, 182, 78)
 MAP_INK = (14, 20, 23)
-MAP_PANEL = (27, 39, 41)
 MAP_BORDER = (91, 112, 112)
 MAP_CLOSED_GATE = (204, 150, 104)
 MAP_OPEN_GATE = (122, 188, 153)
@@ -419,6 +419,7 @@ class Renderer:
         self.trash_can = None
         self.neighborhood_ground = None
         self.map_icons = None
+        self.contract_previews = []
         self.neighborhood_walls = {}
         self.wall_alpha = {}
         self._building_fades = {}
@@ -495,6 +496,7 @@ class Renderer:
             raise ValueError("Town map icon atlas has incorrect dimensions")
         if p.SDL_SetTextureScaleMode(self.map_icons.texture, p.SDL_ScaleModeLinear) != 0:
             raise RuntimeError(f"Town map icon sampling failed: {p.SDL_GetError()!r}")
+        self.contract_previews = load_contract_previews(BASE_DIR / "assets/contract_previews")
         self.reset_streetlights()
         self.play_hud = PlayHUD(BASE_DIR / "assets/ui/NotoSansKR-Regular.ttf", WINDOW_WIDTH, WINDOW_HEIGHT)
 
@@ -525,6 +527,7 @@ class Renderer:
         self.streetlamp_image = None
         self.neighborhood_ground = None
         self.map_icons = None
+        self.contract_previews.clear()
         self.neighborhood_walls.clear()
         self.wall_alpha.clear()
         self.trash_can = None
@@ -650,43 +653,41 @@ class Renderer:
                 else:
                     self._building_fades[key] = opacity
 
-    def draw_delivery_selection(self):
-        world = self.delivery
-        p.SDL_SetRenderDrawColor(p.renderer, *MAP_INK, 255)
-        p.SDL_RenderClear(p.renderer)
-        self.font.draw(64, 672, "DEAD ROUTE  |  배달 선택", TEAL)
-        rectangle(64, 104, 378, 528, MAP_PANEL)
-        rectangle(64, 104, 378, 528, MAP_BORDER, filled=False)
-        for index, contract in enumerate(DELIVERY_CONTRACTS):
-            bottom = 521 - index * 92
-            selected = index == self.delivery_preview
-            accent = TEAL if selected else MAP_BORDER
-            rectangle(82, bottom, 342, 84, (38, 56, 56) if selected else (18, 29, 32))
-            rectangle(82, bottom, 342, 84, accent, filled=False)
-            if contract not in world.available_contracts:
-                self.font.draw(100, bottom + 62, f"[{index + 1}]  {contract.name} · 잠금", WHITE)
-                self.font.draw(100, bottom + 30, "1·2번 중 하나 완료 후 해금", WHITE)
-                continue
-            self.font.draw(100, bottom + 62, f"[{index + 1}]  {contract.name}", TEAL if selected else WHITE)
-            self.font.draw(100, bottom + 40, f"난이도 · {contract.difficulty}", ORANGE)
-            description = contract.description if contract.truck_position is None else "상점·관리실·정류장 / 트럭 복귀"
-            self.font.draw(100, bottom + 18, description, WHITE)
-        keys = " / ".join(str(i) for i, contract in enumerate(DELIVERY_CONTRACTS, 1)
-                          if contract in world.available_contracts)
-        self.font.draw(100, 201, f"{keys}  계약 선택", WHITE)
-        self.font.draw(100, 162, "Enter  배달 시작  ·  Esc  종료", TEAL)
+    contract_card_at = staticmethod(contract_card_at)
+    contract_dispatch_at = staticmethod(contract_dispatch_at)
 
-        contract = DELIVERY_CONTRACTS[self.delivery_preview]
-        self.font.draw(496, 610, f"{contract.name} 지도", WHITE)
-        self.draw_town_map(contract, 496, 104, 720, 480)
-        for x, color, label, pickup in ((500, MAP_PICKUP, "수령지", True), (612, MAP_DROPOFF, "배송지", False)):
-            self.draw_map_pin(x, 69, color, pickup=pickup)
-            self.font.draw(x + 14, 69, label, WHITE)
-        if REAR_HOME_STOP in contract.stops:
-            rectangle(720, 67, 10, 4, MAP_CLOSED_GATE)
-            self.font.draw(736, 69, "철문", WHITE)
-        if contract.truck_position is not None:
-            self.font.draw(508, 39, "수령·복귀는 같은 트럭  ·  배송 순서 자유", WHITE)
+    def draw_delivery_selection(self):
+        draw_contract_selection(self.play_hud, DELIVERY_CONTRACTS, self.delivery.available_contracts,
+                                self.delivery_preview, self.cursor, self.contract_previews, self.draw_contract_route,
+                                self.draw_map_pin)
+
+    def draw_contract_route(self, contract, viewport):
+        x, top, width, height = viewport
+        world_size = self.delivery.world_size
+        left, bottom, scale = self._map_layout(x, WINDOW_HEIGHT - top - height, width, height)
+        right, upper = left + world_size[0] * scale, bottom + world_size[1] * scale
+        bounds = left, bottom, right, upper
+
+        def map_point(x, y):
+            return left + x * scale, bottom + y * scale
+
+        draw_map_base(rectangle, p.draw_line, bounds, scale, world_size, TOWN_ROADS, self.map_walls_for(None),
+                      draw_sprite=self._draw_map_sprite)
+        self.draw_district_map_routes(contract, map_point)
+        markers = [(map_point(*contract.pickup), "트럭" if contract.truck_position is not None else "수령지", MAP_PICKUP)]
+        markers.extend((map_point(*stop.position), stop.name, MAP_DROPOFF) for stop in contract.stops)
+        occupied = [(px - 9, py - 9, px + 9, py + 9) for (px, py), _, _ in markers]
+        for (px, py), label, color in markers:
+            self.draw_map_pin(px, py, color, pickup=color == MAP_PICKUP)
+            _, label_width, _ = self.play_hud._label(label, HUD_SMALL, color)
+            label_width += 10
+            position = place_map_label((px, py), label_width, bounds, occupied, (-label_width - 12, -9), height=18)
+            if position is not None:
+                lx, ly = position
+                p.draw_line(px, py, min(max(lx, px), lx + label_width), ly + 9, *color)
+                rectangle(lx, ly, label_width, 18, MAP_LABEL)
+                self.play_hud._text(label, round(lx) + 5, WINDOW_HEIGHT - 1 - round(ly + 9), HUD_SMALL, color)
+        rectangle(left, bottom, right - left, upper - bottom, MAP_LABEL_EDGE, filled=False)
 
     @staticmethod
     def draw_map_heading(x, y, angle, *, on_paper=False):
@@ -778,6 +779,15 @@ class Renderer:
             self.map_icons.clip_draw_to_origin(*clip, x, y, w, h)
         return True
 
+    def map_walls_for(self, contract):
+        world = self.delivery
+        ignored = (world.truck_wall,)
+        if contract is not world.contract:
+            ignored += (*world.parking_walls, world.shutter_wall, world.gate, world.front_gate, *world.front_gate_fences)
+            if world.bridge_puzzle is not None:
+                ignored += world.bridge_puzzle.station_walls
+        return [wall for wall in world.walls if wall not in ignored and getattr(wall, "texture", None) not in BRIDGE_TERRAIN]
+
     def draw_town_map(self, contract, x, y, viewport_width, viewport_height, player=None):
         world = self.delivery
         width, height = world.world_size
@@ -793,14 +803,7 @@ class Renderer:
         shutter = world.shutter_wall if active_contract else None
         bridge = world.bridge_puzzle if active_contract else None
         show_east_detour = bridge is not None and player is not None and world.route_gimmicks_active
-        map_walls = [wall for wall in world.walls
-                     if getattr(wall, "texture", None) not in (*BRIDGE_TERRAIN, "delivery-truck")]
-        if not active_contract:
-            scenario_walls = (*world.parking_walls, world.shutter_wall, world.gate, world.front_gate,
-                              *world.front_gate_fences)
-            if world.bridge_puzzle is not None:
-                scenario_walls += world.bridge_puzzle.station_walls
-            map_walls = [wall for wall in map_walls if wall not in scenario_walls]
+        map_walls = self.map_walls_for(contract)
         draw_map_base(rectangle, p.draw_line, bounds, scale, (width, height),
                       TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite)
         occupied = [(left + 10, top - 60, left + 151, top - 5)]
@@ -964,6 +967,8 @@ class Renderer:
         if BUS_STOP in contract.stops:
             routes.extend((((2170, 1740), (2170, 1860), BUS_STOP.position),
                            ((2394, 1740), (2394, 1860), BUS_STOP.position)))
+        if MANAGEMENT_STOP in contract.stops:
+            routes.append(((2750, 987), (2750, 1400), (2960, 1400), (2960, 1740), (2435, 1740)))
         if FRONT_HOME_STOP in contract.stops:
             routes.append(((3180, 1880), (3180, 1969), FRONT_HOME_STOP.position))
         if REAR_HOME_STOP in contract.stops:
@@ -2018,6 +2023,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
         aim_player(player, *target)
         cursor = current_cursor()
         mouse_held = False
+        suppress_dispatch_repeats = False
         previous = time.perf_counter()
         frame = 0
         running = True
@@ -2057,6 +2063,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     pressed.clear()
                     physical_keys.clear()
                     mouse_held = False
+                    if renderer.choosing_delivery:
+                        cursor = None
                     lost_focus = True
                     discard_actions = True
                     continue
@@ -2089,24 +2097,37 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 elif renderer.pause_page is not None:
                     if key is not None:
                         pause_keys.append(key)
+                elif renderer.choosing_delivery:
+                    wants_dispatch = key in (p.SDLK_RETURN, p.SDLK_KP_ENTER)
+                    if key == p.SDLK_ESCAPE:
+                        running = False
+                    elif key in DELIVERY_KEYS:
+                        preview_choice = DELIVERY_KEYS[key]
+                    elif event.type == p.SDL_MOUSEMOTION:
+                        cursor = (event.motion.x, event.motion.y)
+                    elif event.type == p.SDL_WINDOWEVENT and event.window.event == p.SDL_WINDOWEVENT_LEAVE:
+                        cursor = None
+                    elif event.type == p.SDL_MOUSEBUTTONDOWN and event.button.button == p.SDL_BUTTON_LEFT:
+                        cursor = (event.button.x, event.button.y)
+                        if not mouse_held and event.button.clicks <= 1:
+                            index = renderer.contract_card_at(*cursor)
+                            if index is None:
+                                wants_dispatch = renderer.contract_dispatch_at(*cursor)
+                            else:
+                                preview_choice = index
+                        mouse_held = True
+                    if wants_dispatch and DELIVERY_CONTRACTS[preview_choice] in world.available_contracts:
+                        contract_choice = preview_choice
+                        discard_actions = True
                 elif key is not None:
                     if key == p.SDLK_ESCAPE:
                         if renderer.map_open or (delivery_run and world.result == "playing" and map_toggle):
                             map_toggle = renderer.map_open
-                        elif delivery_run and not renderer.choosing_delivery and world.result == "playing":
+                        elif delivery_run and world.result == "playing":
                             pause_requested = True
                         else:
                             running = False
                         discard_actions = True
-                        continue
-                    if renderer.choosing_delivery:
-                        if contract_choice is None:
-                            if key in DELIVERY_KEYS:
-                                index = DELIVERY_KEYS[key]
-                                if DELIVERY_CONTRACTS[index] in world.available_contracts:
-                                    preview_choice = index
-                            elif key in (p.SDLK_RETURN, p.SDLK_KP_ENTER):
-                                contract_choice = preview_choice
                         continue
                     if (delivery_run and world.route_sequence_active
                             and key in (p.SDLK_RETURN, p.SDLK_KP_ENTER)):
@@ -2138,14 +2159,19 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 elif event.type == p.SDL_MOUSEBUTTONDOWN:
                     cursor = (event.button.x, event.button.y)
                     button = event.button.button
-                    if (delivery_run and not renderer.choosing_delivery and world.result == "playing"
+                    if button == p.SDL_BUTTON_LEFT and suppress_dispatch_repeats:
+                        # SDL can deliver the next click of a double-click after departure.
+                        if event.button.clicks > 1:
+                            continue
+                        suppress_dispatch_repeats = False
+                    if (delivery_run and world.result == "playing"
                             and renderer.map_open != map_toggle):
                         if button == p.SDL_BUTTON_LEFT:
                             waypoint_actions.append(("add", cursor))
                         elif button == p.SDL_BUTTON_RIGHT:
                             waypoint_actions.append(("remove", None))
                     elif button == p.SDL_BUTTON_LEFT:
-                        if not renderer.choosing_delivery and not mouse_held:
+                        if not mouse_held:
                             pending_click = True
                         mouse_held = True
             if not running:
@@ -2224,7 +2250,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 pending_click = False
                 pending_interact = False
                 pending_bottle_pickup = pending_bottle_throw = False
-                mouse_held = False
+                if contract_choice is None:
+                    mouse_held = False
+                suppress_dispatch_repeats = contract_choice is not None
                 cursor = current_cursor()
                 renderer.light = None
                 renderer.map_open = False
@@ -2251,6 +2279,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     elif (point := renderer.map_world_at(*map_cursor)) is not None:
                         world.add_waypoint(point)
             if renderer.choosing_delivery:
+                renderer.cursor = cursor if focused and not lost_focus else None
                 if music is not None:
                     music.update(dt, focused=False)
                 if zombie_audio is not None:
