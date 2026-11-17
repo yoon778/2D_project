@@ -13,10 +13,10 @@ sys.path.insert(0, str(TEST_DIR.parent))
 
 import main
 import combat_visual
-from combat import CombatWorld, STUN_DURATION
+from combat import CombatWorld, STUN_DURATION, Zombie
 from combat_visual import CombatVisual, METADATA_PATH
 from core import Player, Wall
-from delivery import NeighborhoodWall
+from delivery import DeliveryWorld, NeighborhoodWall
 from flashlight import Flashlight, LightField
 import test_visual_input_r1a as input_fixture
 
@@ -33,7 +33,7 @@ def combat_metadata():
 
 def zombie_body_point(visual, zombie, foot, target_row=35):
     frame = visual._zombie_frame(zombie)
-    scale = visual.metadata["zombie"]["scale"]
+    scale = visual.metadata["zombie"]["scale"] * visual.display_scale
     row = min(map(int, frame["opaque_rows"]), key=lambda value: abs(value - target_row))
     start, end = max(frame["opaque_rows"][str(row)], key=lambda span: span[1] - span[0])
     left, bottom, _, _ = combat_visual.sprite_rect(
@@ -145,11 +145,62 @@ class CombatSpriteTests(unittest.TestCase):
         x, y = map(round, project(489, 260))
         near_row = main.WINDOW_HEIGHT - 1 - y
         far_row = near_row - 42
-        self.assertTrue(any(left <= x < right for left, right in rows[main.zombie_light_row(near_row, y)]))
-        self.assertFalse(any(left <= x < right for left, right in rows.get(main.zombie_light_row(far_row, y), ())))
+        renderer = main.Renderer.__new__(main.Renderer)
+        renderer.project = project
+        renderer.delivery = None
+        renderer.light_sources = ((beam, rows),)
+        renderer._open_light_rows = {}
+        spans = renderer.actor_light_spans((489, 260), x, y, wall_shadow_at_feet=True)
+        self.assertTrue(any(left <= x < right for left, right in spans(near_row)))
+        self.assertFalse(any(left <= x < right for left, right in spans(far_row)))
         self.assertEqual(main.mouse_target(world, visual, x, near_row, light, camera, shake), (489, 260))
         self.assertEqual(main.mouse_target(world, visual, x, far_row, light, camera, shake),
                          main.sdl_to_world(x, far_row, camera))
+
+    def test_shop_wall_keeps_lit_head_drawable_and_pickable_before_the_wall(self):
+        world = DeliveryWorld()
+        self.assertTrue(world.select_playable_contract(4))
+        world.skip_route_sequence()
+        world.parcel = "carrying"
+        self.visual.display_scale = main.DELIVERY_CHARACTER_SCALE
+        renderer = main.Renderer.__new__(main.Renderer)
+        renderer.delivery = world
+        renderer.shake_offset = (0, 0)
+        renderer.combat_visual = self.visual
+        renderer.glow_source = None
+        renderer._open_light_rows = {}
+        renderer.draw_lit_region = Mock()
+        renderer.draw_zombie_markers = Mock()
+
+        for origin, position, visible in (
+            ((1980, 910), (1980, 1042), True),
+            ((1980, 980), (1980, 1240), False),
+        ):
+            with self.subTest(position=position):
+                world.player.x, world.player.y = origin
+                renderer.follow(world.player)
+                beam = Flashlight(origin, math.pi / 2, world.walls, world.world_size)
+                renderer.light_sources = ((beam, main.light_source_rows(beam, renderer.project)),)
+                self.assertTrue(Flashlight(origin, math.pi / 2, (), world.world_size).contains(position))
+                self.assertEqual(beam.contains(position), visible)
+
+                zombie = Zombie(*position, aim_angle=-math.pi / 2)
+                world.zombies[:] = [zombie]
+                self.visual.update_zombie(zombie, 0, 0)
+                foot = renderer.project(*position)
+                mx, sy = map(math.floor, zombie_body_point(self.visual, zombie, foot, target_row=16))
+                self.assertTrue(self.visual.zombie_contains(zombie, *foot, mx, sy))
+                my = main.WINDOW_HEIGHT - 1 - sy
+
+                renderer.draw_lit_region.reset_mock()
+                renderer.draw_lit_zombie(zombie, world, None)
+                rendered = any(
+                    left <= mx < right for call in renderer.draw_lit_region.call_args_list
+                    for left, right in call.kwargs["row_spans"](my))
+                self.assertEqual(rendered, visible)
+                fallback = main.sdl_to_world(mx, my, renderer.camera)
+                self.assertEqual(main.mouse_target(world, self.visual, mx, my, LightField((beam,)), renderer.camera),
+                                 position if visible else fallback)
 
     def test_head_can_be_picked_in_a_horizontal_beam_and_stays_hidden_by_wall(self):
         world = CombatWorld()

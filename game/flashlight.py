@@ -38,6 +38,14 @@ class Flashlight:
     def outline(self):
         return self._outline
 
+    @cached_property
+    def open_light(self):
+        """The same beam shape before applying ground-wall shadows."""
+        if not self.walls:
+            return self
+        return Flashlight(self.origin, self.angle, (), self.world_size,
+                          radius=self.radius, half_angle=self.half_angle)
+
     def spans_at(self, y):
         """Return lit horizontal spans at the depth of an upright sprite."""
         if abs(y - self.origin[1]) > self.radius:

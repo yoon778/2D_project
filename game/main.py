@@ -277,7 +277,7 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
             if nearby_light is not None and zombie_glow_opacity(nearby_light, position):
                 sources = (*sources, nearby_light)
             if not any(any(left <= world_x < right for left, right in source.spans_at(zombie.y))
-                       and any(left <= world_x < right for left, right in source.spans_at(depth))
+                       and any(left <= world_x < right for left, right in source.open_light.spans_at(depth))
                        for source in sources):
                 continue
         # A wall drawn in front can cover the upper part of a lit sprite.
@@ -446,6 +446,7 @@ class Renderer:
         self.cursor = None
         self.light = None
         self._light_pose = None
+        self._open_light_rows = {}
         self.glow_source = None
         self.nearby_light = None
         self.camera = (0.0, 0.0)
@@ -1474,12 +1475,21 @@ class Renderer:
             return None
         return lambda row: clip_light_columns(rows.get(row, ()), columns)
 
-    def actor_light_spans(self, position, screen_x, foot_y, *, standing=True):
+    def actor_light_spans(self, position, screen_x, foot_y, *, standing=True, light_sources=None,
+                         wall_shadow_at_feet=False):
+        if light_sources is None:
+            light_sources = self.light_sources
         sources = []
-        for light, rows in self.light_sources:
+        for light, rows in light_sources:
             columns = light_depth_columns(light, position[1], screen_x - position[0])
-            if columns:
-                sources.append((rows, columns))
+            if not columns:
+                continue
+            if wall_shadow_at_feet and light.walls:
+                # Height samples keep the beam's shape. Only the feet determine wall shadow depth.
+                if light not in self._open_light_rows:
+                    self._open_light_rows[light] = light_source_rows(light.open_light, self.project)
+                rows = self._open_light_rows[light]
+            sources.append((rows, columns))
         if not sources:
             return None
         ground_scale = self.ground_scale()
@@ -1658,30 +1668,28 @@ class Renderer:
 
     def draw_lit_zombie(self, zombie, combat, attack):
         x, y = self.project(zombie.x, zombie.y)
-        ground_scale = self.ground_scale()
         bounds = self.combat_visual.zombie_rect(zombie, x, y)
+        left, _, width, _ = bounds
+        if left + width <= 0 or left >= WINDOW_WIDTH:
+            return
 
         def draw():
             self.combat_visual.draw_zombie(zombie, x, y)
 
         position = zombie.x, zombie.y
-        glow_spans = self.glow_at_ground_depth(position, x)
-        if glow_spans is not None:
-            opacity = zombie_glow_opacity(self.glow_source[0], position)
-            if opacity:
+        if self.glow_source is not None and (opacity := zombie_glow_opacity(self.glow_source[0], position)):
+            glow_spans = self.actor_light_spans(position, x, y, standing=zombie.alive,
+                                                 light_sources=(self.glow_source,), wall_shadow_at_feet=zombie.alive)
+            if glow_spans is not None:
                 texture = self.combat_visual.zombie_texture(zombie)
                 if p.SDL_SetTextureAlphaMod(texture, opacity) != 0:
                     raise RuntimeError(f"Nearby zombie opacity failed: {p.SDL_GetError()!r}")
                 try:
-                    self.draw_lit_region(bounds, draw, row_spans=lambda row: glow_spans(
-                        zombie_light_row(row, y, ground_scale) if zombie.alive else row))
+                    self.draw_lit_region(bounds, draw, row_spans=glow_spans)
                 finally:
                     p.SDL_SetTextureAlphaMod(texture, 255)
 
-        left, _, width, _ = bounds
-        if left + width <= 0 or left >= WINDOW_WIDTH:
-            return
-        spans = self.actor_light_spans(position, x, y, standing=zombie.alive)
+        spans = self.actor_light_spans(position, x, y, standing=zombie.alive, wall_shadow_at_feet=zombie.alive)
         if spans is None:
             return
         self.draw_lit_region(bounds, draw, row_spans=spans)
@@ -1814,11 +1822,12 @@ class Renderer:
         # Station labels and status marks remain reserved for strong lighting.
         self.glow_source = (glow, light_source_rows(glow, self.project)) if glow is not None else None
         light_sources = lamps if truck_lights_only or courier_in_truck else (beam, *lamps)
+        self._open_light_rows.clear()
         self.light_sources = tuple((source, light_source_rows(source, self.project)) for source in light_sources)
         self.light_rows = combined_light_rows([rows for _, rows in self.light_sources])
         beam_outline = () if truck_lights_only or courier_in_truck else beam.outline()
         # Wall hits select the facade spans. The roof uses the open beam projected at roof height.
-        open_beam = Flashlight(origin, beam.angle, (), world_size)
+        open_beam = beam.open_light
         beam_mask = []
         for point in (origin, *(point for point, _ in open_beam.outline())):
             x, y = self.project(*point)
