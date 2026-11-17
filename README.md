@@ -1,35 +1,50 @@
-# Dead Route
+# Dead Route (데드 루트)
 
-게임명: **Dead Route (데드 루트)**
+좁은 골목에서 좀비의 시야와 소음을 피해 택배를 배달하고, 트럭으로 돌아오는 2.5D 도트 게임
 
-작은 골목에서 좀보이드식 거리 조절과 소음 위험을 겪으며 택배를 배달하는 Python/pico2d 게임입니다.
+## Windows에서 실행
 
-[Windows 실행 안내](SUBMISSION.md). 프로젝트 루트에서 `py -3.13 tools/package_submission.py`를 실행하면 `output/submit/Dead_Route.zip`을 만듭니다.
+1. [게임 소스 ZIP 다운로드](https://github.com/yoon778/2D_project/archive/refs/heads/planning/first-presentation.zip) 또는 GitHub의 **Code → Download ZIP**
+2. 압축을 풀고 `game` 폴더와 `README.md`가 보이는 폴더를 엶. 파일 탐색기 주소창에 `powershell`을 입력하고 **Enter**
+3. [Windows용 Python 3.13](https://www.python.org/downloads/windows/) 설치 후 아래 명령을 한 줄씩 실행
 
-## 현재 게임
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r game/requirements.txt
+.\.venv\Scripts\python.exe game/main.py
+```
 
-- 운송장에서 1번 정비창, 2번 물류창고, 4번 상점 왕복을 미리 보고 Enter로 출발합니다.
-- 한 번 수령한 택배를 두 곳 또는 세 곳에 원하는 순서로 전달합니다. M 지도로 완료 상태와 우회로를 보고, 가까이서 가능한 행동은 배달원 머리 위에서 확인합니다.
-- 각 구역의 철문, 스피커, 다리 기믹과 우회로를 이용합니다. 모든 배송 뒤 같은 트럭에 탑승하고 출차하면 결과 영수증이 표시됩니다.
+두 번째 실행부터는 마지막 줄만 실행. 창으로 플레이하려면 마지막 줄 끝에 `--windowed` 추가
 
-## 초기 개발 기준 — 2026-11-03
+## 첫 배달
 
-- 고정 사선 3/4의 2.5D 도트풍, 왼손 몸 앞 택배·오른손 방망이·가슴등
-- 첫 범위는 지도 1개·좀비 1마리·방망이 1종·배달 1건
-- [현재 보행과 검수 기록](plans/handoffs/r1-consistent-walk-review.md): 승인 공통 원화의8방향·72자세. idle·머리/상체 픽셀 보존·양발 교대·정수2배 표시. 이동90px/s·주기64px 유지.
-- 이전 그림체 검수 이력과 도트풍 수정본·실제 키보드 미확인 항목을 구분한 [지휘 검수 기록](plans/handoffs/r1a-review.md)을 따릅니다.
+1. 오프닝이 끝나길 기다리거나 **Enter**로 건너뛰기
+2. **1·2·4** 또는 운송장 클릭으로 계약을 고른 뒤 **Enter** 또는 **출발** 클릭
+3. 트럭 짐칸 앞에서 **E 0.5초**로 택배 수령. **M** 지도의 붉은 배송지를 찾아 배송함마다 **E 1초**로 전달
+4. 모든 배송 후 지도의 초록 트럭으로 복귀. 추격을 끊고 운전석 앞에서 **E 0.7초**로 탑승하면 출차 후 결과 영수증 표시
 
-| 위치 | 용도 |
+| 계약 | 배송지 | 기믹과 우회로 |
+| --- | --- | --- |
+| **1** 정비창 왕복 | 2곳 | 철문 열기 또는 서쪽 골목 우회 |
+| **2** 물류창고 왕복 | 2곳 | 방송을 켜 좀비 유인 또는 서쪽 통로 우회 |
+| **4** 상점 왕복 | 3곳 | 경비초소 열쇠 → 관리실 회로 → 다리 지름길 또는 동쪽 골목 우회 |
+
+## 조작키
+
+| 입력 | 행동 |
 | --- | --- |
-| [PRD.md](PRD.md) | 현재 게임의 단일 기획 기준 |
-| [개발 순서](plans/development-roadmap.md) | 단계별 작업·완료 기준 |
-| [주차별 개발 기록](plans/weekly-development-log.md) | 기존 주차별 목표·실제 수행·검수·커밋 |
-| [채팅 협업](plans/team-workflow.md) | 지휘·로직·UI/에셋 담당과 연결 |
-| [지휘 실행 절차](plans/commander-runbook.md) | 작업 지시·1차 검수·수정·중간 커밋·사용자 2차 확인 |
-| [game/](game/README.md) | 게임 실행 코드와 리소스 |
-| [presentation/](presentation/README.md) | 최신 2차 발표 PPT와 대본, 1차 발표·기획서·영상 |
+| **WASD** / **Shift** / **Ctrl** | 이동 / 달리기 / 조용히 걷기 |
+| **마우스** / **좌클릭** | 손전등과 조준 / 배트 휘두르기 |
+| **E 길게** | 수령·전달·장치 작동·탑승. 진행 중 키를 떼거나 움직이거나 맞으면 취소 |
+| **F** / **Q** | 빈 병 줍기 / 마우스 방향으로 던져 좀비 유인 |
+| **M** | 지도 열기·닫기. 파란 화살표는 내 위치, 노란 점은 지금 사용할 수 있는 장치 |
+| **지도 좌클릭** / **우클릭** / **Space** | 경유지 추가 / 마지막 경유지 삭제 / 현재 경유지 건너뛰기 |
+| **Tab** / **회로판 1·2·3** | 4번 지도 확대·전체 전환 / 회로 타일 회전 |
+| **Esc** | 열린 지도·쪽지·회로 닫기 또는 일시정지. 일시정지 메뉴에 조작법·소리·화면 배율 설정 |
+| **결과 화면 Enter** / **R** | 같은 계약 재도전 / 계약 다시 선택 |
 
-2D_project.code-workspace로 작업 환경을 엽니다. 개발용 .venv와 로컬 수업 가이드는 유지합니다.
-미사용 이전 시제품·PPT·에셋·임시 출력은 삭제했습니다. 이전 코드가 필요하면 Git 커밋 7b46edd에서 참고할 수 있습니다.
-브랜치는 planning/first-presentation, 저장소는 <https://github.com/yoon778/2D_project>입니다.
-검증한 기능 단위로 `feat: R6 택배 소지 상태에 맞춰 캐릭터 상자 표시`처럼 단계와 한글 설명을 담아 커밋합니다.
+## 프로젝트 자료
+
+- [상세 실행과 조작, 리소스 출처](SUBMISSION.md)
+- [기획서](PRD.md) · [개발·검수 기록](plans/weekly-development-log.md) · [발표 자료](presentation/README.md)
+- 제출용 ZIP 생성은 `py -3.13 tools/package_submission.py`. 결과는 `output/submit/Dead_Route.zip`
