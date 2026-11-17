@@ -1,5 +1,5 @@
 """Opening and music wiring through the real SDL event and render loop."""
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 import ctypes
 from itertools import count
 import math
@@ -197,7 +197,7 @@ class EndingTests(unittest.TestCase):
             patch.object(p, "SDL_GetWindowFlags", return_value=p.SDL_WINDOW_INPUT_FOCUS),
             patch.object(main.opening, "draw_ending") as draw,
             patch.object(main.opening, "draw_defeat_overlay") as overlay,
-            patch.object(p, "update_canvas"),
+            patch.object(main.display, "frame", side_effect=nullcontext),
         ):
             self.assertTrue(main.play_ending(renderer, art, world, audio, player_hit=True, target=(123, 456)))
         draw.assert_not_called()

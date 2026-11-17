@@ -10,6 +10,7 @@ import time
 
 import pico2d.pico2d as p
 
+import display
 from core import WORLD_WIDTH, WORLD_HEIGHT, aim_player, wall_blocks
 from combat import CombatWorld, HEAVY_ZOMBIE_APPEARANCE, MAX_STAMINA
 from combat_visual import CombatVisual
@@ -162,7 +163,9 @@ def current_cursor():
         return None
     x, y = ctypes.c_int(), ctypes.c_int()
     p.SDL_GetMouseState(ctypes.byref(x), ctypes.byref(y))
-    return x.value, y.value
+    logical_x, logical_y = ctypes.c_float(), ctypes.c_float()
+    p.SDL_RenderWindowToLogical(p.renderer, x.value, y.value, ctypes.byref(logical_x), ctypes.byref(logical_y))
+    return display.cursor_in_canvas(logical_x.value, logical_y.value)
 
 
 def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stations=(), lamps=(), street_props=(),
@@ -677,6 +680,7 @@ class Renderer:
     contract_dispatch_at = staticmethod(contract_dispatch_at)
 
     def draw_delivery_selection(self):
+        display.clear()
         contracts = tuple(PLAYABLE_CONTRACTS.values())
         draw_contract_selection(self.play_hud, contracts, contracts,
                                 self.delivery_preview, self.cursor, self.contract_previews, self.draw_contract_route,
@@ -1107,8 +1111,7 @@ class Renderer:
 
     def draw_map(self, player):
         world = self.delivery
-        p.SDL_SetRenderDrawColor(p.renderer, *MAP_VIEW_BG, 255)
-        p.SDL_RenderClear(p.renderer)
+        display.clear(MAP_VIEW_BG)
         world_bounds = self._play_map_bounds()
         if world_bounds is None:
             self.draw_town_map(world.contract, *PLAY_MAP_VIEWPORT, player)
@@ -1781,8 +1784,7 @@ class Renderer:
         self._draw_overlay(player, target, aim, focused, defeat_elapsed)
 
     def _draw_world(self, player, walls, aim, defeat_elapsed, defeat_attacker):
-        p.SDL_SetRenderDrawColor(p.renderer, 0, 0, 0, 255)
-        p.SDL_RenderClear(p.renderer)
+        display.clear()
         delivery = self.delivery
         phase = delivery.mission_phase if delivery is not None else None
         truck = delivery.truck_footprint if delivery is not None else None
@@ -2045,8 +2047,11 @@ class Renderer:
 def capture(path):
     """Save actual SDL back-buffer pixels before Present."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    width, height = ctypes.c_int(), ctypes.c_int()
+    if p.SDL_GetRendererOutputSize(p.renderer, ctypes.byref(width), ctypes.byref(height)) != 0:
+        raise RuntimeError(f"SDL capture size query failed: {p.SDL_GetError()!r}")
     surface = p.SDL_CreateRGBSurfaceWithFormat(
-        0, WINDOW_WIDTH, WINDOW_HEIGHT, 32, p.SDL_PIXELFORMAT_ARGB8888)
+        0, width.value, height.value, 32, p.SDL_PIXELFORMAT_ARGB8888)
     if not surface:
         raise RuntimeError(f"SDL capture allocation failed: {p.SDL_GetError()!r}")
     try:
@@ -2097,8 +2102,8 @@ def play_opening(renderer, music, art=None):
             return True
         focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
         music.update(min(now - previous, 0.05), opening=True, focused=focused and not lost_focus)
-        opening.draw(elapsed, renderer.font, renderer.player_visual, renderer.combat_visual.metadata["zombie"], art)
-        p.update_canvas()
+        with display.frame():
+            opening.draw(elapsed, renderer.font, renderer.player_visual, renderer.combat_visual.metadata["zombie"], art)
         previous = now
 
 
@@ -2133,22 +2138,22 @@ def play_ending(renderer, art, world, audio, *, player_hit, target=None):
                 cue_played = True
             if elapsed >= duration or (skip and focused):
                 return True
-            if delivered:
-                opening.draw_ending(elapsed, renderer.font, art, world)
-            else:
-                renderer.update_shake((elapsed - previous) * opening.FAILURE_MOTION_RATE)
-                if attacker is not None:
-                    visual_strike.elapsed = min(math.nextafter(strike.duration, 0.0),
-                                                strike.elapsed + elapsed * opening.FAILURE_MOTION_RATE)
-                renderer.draw_defeat(world.player, world.walls, target, elapsed, attacker)
-                opening.draw_defeat_overlay(elapsed, renderer.font, art)
-                previous = elapsed
-            p.update_canvas()
+            with display.frame():
+                if delivered:
+                    opening.draw_ending(elapsed, renderer.font, art, world)
+                else:
+                    renderer.update_shake((elapsed - previous) * opening.FAILURE_MOTION_RATE)
+                    if attacker is not None:
+                        visual_strike.elapsed = min(math.nextafter(strike.duration, 0.0),
+                                                    strike.elapsed + elapsed * opening.FAILURE_MOTION_RATE)
+                    renderer.draw_defeat(world.player, world.walls, target, elapsed, attacker)
+                    opening.draw_defeat_overlay(elapsed, renderer.font, art)
+                    previous = elapsed
     finally:
         audio.stop()
 
 
-def run(smoke_test=False, *, show_opening=False, practice=False):
+def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False):
     renderer = None
     music = None
     zombie_audio = None
@@ -2163,7 +2168,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
             raise RuntimeError(f"SDL renderer initialization failed: {p.SDL_GetError()!r}")
         p.hide_lattice()
         p.SDL_SetWindowTitle(p.window, b"Dead Route" if delivery_run else b"Dead Route - R2-ZA")
-        p.SDL_SetWindowPosition(p.window, p.SDL_WINDOWPOS_CENTERED, p.SDL_WINDOWPOS_CENTERED)
+        display.configure(fullscreen=not (windowed or smoke_test))
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
         if delivery_run:
@@ -2248,6 +2253,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     lost_focus = True
                     discard_actions = True
                     continue
+                if event.type == p.SDL_WINDOWEVENT and event.window.event == p.SDL_WINDOWEVENT_LEAVE:
+                    cursor = None
+                    continue
                 if event.type == p.SDL_KEYUP:
                     key = event.key.keysym.sym
                     physical_keys.discard(key)
@@ -2284,11 +2292,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     elif NUMBER_KEYS.get(key) in PLAYABLE_CONTRACTS:
                         preview_choice = CONTRACT_NUMBERS.index(NUMBER_KEYS[key])
                     elif event.type == p.SDL_MOUSEMOTION:
-                        cursor = (event.motion.x, event.motion.y)
-                    elif event.type == p.SDL_WINDOWEVENT and event.window.event == p.SDL_WINDOWEVENT_LEAVE:
-                        cursor = None
+                        cursor = display.cursor_in_canvas(event.motion.x, event.motion.y)
                     elif event.type == p.SDL_MOUSEBUTTONDOWN and event.button.button == p.SDL_BUTTON_LEFT:
-                        cursor = (event.button.x, event.button.y)
+                        cursor = display.cursor_in_canvas(event.button.x, event.button.y)
+                        if cursor is None:
+                            continue
                         if not mouse_held and event.button.clicks <= 1:
                             index = renderer.contract_card_at(*cursor)
                             if index is None:
@@ -2338,9 +2346,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         else:
                             reset_requested = True
                 elif event.type == p.SDL_MOUSEMOTION:
-                    cursor = (event.motion.x, event.motion.y)
+                    cursor = display.cursor_in_canvas(event.motion.x, event.motion.y)
                 elif event.type == p.SDL_MOUSEBUTTONDOWN:
-                    cursor = (event.button.x, event.button.y)
+                    cursor = display.cursor_in_canvas(event.button.x, event.button.y)
+                    if cursor is None:
+                        continue
                     button = event.button.button
                     if button == p.SDL_BUTTON_LEFT and suppress_dispatch_repeats:
                         # SDL can deliver the next click of a double-click after departure.
@@ -2475,8 +2485,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     music.update(dt, focused=False)
                 if zombie_audio is not None:
                     zombie_audio.update(dt, distance=None, stride=0.0, active=False)
-                renderer.draw(player, walls, target, focused)
-                p.update_canvas()
+                with display.frame():
+                    renderer.draw(player, walls, target, focused)
                 continue
             was_playing = world.result == "playing"
             active = (focused and not lost_focus and not renderer.map_open
@@ -2738,12 +2748,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     renderer.update_shake(math.inf)
                 focused = bool(p.SDL_GetWindowFlags(p.window) & p.SDL_WINDOW_INPUT_FOCUS)
                 previous = time.perf_counter()
-            renderer.draw(player, walls, target, focused)
-            if smoke_test:
-                output = BASE_DIR.parent / "output/review/R2-C8" / f"ui-{name}.png"
-                capture(output)
-                print(f"R2-C8 SDL capture: {output}", flush=True)
-            p.update_canvas()
+            with display.frame():
+                renderer.draw(player, walls, target, focused)
+                if smoke_test:
+                    output = BASE_DIR.parent / "output/review/R2-C8" / f"ui-{name}.png"
+                    capture(output)
+                    print(f"R2-C8 SDL capture: {output}", flush=True)
             if smoke_test:
                 frame += 1
                 if frame >= len(smoke_poses):
@@ -2765,6 +2775,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                         if renderer is not None:
                             renderer.close()
                     finally:
+                        display.close()
                         p.close_canvas()
 
 
@@ -2772,5 +2783,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dead Route alley delivery game")
     parser.add_argument("--smoke-test", action="store_true",
                         help="render three native SDL fixtures, save PNGs and exit")
+    parser.add_argument("--windowed", action="store_true", help="start in a window")
     args = parser.parse_args()
-    run(args.smoke_test, show_opening=not args.smoke_test)
+    run(args.smoke_test, show_opening=not args.smoke_test, windowed=args.windowed)

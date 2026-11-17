@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pico2d.pico2d as p
 
+import display
+
 
 DURATION = 8.0
 ENDING_DURATION = 4.0
@@ -118,8 +120,7 @@ def _caption_shade():
 
 
 def _clear():
-    p.SDL_SetRenderDrawColor(p.renderer, *_INK, 255)
-    p.SDL_RenderClear(p.renderer)
+    display.clear(_INK)
 
 
 def _skip(font, art):
