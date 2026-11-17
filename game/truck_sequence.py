@@ -77,8 +77,11 @@ class TruckVisual:
         cell = _VEHICLE_CELLS.index(door)
         self.image.clip_draw_to_origin(cell * TRUCK_WIDTH, 0, TRUCK_WIDTH, TRUCK_HEIGHT, *bounds)
 
-    def draw_pickup(self, foot, facing, index, scale):
+    def draw_pickup(self, foot, facing, index, scale, *, upper_body=False):
         row = _PICKUP_FACINGS.index(facing)
         x, y = foot
-        self.pickup.clip_draw_to_origin(index * 80, 160 - row * 80, 80, 80,
-                                        x - 40 * scale, y - 8 * scale, 80 * scale, 80 * scale)
+        height = 53 if upper_body else 80
+        crop_bottom = 80 - height
+        self.pickup.clip_draw_to_origin(index * 80, 160 - row * 80 + crop_bottom, 80, height,
+                                        x - 40 * scale, y + (crop_bottom - 8) * scale,
+                                        80 * scale, height * scale)

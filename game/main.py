@@ -1934,6 +1934,10 @@ class Renderer:
         self.draw_noise_pulse(self.vehicle_alarm, self.vehicle_alarm_remaining, ORANGE,
                               duration=VEHICLE_ALARM_DURATION)
         foot = self.project(*(origin if truck_step is None else truck_step.position))
+        pickup_pose = None
+        if pickup_index is not None:
+            scale = self.player_visual.metadata["display_height"] / 64 * self.player_visual.display_scale
+            pickup_pose = (foot, pickup_facing(origin, delivery.contract.truck_door_position), pickup_index, scale)
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
@@ -2018,6 +2022,9 @@ class Renderer:
                     if truck_reveal > 0:
                         draw_dimmed_texture(self.truck_visual.image.texture, lambda: self.truck_visual.draw(bounds, door))
                     self.draw_lit_region(bounds, lambda: self.truck_visual.draw(bounds, door))
+                if pickup_pose is not None:
+                    # The courier leans over the hatch while the body of the truck covers their legs.
+                    self.truck_visual.draw_pickup(*pickup_pose, upper_body=True)
             elif kind == "wall":
                 texture = getattr(actor, "texture", None)
                 if texture == "delivery-truck":
@@ -2047,10 +2054,8 @@ class Renderer:
                     self.player_visual.draw(*foot, empty_handed=True, pose=(truck_step.facing, truck_step.frame),
                                             opacity=truck_step.opacity)
                     continue
-                if pickup_index is not None:
-                    facing = pickup_facing(origin, delivery.contract.truck_door_position)
-                    scale = self.player_visual.metadata["display_height"] / 64 * self.player_visual.display_scale
-                    self.truck_visual.draw_pickup(foot, facing, pickup_index, scale)
+                if pickup_pose is not None:
+                    self.truck_visual.draw_pickup(*pickup_pose)
                 elif defeated:
                     attacker = delivery.fatal_zombie_strike
                     fall_x = player.x - attacker[0].x if attacker else -math.cos(player.aim_angle)

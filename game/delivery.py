@@ -44,7 +44,9 @@ _TRUCK_SEQUENCE = {
 }
 _TRUCK_EXIT_THREAT_RANGE = 100.0
 _TRUCK_TRAVEL = 720.0
-_TRUCK_SIZE = (96, 34)
+# The delivery lanes have room for a longer truck at the same curbside depth.
+_TRUCK_SIZE = (144, 34)
+_TRUCK_CAB_OFFSET = _TRUCK_SIZE[0] * (27 / 96)
 GATE_NOISE_RANGE = 230.0
 FRONT_GATE_NOISE_RANGE = 120.0
 BUS_BROADCAST_NOISE_RANGE = 310.0
@@ -140,14 +142,14 @@ class DeliveryContract:
     def truck_driver_exit(self):
         if self.truck_position is not None:
             x, y = self.truck_position
-            return (x - 27, y + 32)
+            return (x - _TRUCK_CAB_OFFSET, y + 32)
         return None
 
     @property
     def truck_driver_socket(self):
         if self.truck_position is not None:
             x, y = self.truck_position
-            return (x - 27, y + 6)
+            return (x - _TRUCK_CAB_OFFSET, y + 6)
         return None
 
 
@@ -481,7 +483,7 @@ class DeliveryWorld(CombatWorld):
             x, y = self.contract.truck_position
             width, depth = _TRUCK_SIZE
             self.truck_wall = NeighborhoodWall(x - width / 2, y - depth / 2, width, depth,
-                                               "delivery-truck", height=48)
+                                               "delivery-truck", height=72)
         self.zombies = []
         has_rear_door = REAR_HOME_STOP in self.contract.stops
         has_front_door = FRONT_HOME_STOP in self.contract.stops

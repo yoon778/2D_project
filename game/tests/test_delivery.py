@@ -365,6 +365,7 @@ class DeliveryTests(unittest.TestCase):
         world = self.world
         self.assertTrue(world.select_contract(3))
         x, y, width, depth = world.truck_footprint
+        self.assertEqual((width, depth), (144, 34))
         self.assertEqual((x + width / 2, y + depth / 2), (3010, 873))
         left = 1570 - width / 2
         self.assertFalse(any(
@@ -379,6 +380,8 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(world.mission_phase, "disembarking")
         self.assertAlmostEqual(world.phase_elapsed, .05)
         contract = world.contract
+        self.assertEqual(contract.truck_driver_exit[0], contract.truck_driver_socket[0])
+        self.assertAlmostEqual(contract.truck_driver_exit[0] - world.truck_wall.x, width * 21 / 96)
         self.assertTrue(can_walk_direct(contract.truck_driver_exit, contract.player_start, world.walls))
         self.assertTrue(can_walk_direct(contract.truck_driver_exit, contract.truck_door_position, world.walls))
         world.player.x, world.player.y = contract.truck_driver_exit

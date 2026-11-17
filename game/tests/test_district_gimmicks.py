@@ -225,7 +225,7 @@ class DistrictGimmickTests(unittest.TestCase):
         self.assertEqual(len(patrols), 2)
         self.walk((2280, 907), sneak=True)
         self.assertTrue(world.pick_up_bottle())
-        for point in ((2220, 907), (2220, 875), (2053, 875)):
+        for point in ((2200, 907), (2200, 875), (2053, 875)):
             self.walk(point, sneak=True)
         self.assertTrue(world.throw_bottle((1758, 872)))
         world.update(28 / 30)
