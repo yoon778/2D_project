@@ -27,7 +27,7 @@
 | [채팅 협업](plans/team-workflow.md) | 지휘·로직·UI/에셋 담당과 연결 |
 | [지휘 실행 절차](plans/commander-runbook.md) | 작업 지시·1차 검수·수정·중간 커밋·사용자 2차 확인 |
 | [game/](game/README.md) | 게임 실행 코드와 리소스 |
-| [presentation/](presentation/README.md) | 발표용 6장·기획서 14장·90초 대본 |
+| [presentation/](presentation/README.md) | 최신 2차 발표 PPT와 대본, 1차 발표·기획서·영상 |
 
 2D_project.code-workspace로 작업 환경을 엽니다. 개발용 .venv와 로컬 수업 가이드는 유지합니다.
 미사용 이전 시제품·PPT·에셋·임시 출력은 삭제했습니다. 이전 코드가 필요하면 Git 커밋 7b46edd에서 참고할 수 있습니다.
