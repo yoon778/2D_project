@@ -39,7 +39,7 @@ CAMERA_LEAD_FRACTION = 0.25
 CAMERA_MAX_LEAD = 72.0
 RETURN_PERSPECTIVE_BOUNDS = (2470, 1220, 2650, 1410)
 RETURN_PERSPECTIVE_BLEND = 36.0
-RETURN_PERSPECTIVE_STRENGTH = .10
+RETURN_PERSPECTIVE_STRENGTH = .06
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
 CONTRACT_NUMBERS = tuple(PLAYABLE_CONTRACTS)
@@ -79,6 +79,7 @@ PROP_TEXTURE_SIZES = {
 }
 HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
+BUILDING_ROOF_LIGHT_BAND = 36
 GROUND_NEUTRAL = 144
 STREETLIGHT_RADIUS = 185.0
 BEAM_GROUND_EDGE = (50, 46, 37)
@@ -1298,6 +1299,7 @@ class Renderer:
         image = self.neighborhood_walls.get(texture)
         oblique = image is not None and wall.oblique
         low_obstacle = image is not None and wall.texture in LOW_OBSTACLE_TEXTURES
+        building = texture in BUILDING_TEXTURES
         shutter = textured and wall.texture == "parking-shutter"
         long_shutter = shutter and wall.depth > wall.width
         # The shutter reuses the shorter iron gate's roof/front texture split.
@@ -1319,16 +1321,20 @@ class Renderer:
         side_image = self.neighborhood_walls[f"{texture}-side"] if oblique else None
 
         roof_mask = [(px, py + height) for px, py in beam_mask] if beam_mask else None
-        front_band = min(1, ROOF_LIGHT_BAND / depth)
-        side_band = min(1, ROOF_LIGHT_BAND / (front[1][0] - front[0][0]))
+        front_width = front[1][0] - front[0][0]
+        side_band = min(1, ROOF_LIGHT_BAND / front_width)
         edges = (
             (1, wall.y, wall.x, wall.width, "front"),
             (1, wall.y + wall.depth, wall.x, wall.width, "back"),
             (0, wall.x, wall.y, wall.depth, "left"),
             (0, wall.x + wall.width, wall.y, wall.depth, "right"),
         )
-        strong_shades = ((178, 147, 105), (140, 123, 102), (155, 131, 103)) if image is not None else (
-            (53, 47, 40), (45, 41, 38), (155, 131, 103))
+        if building and image is not None:
+            strong_shades = ((187, 154, 110), (130, 128, 118), (123, 115, 106))
+        elif image is not None:
+            strong_shades = ((178, 147, 105), (140, 123, 102), (155, 131, 103))
+        else:
+            strong_shades = ((53, 47, 40), (45, 41, 38), (155, 131, 103))
         passes = []
         if glow_outline:
             dim_shades = tuple(map(dim_color, strong_shades))
@@ -1340,8 +1346,9 @@ class Renderer:
             # The roof of a low obstacle fits in the beam instead of the
             # narrow rim used to suggest the height of a building.
             low_roof = low_obstacle and mask is not None
-            roof_depth = 1 if low_roof else front_band
-            roof_width = 1 if low_roof else side_band
+            band_width = BUILDING_ROOF_LIGHT_BAND if building and mask is not None else ROOF_LIGHT_BAND
+            roof_depth = 1 if low_roof else min(1, band_width / depth)
+            roof_width = 1 if low_roof else min(1, band_width / front_width)
             falloff = 80 if low_roof else 0
             for low, high in wall_edge_spans(wall, outline, axis, boundary):
                 start = max(0, (low - offset) / length)

@@ -244,8 +244,8 @@ TOWN_BASE_WALLS = (
     NeighborhoodWall(1768, 1008, 60, 34, "dumpster", height=28),
     NeighborhoodWall(2668, 1775, 60, 34, "dumpster", height=28),
     *(NeighborhoodWall(*building, "workshop") for building in _BUILDINGS),
-    *(NeighborhoodWall(x, y, 140, 190, "west-house") for x, y in _WEST_HOUSES),
-    *(NeighborhoodWall(x, y, 275, 200, "east-house") for x, y in _EAST_HOUSES),
+    *(NeighborhoodWall(x, y, 140, 190, "west-house", oblique=True) for x, y in _WEST_HOUSES),
+    *(NeighborhoodWall(x, y, 275, 200, "east-house", oblique=True) for x, y in _EAST_HOUSES),
     NeighborhoodWall(1820, 1060, 260, 160, "shop"),
     NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
 )

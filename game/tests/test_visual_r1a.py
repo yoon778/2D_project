@@ -55,8 +55,9 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(renderer.perspective_strength(), 0.0)
         player.y = 1302
         cursor = (864, 384)
+        self.assertAlmostEqual(renderer.ground_scale(), .54)
         self.assertPointAlmostEqual(renderer.cursor_world(cursor),
-                                    sdl_to_world(*cursor, renderer.camera, ground_scale=.50))
+                                    sdl_to_world(*cursor, renderer.camera, ground_scale=.54))
         world.contract = DELIVERY_CONTRACTS[2]
         self.assertEqual(renderer.perspective_strength(), 0.0)
 
