@@ -104,6 +104,8 @@ MAP_ROUTE_HINT = (176, 205, 245)
 MAP_PLAYER = (67, 168, 255)
 MAP_PLAYER_INK = (19, 73, 130)
 MAP_PLAYER_RADIUS = 14
+PUZZLE_DOT = (255, 211, 72)
+PUZZLE_MARKER_DISTANCE = 210.0
 MAP_ROAD_INK = (91, 75, 46)
 MAP_ALLEY_INK = (100, 96, 81)
 MAP_PICKUP = (168, 85, 27)
@@ -422,6 +424,29 @@ def rectangle(x, y, width, height, color, filled=True):
 def cross(x, y, color, size=5):
     p.draw_line(x - size, y, x + size, y, *color)
     p.draw_line(x, y - size, x, y + size, *color)
+
+
+def puzzle_markers(world):
+    """Return available devices for both the map and world. Gates own their line-of-sight blocker."""
+    if not world.district_gimmicks_active:
+        return {}
+    markers = {}
+    if world.gate is not None:
+        markers["G"] = (world.gate_position, world.gate)
+    if world.front_gate is not None:
+        markers["F"] = (world.front_gate_position, world.front_gate)
+    if world.shutter_position is not None and not world.shutter_closed:
+        markers["S"] = (world.shutter_position, None)
+    if world.bus_switch_position is not None and world.bus_broadcast_cooldown <= 0:
+        markers["B"] = (world.bus_switch_position, None)
+    bridge = world.bridge_puzzle
+    if world.route_gimmicks_active and not bridge.bridge_down:
+        if bridge.has_key:
+            markers["C"] = (bridge.panel_position, None)
+        else:
+            markers["N"] = (bridge.note_position, None)
+            markers["K"] = (bridge.key_position, None)
+    return markers
 
 
 class Renderer:
@@ -875,6 +900,7 @@ class Renderer:
         right, top = map_point(east, north)
         bounds = left, bottom, right, top
         active_contract = contract is world.contract
+        puzzles = puzzle_markers(world) if active_contract and player is not None else {}
         shutter = world.shutter_wall if active_contract else None
         bridge = world.bridge_puzzle if active_contract else None
         show_east_detour = bridge is not None and player is not None and world.route_gimmicks_active
@@ -916,6 +942,22 @@ class Renderer:
                 label_width = 17 * len(label) + 16
                 captions.append((position, label, ink, label_width, offset))
 
+        def mark_device(x, y, symbol, *, active=False, color=MAP_PICKUP):
+            puzzle = symbol in puzzles
+            px, py = x, y
+            if puzzle:
+                # Keep the blue player arrow readable when the player is beside a device.
+                hx, hy = route[0]
+                distance = math.hypot(x - hx, y - hy)
+                clearance = MAP_PLAYER_RADIUS + 9
+                if distance < clearance:
+                    dx, dy = ((x - hx) / distance, (y - hy) / distance) if distance else (1, 0)
+                    px, py = hx + dx * clearance, hy + dy * clearance
+                    p.draw_line(x, y, px, py, *MAP_INK)
+            self.draw_bridge_map_marker(px, py, symbol, active=active, active_color=color, puzzle=puzzle)
+            occupied.append((px - 9, py - 10, px + 9, py + 10))
+            return px, py
+
         if player is not None:
             hx, hy = route[0]
             radius = MAP_PLAYER_RADIUS
@@ -952,21 +994,17 @@ class Renderer:
         if active_contract and (REAR_HOME_STOP in contract.stops or district_gate):
             gate_x, gate_y = map_point(*world.gate_position)
             gate_closed = player is None or world.gate is not None
-            self.draw_bridge_map_marker(gate_x, gate_y, "G", active=not gate_closed, active_color=MAP_OPEN_GATE)
-            occupied.append((gate_x - 9, gate_y - 10, gate_x + 9, gate_y + 10))
+            marker = mark_device(gate_x, gate_y, "G", active=not gate_closed, color=MAP_OPEN_GATE)
             if district_gate:
-                caption((gate_x, gate_y), "정비창 철문", MAP_SAFE if not gate_closed else MAP_PAPER_INK)
+                caption(marker, "정비창 철문", MAP_SAFE if not gate_closed else MAP_PAPER_INK)
         if active_contract and world.front_gate_position is not None:
             gate_x, gate_y = map_point(*world.front_gate_position)
-            self.draw_bridge_map_marker(gate_x, gate_y, "F", active=world.front_gate is None,
-                                        active_color=MAP_OPEN_GATE)
-            occupied.append((gate_x - 9, gate_y - 10, gate_x + 9, gate_y + 10))
+            mark_device(gate_x, gate_y, "F", active=world.front_gate is None, color=MAP_OPEN_GATE)
         if active_contract and world.bus_switch_position is not None:
             switch_x, switch_y = map_point(*world.bus_switch_position)
-            self.draw_bridge_map_marker(switch_x, switch_y, "B", active=world.bus_broadcast_cooldown > 0)
-            occupied.append((switch_x - 9, switch_y - 10, switch_x + 9, switch_y + 10))
+            marker = mark_device(switch_x, switch_y, "B", active=world.bus_broadcast_cooldown > 0)
             if layout is not None and world.bus_speaker_position is not None:
-                caption((switch_x, switch_y), "방송 스위치", MAP_PAPER_INK)
+                caption(marker, "방송 스위치", MAP_PAPER_INK)
                 speaker_x, speaker_y = map_point(*world.bus_speaker_position)
                 p.draw_circle(speaker_x, speaker_y, 6, *MAP_LABEL, filled=True)
                 p.draw_circle(speaker_x, speaker_y, 4, *MAP_DETOUR, filled=True)
@@ -980,8 +1018,7 @@ class Renderer:
             rectangle(sx, sy, marker_w, marker_h, color)
             occupied.append((sx - 1, sy - 1, sx + marker_w + 1, sy + marker_h + 1))
             switch_x, switch_y = map_point(*world.shutter_position)
-            self.draw_bridge_map_marker(switch_x, switch_y, "S", active=world.shutter_closed)
-            occupied.append((switch_x - 9, switch_y - 10, switch_x + 9, switch_y + 10))
+            mark_device(switch_x, switch_y, "S", active=world.shutter_closed)
             lot_x, lot_y = map_point(*world.shutter_lure)
             caption((lot_x, lot_y), "주차장", offset=(-32, 5))
         if bridge is not None:
@@ -992,11 +1029,12 @@ class Renderer:
             for position, symbol in ((bridge.key_position, "K"), (bridge.panel_position, "C")):
                 px, py = map_point(*position)
                 active = next_stop is not None and symbol == next_stop[0]
-                self.draw_bridge_map_marker(px, py, symbol, active=active)
-                half_w, half_h = (9, 10) if active else (7, 8)
-                occupied.append((px - half_w, py - half_h, px + half_w, py + half_h))
+                marker = mark_device(px, py, symbol, active=active)
                 if active:
-                    caption((px, py), next_stop[1], MAP_PICKUP, offset=(16, -11))
+                    caption(marker, next_stop[1], MAP_PICKUP, offset=(16, -11))
+            if "N" in puzzles:
+                marker = mark_device(*map_point(*puzzles["N"][0]), "N")
+                caption(marker, "시설 쪽지", offset=(22, 10))
             bx, by = map_point(*bridge.bridge_position)
             if bridge.bridge_down:
                 bridge_x, bridge_y, bridge_width, bridge_depth = bridge.bridge_rect
@@ -1103,7 +1141,15 @@ class Renderer:
             return "C", "관리실", "회로 연결"
         return "K", "경비초소", "열쇠 찾기"
 
-    def draw_bridge_map_marker(self, x, y, symbol, *, active=False, active_color=MAP_PICKUP):
+    @staticmethod
+    def draw_puzzle_dot(x, y):
+        p.draw_circle(x, y, 7, *MAP_INK, filled=True)
+        p.draw_circle(x, y, 4, *PUZZLE_DOT, filled=True)
+
+    def draw_bridge_map_marker(self, x, y, symbol, *, active=False, active_color=MAP_PICKUP, puzzle=False):
+        if puzzle:
+            self.draw_puzzle_dot(x, y)
+            return
         if active:
             rectangle(x - 9, y - 10, 18, 20, active_color)
         rectangle(x - 7, y - 8, 14, 16, MAP_LABEL)
@@ -1180,6 +1226,7 @@ class Renderer:
 
     def draw_map_checklist(self, world, side):
         left, right = side + 24, side + 312
+        puzzles = puzzle_markers(world)
         self.font.draw(left, 478, "배송 목록", MAP_VIEW_TEXT)
         for row, stop in enumerate(world.contract.stops):
             y = 449 - row * 28
@@ -1227,25 +1274,28 @@ class Renderer:
             if symbol is None:
                 rectangle(left, y - 2, 17, 4, MAP_OPEN_GATE if active else MAP_CLOSED_GATE)
             else:
-                self.draw_bridge_map_marker(left + 8, y, symbol, active=active, active_color=color)
+                self.draw_bridge_map_marker(left + 8, y, symbol, active=active, active_color=color,
+                                            puzzle=symbol in puzzles)
             self.font.draw(left + 25, y, label, MAP_VIEW_TEXT)
 
         p.draw_line(left, 186, right, 186, *MAP_VIEW_EDGE)
         for dx in (0, 8, 16):
-            rectangle(left + dx, 161, 5, 2, SAFE_GREEN)
-        self.font.draw(left + 25, 162, "우회 골목", MAP_VIEW_TEXT)
+            rectangle(left + dx, 166, 5, 2, SAFE_GREEN)
+        self.font.draw(left + 25, 167, "우회 골목", MAP_VIEW_TEXT)
         if world.contract.truck_position is not None:
             picking_up = world.parcel == "waiting"
-            self.draw_map_truck(left + 164, 162, MAP_PICKUP if picking_up else MAP_SAFE)
+            self.draw_map_truck(left + 164, 167, MAP_PICKUP if picking_up else MAP_SAFE)
             pickup_label = "수령 트럭" if picking_up else "복귀 트럭"
         else:
-            self.draw_map_pin(left + 164, 162, MAP_PICKUP, pickup=True)
+            self.draw_map_pin(left + 164, 167, MAP_PICKUP, pickup=True)
             pickup_label = "수령지"
-        self.font.draw(left + 180, 162, pickup_label, MAP_VIEW_TEXT)
-        self.draw_map_heading(left + 7, 133, 0)
-        self.font.draw(left + 25, 133, "현재 위치", MAP_VIEW_TEXT)
-        self.draw_map_waypoint(left + 164, 133, 1)
-        self.font.draw(left + 180, 133, "경유지", MAP_VIEW_TEXT)
+        self.font.draw(left + 180, 167, pickup_label, MAP_VIEW_TEXT)
+        self.draw_map_heading(left + 7, 141, 0)
+        self.font.draw(left + 25, 141, "현재 위치", MAP_VIEW_TEXT)
+        self.draw_map_waypoint(left + 164, 141, 1)
+        self.font.draw(left + 180, 141, "경유지", MAP_VIEW_TEXT)
+        self.draw_puzzle_dot(left + 7, 117)
+        self.font.draw(left + 25, 117, "사용 가능 퍼즐", MAP_VIEW_TEXT)
 
     def draw_ground_light(self, light, outline, edge, falloff, *, feathered=False):
         if feathered:
@@ -1565,6 +1615,33 @@ class Renderer:
 
     def draw_shutter_control(self, position, *, closed):
         self.draw_control_box(position, "닫힘" if closed else "셔터", TEAL if closed else ORANGE)
+
+    def draw_world_puzzle_marker(self, position, origin, walls, gate):
+        if math.dist(position, origin) > PUZZLE_MARKER_DISTANCE:
+            return
+        if any(wall is not gate and getattr(wall, "texture", None) != "bridge-channel"
+               and wall_blocks(origin, position, wall) for wall in walls):
+            return
+        x, y = self.project(*position)
+        if gate is not None:
+            y += wall_height(gate) + gate.depth * self.ground_scale() / 2 + 9
+        else:
+            y += 42
+        player_x, player_y = self.project(*origin)
+        head_y = player_y + self.player_visual.metadata["display_height"] * self.player_visual.display_scale
+        if abs(x - player_x) < 19 and player_y <= y <= head_y + 7:
+            x = player_x + (23 if x >= player_x else -23)
+        if not (7 <= x < WINDOW_WIDTH - 7 and 7 <= y < WINDOW_HEIGHT - 7):
+            return
+        ground_scale = self.ground_scale()
+        for wall in walls:
+            texture = getattr(wall, "texture", None)
+            if wall is gate or wall.y >= position[1] or texture == "bridge-channel" or self.building_opacity(wall) == 0:
+                continue
+            left, bottom = self.project(wall.x, wall.y)
+            if wall_covers(wall, left, bottom, x, y, self.wall_alpha.get(texture), ground_scale=ground_scale):
+                return
+        self.draw_puzzle_dot(x, y)
 
     def draw_bridge_note_marker(self, position):
         x, y = self.project(*position)
@@ -1985,6 +2062,9 @@ class Renderer:
                     self.player_visual.draw(*foot, **courier_style)
                 if not defeated:
                     cross(*foot, TEAL, size=4)
+        if delivery is not None:
+            for position, gate in puzzle_markers(delivery).values():
+                self.draw_world_puzzle_marker(position, origin, walls, gate)
 
     def draw_nearby_action(self, foot_x, foot_y):
         world = self.delivery

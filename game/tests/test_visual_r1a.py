@@ -226,6 +226,42 @@ class MapProjectionTests(unittest.TestCase):
                 self.assertEqual(paint.method_calls[-1], call.heading())
 
 
+class PuzzleMarkerTests(unittest.TestCase):
+    def test_puzzle_dots_follow_gate_cooldown_and_bridge_progress(self):
+        world = main.DeliveryWorld()
+        for number, expected in ((1, {"G"}), (2, {"B"}), (4, {"S", "B", "N", "K"})):
+            with self.subTest(number=number):
+                self.assertTrue(world.select_playable_contract(number))
+                self.assertTrue(world.skip_route_sequence())
+                self.assertEqual(main.puzzle_markers(world), {})
+                world.player.x, world.player.y = world.pickup
+                self.assertTrue(world.interact())
+                self.assertEqual(set(main.puzzle_markers(world)), expected)
+        world.shutter_closed = True
+        world.bus_broadcast_cooldown = 1
+        world.bridge_puzzle.has_key = True
+        self.assertEqual(set(main.puzzle_markers(world)), {"C"})
+        world.bridge_puzzle.bridge_down = True
+        self.assertEqual(main.puzzle_markers(world), {})
+        world.bus_broadcast_cooldown = 0
+        self.assertEqual(set(main.puzzle_markers(world)), {"B"})
+
+    def test_gate_dot_ignores_its_own_wall_and_hides_behind_other_blockers(self):
+        renderer = Renderer.__new__(Renderer)
+        renderer.project = Mock(side_effect=[(640, 360), (600, 330)])
+        renderer.ground_scale = Mock(return_value=.6)
+        renderer.player_visual = SimpleNamespace(metadata={"display_height": 110}, display_scale=.6)
+        renderer.draw_puzzle_dot = Mock()
+        gate = NeighborhoodWall(90, 85, 20, 10, "iron-gate", height=38)
+        target, origin = (100, 90), (100, 70)
+        renderer.draw_world_puzzle_marker(target, origin, (gate,), gate)
+        renderer.draw_puzzle_dot.assert_called_once_with(640, 410)
+        renderer.draw_puzzle_dot.reset_mock()
+        renderer.draw_world_puzzle_marker(target, origin, (gate, Wall(95, 75, 10, 5)), gate)
+        renderer.draw_world_puzzle_marker(target, (100, 400), (gate,), gate)
+        renderer.draw_puzzle_dot.assert_not_called()
+
+
 class DepthOrderTests(unittest.TestCase):
     def test_prop_uses_ground_depth_and_precedes_characters_on_ties(self):
         prop = (365.0, 300.0)
