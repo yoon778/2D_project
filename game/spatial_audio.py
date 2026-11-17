@@ -36,6 +36,15 @@ _BOTTLE_THROW_SOUND = "bottle_throw"
 _GATE_SOUND = "gate_open"
 _BRIDGE_MOTOR_SOUND = "bridge_motor"
 _BUS_BROADCAST_SOUND = "bus_broadcast"
+_TRUCK_CUES = {
+    "arriving": "truck_arrive",
+    "parking": "truck_stop",
+    "disembarking": "truck_cab",
+    "unloading": "truck_cargo",
+    "boarding": "truck_cab",
+    "departing": "truck_depart",
+}
+_TRUCK_SOUNDS = frozenset(_TRUCK_CUES.values())
 _VEHICLE_SOUND = "vehicle_alarm"
 _VEHICLE_HIT_SOUND = "vehicle_hit"
 _BAT_SWING_SOUND = "bat_swing"
@@ -54,6 +63,11 @@ _EFFECT_VOLUME = {
     _GATE_SOUND: 72,
     _BRIDGE_MOTOR_SOUND: 86,
     _BUS_BROADCAST_SOUND: 92,
+    "truck_arrive": 78,
+    "truck_stop": 78,
+    "truck_cab": 79,
+    "truck_cargo": 74,
+    "truck_depart": 81,
     _VEHICLE_SOUND: 76,
     _VEHICLE_HIT_SOUND: 65,
     _BAT_SWING_SOUND: 74,
@@ -323,11 +337,11 @@ class ZombieAudio:
         return ctypes.cast(current, ctypes.c_void_p).value == ctypes.cast(sound, ctypes.c_void_p).value
 
     def update(self, dt, *, distance, stride, active, occluded=False, preserve_map_cue=False, pan=0.0,
-               patrol_step=None, heavy_step=None):
+               patrol_step=None, heavy_step=None, preserve_truck_cues=False):
         if not self._sounds:
             return
         if not active:
-            self._stop_effects(preserve_map_cue)
+            self._stop_effects(preserve_map_cue, preserve_truck_cues=preserve_truck_cues)
             return
         self._update_heavy_step(heavy_step)
         if distance is None or distance >= _HEARING_RANGE:
@@ -393,6 +407,11 @@ class ZombieAudio:
 
     def play_bus_broadcast(self, distance, *, pan=0.0):
         self._play_effect(_BUS_BROADCAST_SOUND, distance, pan=pan)
+
+    def play_truck_cue(self, phase, distance, *, pan=0.0):
+        sound = _TRUCK_CUES.get(phase)
+        if sound is not None:
+            self._play_effect(sound, distance, pan=pan)
 
     def play_vehicle_alarm(self, distance, *, pan=0.0):
         self._play_effect(_VEHICLE_SOUND, distance, pan=pan)
@@ -472,13 +491,14 @@ class ZombieAudio:
         self._stop_channel(_HEAVY_STEP_SOUND)
         self._heavy_step_distance = 0.0
 
-    def _stop_effects(self, preserve_map_cue):
+    def _stop_effects(self, preserve_map_cue, *, preserve_truck_cues=False):
         self._stop_regular_zombies()
         self._stop_heavy_step()
         self._player_step_phase = 0.0
         for kind in _EFFECT_VOLUME:
-            if not (preserve_map_cue and kind == _MAP_SOUND):
-                self._stop_channel(kind)
+            if (preserve_map_cue and kind == _MAP_SOUND) or (preserve_truck_cues and kind in _TRUCK_SOUNDS):
+                continue
+            self._stop_channel(kind)
 
     def stop(self):
         self._stop_effects(False)

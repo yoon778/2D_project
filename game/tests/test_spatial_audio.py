@@ -236,7 +236,7 @@ class ZombieAudioTests(unittest.TestCase):
         names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "bat_swing", "zombie_hit", "zombie_hit_heavy",
                  "player_walk", "player_run", "player_sneak", "player_hit",
                  "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle",
-                 "bottle_break", "gate_open", "bridge_motor", "vehicle_alarm")
+                 "bottle_break", "gate_open", "bridge_motor", "vehicle_alarm", "truck_arrive")
         self.sounds = {name: ctypes.c_void_p(index) for index, name in enumerate(names, 1)}
         self.backend.Mix_LoadWAV.side_effect = lambda path: self.sounds.get(Path(path.decode()).stem)
         self.backend.Mix_PlayChannelTimed.side_effect = [0, 1]
@@ -418,6 +418,19 @@ class ZombieAudioTests(unittest.TestCase):
         self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1), call(2)])
         self.audio.update(0, distance=None, stride=0, active=False)
         self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(0), call(1), call(2), call(3)])
+
+    def test_truck_cue_survives_the_scene_freeze_and_stops_on_pause(self):
+        arrive, swing = self.sounds["truck_arrive"], self.sounds["bat_swing"]
+        self.backend.Mix_GetChunk.side_effect = [swing, arrive]
+        self.audio.play_truck_cue("arriving", 260, pan=1.0)
+        self.audio.play_bat_swing()
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(-1, arrive, 0, -1), call(-1, swing, 0, -1)])
+        self.assertEqual(self.backend.Mix_VolumeChunk.call_args_list, [call(arrive, 39), call(swing, 74)])
+        self.audio.update(0, distance=None, stride=0, active=False, preserve_truck_cues=True)
+        self.backend.Mix_HaltChannel.assert_called_once_with(1)
+        self.audio.update(0, distance=None, stride=0, active=False)
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(1), call(0)])
 
 
 if __name__ == "__main__":

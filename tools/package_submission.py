@@ -46,6 +46,8 @@ def runtime_files():
                                                      "zombie_hit.wav", "zombie_hit_heavy.wav", "bottle_throw.wav",
                                                      "bottle_break.wav", "gate_open.wav", "bridge_motor.wav",
                                                      "bus_broadcast.wav", "vehicle_hit.wav",
+                                                     "truck_arrive.wav", "truck_stop.wav", "truck_cab.wav",
+                                                     "truck_cargo.wav", "truck_depart.wav",
                                                      "vehicle_alarm.wav", "player_walk.wav", "player_run.wav",
                                                      "player_sneak.wav", "player_hit.wav", "cutscene-delivered.wav",
                                                      "parcel_pickup.wav", "parcel_drop.wav", "bottle_pickup.wav",
