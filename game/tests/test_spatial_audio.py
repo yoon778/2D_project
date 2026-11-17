@@ -165,11 +165,11 @@ class AdaptiveMusicTests(unittest.TestCase):
         self.music.update(.09, distance=70)
         self.assertTrue(0 < self.music._score._volumes[1] < 23)
         self.music.update(4, distance=70)
-        self.assertEqual(self.music._score._volumes, (19, 23, 0))
+        self.assertEqual(self.music._score._volumes, (20, 24, 0))
         self.music.update(4, distance=200, chasing=True)
-        self.assertEqual(self.music._score._volumes, (19, 15, 26))
+        self.assertEqual(self.music._score._volumes, (16, 14, 38))
         self.music.update(.1, distance=200)
-        self.assertTrue(0 < self.music._score._volumes[2] < 26)
+        self.assertTrue(0 < self.music._score._volumes[2] < 38)
         self.music.update(8, distance=200)
         self.assertEqual(self.music._score._volumes, (30, 0, 0))
         self.music.update(4, distance=70, chasing=True)
@@ -177,6 +177,24 @@ class AdaptiveMusicTests(unittest.TestCase):
         self.assertEqual(self.music._score._volumes, (30, 0, 0))
         self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
                          [call(index, chunk, -1, -1) for index, chunk in enumerate(self.chunks)])
+
+    def test_delivery_pressure_rises_then_relief_fades_without_pausing_or_restarting_layers(self):
+        self.music.start()
+        self.music.update(.28, threat=1, combat=0)
+        self.assertEqual(self.music._score._volumes, (24, 15, 0))
+        self.music.update(4, threat=.4, combat=1)
+        self.assertEqual(self.music._score._volumes, (16, 14, 38))
+        self.music.update(.45, relief=True, threat=1, combat=1)
+        fade_start = self.music._score._volumes
+        self.assertTrue(all(0 < volume < old for volume, old in zip(fade_start, (16, 14, 38))))
+        self.backend.Mix_Pause.assert_not_called()
+        self.music.update(1.5, relief=True, focused=False)
+        self.assertEqual(self.music._score._volumes, fade_start)
+        self.music.update(1.25, relief=True)
+        self.assertEqual(self.music._score._volumes, (0, 0, 0))
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_count, 3)
+        self.music.reset()
+        self.assertEqual(self.music._score._volumes, (30, 0, 0))
 
     def test_pause_resume_and_close_preserve_channel_ownership(self):
         self.music.start()
@@ -326,6 +344,81 @@ class ZombieAudioTests(unittest.TestCase):
         self.audio.update(.1, distance=None, stride=0, active=True,
                           heavy_step=spatial_audio.HeavyFootstep(100, 35, 0.0, False))
         self.assertEqual(self.backend.Mix_PlayChannelTimed.call_count, 2)
+
+    def test_opposite_shared_steps_accumulate_per_source_and_update_per_channel(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = [3, 4]
+        step = self.sounds["zombie_step"]
+        self.backend.Mix_GetChunk.return_value = step
+        left = spatial_audio.ZombieFootstep(10, 60, 16, -1, True)
+        right = spatial_audio.ZombieFootstep(20, 260, 16, 1)
+
+        def update(*sources, active=True):
+            self.audio.update(.03, distance=None, stride=0, active=active, footstep_sources=sources)
+
+        update(left, right)
+        self.backend.Mix_PlayChannelTimed.assert_not_called()
+        self.backend.Mix_VolumeChunk.reset_mock()
+        update(left, right)
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list, [call(-1, step, 0, -1)] * 2)
+        self.assertEqual(self.backend.Mix_SetPanning.call_args_list, [call(3, 255, 80), call(4, 80, 255)])
+        self.assertEqual(self.backend.Mix_Volume.call_args_list, [call(3, 28), call(4, 24)])
+        update(left, spatial_audio.ZombieFootstep(20, 390, 0, 1))
+        self.assertEqual(self.backend.Mix_Volume.call_args_list[-2:], [call(3, 28), call(4, 12)])
+        self.backend.Mix_VolumeChunk.assert_not_called()
+        update(active=False)
+        self.assertEqual(self.backend.Mix_HaltChannel.call_args_list, [call(3), call(4)])
+
+    def test_reused_channel_has_one_owner_and_resets_gain_and_pan_for_effects(self):
+        step = self.sounds["zombie_step"]
+        self.backend.Mix_GetChunk.return_value = step
+        self.backend.Mix_PlayChannelTimed.side_effect = [3, 3, 3]
+        left = spatial_audio.ZombieFootstep(10, 260, 32, -1)
+        right = spatial_audio.ZombieFootstep(20, 390, 32, 1)
+
+        def update(*sources):
+            self.audio.update(.03, distance=None, stride=0, active=True, footstep_sources=sources)
+
+        update(left, spatial_audio.ZombieFootstep(20, 390, 0, 1))
+        self.backend.Mix_Playing.return_value = False
+        update(right, spatial_audio.ZombieFootstep(10, 260, 0, -1))
+        self.backend.Mix_Playing.return_value = True
+        update(right)
+        self.backend.Mix_HaltChannel.assert_not_called()
+        self.assertEqual(self.audio._channels, {("zombie_step", 20): 3})
+        self.audio.play_bat_swing()
+        self.assertEqual(self.audio._channels, {"bat_swing": 3})
+        self.backend.Mix_Volume.assert_called_with(3, 128)
+        self.backend.Mix_SetPanning.assert_called_with(3, 255, 255)
+
+    def test_a_stopped_source_finishes_its_step_until_the_same_side_is_replaced(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = [3, 4, 5]
+        self.backend.Mix_GetChunk.return_value = self.sounds["zombie_step"]
+
+        def update(*sources):
+            self.audio.update(.03, distance=None, stride=0, active=True, footstep_sources=sources)
+
+        left = spatial_audio.ZombieFootstep(10, 60, 32, -1)
+        right = spatial_audio.ZombieFootstep(20, 60, 32, 1)
+        replacement = spatial_audio.ZombieFootstep(30, 90, 16, -.7)
+        update(left)
+        update()
+        update(right, replacement)
+        update()
+        self.backend.Mix_HaltChannel.assert_not_called()
+        update(replacement)
+        self.backend.Mix_HaltChannel.assert_called_once_with(3)
+        self.assertEqual(set(self.audio._channels.values()), {4, 5})
+
+    def test_directional_patrol_and_heavy_keep_distinct_spacings_and_wall_gain(self):
+        self.backend.Mix_PlayChannelTimed.side_effect = [3, 4]
+        patrol = spatial_audio.ZombieFootstep(10, 110, 16, -.9, True, "patrol")
+        heavy = spatial_audio.ZombieFootstep(20, 260, 18, .8, True, "heavy")
+        for _ in range(2):
+            self.audio.update(.03, distance=None, stride=0, active=True, footstep_sources=(patrol, heavy))
+        self.assertEqual(self.backend.Mix_PlayChannelTimed.call_args_list,
+                         [call(-1, self.sounds[name], 0, -1) for name in ("zombie_step", "zombie_step_heavy")])
+        self.assertEqual(self.backend.Mix_Volume.call_args_list, [call(3, 31), call(4, 25)])
+        self.assertEqual(self.backend.Mix_SetPanning.call_args_list, [call(3, 255, 98), call(4, 115, 255)])
 
     def test_failed_channel_allocation_does_not_set_panning(self):
         self.backend.Mix_PlayChannelTimed.side_effect = (-1,)

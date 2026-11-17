@@ -17,12 +17,15 @@ _VOLUME_TIME = .25
 _SCORE_EXPLORE = 30
 _SCORE_APPROACH_DISTANCE = 190.0
 _SCORE_CLOSE_DISTANCE = 85.0
-_SCORE_RISE_TIME = .45
+_SCORE_RISE_TIME = .28
 _SCORE_RELEASE_TIME = 1.35
+_SCORE_RELIEF_TIME = 1.70
+_MIX_MAX_VOLUME = 128
 _HEARING_RANGE = 520.0
 _WALL_GAIN = 0.65
 _PAN_FAR_GAIN = 80
 _STEP_SPACING = 32.0
+_STEP_IDLE_GRACE = .30
 _GROAN_DELAY = .4
 _GROAN_INTERVAL = 3.2
 _ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
@@ -98,6 +101,18 @@ class AudioSettings:
         return round(volume * self.master * self.effects / 10000)
 
 
+def _unit(value):
+    return max(0.0, min(1.0, value)) if value is not None and math.isfinite(value) else 0.0
+
+
+def _relief_gain(elapsed):
+    return (1.0 - elapsed / _SCORE_RELIEF_TIME) ** 1.4
+
+
+def _advance_relief(elapsed, dt, relief):
+    return max(0.0, min(_SCORE_RELIEF_TIME, elapsed + dt if relief else elapsed - dt))
+
+
 class BackgroundMusic:
     """Start after canvas initialization and close before canvas teardown."""
 
@@ -110,6 +125,7 @@ class BackgroundMusic:
         self._paused = False
         self._volume = float(_OPENING_VOLUME)
         self._applied_volume = _OPENING_VOLUME
+        self._relief_elapsed = 0.0
 
     def start(self) -> None:
         if not self._can_start:
@@ -137,9 +153,11 @@ class BackgroundMusic:
                 p.Mix_FreeMusic(music)
 
     def update(self, dt: float, *, distance: float | None = None, opening: bool = False,
-               focused: bool = True, chasing: bool = False) -> None:
+               focused: bool = True, chasing: bool = False, threat: float | None = None,
+               combat: float | None = None, relief: bool = False) -> None:
         if self._score is not None:
-            self._score.update(dt, distance=distance, focused=focused, chasing=chasing)
+            self._score.update(dt, distance=distance, focused=focused, chasing=chasing,
+                               threat=threat, combat=combat, relief=relief)
             return
         if self._music is None:
             return
@@ -156,8 +174,12 @@ class BackgroundMusic:
             self._apply_volume()
             return
 
+        self._relief_elapsed = _advance_relief(self._relief_elapsed, dt, relief)
         if opening:
             target = _OPENING_VOLUME
+        elif threat is not None or combat is not None:
+            near = _EXPLORE_VOLUME + (_NEAR_VOLUME - _EXPLORE_VOLUME) * _unit(threat)
+            target = near + (_CHASE_VOLUME - near) * _unit(combat if combat is not None else chasing)
         elif chasing:
             target = _CHASE_VOLUME
         elif distance is not None and math.isfinite(distance):
@@ -169,12 +191,13 @@ class BackgroundMusic:
         self._apply_volume()
 
     def _apply_volume(self):
-        volume = self._settings.music_volume(round(self._volume))
+        volume = self._settings.music_volume(round(self._volume * _relief_gain(self._relief_elapsed)))
         if volume != self._applied_volume:
             p.Mix_VolumeMusic(volume)
             self._applied_volume = volume
 
     def reset(self) -> None:
+        self._relief_elapsed = 0.0
         if self._score is not None:
             self._score.reset()
 
@@ -204,6 +227,7 @@ class _AdaptiveScore:
         self._paused = False
         self._pressure = 0.0
         self._pursuit = 0.0
+        self._relief_elapsed = 0.0
         self._volumes = (_SCORE_EXPLORE, 0, 0)
 
     def start(self):
@@ -234,7 +258,7 @@ class _AdaptiveScore:
             if self._started != len(self._paths):
                 self.close()
 
-    def update(self, dt, *, distance, focused, chasing):
+    def update(self, dt, *, distance, focused, chasing, threat, combat, relief):
         if not self._started:
             return
         paused = not focused
@@ -246,15 +270,22 @@ class _AdaptiveScore:
         if focused and math.isfinite(dt) and dt > 0:
             distance = distance if distance is not None and math.isfinite(distance) else _SCORE_APPROACH_DISTANCE
             proximity = (_SCORE_APPROACH_DISTANCE - distance) / (_SCORE_APPROACH_DISTANCE - _SCORE_CLOSE_DISTANCE)
-            target = 1.0 if chasing else max(0.0, min(1.0, proximity))
+            pursuit = _unit(combat if combat is not None else chasing)
+            target = max(pursuit, _unit(proximity if threat is None else threat))
+            if relief:
+                target = pursuit = 0.0
             self._pressure = self._fade(self._pressure, target, dt)
-            self._pursuit = self._fade(self._pursuit, float(chasing), dt)
-        self._set_volumes((round(_SCORE_EXPLORE - 11 * self._pressure),
-                           round(23 * self._pressure - 8 * self._pursuit),
-                           round(26 * self._pursuit)))
+            self._pursuit = self._fade(self._pursuit, pursuit, dt)
+            self._relief_elapsed = _advance_relief(self._relief_elapsed, dt, relief)
+        gain = _relief_gain(self._relief_elapsed)
+        self._set_volumes(tuple(round(value * gain) for value in (
+            _SCORE_EXPLORE - 10 * self._pressure - 4 * self._pursuit,
+            24 * self._pressure - 10 * self._pursuit,
+            38 * self._pursuit,
+        )))
 
     def reset(self):
-        self._pressure = self._pursuit = 0.0
+        self._pressure = self._pursuit = self._relief_elapsed = 0.0
         if self._started:
             self._set_volumes((_SCORE_EXPLORE, 0, 0))
 
@@ -295,8 +326,7 @@ class PatrolFootstep:
 
     @property
     def volume(self):
-        gain = max(0.0, 1.0 - self.distance / _PATROL_STEP_RANGE) ** 1.5
-        return _PATROL_STEP_VOLUME * gain * (0.8 if self.occluded else 1.0)
+        return _patrol_volume(self.distance, self.occluded)
 
 
 @dataclass(frozen=True)
@@ -305,6 +335,27 @@ class HeavyFootstep:
     stride: float
     pan: float
     occluded: bool
+
+
+@dataclass(frozen=True)
+class ZombieFootstep:
+    source_id: int
+    distance: float
+    stride: float
+    pan: float
+    occluded: bool = False
+    kind: str = "regular"
+
+
+@dataclass
+class _FootstepProgress:
+    distance: float = 0.0
+    idle: float = 0.0
+
+
+def _patrol_volume(distance, occluded):
+    gain = max(0.0, 1.0 - distance / _PATROL_STEP_RANGE) ** 1.5
+    return _PATROL_STEP_VOLUME * gain * (0.8 if occluded else 1.0)
 
 
 def _zombie_gain(distance, occluded):
@@ -319,6 +370,9 @@ class ZombieAudio:
         self._step_distance = 0.0
         self._heavy_step_distance = 0.0
         self._patrol_steps = False
+        self._directional_mode = False
+        self._footstep_progress = {}
+        self._footstep_tails = {}
         self._player_step_phase = 0.0
         self._groan_in = _GROAN_DELAY
         if p.Mix_QuerySpec(None, None, None) <= 0:
@@ -337,17 +391,33 @@ class ZombieAudio:
         return ctypes.cast(current, ctypes.c_void_p).value == ctypes.cast(sound, ctypes.c_void_p).value
 
     def update(self, dt, *, distance, stride, active, occluded=False, preserve_map_cue=False, pan=0.0,
-               patrol_step=None, heavy_step=None, preserve_truck_cues=False):
+               patrol_step=None, heavy_step=None, preserve_truck_cues=False, footstep_sources=None):
         if not self._sounds:
             return
         if not active:
             self._stop_effects(preserve_map_cue, preserve_truck_cues=preserve_truck_cues)
             return
-        self._update_heavy_step(heavy_step)
+        directional = footstep_sources is not None
+        if directional != self._directional_mode:
+            self._switch_footstep_mode(directional)
+        if directional:
+            self._update_directional_steps(dt, footstep_sources)
+        else:
+            self._update_heavy_step(heavy_step)
         if distance is None or distance >= _HEARING_RANGE:
             self._stop_regular_zombies()
             return
 
+        if not directional:
+            self._update_regular_step(distance, occluded, stride, pan, patrol_step)
+        self._groan_in -= dt
+        groan_due = self._groan_in <= 0
+        if groan_due:
+            self._groan_in += _GROAN_INTERVAL
+        self._update_zombie_sound("zombie_groan", groan_due, _ZOMBIE_VOLUME["zombie_groan"] *
+                                  _zombie_gain(distance, occluded), pan)
+
+    def _update_regular_step(self, distance, occluded, stride, pan, patrol_step):
         patrol_steps = patrol_step is not None
         if self._patrol_steps != patrol_steps:
             self._stop_channel("zombie_step")
@@ -357,17 +427,77 @@ class ZombieAudio:
         step_due = self._step_distance >= _STEP_SPACING
         if step_due:
             self._step_distance %= _STEP_SPACING
-        self._groan_in -= dt
-        groan_due = self._groan_in <= 0
-        if groan_due:
-            self._groan_in += _GROAN_INTERVAL
-
-        gain = _zombie_gain(distance, occluded)
-        step_volume = patrol_step.volume if patrol_steps else _ZOMBIE_VOLUME["zombie_step"] * gain
+        step_volume = (patrol_step.volume if patrol_steps else
+                       _ZOMBIE_VOLUME["zombie_step"] * _zombie_gain(distance, occluded))
         step_pan = patrol_step.pan if patrol_steps else pan
-        for kind, due, volume, side in (("zombie_step", step_due, step_volume, step_pan),
-                                         ("zombie_groan", groan_due, _ZOMBIE_VOLUME["zombie_groan"] * gain, pan)):
-            self._update_zombie_sound(kind, due, volume, side)
+        self._update_zombie_sound("zombie_step", step_due, step_volume, step_pan)
+
+    def _switch_footstep_mode(self, directional):
+        self._directional_mode = directional
+        if not directional:
+            self._stop_directional_steps()
+            return
+        self._stop_channel("zombie_step")
+        self._step_distance = 0.0
+        self._patrol_steps = False
+        self._stop_heavy_step()
+        # Legacy effects use chunk gain. A shared chunk has unity gain for independent channels.
+        for kind in ("zombie_step", _HEAVY_STEP_SOUND):
+            if (sound := self._sounds.get(kind)) is not None:
+                p.Mix_VolumeChunk(sound, _MIX_MAX_VOLUME)
+
+    def _update_directional_steps(self, dt, sources):
+        heard = {}
+        for source in sources:
+            distance = source.distance
+            limit = _PATROL_STEP_RANGE if source.kind == "patrol" else _HEARING_RANGE
+            if not 0 <= distance < limit:
+                continue
+            sample = _HEAVY_STEP_SOUND if source.kind == "heavy" else "zombie_step"
+            if sample in self._sounds:
+                heard[sample, source.source_id] = source
+        for side, owner in tuple(self._footstep_tails.items()):
+            if not self._playing(self._channels.get(owner), self._sounds[owner[0]]):
+                self._channels.pop(owner, None)
+                del self._footstep_tails[side]
+        elapsed = dt if math.isfinite(dt) and dt > 0 else 0.0
+        for owner in self._footstep_progress.keys() - heard.keys():
+            progress = self._footstep_progress[owner]
+            progress.idle += elapsed
+            if progress.idle >= _STEP_IDLE_GRACE:
+                del self._footstep_progress[owner]
+        for owner, source in heard.items():
+            sample = owner[0]
+            heavy = sample == _HEAVY_STEP_SOUND
+            spacing = _HEAVY_STEP_SPACING if heavy else _STEP_SPACING
+            stride = source.stride if math.isfinite(source.stride) and source.stride > 0 else 0.0
+            progress = self._footstep_progress.setdefault(owner, _FootstepProgress())
+            progress.idle = 0.0
+            # Keep cadence by source, including when a channel is still finishing its last step.
+            steps, progress.distance = divmod(progress.distance + stride, spacing)
+            gain = (_patrol_volume(source.distance, source.occluded) if source.kind == "patrol" else
+                    (_HEAVY_STEP_VOLUME if heavy else _ZOMBIE_VOLUME["zombie_step"])
+                    * _zombie_gain(source.distance, source.occluded))
+            volume = self._settings.effect_volume(round(gain))
+            sound = self._sounds[sample]
+            channel = self._channels.get(owner)
+            if self._playing(channel, sound):
+                p.Mix_Volume(channel, volume)
+            else:
+                self._channels.pop(owner, None)
+                if steps and volume > 0:
+                    side = int(source.pan >= 0.0)
+                    previous = self._footstep_tails.pop(side, None)
+                    if previous is not None:
+                        self._stop_channel(previous)
+                    if self._start_channel(owner, sound, source.pan, volume=volume) >= 0:
+                        self._footstep_tails[side] = owner
+
+    def _stop_directional_steps(self):
+        for owner in self._footstep_tails.values():
+            self._stop_channel(owner)
+        self._footstep_tails.clear()
+        self._footstep_progress.clear()
 
     def _update_heavy_step(self, footstep):
         if footstep is None or footstep.distance >= _HEARING_RANGE:
@@ -465,19 +595,25 @@ class ZombieAudio:
         p.Mix_VolumeChunk(sound, self._settings.effect_volume(volume))
         self._start_channel(kind, sound, pan)
 
-    def _start_channel(self, kind, sound, pan):
+    def _start_channel(self, kind, sound, pan, *, volume=_MIX_MAX_VOLUME):
         channel = p.Mix_PlayChannelTimed(-1, sound, 0, -1)
         if channel >= 0:
+            for prior, owned in tuple(self._channels.items()):
+                if owned == channel:
+                    del self._channels[prior]
+            p.Mix_Volume(channel, volume)
             pan = max(-1.0, min(1.0, pan)) if math.isfinite(pan) else 0.0
             far = round(255 - (255 - _PAN_FAR_GAIN) * abs(pan))
             left, right = (far, 255) if pan > 0 else (255, far)
             # Centered effects also clear any panning on a reused mixer channel.
             p.Mix_SetPanning(channel, left, right)
             self._channels[kind] = channel
+        return channel
 
     def _stop_channel(self, kind):
         channel = self._channels.pop(kind, None)
-        if self._playing(channel, self._sounds.get(kind)):
+        sample = kind[0] if isinstance(kind, tuple) else kind
+        if self._playing(channel, self._sounds.get(sample)):
             p.Mix_HaltChannel(channel)
 
     def _stop_regular_zombies(self):
@@ -494,6 +630,7 @@ class ZombieAudio:
     def _stop_effects(self, preserve_map_cue, *, preserve_truck_cues=False):
         self._stop_regular_zombies()
         self._stop_heavy_step()
+        self._stop_directional_steps()
         self._player_step_phase = 0.0
         for kind in _EFFECT_VOLUME:
             if (preserve_map_cue and kind == _MAP_SOUND) or (preserve_truck_cues and kind in _TRUCK_SOUNDS):
