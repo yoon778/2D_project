@@ -116,6 +116,27 @@ class AttackWalkSpriteTests(unittest.TestCase):
             0, 96, 96, 96, 100.0, 264.0, 192.0, 192.0)
         self.assertEqual(self.visual.images["attack_stationary_front_right"].clip_draw.call_count, 1)
 
+    def test_other_stationary_directions_use_matching_outcome_and_empty_atlases(self):
+        self.visual.empty_images = {}
+        for facing in ("front", "front_left", "left", "back_left", "back", "back_right", "right"):
+            key = f"attack_stationary_{facing}"
+            self.visual.images[key] = Mock(h=96)
+            if facing not in ("back", "back_right"):
+                self.visual.empty_images[key] = Mock(h=96)
+            attack = SimpleNamespace(facing=facing, stationary_swing=True, hit_time=.24)
+            for elapsed, hit_cell, miss_cell in ((.24, 6, 6), (.275, 6, 7), (.30, 14, 8),
+                                                (.34, 15, 9), (.40, 16, 10), (.46, 17, 11), (.60, 13, 13)):
+                for landed, cell in ((True, hit_cell), (False, miss_cell)):
+                    for empty in (False, True):
+                        with self.subTest(facing=facing, elapsed=elapsed, landed=landed, empty=empty):
+                            attack.elapsed, attack.landed = elapsed, landed
+                            self.assertTrue(self.visual.draw_attack(attack, 100, 200, 0, empty_handed=empty))
+                            image = self.visual.empty_images.get(key) if empty else None
+                            (image or self.visual.images[key]).clip_draw.assert_called_with(
+                                cell * 96, 0, 96, 96, 100.0, 264.0, 192.0, 192.0)
+            attack.elapsed = .66
+            self.assertIsNone(self.visual.attack_frame_index(attack))
+
 
 class AttackWalkInputTests(unittest.TestCase):
     def observe(self, initial, after_draw, maximum_draws=6, phase=0, wall=False, initial_aim=None):

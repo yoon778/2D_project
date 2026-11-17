@@ -4,6 +4,7 @@ const {drawLeg, joints, prepareWalkMirror, renderWalkAtlas, shiftWalkJoints} = r
 const {shiftWeight} = require('../attack-weight.cjs')
 const {removeParcel, removeWalkParcels} = require('./empty-hands.cjs')
 const ap8 = require('./r2ap8-motion.json')
+const horizontal = require('./swing-studies/r10-horizontal-swing.json')
 const settings = require('./r2c8-rigs.json'), walk = require('./consistent-rig.json')
 const rigs = {...walk.facings, ...require('./consistent-front-back.json'), ...require('./consistent-side.json'), ...require('./consistent-diagonal.json')}
 const root = path.resolve(__dirname, '../..'), size = 96
@@ -42,7 +43,7 @@ function closeMovingHipSlots(pixels) {
 }
 function padded(atlas,frame) {const b=Buffer.alloc(96*96*4);for(let y=0;y<80;y++){const p=((Math.floor(frame/4)*80+y)*320+frame%4*80)*4;atlas.copy(b,((y+8)*96+8)*4,p,p+320)}return b}
 function direction(v,angle=0) {const n=Math.hypot(v[0],v[1]*.6),x=v[0]/n,y=v[1]*.6/n,c=Math.cos(angle),s=Math.sin(angle);return[x*c-y*s,x*s+y*c]}
-function solve(model,grip,dir) {const palm=Math.hypot(model.hand.grip[0]-model.hand.anchor[0],model.hand.grip[1]-model.hand.anchor[1]),shoulder=model.shoulder,l1=Math.hypot(model.upper.b[0]-model.upper.a[0],model.upper.b[1]-model.upper.a[1]),l2=Math.hypot(model.fore.b[0]-model.fore.a[0],model.fore.b[1]-model.fore.a[1]);let wrist=[grip[0]-dir[0]*palm,grip[1]-dir[1]*palm],dx=wrist[0]-shoulder[0],dy=wrist[1]-shoulder[1],distance=Math.hypot(dx,dy),d=Math.min((l1+l2)*.98,Math.max(Math.abs(l1-l2)+.1,distance));if(distance<.001){dx=1;dy=0;distance=1}wrist=[shoulder[0]+dx/distance*d,shoulder[1]+dy/distance*d];const a=Math.atan2(dy,dx)+Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))));return{elbow:[shoulder[0]+l1*Math.cos(a),shoulder[1]+l1*Math.sin(a)],wrist,grip:[wrist[0]+dir[0]*palm,wrist[1]+dir[1]*palm],handAngle:Math.atan2(dir[1],dir[0])-Math.atan2(model.hand.grip[1]-model.hand.anchor[1],model.hand.grip[0]-model.hand.anchor[0])}}
+function solve(model,grip,dir,bend=1) {const palm=Math.hypot(model.hand.grip[0]-model.hand.anchor[0],model.hand.grip[1]-model.hand.anchor[1]),shoulder=model.shoulder,l1=Math.hypot(model.upper.b[0]-model.upper.a[0],model.upper.b[1]-model.upper.a[1]),l2=Math.hypot(model.fore.b[0]-model.fore.a[0],model.fore.b[1]-model.fore.a[1]);let wrist=[grip[0]-dir[0]*palm,grip[1]-dir[1]*palm],dx=wrist[0]-shoulder[0],dy=wrist[1]-shoulder[1],distance=Math.hypot(dx,dy),d=Math.min((l1+l2)*.98,Math.max(Math.abs(l1-l2)+.1,distance));if(distance<.001){dx=1;dy=0;distance=1}wrist=[shoulder[0]+dx/distance*d,shoulder[1]+dy/distance*d];const a=Math.atan2(dy,dx)+bend*Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d))));return{elbow:[shoulder[0]+l1*Math.cos(a),shoulder[1]+l1*Math.sin(a)],wrist,grip:[wrist[0]+dir[0]*palm,wrist[1]+dir[1]*palm],handAngle:Math.atan2(dir[1],dir[0])-Math.atan2(model.hand.grip[1]-model.hand.anchor[1],model.hand.grip[0]-model.hand.anchor[0])}}
 function poseFor(model,rig,index,tuning) {const d=direction(rig.worldFacing),s=model.shoulder,side=s[0]>=40?1:-1;let grip,dir;
   if(index===0){grip=[s[0]+side*6,s[1]-4];dir=direction(rig.worldFacing,Math.PI)}
   else if(index===1){grip=[s[0]+side*6,s[1]-12];dir=direction(rig.worldFacing,-Math.PI/2)}
@@ -81,7 +82,7 @@ function twelvePoses(model,rig,pivot,axisEnd,tuning) {
 }
 async function png(b,w,h,file,scale=1) {await sharp(b,{raw:{width:w,height:h,channels:4}}).resize(w*scale,h*scale,{kernel:'nearest'}).png().toFile(file)}
 function atlas(cells,cols) {const width=cols*96,height=Math.ceil(cells.length/cols)*96,b=Buffer.alloc(width*height*4);for(let f=0;f<cells.length;f++)for(let y=0;y<96;y++)cells[f].copy(b,((Math.floor(f/cols)*96+y)*width+f%cols*96)*4,y*384,(y+1)*384);return{b,width,height}}
-async function build(facing, walkAtlas, {empty = false} = {}) {
+async function build(facing, walkAtlas, {empty = false, horizontalSwing = false} = {}) {
   const model=settings[facing],rig=rigs[facing],slug=facing.replaceAll('_','-'),[left,top,width,height]=rig.sourceCell;
   const tuning = ap8[facing]
   const src=await sharp(path.join(__dirname,'style-studies/eight-direction-consistency/turnaround-idle-64-v3.png')).extract({left,top,width,height}).ensureAlpha().raw().toBuffer(),r1=walkAtlas ?? await sharp(path.join(root,`game/assets/player/r1-consistent-${slug}-20261105.png`)).ensureAlpha().raw().toBuffer();
@@ -111,13 +112,20 @@ async function build(facing, walkAtlas, {empty = false} = {}) {
   const oldWeapon=Buffer.alloc(96*96*4);if(rig.batRotation){const r=rig.batRotation,g=r.targetPivot||r.pivot,angle=r.degrees*Math.PI/180,dx=(axisEnd[0]-r.pivot[0])*(r.lengthScale||1),dy=(axisEnd[1]-r.pivot[1])*(r.lengthScale||1);segment(oldWeapon,bat,r.pivot,axisEnd,g,[g[0]+Math.cos(angle)*dx-Math.sin(angle)*dy,g[1]+Math.sin(angle)*dx+Math.cos(angle)*dy])}else paint(oldWeapon,originalBat,(x,y)=>[x,y]);
   const restingLegs=Buffer.alloc(96*96*4),far=rig.nearLeg==='right'?'left':'right',hipBand=rig.hipOutline?[Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1])-2,Math.max(rig.legs.right.hip[1],rig.legs.left.hip[1])+5]:null;
   for(const side of[far,rig.nearLeg])over(restingLegs,drawLeg(rig,legParts,side,{...rig.legs[side],pitch:0},hipBand),80,80,8,8);
-  const frames = empty ? removeWalkParcels(facing, r1, walk.bodyDrop) : r1
+  const frames = !empty ? r1 : horizontalSwing
+    ? await sharp(path.join(root, `game/assets/player/r1-consistent-${slug}-20261105-empty.png`)).ensureAlpha().raw().toBuffer()
+    : removeWalkParcels(facing, r1, walk.bodyDrop)
   const idle = padded(frames, 8)
   // Extract the attack torso from the original idle so the carry change stays out of the swing.
   const attackIdle = rig.carryBatDegrees === undefined ? idle : padded(await renderWalkAtlas(facing, {carryBatDegrees: undefined}), 8)
   if (empty && attackIdle !== idle) removeParcel(facing, attackIdle, 96, 8, 8)
   const staticBody=Buffer.from(attackIdle);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4,q=((y+8)*96+x+8)*4,isBat=oldWeapon[q+3];if(armMask[p+3]||isBat){if(armMask[p+3]&&core(x,y))staticBody.set([50,54,72,255],q);else if(y>=Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1]))restingLegs.copy(staticBody,q,q,q+4);else staticBody.fill(0,q,q+4)}}
   const shoulder = model.shoulder.map((value, i) => value + (tuning.shoulderOffset?.[i] || 0))
+  if (horizontalSwing) {
+    if (tuning.bodyFragment) clearRun(staticBody, tuning.bodyFragment)
+    return drawHorizontalSwing({facing, rig, model: {...model, shoulder}, parts, bat, pivot, axisEnd,
+      idle, staticBody, headCell, gearCell})
+  }
   const stationary = [], moving = [], layers = []
   const poses = twelvePoses({...model, shoulder}, rig, pivot, axisEnd, tuning)
   const mirroredLeg = await prepareWalkMirror(rig, rigs)
@@ -207,4 +215,84 @@ async function main() {
   }
 }
 if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1})
-module.exports = {build, times}
+module.exports = {build, times, atlas}
+
+function swingBone(pixels, a, b, radius, color) {
+  const [ax, ay] = a.map(value => value + 8), [bx, by] = b.map(value => value + 8)
+  const dx = bx - ax, dy = by - ay
+  const lengthSquared = dx * dx + dy * dy
+  for (let y = Math.max(0, Math.floor(Math.min(ay, by) - radius));
+    y <= Math.min(size - 1, Math.ceil(Math.max(ay, by) + radius)); y++) {
+    for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius));
+      x <= Math.min(size - 1, Math.ceil(Math.max(ax, bx) + radius)); x++) {
+      const cx = x + .5 - ax, cy = y + .5 - ay
+      const t = Math.min(1, Math.max(0, (cx * dx + cy * dy) / lengthSquared))
+      if ((cx - t * dx) ** 2 + (cy - t * dy) ** 2 <= radius ** 2) pixels.set(color, (y * size + x) * 4)
+    }
+  }
+}
+
+function drawHorizontalSwing({facing, rig, model, parts, bat, pivot, axisEnd, idle, staticBody, headCell, gearCell}) {
+  const direction = horizontal[facing]
+  const angles = [-229, -194, -156, -101, -48, 0, 20, 46, 93, 138]
+  const target = (grip, relativeAngle) => {
+    const angle = (direction.contactAngle + relativeAngle) * Math.PI / 180
+    const dir = [Math.cos(angle), Math.sin(angle)]
+    return {...solve(model, grip, dir, direction.bend), dir}
+  }
+  const reach = direction.grips.map((grip, index) => target(grip, direction.angleOffsets?.[index + 1] ?? angles[index]))
+  const [release, retract] = direction.recoil.map((grip, index) => target(grip, [7, 25][index]))
+  const restGrip = rig.batRotation?.targetPivot || model.grip
+  const carryAngle = Math.atan2(axisEnd[1] - pivot[1], axisEnd[0] - pivot[0])
+    + (rig.carryBatDegrees ?? rig.batRotation?.degrees ?? 0) * Math.PI / 180
+  const restDir = [Math.cos(carryAngle), Math.sin(carryAngle)]
+  const rest = {...solve(model, restGrip, restDir, direction.bend), dir: restDir}
+  const finish = reach.at(-1)
+  const poses = [null, ...reach, between(model, finish, rest, .52), between(model, finish, rest, .82), null,
+    release, retract, between(model, retract, rest, .54), between(model, retract, rest, .82)]
+  const travel = [0, -1, -3, -2, 1, 4, 5, 5, 4, 3, 2, 1, 0, 0, 3, 2, 1, 0]
+  const crouch = [0, 1, 2, 1, 0, 0, 1, 1, 2, 2, 1, 1, 0, 0, 2, 1, 1, 0]
+  const [forwardX, forwardY] = rig.worldFacing
+  const layers = []
+  const stationary = poses.map((pose, index) => {
+    if (!pose) return Buffer.from(idle)
+    const dx = Math.round(forwardX * travel[index])
+    const dy = Math.round(crouch[index] + forwardY * travel[index] * .55)
+    const move = ([x, y]) => [x + dx, y + dy]
+    const arm = Buffer.alloc(idle.length), weapon = Buffer.alloc(idle.length)
+    const shoulder = move(model.shoulder), elbow = move(pose.elbow), wrist = move(pose.wrist), grip = move(pose.grip)
+    const outline = [21, 20, 27, 255], sleeve = [50, 54, 72, 255]
+    // Cut-out cuffs have transparent corners. Fill the attached joints first,
+    // then restore the original directional cloth and skin over the outline.
+    swingBone(arm, shoulder, elbow, 3.7, outline)
+    swingBone(arm, elbow, wrist, 3.1, outline)
+    swingBone(arm, wrist, grip, 2.65, outline)
+    swingBone(arm, shoulder, elbow, 2.65, sleeve)
+    swingBone(arm, elbow, wrist, 2.1, sleeve)
+    swingBone(arm, wrist, grip, 1.55, [233, 175, 137, 255])
+    segment(arm, parts.upper, model.upper.a, model.upper.b, shoulder, elbow)
+    segment(arm, parts.fore, model.fore.a, model.fore.b, elbow, wrist)
+    rotate(arm, parts.hand, model.hand.anchor, wrist, pose.handAngle)
+    ink(arm)
+    const tip = grip.map((value, axis) => value + pose.dir[axis] * model.length)
+    segment(weapon, bat, pivot, axisEnd, grip, tip)
+    ink(weapon)
+
+    const stand = Buffer.alloc(idle.length)
+    const hiddenRecovery = model.far && facing !== 'front_left' && (index === 11 || index === 12)
+    const behind = direction.behind.includes(index) || hiddenRecovery
+    const weaponBehind = behind || direction.weaponBehind.includes(index)
+    const lean = part => shiftWeight(part, size, 8, [dx, dy], 53, 63)
+    if (weaponBehind) over(stand, weapon)
+    if (behind) over(stand, arm)
+    over(stand, lean(staticBody))
+    if (!weaponBehind) over(stand, weapon)
+    if (!behind) over(stand, arm)
+    over(stand, lean(headCell))
+    over(stand, gearCell, size, size, dx, dy)
+    hipInk(stand, rig, 0, weapon)
+    layers[index] = {grip, tip, arm, weapon, shoulder, elbow, wrist}
+    return stand
+  })
+  return {stationary, layers}
+}

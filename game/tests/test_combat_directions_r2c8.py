@@ -115,7 +115,7 @@ class DirectionSpriteTests(unittest.TestCase):
                                                          100, 200, 8))
         self.assertTrue(all(image.clip_draw.call_count == 0 for image in self.visual.images.values()))
 
-    def test_all_nineteen_sources_load_once_and_rendering_never_reloads(self):
+    def test_all_sources_load_once_and_rendering_never_reloads(self):
         images = [SimpleNamespace(w=s["canvas_size"][0], h=s["canvas_size"][1],
                                   texture=object(), clip_draw=Mock()) for s in self.metadata.values()]
         path = SimpleNamespace(read_text=Mock(return_value=json.dumps(self.metadata)), parent=Path("fixture"))
@@ -127,8 +127,10 @@ class DirectionSpriteTests(unittest.TestCase):
             for facing, _ in DIRECTIONS:
                 for walk in (0, 7):
                     self.assertTrue(visual.draw_attack(SimpleNamespace(facing=facing, elapsed=.18), 100, 200, walk))
-            self.assertEqual(load.call_count, 19)
-            self.assertEqual(nearest.call_count, 19)
+                stationary = SimpleNamespace(facing=facing, elapsed=.24, stationary_swing=True)
+                self.assertTrue(visual.draw_attack(stationary, 100, 200, 0))
+            self.assertEqual(load.call_count, 26)
+            self.assertEqual(nearest.call_count, 26)
             self.assertEqual([args.args[0] for args in load.call_args_list],
                              [str({"zombie": combat_visual.ZOMBIE_METADATA_PATH.parent,
                                    "zombie_attack": combat_visual.ZOMBIE_ATTACK_METADATA_PATH.parent}.get(key, path.parent)
@@ -154,9 +156,12 @@ class DirectionSpriteTests(unittest.TestCase):
 
 
 class AuthoredDirectionMetadataTests(unittest.TestCase):
-    def test_runtime_metadata_exposes_all_eight_pairs_with_existing_fr_names(self):
+    def test_runtime_metadata_keeps_legacy_pairs_and_adds_eight_stationary_sources(self):
         metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(len(metadata), 18)
+        expected = {name for facing, _ in DIRECTIONS for name in source_names(facing)}
+        expected.update(f"attack_stationary_{facing}" for facing, _ in DIRECTIONS)
+        self.assertEqual(set(metadata), expected | {"zombie"})
+        approved = metadata["attack_stationary_front_right"]
         for facing, _ in DIRECTIONS:
             for key, count, canvas in zip(source_names(facing), (12, 96), ([384, 288], [768, 1152])):
                 with self.subTest(source=key):
@@ -164,6 +169,15 @@ class AuthoredDirectionMetadataTests(unittest.TestCase):
                     self.assertEqual(len(metadata[key]["frames"]), count)
                     self.assertEqual(metadata[key]["canvas_size"], canvas)
                     self.assertTrue((METADATA_PATH.parent / metadata[key]["image"]).is_file())
+            key = f"attack_stationary_{facing}"
+            with self.subTest(source=key):
+                source = metadata[key]
+                self.assertEqual(source["facing"], facing)
+                self.assertEqual(source["canvas_size"], [1728, 96])
+                self.assertEqual(source["frames"], approved["frames"])
+                asset = METADATA_PATH.parent / source["image"]
+                self.assertTrue(asset.is_file())
+                self.assertEqual(asset.with_stem(asset.stem + "-empty").is_file(), facing not in ("back", "back_right"))
 
 
 class DirectionInputTests(unittest.TestCase):

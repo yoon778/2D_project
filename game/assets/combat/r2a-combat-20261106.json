@@ -14143,5 +14143,2105 @@
         ]
       }
     ]
+  },
+  "attack_stationary_right": {
+    "image": "r10-10-swing-right.png",
+    "canvas_size": [
+      1728,
+      96
+    ],
+    "facing": "right",
+    "cell_size": [
+      96,
+      96
+    ],
+    "scale": 2,
+    "reference_height": 64,
+    "frames": [
+      {
+        "name": "idle",
+        "label": "대기",
+        "start": 0,
+        "end": 0.03,
+        "clip_topleft": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          48,
+          80
+        ]
+      },
+      {
+        "name": "load",
+        "label": "감기",
+        "start": 0.03,
+        "end": 0.1,
+        "clip_topleft": [
+          96,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          144,
+          80
+        ]
+      },
+      {
+        "name": "coil",
+        "label": "준비",
+        "start": 0.1,
+        "end": 0.16,
+        "clip_topleft": [
+          192,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          240,
+          80
+        ]
+      },
+      {
+        "name": "lead",
+        "label": "몸통 선행",
+        "start": 0.16,
+        "end": 0.19,
+        "clip_topleft": [
+          288,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          336,
+          80
+        ]
+      },
+      {
+        "name": "drive",
+        "label": "가속",
+        "start": 0.19,
+        "end": 0.215,
+        "clip_topleft": [
+          384,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          432,
+          80
+        ]
+      },
+      {
+        "name": "release",
+        "label": "타격 직전",
+        "start": 0.215,
+        "end": 0.24,
+        "clip_topleft": [
+          480,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          528,
+          80
+        ]
+      },
+      {
+        "name": "hit",
+        "label": "타격",
+        "start": 0.24,
+        "end": 0.275,
+        "clip_topleft": [
+          576,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          624,
+          80
+        ]
+      },
+      {
+        "name": "pass",
+        "label": "통과",
+        "start": 0.275,
+        "end": 0.3,
+        "clip_topleft": [
+          672,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          720,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            576,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            624,
+            80
+          ]
+        }
+      },
+      {
+        "name": "cross",
+        "label": "몸 앞 가로지르기",
+        "start": 0.3,
+        "end": 0.34,
+        "clip_topleft": [
+          768,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          816,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1344,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1392,
+            80
+          ]
+        }
+      },
+      {
+        "name": "rise",
+        "label": "들어 올리기",
+        "start": 0.34,
+        "end": 0.4,
+        "clip_topleft": [
+          864,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          912,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1440,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1488,
+            80
+          ]
+        }
+      },
+      {
+        "name": "finish",
+        "label": "높은 마무리",
+        "start": 0.4,
+        "end": 0.46,
+        "clip_topleft": [
+          960,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1008,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1536,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1584,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower",
+        "label": "회수 시작",
+        "start": 0.46,
+        "end": 0.53,
+        "clip_topleft": [
+          1056,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1104,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1632,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1680,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower_to_hip",
+        "label": "허리 옆으로 회수",
+        "start": 0.53,
+        "end": 0.6,
+        "clip_topleft": [
+          1152,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1200,
+          80
+        ]
+      },
+      {
+        "name": "recover",
+        "label": "회복",
+        "start": 0.6,
+        "end": 0.66,
+        "clip_topleft": [
+          1248,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1296,
+          80
+        ]
+      }
+    ]
+  },
+  "attack_stationary_front": {
+    "image": "r10-10-swing-front.png",
+    "canvas_size": [
+      1728,
+      96
+    ],
+    "facing": "front",
+    "cell_size": [
+      96,
+      96
+    ],
+    "scale": 2,
+    "reference_height": 64,
+    "frames": [
+      {
+        "name": "idle",
+        "label": "대기",
+        "start": 0,
+        "end": 0.03,
+        "clip_topleft": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          48,
+          80
+        ]
+      },
+      {
+        "name": "load",
+        "label": "감기",
+        "start": 0.03,
+        "end": 0.1,
+        "clip_topleft": [
+          96,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          144,
+          80
+        ]
+      },
+      {
+        "name": "coil",
+        "label": "준비",
+        "start": 0.1,
+        "end": 0.16,
+        "clip_topleft": [
+          192,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          240,
+          80
+        ]
+      },
+      {
+        "name": "lead",
+        "label": "몸통 선행",
+        "start": 0.16,
+        "end": 0.19,
+        "clip_topleft": [
+          288,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          336,
+          80
+        ]
+      },
+      {
+        "name": "drive",
+        "label": "가속",
+        "start": 0.19,
+        "end": 0.215,
+        "clip_topleft": [
+          384,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          432,
+          80
+        ]
+      },
+      {
+        "name": "release",
+        "label": "타격 직전",
+        "start": 0.215,
+        "end": 0.24,
+        "clip_topleft": [
+          480,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          528,
+          80
+        ]
+      },
+      {
+        "name": "hit",
+        "label": "타격",
+        "start": 0.24,
+        "end": 0.275,
+        "clip_topleft": [
+          576,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          624,
+          80
+        ]
+      },
+      {
+        "name": "pass",
+        "label": "통과",
+        "start": 0.275,
+        "end": 0.3,
+        "clip_topleft": [
+          672,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          720,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            576,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            624,
+            80
+          ]
+        }
+      },
+      {
+        "name": "cross",
+        "label": "몸 앞 가로지르기",
+        "start": 0.3,
+        "end": 0.34,
+        "clip_topleft": [
+          768,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          816,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1344,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1392,
+            80
+          ]
+        }
+      },
+      {
+        "name": "rise",
+        "label": "들어 올리기",
+        "start": 0.34,
+        "end": 0.4,
+        "clip_topleft": [
+          864,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          912,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1440,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1488,
+            80
+          ]
+        }
+      },
+      {
+        "name": "finish",
+        "label": "높은 마무리",
+        "start": 0.4,
+        "end": 0.46,
+        "clip_topleft": [
+          960,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1008,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1536,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1584,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower",
+        "label": "회수 시작",
+        "start": 0.46,
+        "end": 0.53,
+        "clip_topleft": [
+          1056,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1104,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1632,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1680,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower_to_hip",
+        "label": "허리 옆으로 회수",
+        "start": 0.53,
+        "end": 0.6,
+        "clip_topleft": [
+          1152,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1200,
+          80
+        ]
+      },
+      {
+        "name": "recover",
+        "label": "회복",
+        "start": 0.6,
+        "end": 0.66,
+        "clip_topleft": [
+          1248,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1296,
+          80
+        ]
+      }
+    ]
+  },
+  "attack_stationary_left": {
+    "image": "r10-10-swing-left.png",
+    "canvas_size": [
+      1728,
+      96
+    ],
+    "facing": "left",
+    "cell_size": [
+      96,
+      96
+    ],
+    "scale": 2,
+    "reference_height": 64,
+    "frames": [
+      {
+        "name": "idle",
+        "label": "대기",
+        "start": 0,
+        "end": 0.03,
+        "clip_topleft": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          48,
+          80
+        ]
+      },
+      {
+        "name": "load",
+        "label": "감기",
+        "start": 0.03,
+        "end": 0.1,
+        "clip_topleft": [
+          96,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          144,
+          80
+        ]
+      },
+      {
+        "name": "coil",
+        "label": "준비",
+        "start": 0.1,
+        "end": 0.16,
+        "clip_topleft": [
+          192,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          240,
+          80
+        ]
+      },
+      {
+        "name": "lead",
+        "label": "몸통 선행",
+        "start": 0.16,
+        "end": 0.19,
+        "clip_topleft": [
+          288,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          336,
+          80
+        ]
+      },
+      {
+        "name": "drive",
+        "label": "가속",
+        "start": 0.19,
+        "end": 0.215,
+        "clip_topleft": [
+          384,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          432,
+          80
+        ]
+      },
+      {
+        "name": "release",
+        "label": "타격 직전",
+        "start": 0.215,
+        "end": 0.24,
+        "clip_topleft": [
+          480,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          528,
+          80
+        ]
+      },
+      {
+        "name": "hit",
+        "label": "타격",
+        "start": 0.24,
+        "end": 0.275,
+        "clip_topleft": [
+          576,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          624,
+          80
+        ]
+      },
+      {
+        "name": "pass",
+        "label": "통과",
+        "start": 0.275,
+        "end": 0.3,
+        "clip_topleft": [
+          672,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          720,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            576,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            624,
+            80
+          ]
+        }
+      },
+      {
+        "name": "cross",
+        "label": "몸 앞 가로지르기",
+        "start": 0.3,
+        "end": 0.34,
+        "clip_topleft": [
+          768,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          816,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1344,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1392,
+            80
+          ]
+        }
+      },
+      {
+        "name": "rise",
+        "label": "들어 올리기",
+        "start": 0.34,
+        "end": 0.4,
+        "clip_topleft": [
+          864,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          912,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1440,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1488,
+            80
+          ]
+        }
+      },
+      {
+        "name": "finish",
+        "label": "높은 마무리",
+        "start": 0.4,
+        "end": 0.46,
+        "clip_topleft": [
+          960,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1008,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1536,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1584,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower",
+        "label": "회수 시작",
+        "start": 0.46,
+        "end": 0.53,
+        "clip_topleft": [
+          1056,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1104,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1632,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1680,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower_to_hip",
+        "label": "허리 옆으로 회수",
+        "start": 0.53,
+        "end": 0.6,
+        "clip_topleft": [
+          1152,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1200,
+          80
+        ]
+      },
+      {
+        "name": "recover",
+        "label": "회복",
+        "start": 0.6,
+        "end": 0.66,
+        "clip_topleft": [
+          1248,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1296,
+          80
+        ]
+      }
+    ]
+  },
+  "attack_stationary_front_left": {
+    "image": "r10-10-swing-front-left.png",
+    "canvas_size": [
+      1728,
+      96
+    ],
+    "facing": "front_left",
+    "cell_size": [
+      96,
+      96
+    ],
+    "scale": 2,
+    "reference_height": 64,
+    "frames": [
+      {
+        "name": "idle",
+        "label": "대기",
+        "start": 0,
+        "end": 0.03,
+        "clip_topleft": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          48,
+          80
+        ]
+      },
+      {
+        "name": "load",
+        "label": "감기",
+        "start": 0.03,
+        "end": 0.1,
+        "clip_topleft": [
+          96,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          144,
+          80
+        ]
+      },
+      {
+        "name": "coil",
+        "label": "준비",
+        "start": 0.1,
+        "end": 0.16,
+        "clip_topleft": [
+          192,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          240,
+          80
+        ]
+      },
+      {
+        "name": "lead",
+        "label": "몸통 선행",
+        "start": 0.16,
+        "end": 0.19,
+        "clip_topleft": [
+          288,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          336,
+          80
+        ]
+      },
+      {
+        "name": "drive",
+        "label": "가속",
+        "start": 0.19,
+        "end": 0.215,
+        "clip_topleft": [
+          384,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          432,
+          80
+        ]
+      },
+      {
+        "name": "release",
+        "label": "타격 직전",
+        "start": 0.215,
+        "end": 0.24,
+        "clip_topleft": [
+          480,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          528,
+          80
+        ]
+      },
+      {
+        "name": "hit",
+        "label": "타격",
+        "start": 0.24,
+        "end": 0.275,
+        "clip_topleft": [
+          576,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          624,
+          80
+        ]
+      },
+      {
+        "name": "pass",
+        "label": "통과",
+        "start": 0.275,
+        "end": 0.3,
+        "clip_topleft": [
+          672,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          720,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            576,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            624,
+            80
+          ]
+        }
+      },
+      {
+        "name": "cross",
+        "label": "몸 앞 가로지르기",
+        "start": 0.3,
+        "end": 0.34,
+        "clip_topleft": [
+          768,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          816,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1344,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1392,
+            80
+          ]
+        }
+      },
+      {
+        "name": "rise",
+        "label": "들어 올리기",
+        "start": 0.34,
+        "end": 0.4,
+        "clip_topleft": [
+          864,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          912,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1440,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1488,
+            80
+          ]
+        }
+      },
+      {
+        "name": "finish",
+        "label": "높은 마무리",
+        "start": 0.4,
+        "end": 0.46,
+        "clip_topleft": [
+          960,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1008,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1536,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1584,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower",
+        "label": "회수 시작",
+        "start": 0.46,
+        "end": 0.53,
+        "clip_topleft": [
+          1056,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1104,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1632,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1680,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower_to_hip",
+        "label": "허리 옆으로 회수",
+        "start": 0.53,
+        "end": 0.6,
+        "clip_topleft": [
+          1152,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1200,
+          80
+        ]
+      },
+      {
+        "name": "recover",
+        "label": "회복",
+        "start": 0.6,
+        "end": 0.66,
+        "clip_topleft": [
+          1248,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1296,
+          80
+        ]
+      }
+    ]
+  },
+  "attack_stationary_back_right": {
+    "image": "r10-10-swing-back-right.png",
+    "canvas_size": [
+      1728,
+      96
+    ],
+    "facing": "back_right",
+    "cell_size": [
+      96,
+      96
+    ],
+    "scale": 2,
+    "reference_height": 64,
+    "frames": [
+      {
+        "name": "idle",
+        "label": "대기",
+        "start": 0,
+        "end": 0.03,
+        "clip_topleft": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          48,
+          80
+        ]
+      },
+      {
+        "name": "load",
+        "label": "감기",
+        "start": 0.03,
+        "end": 0.1,
+        "clip_topleft": [
+          96,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          144,
+          80
+        ]
+      },
+      {
+        "name": "coil",
+        "label": "준비",
+        "start": 0.1,
+        "end": 0.16,
+        "clip_topleft": [
+          192,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          240,
+          80
+        ]
+      },
+      {
+        "name": "lead",
+        "label": "몸통 선행",
+        "start": 0.16,
+        "end": 0.19,
+        "clip_topleft": [
+          288,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          336,
+          80
+        ]
+      },
+      {
+        "name": "drive",
+        "label": "가속",
+        "start": 0.19,
+        "end": 0.215,
+        "clip_topleft": [
+          384,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          432,
+          80
+        ]
+      },
+      {
+        "name": "release",
+        "label": "타격 직전",
+        "start": 0.215,
+        "end": 0.24,
+        "clip_topleft": [
+          480,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          528,
+          80
+        ]
+      },
+      {
+        "name": "hit",
+        "label": "타격",
+        "start": 0.24,
+        "end": 0.275,
+        "clip_topleft": [
+          576,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          624,
+          80
+        ]
+      },
+      {
+        "name": "pass",
+        "label": "통과",
+        "start": 0.275,
+        "end": 0.3,
+        "clip_topleft": [
+          672,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          720,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            576,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            624,
+            80
+          ]
+        }
+      },
+      {
+        "name": "cross",
+        "label": "몸 앞 가로지르기",
+        "start": 0.3,
+        "end": 0.34,
+        "clip_topleft": [
+          768,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          816,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1344,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1392,
+            80
+          ]
+        }
+      },
+      {
+        "name": "rise",
+        "label": "들어 올리기",
+        "start": 0.34,
+        "end": 0.4,
+        "clip_topleft": [
+          864,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          912,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1440,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1488,
+            80
+          ]
+        }
+      },
+      {
+        "name": "finish",
+        "label": "높은 마무리",
+        "start": 0.4,
+        "end": 0.46,
+        "clip_topleft": [
+          960,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1008,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1536,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1584,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower",
+        "label": "회수 시작",
+        "start": 0.46,
+        "end": 0.53,
+        "clip_topleft": [
+          1056,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1104,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1632,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1680,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower_to_hip",
+        "label": "허리 옆으로 회수",
+        "start": 0.53,
+        "end": 0.6,
+        "clip_topleft": [
+          1152,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1200,
+          80
+        ]
+      },
+      {
+        "name": "recover",
+        "label": "회복",
+        "start": 0.6,
+        "end": 0.66,
+        "clip_topleft": [
+          1248,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1296,
+          80
+        ]
+      }
+    ]
+  },
+  "attack_stationary_back": {
+    "image": "r10-10-swing-back.png",
+    "canvas_size": [
+      1728,
+      96
+    ],
+    "facing": "back",
+    "cell_size": [
+      96,
+      96
+    ],
+    "scale": 2,
+    "reference_height": 64,
+    "frames": [
+      {
+        "name": "idle",
+        "label": "대기",
+        "start": 0,
+        "end": 0.03,
+        "clip_topleft": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          48,
+          80
+        ]
+      },
+      {
+        "name": "load",
+        "label": "감기",
+        "start": 0.03,
+        "end": 0.1,
+        "clip_topleft": [
+          96,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          144,
+          80
+        ]
+      },
+      {
+        "name": "coil",
+        "label": "준비",
+        "start": 0.1,
+        "end": 0.16,
+        "clip_topleft": [
+          192,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          240,
+          80
+        ]
+      },
+      {
+        "name": "lead",
+        "label": "몸통 선행",
+        "start": 0.16,
+        "end": 0.19,
+        "clip_topleft": [
+          288,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          336,
+          80
+        ]
+      },
+      {
+        "name": "drive",
+        "label": "가속",
+        "start": 0.19,
+        "end": 0.215,
+        "clip_topleft": [
+          384,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          432,
+          80
+        ]
+      },
+      {
+        "name": "release",
+        "label": "타격 직전",
+        "start": 0.215,
+        "end": 0.24,
+        "clip_topleft": [
+          480,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          528,
+          80
+        ]
+      },
+      {
+        "name": "hit",
+        "label": "타격",
+        "start": 0.24,
+        "end": 0.275,
+        "clip_topleft": [
+          576,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          624,
+          80
+        ]
+      },
+      {
+        "name": "pass",
+        "label": "통과",
+        "start": 0.275,
+        "end": 0.3,
+        "clip_topleft": [
+          672,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          720,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            576,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            624,
+            80
+          ]
+        }
+      },
+      {
+        "name": "cross",
+        "label": "몸 앞 가로지르기",
+        "start": 0.3,
+        "end": 0.34,
+        "clip_topleft": [
+          768,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          816,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1344,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1392,
+            80
+          ]
+        }
+      },
+      {
+        "name": "rise",
+        "label": "들어 올리기",
+        "start": 0.34,
+        "end": 0.4,
+        "clip_topleft": [
+          864,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          912,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1440,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1488,
+            80
+          ]
+        }
+      },
+      {
+        "name": "finish",
+        "label": "높은 마무리",
+        "start": 0.4,
+        "end": 0.46,
+        "clip_topleft": [
+          960,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1008,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1536,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1584,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower",
+        "label": "회수 시작",
+        "start": 0.46,
+        "end": 0.53,
+        "clip_topleft": [
+          1056,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1104,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1632,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1680,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower_to_hip",
+        "label": "허리 옆으로 회수",
+        "start": 0.53,
+        "end": 0.6,
+        "clip_topleft": [
+          1152,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1200,
+          80
+        ]
+      },
+      {
+        "name": "recover",
+        "label": "회복",
+        "start": 0.6,
+        "end": 0.66,
+        "clip_topleft": [
+          1248,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1296,
+          80
+        ]
+      }
+    ]
+  },
+  "attack_stationary_back_left": {
+    "image": "r10-10-swing-back-left.png",
+    "canvas_size": [
+      1728,
+      96
+    ],
+    "facing": "back_left",
+    "cell_size": [
+      96,
+      96
+    ],
+    "scale": 2,
+    "reference_height": 64,
+    "frames": [
+      {
+        "name": "idle",
+        "label": "대기",
+        "start": 0,
+        "end": 0.03,
+        "clip_topleft": [
+          0,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          48,
+          80
+        ]
+      },
+      {
+        "name": "load",
+        "label": "감기",
+        "start": 0.03,
+        "end": 0.1,
+        "clip_topleft": [
+          96,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          144,
+          80
+        ]
+      },
+      {
+        "name": "coil",
+        "label": "준비",
+        "start": 0.1,
+        "end": 0.16,
+        "clip_topleft": [
+          192,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          240,
+          80
+        ]
+      },
+      {
+        "name": "lead",
+        "label": "몸통 선행",
+        "start": 0.16,
+        "end": 0.19,
+        "clip_topleft": [
+          288,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          336,
+          80
+        ]
+      },
+      {
+        "name": "drive",
+        "label": "가속",
+        "start": 0.19,
+        "end": 0.215,
+        "clip_topleft": [
+          384,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          432,
+          80
+        ]
+      },
+      {
+        "name": "release",
+        "label": "타격 직전",
+        "start": 0.215,
+        "end": 0.24,
+        "clip_topleft": [
+          480,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          528,
+          80
+        ]
+      },
+      {
+        "name": "hit",
+        "label": "타격",
+        "start": 0.24,
+        "end": 0.275,
+        "clip_topleft": [
+          576,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          624,
+          80
+        ]
+      },
+      {
+        "name": "pass",
+        "label": "통과",
+        "start": 0.275,
+        "end": 0.3,
+        "clip_topleft": [
+          672,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          720,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            576,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            624,
+            80
+          ]
+        }
+      },
+      {
+        "name": "cross",
+        "label": "몸 앞 가로지르기",
+        "start": 0.3,
+        "end": 0.34,
+        "clip_topleft": [
+          768,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          816,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1344,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1392,
+            80
+          ]
+        }
+      },
+      {
+        "name": "rise",
+        "label": "들어 올리기",
+        "start": 0.34,
+        "end": 0.4,
+        "clip_topleft": [
+          864,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          912,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1440,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1488,
+            80
+          ]
+        }
+      },
+      {
+        "name": "finish",
+        "label": "높은 마무리",
+        "start": 0.4,
+        "end": 0.46,
+        "clip_topleft": [
+          960,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1008,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1536,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1584,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower",
+        "label": "회수 시작",
+        "start": 0.46,
+        "end": 0.53,
+        "clip_topleft": [
+          1056,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1104,
+          80
+        ],
+        "on_hit": {
+          "clip_topleft": [
+            1632,
+            0,
+            96,
+            96
+          ],
+          "foot_pivot_topleft": [
+            1680,
+            80
+          ]
+        }
+      },
+      {
+        "name": "lower_to_hip",
+        "label": "허리 옆으로 회수",
+        "start": 0.53,
+        "end": 0.6,
+        "clip_topleft": [
+          1152,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1200,
+          80
+        ]
+      },
+      {
+        "name": "recover",
+        "label": "회복",
+        "start": 0.6,
+        "end": 0.66,
+        "clip_topleft": [
+          1248,
+          0,
+          96,
+          96
+        ],
+        "foot_pivot_topleft": [
+          1296,
+          80
+        ]
+      }
+    ]
   }
 }

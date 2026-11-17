@@ -18,7 +18,6 @@ ZOMBIE_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r2z-zomb
 ZOMBIE_ATTACK_METADATA_PATH = Path(__file__).resolve().parent / "assets/zombie/r2za-zombie-attack-20261106.json"
 _ZOMBIE_RESUME_DISTANCE = 8.0
 _DISTANCE_EPSILON = 1e-9
-_STATIONARY_FRONT_RIGHT_SOURCE = "attack_stationary_front_right"
 
 
 @dataclass
@@ -95,14 +94,16 @@ class CombatVisual:
         elapsed = attack.elapsed
         if not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed):
             return None
-        locked = attack.facing == "front_right" and getattr(attack, "stationary_front_right", False)
-        source_name = (_STATIONARY_FRONT_RIGHT_SOURCE if locked and not walking
-                       else self._attack_source(attack.facing))
+        authored = attack.facing == "front_right" and getattr(attack, "stationary_front_right", False)
+        locked = authored or getattr(attack, "stationary_swing", False)
+        stationary = f"attack_stationary_{attack.facing}"
+        use_stationary = locked and not walking and stationary in self.metadata
+        source_name = stationary if use_stationary else self._attack_source(attack.facing)
         if source_name not in self.metadata:
             return None
         for index, frame in enumerate(self.metadata[source_name]["frames"]):
             start, end = frame["start"], frame["end"]
-            if locked and walking:
+            if locked and not use_stationary:
                 start = _locked_walk_boundary(start, attack.hit_time)
                 end = _locked_walk_boundary(end, attack.hit_time)
             if start <= elapsed < end:
