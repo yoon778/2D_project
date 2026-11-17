@@ -1,8 +1,8 @@
 """Aged printed street-map styling for the town's roads and footprints."""
 
 MAP_PAPER = (233, 222, 195)
-MAP_ROAD = (221, 192, 132)
-MAP_ALLEY = (254, 247, 225)
+MAP_ROAD = (215, 177, 112)
+MAP_ALLEY = (250, 239, 211)
 MAP_BUILDING = (171, 160, 139)
 MAP_WRECK = (153, 75, 54)
 MAP_LANDMARK = (120, 130, 110)
@@ -18,12 +18,12 @@ MAP_ICON_CLIPS = {
     "abandoned-car": (480, 0, 96, 96),
 }
 
-_GRID = (218, 206, 176)
+_GRID = (225, 214, 187)
 _PARCEL = (225, 215, 190)
 _VERGE = (218, 218, 187)
 _PARCEL_EDGE = (199, 188, 158)
-_ALLEY_EDGE = (179, 160, 124)
-_ROAD_EDGE = (156, 127, 83)
+_ALLEY_EDGE = (142, 116, 78)
+_ROAD_EDGE = (128, 91, 51)
 _LANE = (146, 113, 69)
 _ROOF_EDGE = (121, 109, 91)
 _ROOF_LIGHT = (191, 179, 156)
@@ -94,7 +94,7 @@ def _draw_paper(rectangle, draw_line, bounds):
         draw_line(left + depth + 2, y, left + depth + 2, y + length, *_CREASE_SHADE)
 
 
-def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, draw_sprite=None):
+def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, draw_sprite=None, min_road_edge=0):
     """Draw the static ground layers; mission markers are drawn by the caller."""
     left, bottom, right, top = bounds
     width, height = world_size
@@ -128,8 +128,9 @@ def draw_base(rectangle, draw_line, bounds, scale, world_size, roads, walls, *, 
             box(x - margin, y - margin, east + margin, north + margin, _PARCEL_EDGE, filled=False)
 
     minor = (*roads["alleys"], roads["main_detour"])
-    street_layers = ((tuple(_segments(minor)), MAP_ALLEY, _ALLEY_EDGE, 4),
-                     (tuple(_segments(roads["main"])), MAP_ROAD, _ROAD_EDGE, 5))
+    min_curb = min_road_edge / scale
+    street_layers = ((tuple(_segments(minor)), MAP_ALLEY, _ALLEY_EDGE, max(4, min_curb)),
+                     (tuple(_segments(roads["main"])), MAP_ROAD, _ROAD_EDGE, max(5, min_curb)))
     # Draw both outlines before either fill so junctions don't have seams.
     for casing in (True, False):
         for segments, fill, edge, curb in street_layers:

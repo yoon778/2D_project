@@ -7,11 +7,13 @@ import struct
 import sys
 from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock, call, patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core import Player, Wall
+import main
 from main import (CAMERA_TIME, DELIVERY_CONTRACTS, GROUND_SCALE_Y, RETURN_PERSPECTIVE_STRENGTH,
                   NeighborhoodWall, Renderer, house_planes, screen_to_world, sdl_to_world, sorted_drawables,
                   world_to_screen)
@@ -157,6 +159,45 @@ class MapProjectionTests(unittest.TestCase):
                 self.assertAlmostEqual(actual[1], world[1])
         for screen in ((63, 400), (857, 400), (400, 86), (400, 616), (1000, 350)):
             self.assertIsNone(renderer.map_world_at(*screen))
+
+    def test_player_heading_draws_last_at_the_position_shared_with_a_map_pin(self):
+        renderer = Renderer.__new__(Renderer)
+        renderer.map_icons = None
+        world = renderer.delivery = main.DeliveryWorld()
+        self.assertTrue(world.select_contract(3))
+        self.assertTrue(world.skip_route_sequence())
+        left, bottom, scale = renderer._map_layout(*main.PLAY_MAP_VIEWPORT)
+
+        for parcel, point, pin_method in (
+            ("waiting", world.contract.truck_door_position, "draw_map_truck"),
+            ("carrying", world.contract.stops[0].position, "draw_map_pin"),
+        ):
+            with self.subTest(parcel=parcel):
+                world.parcel = parcel
+                world.player.x, world.player.y = point
+                world.player.aim_angle = math.pi / 2
+                x, y = left + point[0] * scale, bottom + point[1] * scale
+                paint = Mock()
+                renderer.font = paint.font
+
+                def geometry(renderer, texture, vertices, count, indices, index_count):
+                    self.assertEqual((count, index_count), (4, 6))
+                    self.assertAlmostEqual(vertices[0].position.x, x, places=3)
+                    self.assertAlmostEqual(vertices[0].position.y, main.WINDOW_HEIGHT - 1 - y - 10, places=3)
+                    self.assertEqual(tuple((v.color.r, v.color.g, v.color.b, v.color.a) for v in vertices),
+                                     ((*main.MAP_PLAYER, 255),) * count)
+                    paint.heading()
+                    return 0
+
+                with (patch.object(main, "rectangle", paint.rectangle),
+                      patch.object(main.p, "renderer", None, create=True),
+                      patch.object(main.p, "draw_line", paint.line),
+                      patch.object(main.p, "draw_circle", paint.circle),
+                      patch.object(main.p, "SDL_RenderGeometry", side_effect=geometry),
+                      patch.object(renderer, pin_method, paint.pin)):
+                    renderer.draw_town_map(world.contract, *main.PLAY_MAP_VIEWPORT, world.player)
+                self.assertTrue(any(mark.args[:2] == (x, y) for mark in paint.pin.call_args_list))
+                self.assertEqual(paint.method_calls[-1], call.heading())
 
 
 class DepthOrderTests(unittest.TestCase):

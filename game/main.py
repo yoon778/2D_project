@@ -96,18 +96,22 @@ MAP_LABEL = (249, 236, 203)
 MAP_LABEL_EDGE = (163, 137, 100)
 MAP_ROUTE_INK = (36, 73, 127)
 MAP_ROUTE_HINT = (176, 205, 245)
+MAP_PLAYER = (67, 168, 255)
+MAP_PLAYER_INK = (19, 73, 130)
+MAP_PLAYER_RADIUS = 14
 MAP_ROAD_INK = (91, 75, 46)
 MAP_ALLEY_INK = (100, 96, 81)
 MAP_PICKUP = (168, 85, 27)
-MAP_DROPOFF = (149, 45, 37)
-MAP_SAFE = (42, 100, 57)
+MAP_DROPOFF = (172, 48, 39)
+MAP_SAFE = (36, 110, 61)
 MAP_COMPLETED = (108, 114, 103)
-MAP_DETOUR = (39, 93, 90)
+MAP_DETOUR = (22, 104, 94)
 MAP_VIEW_BG = (27, 23, 19)
 MAP_VIEW_PANEL = (49, 39, 31)
 MAP_VIEW_EDGE = (138, 111, 79)
 MAP_VIEW_PAPER = (227, 211, 178)
 MAP_VIEW_TEXT = (243, 228, 201)
+MAP_VIEW_MUTED = (170, 158, 140)
 PLAY_MAP_VIEWPORT = (64, 104, 792, 528)
 HIT_MARK_DURATION = 0.14
 STATIONARY_SWING_SOUND_DELAY = 0.060
@@ -694,16 +698,30 @@ class Renderer:
         rectangle(left, bottom, right - left, upper - bottom, MAP_LABEL_EDGE, filled=False)
 
     @staticmethod
-    def draw_map_heading(x, y, angle, *, on_paper=False):
+    def draw_map_heading(x, y, angle):
+        p.draw_circle(x, y, MAP_PLAYER_RADIUS, *WHITE, filled=True)
+        p.draw_circle(x, y, MAP_PLAYER_RADIUS - 2, *MAP_INK, filled=True)
         dx, dy = math.cos(angle), math.sin(angle)
-        tip_x, tip_y = x + 16 * dx, y + 16 * dy
-        color = MAP_INK if on_paper else WHITE
-        p.draw_line(x, y, tip_x, tip_y, *color)
-        for side in (-1, 1):
-            p.draw_line(tip_x, tip_y, tip_x - 6 * dx - 4 * dy * side,
-                        tip_y - 6 * dy + 4 * dx * side, *color)
-        rectangle(x - 4, y - 4, 8, 8, MAP_INK)
-        rectangle(x - 2, y - 2, 4, 4, WHITE)
+        color = p.SDL_Color(*MAP_PLAYER, 255)
+        points = ((10, 0), (-7, 7), (-4, 0), (-7, -7))
+        vertices = (p.SDL_Vertex * len(points))(*(
+            p.SDL_Vertex(p.SDL_FPoint(x + forward * dx - side * dy,
+                                     WINDOW_HEIGHT - 1 - y - forward * dy - side * dx),
+                         color, p.SDL_FPoint(0, 0))
+            for forward, side in points
+        ))
+        indices = (ctypes.c_int * 6)(0, 1, 2, 0, 2, 3)
+        if p.SDL_RenderGeometry(p.renderer, None, vertices, len(vertices), indices, len(indices)) != 0:
+            raise RuntimeError(f"Map heading geometry failed: {p.SDL_GetError()!r}")
+
+    @staticmethod
+    def draw_map_truck(x, y, color):
+        rectangle(x - 11, y - 8, 22, 16, MAP_LABEL)
+        rectangle(x - 10, y - 7, 20, 14, color)
+        rectangle(x - 7, y - 2, 8, 7, WHITE)
+        rectangle(x + 1, y - 2, 5, 5, WHITE)
+        rectangle(x - 6, y - 5, 3, 3, WHITE)
+        rectangle(x + 3, y - 5, 3, 3, WHITE)
 
     @staticmethod
     def draw_map_pin(x, y, color, *, pickup=False):
@@ -809,7 +827,7 @@ class Renderer:
         show_east_detour = bridge is not None and player is not None and world.route_gimmicks_active
         map_walls = self.map_walls_for(contract)
         draw_map_base(rectangle, p.draw_line, bounds, scale, (width, height),
-                      TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite)
+                      TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite, min_road_edge=1.5)
         occupied = [(left + 10, top - 60, left + 151, top - 5)]
         for point, label, color in (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
@@ -836,21 +854,33 @@ class Renderer:
             label_width = 17 * len(label) + 16
             captions.append((position, label, ink, label_width, offset))
 
+        if player is not None:
+            hx, hy = route[0]
+            radius = MAP_PLAYER_RADIUS
+            occupied.append((hx - radius, hy - radius, hx + radius, hy + radius))
+            caption(route[0], "내 위치", MAP_PLAYER_INK, offset=(radius + 6, -11))
+
         pickup_x, pickup_y = map_point(*contract.pickup)
-        occupied.append((pickup_x - 7, pickup_y - 7, pickup_x + 7, pickup_y + 7))
         if contract.truck_position is not None:
-            truck_color = MAP_SAFE if player is not None and world.returning else MAP_PICKUP
-            self.draw_map_pin(pickup_x, pickup_y, truck_color, pickup=True)
-            caption((pickup_x, pickup_y), "트럭", truck_color)
+            picking_up = player is None or world.parcel == "waiting"
+            truck_color = MAP_PICKUP if picking_up else MAP_SAFE
+            self.draw_map_truck(pickup_x, pickup_y, truck_color)
+            occupied.append((pickup_x - 11, pickup_y - 8, pickup_x + 11, pickup_y + 8))
+            caption((pickup_x, pickup_y), "수령 트럭" if picking_up else "복귀 트럭", truck_color,
+                    offset=(16, -11))
         else:
             self.draw_map_pin(pickup_x, pickup_y, MAP_PICKUP, pickup=True)
+            occupied.append((pickup_x - 7, pickup_y - 7, pickup_x + 7, pickup_y + 7))
         for stop in contract.stops:
             completed = player is not None and stop in world.completed_stops
-            color = MAP_COMPLETED if completed else MAP_DROPOFF
             x, y = map_point(*stop.position)
+            if completed:
+                p.draw_circle(x, y, 5, *MAP_COMPLETED, filled=True)
+                occupied.append((x - 5, y - 5, x + 5, y + 5))
+                continue
             occupied.append((x - 9, y - 9, x + 9, y + 9))
-            self.draw_map_pin(x, y, color)
-            caption((x, y), stop.name, color, offset=(-17 * len(stop.name) - 28, -32))
+            self.draw_map_pin(x, y, MAP_DROPOFF)
+            caption((x, y), stop.name, MAP_DROPOFF, offset=(-17 * len(stop.name) - 28, -32))
         if contract.return_point is not None and contract.truck_position is None:
             safe_x, safe_y = map_point(*contract.return_point)
             occupied.append((safe_x - 8, safe_y - 8, safe_x + 8, safe_y + 8))
@@ -923,18 +953,6 @@ class Renderer:
                 caption(map_point(wall.x + wall.width / 2, wall.y + wall.depth), "상점")
             elif getattr(wall, "texture", None) == "bus-stop" and BUS_STOP not in contract.stops:
                 caption(map_point(wall.x + wall.width / 2, wall.y + wall.depth), "정류장")
-        if player is not None:
-            heading_anchor = route[0]
-            marker = place_map_label(heading_anchor, 34, bounds, occupied, (-17, -17), height=34)
-            if marker is None:
-                heading = heading_anchor
-                hx, hy = heading
-                occupied.append((hx - 17, hy - 17, hx + 17, hy + 17))
-            else:
-                heading = marker[0] + 17, marker[1] + 17
-            if heading != heading_anchor:
-                p.draw_line(*heading_anchor, *heading, *MAP_PAPER_INK)
-            self.draw_map_heading(*heading, player.aim_angle, on_paper=True)
         labels = []
         for anchor, label, ink, label_width, offset in captions:
             position = place_map_label(anchor, label_width, bounds, occupied, offset)
@@ -962,6 +980,8 @@ class Renderer:
         rectangle(scale_x, scale_y, 2 * half_scale, 4, MAP_PAPER_INK, filled=False)
         self.font.draw(scale_x, scale_y + 15, "400 px", MAP_PAPER_INK)
         rectangle(left, bottom, right - left, top - bottom, MAP_BORDER, filled=False)
+        if player is not None:
+            self.draw_map_heading(*route[0], player.aim_angle)
 
     @staticmethod
     def draw_district_map_routes(contract, map_point):
@@ -985,10 +1005,14 @@ class Renderer:
                 length = math.dist(start, end)
                 if not length:
                     continue
+                dx, dy = end[0] - start[0], end[1] - start[1]
+                edge_x, edge_y = (0, 1) if abs(dx) >= abs(dy) else (1, 0)
                 for offset in range(0, math.ceil(length), 10):
                     a, b = offset / length, min(length, offset + 5) / length
-                    p.draw_line(*(l + (r - l) * a for l, r in zip(start, end)),
-                                *(l + (r - l) * b for l, r in zip(start, end)), *MAP_DETOUR)
+                    ax, ay = start[0] + dx * a, start[1] + dy * a
+                    bx, by = start[0] + dx * b, start[1] + dy * b
+                    p.draw_line(ax, ay, bx, by, *MAP_DETOUR)
+                    p.draw_line(ax + edge_x, ay + edge_y, bx + edge_x, by + edge_y, *MAP_DETOUR)
 
     @staticmethod
     def bridge_map_next_stop(world):
@@ -1032,7 +1056,7 @@ class Renderer:
             target, accent = "주황색 수령지에서 E 길게", ORANGE
         else:
             remaining = world.remaining_stops
-            objective = "배송 순서 자유" if len(remaining) > 1 else remaining[0].name
+            objective = f"남은 배송지 {len(remaining)}곳" if len(remaining) > 1 else remaining[0].name
             target, accent = "배송함에서 E 길게", MAP_VIEW_TEXT
         self.font.draw(side + 24, 566, objective, accent)
         self.font.draw(side + 24, 532, target, MAP_VIEW_TEXT)
@@ -1056,8 +1080,8 @@ class Renderer:
             y = 449 - row * 28
             completed = stop in world.completed_stops
             self.draw_map_pin(left + 8, y, MAP_COMPLETED if completed else MAP_DROPOFF)
-            self.font.draw(left + 24, y, stop.name, MAP_VIEW_TEXT)
-            self.font.draw(right - 62, y, "완료" if completed else "미완료", SAFE_GREEN if completed else MAP_VIEW_PAPER)
+            self.font.draw(left + 24, y, stop.name, MAP_VIEW_MUTED if completed else MAP_VIEW_TEXT)
+            self.font.draw(right - 62, y, "완료" if completed else "남음", MAP_VIEW_MUTED if completed else MAP_VIEW_TEXT)
         p.draw_line(left, 370, right, 370, *MAP_VIEW_EDGE)
         self.font.draw(left, 348, "장치와 우회로", MAP_VIEW_TEXT)
 
@@ -1096,12 +1120,15 @@ class Renderer:
 
         p.draw_line(left, 186, right, 186, *MAP_VIEW_EDGE)
         for dx in (0, 8, 16):
-            p.draw_line(left + dx, 162, left + dx + 4, 162, *SAFE_GREEN)
+            rectangle(left + dx, 161, 5, 2, SAFE_GREEN)
         self.font.draw(left + 25, 162, "우회 골목", MAP_VIEW_TEXT)
-        self.draw_map_pin(left + 164, 162, MAP_SAFE if world.returning else MAP_PICKUP, pickup=True)
-        pickup_label = "수령지"
         if world.contract.truck_position is not None:
-            pickup_label = "복귀 트럭" if world.returning else "수령 트럭"
+            picking_up = world.parcel == "waiting"
+            self.draw_map_truck(left + 164, 162, MAP_PICKUP if picking_up else MAP_SAFE)
+            pickup_label = "수령 트럭" if picking_up else "복귀 트럭"
+        else:
+            self.draw_map_pin(left + 164, 162, MAP_PICKUP, pickup=True)
+            pickup_label = "수령지"
         self.font.draw(left + 180, 162, pickup_label, MAP_VIEW_TEXT)
         self.draw_map_heading(left + 7, 133, 0)
         self.font.draw(left + 25, 133, "현재 위치", MAP_VIEW_TEXT)
