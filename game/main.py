@@ -21,7 +21,7 @@ from delivery import (BUS_STOP, DELIVERY_CONTRACTS, FRONT_HOME_STOP, INTERACTION
 from delivery_audio_state import DeliveryAudioState, EnemyAcoustics, ZOMBIE_HEARING_DISTANCE, select_footstep_sources
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 from locomotion import Locomotion, select_facing
-from play_hud import INTERACTION_LABELS, PlayHUD, SAFE_GREEN, SMALL as HUD_SMALL
+from play_hud import INTERACTION_LABELS, PAUSE_MENU, PlayHUD, SAFE_GREEN, SMALL as HUD_SMALL
 from player_visual import PlayerVisual, load_atlas
 from spatial_audio import AudioSettings, ZombieAudio, ZombieFootstep
 from town_map_art import MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS
@@ -1735,7 +1735,8 @@ class Renderer:
             self.play_hud.draw_abandon_confirmation()
         elif self.pause_page is not None:
             volumes = tuple(getattr(self.audio_settings, field) for field in PAUSE_VOLUME_FIELDS)
-            self.play_hud.draw_pause(self.pause_page, self.pause_index, volumes)
+            self.play_hud.draw_pause(self.pause_page, self.pause_index, volumes,
+                                     integer_scale=display.integer_scale_enabled())
 
     def handle_pause_key(self, key):
         if key == p.SDLK_ESCAPE:
@@ -1748,7 +1749,7 @@ class Renderer:
         if self.pause_page == "controls":
             return None
         if key in (p.SDLK_UP, p.SDLK_DOWN):
-            options = 5 if self.pause_page == "main" else len(PAUSE_VOLUME_FIELDS)
+            options = len(PAUSE_MENU) if self.pause_page == "main" else len(PAUSE_VOLUME_FIELDS)
             step = 1 if key == p.SDLK_DOWN else -1
             self.pause_index = (self.pause_index + step) % options
         elif self.pause_page == "audio" and key in (p.SDLK_LEFT, p.SDLK_RIGHT):
@@ -1763,6 +1764,8 @@ class Renderer:
             elif self.pause_index == 2:
                 self.pause_page = "audio"
                 self.pause_index = 0
+            elif self.pause_index == len(PAUSE_MENU) - 1:
+                return "scale"
             else:
                 return "abandon" if self.pause_index == 3 else "quit"
         return None
@@ -2070,6 +2073,12 @@ def poll_events():
         event = p.SDL_Event()
         if not p.SDL_PollEvent(ctypes.byref(event)):
             return
+        if (event.type == p.SDL_WINDOWEVENT
+                and event.window.event in (p.SDL_WINDOWEVENT_SIZE_CHANGED, p.SDL_WINDOWEVENT_DISPLAY_CHANGED)
+                and display.integer_scale_enabled() and display.set_integer_scale(True)):
+            # Queued pointer events may have been filtered with the old viewport.
+            p.SDL_FlushEvent(p.SDL_MOUSEMOTION)
+            p.SDL_FlushEvent(p.SDL_MOUSEBUTTONDOWN)
         yield event
 
 
@@ -2153,7 +2162,7 @@ def play_ending(renderer, art, world, audio, *, player_hit, target=None):
         audio.stop()
 
 
-def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False):
+def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False, integer_scale=False):
     renderer = None
     music = None
     zombie_audio = None
@@ -2161,6 +2170,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False)
     delivery_run = not (smoke_test or practice)
     delivery_audio = DeliveryAudioState() if delivery_run else None
     try:
+        p.SDL_SetHint(p.SDL_HINT_WINDOWS_DPI_AWARENESS, b"permonitorv2")
         p.open_canvas(WINDOW_WIDTH, WINDOW_HEIGHT, sync=True)
         if not p.renderer:
             p.renderer = p.SDL_CreateRenderer(p.window, -1, p.SDL_RENDERER_SOFTWARE)
@@ -2168,7 +2178,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False)
             raise RuntimeError(f"SDL renderer initialization failed: {p.SDL_GetError()!r}")
         p.hide_lattice()
         p.SDL_SetWindowTitle(p.window, b"Dead Route" if delivery_run else b"Dead Route - R2-ZA")
-        display.configure(fullscreen=not (windowed or smoke_test))
+        display.configure(fullscreen=not (windowed or smoke_test), integer_scale=integer_scale)
         p.SDL_SetRenderDrawBlendMode(p.renderer, p.SDL_BLENDMODE_BLEND)
         renderer = Renderer()
         if delivery_run:
@@ -2255,6 +2265,10 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False)
                     continue
                 if event.type == p.SDL_WINDOWEVENT and event.window.event == p.SDL_WINDOWEVENT_LEAVE:
                     cursor = None
+                    continue
+                if (event.type == p.SDL_WINDOWEVENT
+                        and event.window.event in (p.SDL_WINDOWEVENT_SIZE_CHANGED, p.SDL_WINDOWEVENT_DISPLAY_CHANGED)):
+                    cursor = current_cursor()
                     continue
                 if event.type == p.SDL_KEYUP:
                     key = event.key.keysym.sym
@@ -2400,7 +2414,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False)
                     if action == "abandon":
                         abandon_requested = True
                         break
+                    if action == "scale":
+                        display.set_integer_scale(not display.integer_scale_enabled())
+                        cursor = current_cursor()
                     if renderer.pause_page != previous_page:
+                        if renderer.pause_page is None:
+                            cursor = current_cursor()
                         pause_changed = True
                         break
             motor_sound = None
@@ -2784,5 +2803,6 @@ if __name__ == "__main__":
     parser.add_argument("--smoke-test", action="store_true",
                         help="render three native SDL fixtures, save PNGs and exit")
     parser.add_argument("--windowed", action="store_true", help="start in a window")
+    parser.add_argument("--integer-scale", action="store_true", help="use integer pixel scaling")
     args = parser.parse_args()
-    run(args.smoke_test, show_opening=not args.smoke_test, windowed=args.windowed)
+    run(args.smoke_test, show_opening=not args.smoke_test, windowed=args.windowed, integer_scale=args.integer_scale)

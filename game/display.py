@@ -7,9 +7,10 @@ import pico2d.pico2d as p
 
 
 _canvas = None
+_integer_scale = False
 
 
-def configure(fullscreen):
+def configure(fullscreen, *, integer_scale=False):
     global _canvas
     cursor = p.SDL_Point()
     x, y = ctypes.c_int(), ctypes.c_int()
@@ -23,10 +24,31 @@ def configure(fullscreen):
     p.SDL_SetHint(p.SDL_HINT_RENDER_LOGICAL_SIZE_MODE, b"letterbox")
     if p.SDL_RenderSetLogicalSize(p.renderer, p.canvas_width, p.canvas_height) != 0:
         raise RuntimeError(f"SDL logical size initialization failed: {p.SDL_GetError()!r}")
+    set_integer_scale(integer_scale)
     _canvas = p.SDL_CreateTexture(p.renderer, p.SDL_PIXELFORMAT_ARGB8888, p.SDL_TEXTUREACCESS_TARGET,
                                   p.canvas_width, p.canvas_height)
     if not _canvas or p.SDL_SetTextureScaleMode(_canvas, p.SDL_ScaleModeNearest) != 0:
         raise RuntimeError(f"SDL game canvas initialization failed: {p.SDL_GetError()!r}")
+
+
+def integer_scale_enabled():
+    return _integer_scale
+
+
+def set_integer_scale(enabled):
+    global _integer_scale
+    use_integer_scale = False
+    if enabled:
+        width, height = ctypes.c_int(), ctypes.c_int()
+        if p.SDL_GetRendererOutputSize(p.renderer, ctypes.byref(width), ctypes.byref(height)) != 0:
+            raise RuntimeError(f"SDL display size query failed: {p.SDL_GetError()!r}")
+        # SDL would crop a small display at 1×. Keep the full canvas visible.
+        use_integer_scale = width.value >= p.canvas_width and height.value >= p.canvas_height
+    changed = use_integer_scale != bool(p.SDL_RenderGetIntegerScale(p.renderer))
+    if changed and p.SDL_RenderSetIntegerScale(p.renderer, use_integer_scale) != 0:
+        raise RuntimeError(f"SDL integer scaling failed: {p.SDL_GetError()!r}")
+    _integer_scale = enabled
+    return changed
 
 
 def clear(color=(0, 0, 0)):
@@ -51,10 +73,11 @@ def frame():
 
 
 def close():
-    global _canvas
+    global _canvas, _integer_scale
     if _canvas:
         p.SDL_DestroyTexture(_canvas)
         _canvas = None
+    _integer_scale = False
 
 
 def cursor_in_canvas(x, y):

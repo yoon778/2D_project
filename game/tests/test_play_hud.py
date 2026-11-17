@@ -66,8 +66,15 @@ class PlayHUDTests(unittest.TestCase):
               patch.object(play_hud, "trace"), patch.object(play_hud, "fill") as fill):
             self.hud.draw_pause("main", 1, (100, 45, 0))
             labels = [call.args for call in text.call_args_list]
-            self.assertEqual([entry[0] for entry in labels[1:6]], list(play_hud.PAUSE_MENU))
+            self.assertEqual([entry[0] for entry in labels[1:7]], list(play_hud.PAUSE_MENU))
             self.assertEqual(labels[2][4], play_hud.STAMP)
+            self.assertEqual(labels[7][0], "화면 맞춤")
+            text.reset_mock()
+            self.hud.draw_pause("main", 5, (100, 45, 0), integer_scale=True)
+            labels = [call.args for call in text.call_args_list]
+            self.assertEqual(labels[6][0], "화면 배율")
+            self.assertEqual((labels[7][0], labels[7][4]), ("정수 배율", play_hud.STAMP))
+            self.assertIn("Enter 배율 전환", labels[8][0])
             text.reset_mock()
             self.hud.draw_pause("controls", 0, (100, 45, 0))
             keys = {call.args[0] for call in cap.call_args_list}

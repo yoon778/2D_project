@@ -50,7 +50,7 @@ INTERACTION_LABELS = {
     "bridge_panel": ("관리실 열기 · 길게", "관리실 여는 중", TEAL),
     "board_truck": ("트럭 탑승 · 길게", "트럭 탑승 중", TEAL),
 }
-PAUSE_MENU = ("계속하기", "조작법", "소리", "계약 포기", "게임 종료")
+PAUSE_MENU = ("계속하기", "조작법", "소리", "계약 포기", "게임 종료", "화면 배율")
 SOUND_LABELS = ("전체", "음악", "효과음")
 
 
@@ -303,22 +303,28 @@ class PlayHUD:
         receipt_rule(x + 28, y + 58, width - 56)
         return x, y
 
-    def draw_pause(self, page, index, volumes):
+    def draw_pause(self, page, index, volumes, *, integer_scale=False):
         if page == "controls":
             self._draw_controls()
         elif page == "audio":
             self._draw_audio(index, volumes)
         else:
-            width, height = 444, 370
+            width, height = 444, 417
             x, y = self._pause_sheet("일시정지", width, height)
+            scale_row = len(PAUSE_MENU) - 1
             for row, label in enumerate(PAUSE_MENU):
                 top = y + 75 + row * 47
                 if row == index:
                     panel(x + 27, top, width - 54, 39, PAPER_EDGE,
                           background=(224, 201, 163, 255), accent=STAMP)
                 self._text(label, x + 43, top + 20, BODY, STAMP if row == index else PAPER_INK)
-            receipt_rule(x + 28, y + 320, width - 56)
-            self._text("↑ ↓ 선택    Enter 확인    Esc 계속하기", x + 28, y + 342, SMALL, PAPER_MUTED)
+                if row == scale_row:
+                    scale = "정수 배율" if integer_scale else "화면 맞춤"
+                    self._text(scale, x + width - 43, top + 20, BODY,
+                               STAMP if row == index else PAPER_MUTED, align="right")
+            receipt_rule(x + 28, y + 367, width - 56)
+            action = "배율 전환" if index == scale_row else "확인"
+            self._text(f"↑ ↓ 선택    Enter {action}    Esc 계속하기", x + 28, y + 389, SMALL, PAPER_MUTED)
 
     def _draw_controls(self):
         width, height = 746, 428

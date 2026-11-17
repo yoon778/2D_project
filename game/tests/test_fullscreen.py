@@ -72,6 +72,53 @@ class FullscreenTests(unittest.TestCase):
                 self.assertEqual(self.read_cursor_at(x.value, y.value), click)
                 self.assertEqual(self.read_cursor_at(0, 0), None if has_bars else (0, 0))
 
+    def test_integer_pixels_center_at_1080p_double_at_1440p_and_fit_small_output(self):
+        display.configure(fullscreen=False, integer_scale=True)
+
+        def draw_canvas():
+            display.clear((36, 50, 63))
+            p.SDL_SetRenderDrawColor(p.renderer, 255, 255, 255, 255)
+            p.SDL_RenderDrawPoint(p.renderer, 0, 0)
+
+        for width, height, left, top, scale in (
+            (1920, 1080, 320, 180, 1),
+            (2560, 1440, 0, 0, 2),
+            (960, 540, 0, 0, 0.75),
+            (1920, 1080, 320, 180, 1),
+        ):
+            with self.subTest(output=(width, height)):
+                p.SDL_SetWindowSize(p.window, width, height)
+                list(main.poll_events())
+                right = left + round(1280 * scale)
+                bottom = top + round(720 * scale)
+                first_pixel = p.SDL_Rect(left, top, 3, 1)
+                last_pixel = p.SDL_Rect(right - 1, bottom - 1, 1, 1)
+                top_left = p.SDL_Rect(0, 0, 1, 1)
+                row, edge, corner = self.render_pixels(draw_canvas, first_pixel, last_pixel, top_left)
+                self.assertTrue(display.integer_scale_enabled())
+                self.assertEqual(edge, [0xFF24323F])
+                if scale >= 1:
+                    self.assertEqual(row, [0xFFFFFFFF] * scale + [0xFF24323F] * (3 - scale))
+                if left:
+                    self.assertEqual(corner, [0xFF000000])
+                    self.assertIsNone(self.read_cursor_at(left - 1, top))
+                    self.assertIsNone(self.read_cursor_at(right, bottom - 1))
+                    for physical, logical in (((left, top), (0, 0)),
+                                              ((right - 1, bottom - 1), (1279, 719))):
+                        self.assertEqual(self.read_cursor_at(*physical), logical)
+                        self.assertEqual(self.push_pointer(p.SDL_MOUSEBUTTONDOWN, *physical), logical)
+                x = left + round(230 * scale)
+                y = top + round(420 * scale)
+                click = self.push_pointer(p.SDL_MOUSEBUTTONDOWN, x, y)
+                self.assertEqual(contract_card_at(*click), 2)
+                self.assertEqual(self.read_cursor_at(x, y), click)
+
+        display.set_integer_scale(False)
+        self.assertFalse(display.integer_scale_enabled())
+        left, right = self.render_pixels(lambda: display.clear((36, 50, 63)),
+                                         p.SDL_Rect(0, 0, 1, 1), p.SDL_Rect(1919, 1079, 1, 1))
+        self.assertEqual((left, right), ([0xFF24323F], [0xFF24323F]))
+
     def test_scaled_output_preserves_adjacent_one_pixel_clip_rows(self):
         display.configure(fullscreen=False)
 
