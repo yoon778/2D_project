@@ -240,7 +240,7 @@ class EndingTests(unittest.TestCase):
             (None, tap(p.SDLK_KP_ENTER)),
         ])
         audio, music, art = Mock(), Mock(), Mock()
-        frames, endings, chase_frames = [], [], []
+        frames, endings, combat_frames = [], [], []
         original_poll = main.poll_events
 
         def poll():
@@ -269,20 +269,20 @@ class EndingTests(unittest.TestCase):
             if not frames or state != frames[-1]:
                 frames.append(state)
             if world.zombies:
-                expected = not renderer.map_open and focused and any(
-                    zombie.alive and zombie.state == "chase" for zombie in world.zombies)
-                self.assertEqual(music.update.call_args.kwargs["chasing"], expected)
-                chase_frames.append(expected)
-                if len(chase_frames) == 1:
+                combat_frames.append(music.update.call_args.kwargs["combat"])
+                if len(combat_frames) == 1:
                     world.zombie.hp = 0
                     world.zombie.state = "chase"
-                elif len(chase_frames) == 2:
+                elif len(combat_frames) == 2:
                     zombie = world.zombies[1]
                     zombie.x, zombie.y = player.x + 65, player.y
                     zombie.state = "chase"
-                elif len(chase_frames) == 3:
+                elif len(combat_frames) == 3:
                     self.assertAlmostEqual(audio.update.call_args.kwargs["pan"], (world.zombies[1].x - player.x) / 72)
                     self.assertGreater(audio.update.call_args.kwargs["pan"], 0)
+                    step, = audio.update.call_args.kwargs["footstep_sources"]
+                    self.assertEqual(step.source_id, id(world.zombies[1]))
+                    self.assertGreater(step.stride, 0)
                     world.zombies[1].hp = 0
 
         def draw_ending(elapsed, font, cutscene_art, delivery):
@@ -310,7 +310,7 @@ class EndingTests(unittest.TestCase):
             main.run()
 
         self.assertEqual(endings, ["delivered"])
-        self.assertEqual(chase_frames[:4], [False, False, True, False])
+        self.assertEqual([combat > 0 for combat in combat_frames[:4]], [False, False, True, False])
         self.assertEqual(frames, [("playing", "waiting", 0, False), ("playing", "carrying", 0, False),
                                   ("playing", "carrying", 1, False), ("playing", "carrying", 2, False),
                                   ("delivered", "delivered", 3, False),

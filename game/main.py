@@ -16,12 +16,13 @@ from combat_visual import CombatVisual
 from contract_selection import contract_card_at, contract_dispatch_at, draw_contract_selection, load_contract_previews
 from delivery import (BUS_STOP, DELIVERY_CONTRACTS, FRONT_HOME_STOP, INTERACTION_RANGE, MANAGEMENT_STOP,
                       REAR_ALLEY_LISTEN_POINT, REAR_HOME_STOP, SHOP_STOP, TOWN_ROADS, DeliveryWorld, NeighborhoodWall)
+from delivery_audio_state import DeliveryAudioState, EnemyAcoustics, ZOMBIE_HEARING_DISTANCE, select_footstep_sources
 from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 from locomotion import Locomotion, select_facing
 from play_hud import INTERACTION_LABELS, PlayHUD, SAFE_GREEN, SMALL as HUD_SMALL
 from player_visual import PlayerVisual, load_atlas
-from spatial_audio import AudioSettings, HeavyFootstep, PatrolFootstep, ZombieAudio
+from spatial_audio import AudioSettings, ZombieAudio, ZombieFootstep
 from town_map_art import MAP_ICON_ATLAS_SIZE, MAP_ICON_CLIPS
 from town_map_art import draw_base as draw_map_base, place_label as place_map_label
 from truck_sequence import TruckVisual, courier_step, pickup_facing, pickup_frame, truck_bounds
@@ -2007,6 +2008,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
     zombie_audio = None
     cutscene_art = None
     delivery_run = not (smoke_test or practice)
+    delivery_audio = DeliveryAudioState() if delivery_run else None
     try:
         p.open_canvas(WINDOW_WIDTH, WINDOW_HEIGHT, sync=True)
         if not p.renderer:
@@ -2269,6 +2271,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     music.reset()
                 renderer.choosing_delivery = delivery_run and reset_requested
                 if delivery_run:
+                    delivery_audio.reset()
                     renderer.reset_streetlights()
                     renderer.reset_building_fades()
                     renderer.play_hud.reset_delivery()
@@ -2448,55 +2451,56 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if delivery_run:
                     hit_angle = strike.angle
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength, hit_angle=hit_angle)
-            distance = None
-            nearest_zombie = None
-            stride = pan = 0.0
-            chasing = False
             listener = (player.x, player.y)
-            patrol_step = None
-            heavy_step = None
+            enemy_audio = []
             listening_at_corner = (delivery_run and hearing_active
                                    and math.dist(listener, REAR_ALLEY_LISTEN_POINT) <= REAR_ALLEY_LISTEN_RADIUS)
             for zombie, (x, y) in zip(world.zombies, zombie_origins):
                 zombie_dx, zombie_dy = zombie.x - x, zombie.y - y
                 renderer.combat_visual.update_zombie(zombie, zombie_dx, zombie_dy, paused=not active)
-                if zombie.alive:
-                    chasing |= zombie.state == "chase"
-                    source = (zombie.x, zombie.y)
-                    enemy_distance, enemy_pan = sound_position(listener, source)
-                    recoil_x, recoil_y = zombie.recoil_offset
-                    enemy_stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
-                    if listening_at_corner and zombie.state == "patrol" and zombie.patrol_points:
-                        patrol_step = PatrolFootstep(enemy_distance, enemy_stride, enemy_pan,
-                                                     any(wall_blocks(listener, source, wall) for wall in walls))
-                    if zombie.appearance == HEAVY_ZOMBIE_APPEARANCE:
-                        if hearing_active:
-                            heavy_step = HeavyFootstep(enemy_distance, enemy_stride, enemy_pan,
-                                                       any(wall_blocks(listener, source, wall) for wall in walls))
-                        continue
-                    if distance is None or enemy_distance < distance:
-                        distance = enemy_distance
-                        pan = enemy_pan
-                        nearest_zombie = zombie
-                        stride = enemy_stride
+                if not zombie.alive or (delivery_run and not hearing_active):
+                    continue
+                source = (zombie.x, zombie.y)
+                enemy_distance, enemy_pan = sound_position(listener, source)
+                if delivery_run and enemy_distance >= ZOMBIE_HEARING_DISTANCE:
+                    continue
+                recoil_x, recoil_y = zombie.recoil_offset
+                enemy_stride = math.hypot(zombie_dx - recoil_x, zombie_dy - recoil_y)
+                occluded = hearing_active and any(wall_blocks(listener, source, wall) for wall in walls)
+                kind = "regular"
+                if zombie.appearance == HEAVY_ZOMBIE_APPEARANCE:
+                    kind = "heavy"
+                elif listening_at_corner and zombie.state == "patrol" and zombie.patrol_points:
+                    kind = "patrol"
+                enemy_audio.append(EnemyAcoustics(id(zombie), zombie.state, enemy_distance, enemy_stride,
+                                                 enemy_pan, occluded, kind))
+            nearest = min((enemy for enemy in enemy_audio if enemy.kind != "heavy"),
+                          key=lambda enemy: enemy.distance, default=None)
+            distance = nearest.distance if nearest is not None else None
             if music is not None:
                 if delivery_run:
-                    playing = active and world.result == "playing"
-                    threat_distance = distance
-                    if heavy_step is not None:
-                        threat_distance = min(heavy_step.distance, distance) if distance is not None else heavy_step.distance
-                    music.update(dt, distance=threat_distance, focused=playing, chasing=playing and chasing)
+                    relief = (world.mission_phase in ("boarding", "departing")
+                              or (truck_success and truck_audio_active))
+                    impact = 1.0 if player_hit else .8 if strike_landed else .32 if swing_started else 0.0
+                    threat, combat = delivery_audio.update(dt, enemy_audio, impact=impact) if hearing_active else (0.0, 0.0)
+                    music.update(dt, threat=threat, combat=combat, relief=relief,
+                                 focused=hearing_active or (relief and truck_audio_active))
                 else:
                     music.update(dt, distance=distance, focused=active)
             if zombie_audio is not None and not ending:
-                occluded = hearing_active and nearest_zombie is not None and any(
-                    wall_blocks(listener, (nearest_zombie.x, nearest_zombie.y), wall)
-                    for wall in walls)
                 preserve_map_cue = (renderer.map_open or renderer.bridge_note_open) and focused and not lost_focus
-                zombie_audio.update(dt, distance=distance if hearing_active else None, stride=stride, active=audio_active,
-                                    occluded=occluded, preserve_map_cue=preserve_map_cue,
+                footsteps = None
+                if delivery_run:
+                    footsteps = tuple(
+                        ZombieFootstep(enemy.source_id, enemy.distance, enemy.stride, enemy.pan, enemy.occluded, enemy.kind)
+                        for enemy in select_footstep_sources(enemy_audio)
+                    )
+                zombie_audio.update(dt, distance=distance if hearing_active else None, active=audio_active,
+                                    stride=nearest.stride if nearest is not None else 0.0,
+                                    occluded=nearest is not None and nearest.occluded, preserve_map_cue=preserve_map_cue,
                                     preserve_truck_cues=truck_audio_active,
-                                    pan=pan if hearing_active else 0.0, patrol_step=patrol_step, heavy_step=heavy_step)
+                                    pan=nearest.pan if hearing_active and nearest is not None else 0.0,
+                                    footstep_sources=footsteps)
                 if truck_cue is not None:
                     x, y, width, depth = world.truck_footprint
                     sound_distance, sound_pan = sound_position(listener, (x + width / 2, y + depth / 2))
