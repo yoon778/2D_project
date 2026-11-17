@@ -146,6 +146,10 @@ class PlayHUDTests(unittest.TestCase):
             return {args[0] for args, _ in text.call_args_list}
 
         self.assertTrue({"트럭 도착 중", "Enter 건너뛰기"} <= shown_text())
+        self.assertTrue(self.world.advance_route_sequence(self.world.route_sequence_duration))
+        self.assertIn("트럭 정차 중", shown_text())
+        self.assertTrue(self.world.advance_route_sequence(self.world.route_sequence_duration))
+        self.assertIn("트럭에서 내리는 중", shown_text())
         self.assertTrue(self.world.skip_route_sequence())
         self.assertIn("트럭에서 택배 수령", shown_text())
         self.assertTrue(self.world.interact())
@@ -162,6 +166,8 @@ class PlayHUDTests(unittest.TestCase):
         self.assertTrue({"트럭으로 복귀", "3 / 3"} <= shown_text())
         self.world.player.x, self.world.player.y = self.world.contract.truck_door_position
         self.assertTrue(self.world.interact())
+        self.assertIn("트럭 탑승 중", shown_text())
+        self.assertTrue(self.world.advance_route_sequence(self.world.route_sequence_duration))
         self.assertIn("트럭 출차 중", shown_text())
         self.assertTrue(self.world.skip_route_sequence())
         self.assertTrue({"배달 성공", "출차 완료", f"{shop.name} · 완료", f"{rear.name} · 완료", f"{bus.name} · 완료"}
