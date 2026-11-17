@@ -15,9 +15,9 @@ from combat import CombatWorld, HEAVY_ZOMBIE_APPEARANCE, MAX_STAMINA
 from combat_visual import CombatVisual
 from contract_selection import contract_card_at, contract_dispatch_at, draw_contract_selection, load_contract_previews
 from delivery import (BUS_STOP, DELIVERY_CONTRACTS, FRONT_HOME_STOP, INTERACTION_RANGE, MANAGEMENT_STOP,
-                      REAR_ALLEY_LISTEN_POINT, REAR_HOME_STOP, SHOP_STOP, TOWN_ROADS, DeliveryWorld, NeighborhoodWall)
+                      PLAYABLE_CONTRACTS, REAR_ALLEY_LISTEN_POINT, REAR_HOME_STOP, SHOP_STOP,
+                      TOWN_BASE_WALLS, TOWN_ROADS, TOWN_SIZE, DeliveryWorld, NeighborhoodWall)
 from delivery_audio_state import DeliveryAudioState, EnemyAcoustics, ZOMBIE_HEARING_DISTANCE, select_footstep_sources
-from delivery_progress import load_two_stop_unlock, save_two_stop_unlock
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
 from locomotion import Locomotion, select_facing
 from play_hud import INTERACTION_LABELS, PlayHUD, SAFE_GREEN, SMALL as HUD_SMALL
@@ -41,8 +41,9 @@ RETURN_PERSPECTIVE_BLEND = 36.0
 RETURN_PERSPECTIVE_STRENGTH = .10
 WALL_HEIGHT = 110
 DELIVERY_CHARACTER_SCALE = 0.60
-DELIVERY_KEYS = {p.SDLK_1: 0, p.SDLK_KP_1: 0, p.SDLK_2: 1, p.SDLK_KP_2: 1,
-                 p.SDLK_3: 2, p.SDLK_KP_3: 2, p.SDLK_4: 3, p.SDLK_KP_4: 3}
+CONTRACT_NUMBERS = tuple(PLAYABLE_CONTRACTS)
+NUMBER_KEYS = {p.SDLK_1: 1, p.SDLK_KP_1: 1, p.SDLK_2: 2, p.SDLK_KP_2: 2,
+               p.SDLK_3: 3, p.SDLK_KP_3: 3, p.SDLK_4: 4, p.SDLK_KP_4: 4}
 BASE_DIR = Path(__file__).resolve().parent
 TRASH_CAN_PATH = BASE_DIR / "assets/props/alley-trash-can.png"
 NEIGHBORHOOD_PATH = BASE_DIR / "assets/neighborhood"
@@ -427,6 +428,7 @@ class Renderer:
         self.combat_visual = None
         self.trash_can = None
         self.neighborhood_ground = None
+        self.ground_file = None
         self.map_icons = None
         self.contract_previews = []
         self.truck_visual = None
@@ -475,24 +477,25 @@ class Renderer:
             self.close()
             raise
 
-    def load_neighborhood(self):
-        self.combat_visual.load_zombie_appearances()
+    def load_neighborhood_ground(self):
+        layout = self.delivery.contract.layout
+        ground_file = layout.ground_file if layout is not None else "neighborhood/ground.png"
+        if self.ground_file == ground_file:
+            return
         world_w, world_h = self.delivery.world_size
-        self.neighborhood_ground = load_atlas(NEIGHBORHOOD_PATH / "ground.png",
+        self.neighborhood_ground = load_atlas(BASE_DIR / "assets" / ground_file,
                                               [round(world_w / 2), round(world_h * GROUND_SCALE_Y / 2)])
         if p.SDL_SetTextureBlendMode(self.neighborhood_ground.texture, p.SDL_BLENDMODE_BLEND) != 0:
             raise RuntimeError(f"Ground blend mode failed: {p.SDL_GetError()!r}")
-        for wall in self.delivery.walls:
-            if not isinstance(wall, NeighborhoodWall) or wall.texture in (*BRIDGE_TERRAIN, "delivery-truck"):
-                continue
-            texture = WALL_TEXTURE_ALIASES.get(wall.texture, wall.texture)
-            if texture not in self.neighborhood_walls:
-                self.neighborhood_walls[texture] = load_atlas(
-                    NEIGHBORHOOD_PATH / f"{texture}.png", WALL_TEXTURE_SIZES[texture])
-            if wall.oblique:
-                key = f"{wall.texture}-side"
-                if key not in self.neighborhood_walls:
-                    self.neighborhood_walls[key] = load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", WALL_TEXTURE_SIZES[key])
+        self.ground_file = ground_file
+
+    def load_neighborhood(self):
+        self.combat_visual.load_zombie_appearances()
+        self.load_neighborhood_ground()
+        self.neighborhood_walls = {
+            name: load_atlas(NEIGHBORHOOD_PATH / f"{name}.png", size)
+            for name, size in WALL_TEXTURE_SIZES.items()
+        }
         for image in self.neighborhood_walls.values():
             if p.SDL_SetTextureBlendMode(image.texture, p.SDL_BLENDMODE_BLEND) != 0:
                 raise RuntimeError(f"Wall blend mode failed: {p.SDL_GetError()!r}")
@@ -507,7 +510,8 @@ class Renderer:
             raise ValueError("Town map icon atlas has incorrect dimensions")
         if p.SDL_SetTextureScaleMode(self.map_icons.texture, p.SDL_ScaleModeLinear) != 0:
             raise RuntimeError(f"Town map icon sampling failed: {p.SDL_GetError()!r}")
-        self.contract_previews = load_contract_previews(BASE_DIR / "assets/contract_previews")
+        self.contract_previews = load_contract_previews(BASE_DIR / "assets/contract_previews",
+                                                       tuple(PLAYABLE_CONTRACTS.values()))
         self.truck_visual = TruckVisual(BASE_DIR / "assets/vehicles")
         self.reset_streetlights()
         self.play_hud = PlayHUD(BASE_DIR / "assets/ui/NotoSansKR-Regular.ttf", WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -673,22 +677,26 @@ class Renderer:
     contract_dispatch_at = staticmethod(contract_dispatch_at)
 
     def draw_delivery_selection(self):
-        draw_contract_selection(self.play_hud, DELIVERY_CONTRACTS, self.delivery.available_contracts,
+        contracts = tuple(PLAYABLE_CONTRACTS.values())
+        draw_contract_selection(self.play_hud, contracts, contracts,
                                 self.delivery_preview, self.cursor, self.contract_previews, self.draw_contract_route,
                                 self.draw_map_pin)
 
     def draw_contract_route(self, contract, viewport):
         x, top, width, height = viewport
-        world_size = self.delivery.world_size
-        left, bottom, scale = self._map_layout(x, WINDOW_HEIGHT - top - height, width, height)
+        layout = contract.layout
+        world_size = layout.world_size if layout is not None else TOWN_SIZE
+        roads = layout.roads if layout is not None else TOWN_ROADS
+        walls = layout.walls if layout is not None else TOWN_BASE_WALLS
+        left, bottom, scale = self._map_layout(x, WINDOW_HEIGHT - top - height, width, height,
+                                               world_bounds=(0, 0, *world_size))
         right, upper = left + world_size[0] * scale, bottom + world_size[1] * scale
         bounds = left, bottom, right, upper
 
         def map_point(x, y):
             return left + x * scale, bottom + y * scale
 
-        draw_map_base(rectangle, p.draw_line, bounds, scale, world_size, TOWN_ROADS, self.map_walls_for(None),
-                      draw_sprite=self._draw_map_sprite)
+        draw_map_base(rectangle, p.draw_line, bounds, scale, world_size, roads, walls, draw_sprite=self._draw_map_sprite)
         self.draw_district_map_routes(contract, map_point)
         markers = [(map_point(*contract.pickup), "트럭" if contract.truck_position is not None else "수령지", MAP_PICKUP)]
         markers.extend((map_point(*stop.position), stop.name, MAP_DROPOFF) for stop in contract.stops)
@@ -792,14 +800,21 @@ class Renderer:
         bottom = y + (viewport_height - height * scale) / 2 - south * scale
         return left, bottom, scale
 
+    def _map_detail_area(self):
+        contract = self.delivery.contract
+        return contract.layout.map_area if contract.layout is not None else (
+            TRUCK_MAP_AREA if contract.truck_position is not None else None)
+
     def _map_detail_available(self):
+        area = self._map_detail_area()
+        if area is None:
+            return False
         player = self.delivery.player
-        west, south, east, north = TRUCK_MAP_AREA
-        return (self.delivery.contract.truck_position is not None
-                and west <= player.x <= east and south <= player.y <= north)
+        west, south, east, north = area
+        return west <= player.x <= east and south <= player.y <= north
 
     def _play_map_bounds(self):
-        return TRUCK_MAP_AREA if self._map_detail_available() and not self.map_full_view else None
+        return self._map_detail_area() if self._map_detail_available() and not self.map_full_view else None
 
     @staticmethod
     def map_view_button_at(mouse_x, mouse_y):
@@ -859,16 +874,18 @@ class Renderer:
         show_east_detour = bridge is not None and player is not None and world.route_gimmicks_active
         map_walls = self.map_walls_for(contract)
         draw_map_base(rectangle, p.draw_line, bounds, scale, (width, height),
-                      TOWN_ROADS, map_walls, draw_sprite=self._draw_map_sprite, min_road_edge=1.5,
+                      world.roads, map_walls, draw_sprite=self._draw_map_sprite, min_road_edge=1.5,
                       world_bounds=world_bounds)
         legend_right = left + (48 if world_bounds is not None else 151)
         occupied = [(left + 10, top - 60, legend_right, top - 5)]
         bus_road_y = 1702 if world_bounds is not None else 1720
-        for point, label, color in (
+        layout = contract.layout
+        road_labels = (
             ((720, 80), "남쪽 큰길", MAP_ROAD_INK),
             ((3140, 958) if show_east_detour else (3110, 1007), "상점길", MAP_ALLEY_INK),
             ((2440, bus_road_y), "정류장길", MAP_ALLEY_INK),
-        ):
+        ) if layout is None else ()
+        for point, label, color in road_labels:
             if not (west <= point[0] <= east and south <= point[1] <= north):
                 continue
             px, py = map_point(*point)
@@ -925,11 +942,14 @@ class Renderer:
             occupied.append((safe_x - 8, safe_y - 8, safe_x + 8, safe_y + 8))
             self.draw_safe_map_marker(safe_x, safe_y, MAP_SAFE, backing=MAP_LABEL)
             caption((safe_x, safe_y), "안전지점", MAP_SAFE, offset=(-96, -11))
-        if active_contract and REAR_HOME_STOP in contract.stops:
+        district_gate = layout is not None and layout.gate is not None
+        if active_contract and (REAR_HOME_STOP in contract.stops or district_gate):
             gate_x, gate_y = map_point(*world.gate_position)
             gate_closed = player is None or world.gate is not None
             self.draw_bridge_map_marker(gate_x, gate_y, "G", active=not gate_closed, active_color=MAP_OPEN_GATE)
             occupied.append((gate_x - 9, gate_y - 10, gate_x + 9, gate_y + 10))
+            if district_gate:
+                caption((gate_x, gate_y), "정비창 철문", MAP_SAFE if not gate_closed else MAP_PAPER_INK)
         if active_contract and world.front_gate_position is not None:
             gate_x, gate_y = map_point(*world.front_gate_position)
             self.draw_bridge_map_marker(gate_x, gate_y, "F", active=world.front_gate is None,
@@ -939,6 +959,13 @@ class Renderer:
             switch_x, switch_y = map_point(*world.bus_switch_position)
             self.draw_bridge_map_marker(switch_x, switch_y, "B", active=world.bus_broadcast_cooldown > 0)
             occupied.append((switch_x - 9, switch_y - 10, switch_x + 9, switch_y + 10))
+            if layout is not None and world.bus_speaker_position is not None:
+                caption((switch_x, switch_y), "방송 스위치", MAP_PAPER_INK)
+                speaker_x, speaker_y = map_point(*world.bus_speaker_position)
+                p.draw_circle(speaker_x, speaker_y, 6, *MAP_LABEL, filled=True)
+                p.draw_circle(speaker_x, speaker_y, 4, *MAP_DETOUR, filled=True)
+                occupied.append((speaker_x - 6, speaker_y - 6, speaker_x + 6, speaker_y + 6))
+                caption((speaker_x, speaker_y), "스피커", MAP_DETOUR)
         if shutter is not None:
             sx, sy = map_point(shutter.x, shutter.y)
             marker_w, marker_h = max(4, shutter.width * scale), max(4, shutter.depth * scale)
@@ -993,6 +1020,10 @@ class Renderer:
                 caption(map_point(wall.x + wall.width / 2, wall.y + wall.depth), "상점")
             elif getattr(wall, "texture", None) == "bus-stop" and BUS_STOP not in contract.stops:
                 caption(map_point(wall.x + wall.width / 2, wall.y + wall.depth), "정류장")
+        if layout is not None:
+            for x, y, name in layout.road_labels:
+                if all(name != stop.name for stop in contract.stops):
+                    caption(map_point(x, y), name, MAP_ALLEY_INK, offset=(-17 * len(name) - 28, -11))
         labels = []
         for anchor, label, ink, label_width, offset in captions:
             position = place_map_label(anchor, label_width, bounds, occupied, offset)
@@ -1040,6 +1071,8 @@ class Renderer:
             routes.extend((((3230, 2080), (3230, 2233), (3180, 2233)),
                            ((3380, 2240), (3380, 2358), (2820, 2358), (2820, 2256),
                             (3080, 2256), (3115, 2227))))
+        if contract.layout is not None:
+            routes.extend(contract.layout.detour_routes)
         for route in routes:
             points = [map_point(*point) for point in route]
             for start, end in zip(points, points[1:]):
@@ -1101,8 +1134,10 @@ class Renderer:
             button = "Tab  마을 전체" if world_bounds else "Tab  배달 구역"
             self.font.draw(x + 14, y + height / 2, button, MAP_PAPER_INK)
         else:
-            self.font.draw(82, 674, "마을 전체 지도", MAP_PAPER_INK)
-            if world.contract.truck_position is not None:
+            layout = world.contract.layout
+            title = "마을 전체 지도" if layout is None else f"{world.contract.name.removesuffix(' 왕복')} 지도"
+            self.font.draw(82, 674, title, MAP_PAPER_INK)
+            if self._map_detail_area() is not None:
                 self.font.draw(700, 674, "현재 위치가 배달 구역 밖", MAP_PAPER_INK)
         self.font.draw(1012, 674, "지도 확인 중 일시정지", MAP_PAPER_INK)
 
@@ -1156,8 +1191,11 @@ class Renderer:
             features.append(("S", f"주차장 셔터 · {state}", world.shutter_closed, MAP_PICKUP))
         if world.bus_switch_position is not None:
             cooldown = world.bus_broadcast_cooldown
-            status = f"대기 {math.ceil(cooldown)}초" if cooldown > 0 else "동·서 골목"
-            features.append(("B", f"정류장 안내방송 · {status}", cooldown > 0, MAP_PICKUP))
+            district = world.contract.layout is not None
+            title = "스피커 유도" if district else "정류장 안내방송"
+            detour = "서쪽 우회" if district else "동·서 골목"
+            status = f"대기 {math.ceil(cooldown)}초" if cooldown > 0 else detour
+            features.append(("B", f"{title} · {status}", cooldown > 0, MAP_PICKUP))
         if world.front_gate_position is not None:
             opened = world.front_gate is None
             label = "앞문 철문 · 열림" if opened else "앞문 철문 · 동쪽 골목"
@@ -1165,6 +1203,10 @@ class Renderer:
         if REAR_HOME_STOP in world.contract.stops:
             opened = world.gate is None
             label = "뒷문 철문 · 열림" if opened else "뒷문 철문 · 창고 옆길"
+            features.append(("G", label, opened, MAP_OPEN_GATE))
+        if world.contract.layout is not None and world.contract.layout.gate is not None:
+            opened = world.gate is None
+            label = "정비창 철문 · 열림" if opened else "정비창 철문 · 서쪽 우회"
             features.append(("G", label, opened, MAP_OPEN_GATE))
         bridge = world.bridge_puzzle
         if bridge is not None:
@@ -2135,7 +2177,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 if not play_opening(renderer, music, cutscene_art):
                     return
             zombie_audio = ZombieAudio(BASE_DIR / "assets/audio", settings=renderer.audio_settings)
-        world = DeliveryWorld(two_stop_unlocked=load_two_stop_unlock()) if delivery_run else CombatWorld()
+        world = DeliveryWorld() if delivery_run else CombatWorld()
+        if delivery_run:
+            world.select_playable_contract(CONTRACT_NUMBERS[0])
         renderer.combat = world
         if delivery_run:
             if music is not None:
@@ -2237,8 +2281,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     wants_dispatch = key in (p.SDLK_RETURN, p.SDLK_KP_ENTER)
                     if key == p.SDLK_ESCAPE:
                         running = False
-                    elif key in DELIVERY_KEYS:
-                        preview_choice = DELIVERY_KEYS[key]
+                    elif NUMBER_KEYS.get(key) in PLAYABLE_CONTRACTS:
+                        preview_choice = CONTRACT_NUMBERS.index(NUMBER_KEYS[key])
                     elif event.type == p.SDL_MOUSEMOTION:
                         cursor = (event.motion.x, event.motion.y)
                     elif event.type == p.SDL_WINDOWEVENT and event.window.event == p.SDL_WINDOWEVENT_LEAVE:
@@ -2252,7 +2296,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                             else:
                                 preview_choice = index
                         mouse_held = True
-                    if wants_dispatch and DELIVERY_CONTRACTS[preview_choice] in world.available_contracts:
+                    if wants_dispatch:
                         contract_choice = preview_choice
                         discard_actions = True
                 elif key is not None:
@@ -2355,7 +2399,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     if key == p.SDLK_ESCAPE:
                         world.close_bridge_panel()
                         break
-                    index = DELIVERY_KEYS.get(key, -1)
+                    index = NUMBER_KEYS.get(key, 0) - 1
                     if 0 <= index < 3 and world.rotate_bridge_tile(index):
                         motor_sound = bridge.bridge_position
                         renderer.reset_streetlights()
@@ -2372,7 +2416,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                 waypoint_actions.clear()
             if reset_requested or retry_requested or contract_choice is not None:
                 if contract_choice is not None:
-                    world.select_contract(contract_choice)
+                    world.select_playable_contract(CONTRACT_NUMBERS[contract_choice])
+                    renderer.load_neighborhood_ground()
                     if music is not None:
                         music.start()
                 else:
@@ -2540,8 +2585,6 @@ def run(smoke_test=False, *, show_opening=False, practice=False):
                     renderer.light = None
             ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
             truck_success = ending and world.result == "delivered" and world.contract.truck_position is not None
-            if ending and world.result == "delivered" and world.just_unlocked_two_stop:
-                save_two_stop_unlock()
             audio_active = active and not reset_requested
             hearing_active = audio_active and world.result == "playing"
             renderer.update_sprint_pulse(dt if hearing_active else math.inf,

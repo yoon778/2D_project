@@ -1,5 +1,5 @@
 """Delivery contracts across the town and its connected alleys."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import math
 from pathlib import Path
@@ -7,10 +7,12 @@ from pathlib import Path
 if __package__:
     from .combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, HEAVY_ZOMBIE_HP, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from .core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
+    from .delivery_layouts import REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
     from .zombie_navigation import can_walk_direct
 else:
     from combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, HEAVY_ZOMBIE_HP, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
+    from delivery_layouts import REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
     from zombie_navigation import can_walk_direct
 
 
@@ -89,6 +91,9 @@ _PARKING_BOTTLE_POSITION = (2110, 1230)
 _BRIDGE_SOUTHEAST_ZOMBIE_START = (2898, 1274)
 _SHOP_TRUCK_POSITION = (2290.0, 873.0)
 _SHOP_TRUCK_DOOR = (2290.0, 907.0)
+_DISTRICT_TRUCK_POSITION = (960.0, 110.0)
+_DISTRICT_TRUCK_DOOR = (960.0, 144.0)
+_DISTRICT_PLAYER_START = (985.0, 144.0)
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,10 @@ FRONT_HOME_STOP = DeliveryStop("주택 앞문", (3090.0, 1969.0))
 REAR_HOME_STOP = DeliveryStop("주택 뒷문", (3149.0, 2227.0))
 BUS_STOP = DeliveryStop("정류장", (2290.0, 1860.0))
 MANAGEMENT_STOP = DeliveryStop("관리실 뒤편", (2545.0, 1422.0))
+REPAIR_DESK_STOP = DeliveryStop("정비 접수대", (1180.0, 751.0))
+PARTS_DEPOT_STOP = DeliveryStop("부품 보관소", (1532.0, 1020.0))
+SHIPPING_OFFICE_STOP = DeliveryStop("출고 사무실", (790.0, 860.0))
+COLD_STORAGE_STOP = DeliveryStop("냉장 창고", (1220.0, 938.0))
 
 
 @dataclass(frozen=True)
@@ -115,6 +124,9 @@ class DeliveryContract:
     pickup: tuple[float, float] = TOWN_PICKUP
     return_point: tuple[float, float] | None = None
     truck_position: tuple[float, float] | None = None
+    number: int | None = None
+    layout: DeliveryLayout | None = None
+    preview_file: str | None = None
 
     def __post_init__(self):
         if not self.stops:
@@ -152,6 +164,14 @@ _STARTER_CONTRACTS = (
         (FRONT_HOME_STOP, REAR_HOME_STOP),
     ),
 )
+SHOP_ROUND_TRIP = DeliveryContract(
+    "상점 왕복", "상점 앞과 관리실 뒤편, 정류장에 배달하고 트럭 복귀", "보통",
+    SHOP_STOP.position,
+    (*_ROUND_TRIP_SHOP_STARTS, (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START, *_BUS_ZOMBIE_STARTS),
+    (SHOP_STOP, MANAGEMENT_STOP, BUS_STOP),
+    player_start=(2315.0, 907.0), pickup=_SHOP_TRUCK_DOOR, return_point=_SHOP_TRUCK_DOOR,
+    truck_position=_SHOP_TRUCK_POSITION, number=4, preview_file="04-bridge.png",
+)
 DELIVERY_CONTRACTS = (
     *_STARTER_CONTRACTS,
     DeliveryContract(
@@ -160,15 +180,26 @@ DELIVERY_CONTRACTS = (
         (*_TOWN_APPROACH_ZOMBIES, *_SHOP_ZOMBIE_STARTS, *_REAR_ALLEY_ZOMBIES, *_BUS_ZOMBIE_STARTS),
         (SHOP_STOP, REAR_HOME_STOP, BUS_STOP),
     ),
-    DeliveryContract(
-        "상점 왕복", "상점 앞과 관리실 뒤편, 정류장에 배달하고 트럭 복귀", "보통",
-        SHOP_STOP.position,
-        (*_ROUND_TRIP_SHOP_STARTS, (2020, 1335), (2370, 1465), _BRIDGE_SOUTHEAST_ZOMBIE_START, *_BUS_ZOMBIE_STARTS),
-        (SHOP_STOP, MANAGEMENT_STOP, BUS_STOP),
-        player_start=(2315.0, 907.0), pickup=_SHOP_TRUCK_DOOR, return_point=_SHOP_TRUCK_DOOR,
-        truck_position=_SHOP_TRUCK_POSITION,
-    ),
+    SHOP_ROUND_TRIP,
 )
+REPAIR_ROUND_TRIP = DeliveryContract(
+    "정비창 왕복", "철문 지름길이나 서쪽 우회로를 골라 두 곳 배달하고 트럭 복귀", "보통",
+    REPAIR_DESK_STOP.position,
+    ((820, 520), (865, 570), (1390, 1090), (1590, 1158), (80, 700), (1245, 310)),
+    (REPAIR_DESK_STOP, PARTS_DEPOT_STOP),
+    player_start=_DISTRICT_PLAYER_START, pickup=_DISTRICT_TRUCK_DOOR, return_point=_DISTRICT_TRUCK_DOOR,
+    truck_position=_DISTRICT_TRUCK_POSITION, number=1, layout=REPAIR_YARD, preview_file="01-repair-yard.png",
+)
+WAREHOUSE_ROUND_TRIP = DeliveryContract(
+    "물류창고 왕복", "방송으로 좀비를 유인하거나 조용히 우회해 두 곳 배달하고 트럭 복귀", "어려움",
+    SHIPPING_OFFICE_STOP.position,
+    ((870, 650), (907, 692), (1260, 620), (1085, 975), (1590, 823), (174, 725)),
+    (SHIPPING_OFFICE_STOP, COLD_STORAGE_STOP),
+    player_start=_DISTRICT_PLAYER_START, pickup=_DISTRICT_TRUCK_DOOR, return_point=_DISTRICT_TRUCK_DOOR,
+    truck_position=_DISTRICT_TRUCK_POSITION, number=2, layout=WAREHOUSE, preview_file="02-warehouse.png",
+)
+PLAYABLE_CONTRACTS = {contract.number: contract
+                      for contract in (REPAIR_ROUND_TRIP, WAREHOUSE_ROUND_TRIP, SHOP_ROUND_TRIP)}
 
 
 _BUILDINGS = ((690, 145, 180, 130),
@@ -191,11 +222,33 @@ _EAST_HOUSES = (
 )
 
 
-@dataclass
-class NeighborhoodWall(Wall):
-    texture: str
-    height: int = 110
-    oblique: bool = False
+TOWN_BASE_WALLS = (
+    NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
+    NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
+    NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
+    # Leave a 72px alley between the rear house wall and the fence.
+    *(NeighborhoodWall(x, 2272, 110, 12, "fence", height=38) for x in (2848, 2958, 3068)),
+    NeighborhoodWall(3178, 2272, 72, 12, "fence", height=38),
+    NeighborhoodWall(3125, 2190, 15, 12, "fence", height=38),
+    NeighborhoodWall(3190, 2190, 20, 12, "fence", height=38),
+    # The service alley bends around this shed and reconnects west of the fence.
+    NeighborhoodWall(3306, 2273, 50, 57, "workshop", height=72),
+    NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
+    NeighborhoodWall(2380, 101, 112, 44, "abandoned-car", height=36),
+    NeighborhoodWall(2140, 1019, 112, 44, "abandoned-car", height=36),
+    NeighborhoodWall(1692, 970, 88, 44, "abandoned-car", height=36),
+    # The wrecks cut across the eastern road. The house side has a narrow bypass.
+    NeighborhoodWall(3332, 730, 112, 44, "abandoned-car", height=36),
+    NeighborhoodWall(3468, 752, 112, 44, "abandoned-car", height=36),
+    NeighborhoodWall(578, 458, 60, 34, "dumpster", height=28),
+    NeighborhoodWall(1768, 1008, 60, 34, "dumpster", height=28),
+    NeighborhoodWall(2668, 1775, 60, 34, "dumpster", height=28),
+    *(NeighborhoodWall(*building, "workshop") for building in _BUILDINGS),
+    *(NeighborhoodWall(x, y, 140, 190, "west-house") for x, y in _WEST_HOUSES),
+    *(NeighborhoodWall(x, y, 275, 200, "east-house") for x, y in _EAST_HOUSES),
+    NeighborhoodWall(1820, 1060, 260, 160, "shop"),
+    NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
+)
 
 
 class BridgePuzzle:
@@ -291,6 +344,11 @@ class DeliveryWorld(CombatWorld):
     @property
     def pickup(self):
         return self.contract.pickup
+
+    @property
+    def roads(self):
+        layout = self.contract.layout
+        return layout.roads if layout is not None else TOWN_ROADS
 
     @property
     def mission_phase(self):
@@ -399,8 +457,19 @@ class DeliveryWorld(CombatWorld):
         self.reset()
         return True
 
+    def select_playable_contract(self, number):
+        contract = PLAYABLE_CONTRACTS.get(number)
+        if contract is None:
+            return False
+        self.contract = contract
+        self.reset()
+        return True
+
     def reset(self):
         super().reset()
+        layout = self.contract.layout
+        self.world_size = TOWN_SIZE if layout is None else layout.world_size
+        self.props = type(self).props if layout is None else ()
         self._starting_player_hp = self.player_hp
         self.attack_count = 0
         self.elapsed_play_time = 0.0
@@ -419,11 +488,11 @@ class DeliveryWorld(CombatWorld):
         has_bus_stop = BUS_STOP in self.contract.stops
         has_parking = SHOP_STOP in self.contract.stops
         has_bridge = MANAGEMENT_STOP in self.contract.stops
-        streetlights = type(self).streetlights
+        streetlights = type(self).streetlights if layout is None else layout.streetlights
         self.streetlights = (*streetlights, (2290, 1350)) if has_parking else streetlights
         parking_starts = _PARKING_ZOMBIE_STARTS if has_bridge else (
             tuple(_PARKING_ZOMBIE_STARTS[index] for index in (0, 2, 5)) if has_parking else ())
-        shop_round_trip = self.contract is DELIVERY_CONTRACTS[3]
+        shop_round_trip = self.contract is SHOP_ROUND_TRIP
         shop_patrols = _SHOP_SIDE_PATROLS if shop_round_trip else {}
         for index, position in enumerate((*self.contract.zombie_starts, *parking_starts, *shop_patrols)):
             patrol = shop_patrols.get(position)
@@ -447,42 +516,19 @@ class DeliveryWorld(CombatWorld):
         if has_bridge:
             self.zombies.append(Zombie(*_PARKING_HEAVY_ZOMBIE_START, aim_angle=math.pi / 2,
                                        hp=HEAVY_ZOMBIE_HP, appearance=HEAVY_ZOMBIE_APPEARANCE))
-        self.gate_position = _REAR_GATE_POSITION
-        self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38) if has_rear_door else None
+        if layout is not None:
+            self.gate_position = layout.gate_position
+            self.gate = replace(layout.gate) if layout.gate is not None else None
+        else:
+            self.gate_position = _REAR_GATE_POSITION
+            self.gate = NeighborhoodWall(3140, 2190, 50, 12, "iron-gate", height=38) if has_rear_door else None
         self.front_gate_position = _FRONT_GATE_POSITION if has_front_door else None
         self.front_gate = NeighborhoodWall(3040, 1919, 54, 12, "iron-gate", height=38) if has_front_door else None
         self.front_gate_fences = (
             NeighborhoodWall(2960, 1919, 80, 12, "fence", height=38),
             NeighborhoodWall(3094, 1919, 62, 12, "fence", height=38),
         ) if has_front_door else ()
-        self.walls = [
-            NeighborhoodWall(88, 305, 140, 190, "west-house", oblique=True),
-            NeighborhoodWall(310, 225, 275, 200, "east-house", oblique=True),
-            NeighborhoodWall(345, 164, 100, 12, "fence", height=38),
-            # Leave a 72px alley between the rear house wall and the fence.
-            *(NeighborhoodWall(x, 2272, 110, 12, "fence", height=38)
-              for x in (2848, 2958, 3068)),
-            NeighborhoodWall(3178, 2272, 72, 12, "fence", height=38),
-            NeighborhoodWall(3125, 2190, 15, 12, "fence", height=38),
-            NeighborhoodWall(3190, 2190, 20, 12, "fence", height=38),
-            # The service alley bends around this shed and reconnects west of the fence.
-            NeighborhoodWall(3306, 2273, 50, 57, "workshop", height=72),
-            NeighborhoodWall(370, 99, 112, 44, "parked-car", height=36),
-            NeighborhoodWall(2380, 101, 112, 44, "abandoned-car", height=36),
-            NeighborhoodWall(2140, 1019, 112, 44, "abandoned-car", height=36),
-            NeighborhoodWall(1692, 970, 88, 44, "abandoned-car", height=36),
-            # The wrecks cut across the eastern road. The house side has a narrow bypass.
-            NeighborhoodWall(3332, 730, 112, 44, "abandoned-car", height=36),
-            NeighborhoodWall(3468, 752, 112, 44, "abandoned-car", height=36),
-            NeighborhoodWall(578, 458, 60, 34, "dumpster", height=28),
-            NeighborhoodWall(1768, 1008, 60, 34, "dumpster", height=28),
-            NeighborhoodWall(2668, 1775, 60, 34, "dumpster", height=28),
-            *(NeighborhoodWall(*building, "workshop") for building in _BUILDINGS),
-            *(NeighborhoodWall(x, y, 140, 190, "west-house") for x, y in _WEST_HOUSES),
-            *(NeighborhoodWall(x, y, 275, 200, "east-house") for x, y in _EAST_HOUSES),
-            NeighborhoodWall(1820, 1060, 260, 160, "shop"),
-            NeighborhoodWall(2210, 1780, 140, 52, "bus-stop", height=68),
-        ]
+        self.walls = [replace(wall) for wall in (TOWN_BASE_WALLS if layout is None else layout.walls)]
         if self.gate is not None:
             self.walls.append(self.gate)
         if self.front_gate is not None:
@@ -519,8 +565,8 @@ class DeliveryWorld(CombatWorld):
         self.first_waypoint_number = 1
         self.completed_stops: set[DeliveryStop] = set()
         self.just_unlocked_two_stop = False
-        self.bottle_pickups = list(_BOTTLE_STARTS)
-        if self.contract.return_point is not None:
+        self.bottle_pickups = list(_BOTTLE_STARTS if layout is None else layout.bottle_pickups)
+        if layout is None and self.contract.return_point is not None:
             self.bottle_pickups.append((2276, 902))
         if has_parking:
             self.bottle_pickups.append(_PARKING_BOTTLE_POSITION)
@@ -533,8 +579,8 @@ class DeliveryWorld(CombatWorld):
         self.vehicle_alarm_source = None
         self.vehicle_hit = None
         self._triggered_vehicle_alarms = set()
-        self.bus_switch_position = _BUS_SWITCH_POSITION if has_bus_stop else None
-        self.bus_speaker_position = _BUS_SPEAKER_POSITION if has_bus_stop else None
+        self.bus_switch_position = (_BUS_SWITCH_POSITION if has_bus_stop else None) if layout is None else layout.bus_switch
+        self.bus_speaker_position = (_BUS_SPEAKER_POSITION if has_bus_stop else None) if layout is None else layout.bus_speaker
         self.bus_broadcast_cooldown = 0.0
         self.bus_broadcast_source = None
 
@@ -779,7 +825,8 @@ class DeliveryWorld(CombatWorld):
         return self.interaction_target is not None
 
     def can_open_gate(self):
-        return self._gate_in_reach(self.gate, self.gate_position)
+        return ((self.contract.layout is None or self.district_gimmicks_active)
+                and self._gate_in_reach(self.gate, self.gate_position))
 
     def can_open_front_gate(self):
         return self.district_gimmicks_active and self._gate_in_reach(self.front_gate, self.front_gate_position)

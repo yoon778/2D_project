@@ -5,8 +5,7 @@ from play_hud import BODY, PAPER_EDGE, PAPER_GREEN, PAPER_INK, PAPER_MUTED, RECE
 from play_hud import fill, panel, receipt_rule
 
 
-PREVIEW_FILES = ("01-shop.png", "02-homes.png", "03-town.png", "04-bridge.png")
-CARD_RECTS = tuple((61, 163 + index * 81, 359, 70) for index in range(4))
+CARD_RECTS = tuple((61, 163 + index * 107, 359, 92) for index in range(3))
 DISPATCH_RECT = (61, 529, 359, 57)
 PHOTO_RECT = (480, 51, 748, 342)
 MAP_RECT = (470, 417, 398, 263)
@@ -20,8 +19,11 @@ FOCUS_BORDER = (138, 89, 54, 255)
 DISPATCH = (52, 84, 67, 255)
 DISPATCH_HOVER = (69, 104, 82, 255)
 DISPATCH_DISABLED = (171, 150, 114, 255)
-ROUTE_GUIDANCE = ("주차장 서쪽 · 정류장 양쪽 골목", "앞문 동쪽 골목 · 뒷문 창고 옆길",
-                  "주차장 서쪽 · 창고 옆길 · 정류장", "관리실 다리 또는 동쪽 우회")
+ROUTE_GUIDANCE = {
+    1: "정비창 철문 또는 서쪽 우회",
+    2: "스피커 유도 또는 서쪽 우회",
+    4: "관리실 다리 또는 동쪽 우회",
+}
 
 
 def _contains(rect, x, y):
@@ -37,10 +39,10 @@ def contract_dispatch_at(x, y):
     return _contains(DISPATCH_RECT, x, y)
 
 
-def load_contract_previews(directory):
+def load_contract_previews(directory, contracts):
     previews = []
-    for name in PREVIEW_FILES:
-        path = directory / name
+    for contract in contracts:
+        path = directory / contract.preview_file
         image = p.load_image(str(path)) if path.is_file() else None
         if image is not None and p.SDL_SetTextureScaleMode(image.texture, p.SDL_ScaleModeLinear) != 0:
             raise RuntimeError(f"Contract image sampling failed: {p.SDL_GetError()!r}")
@@ -66,13 +68,13 @@ def draw_contract_selection(hud, contracts, available, selected, cursor, preview
         border = (*STAMP, 255) if active else FOCUS_BORDER if index == hovered else PAPER_EDGE
         paper = CARD_SELECTED if active else CARD_LOCKED if locked else CARD
         panel(*rect, border, background=paper, accent=STAMP if active else None)
-        fill(x + 14, y + 14, 26, 25, (*PAPER_MUTED, 255) if active else (*PAPER_EDGE[:3], 255))
-        text(str(index + 1), x + 27, y + 26, BODY, SHEET[:3], align="center")
-        text(contract.name, x + 50, y + 24, TITLE, PAPER_INK)
-        text(f"배송 {len(contract.stops)}곳", x + 50, y + 51, SMALL, PAPER_MUTED)
-        text(f"위험도 {contract.difficulty}", x + width - 14, y + 50, SMALL, PAPER_MUTED, align="right")
+        fill(x + 14, y + 17, 29, 30, (*PAPER_MUTED, 255) if active else (*PAPER_EDGE[:3], 255))
+        text(str(contract.number), x + 28, y + 32, BODY, SHEET[:3], align="center")
+        text(contract.name, x + 54, y + 31, TITLE, PAPER_INK)
+        text(f"배송 {len(contract.stops)}곳", x + 54, y + 65, SMALL, PAPER_MUTED)
+        text(f"위험도 {contract.difficulty}", x + width - 14, y + 65, SMALL, PAPER_MUTED, align="right")
         if active or locked:
-            text("잠김" if locked else "선택", x + width - 14, y + 23, SMALL, STAMP, align="right")
+            text("잠김" if locked else "선택", x + width - 14, y + 31, SMALL, STAMP, align="right")
 
     receipt_rule(63, 504, 355)
     dispatch_hover = cursor is not None and contract_dispatch_at(*cursor)
@@ -81,9 +83,8 @@ def draw_contract_selection(hud, contracts, available, selected, cursor, preview
     text("출발" if unlocked else "계약 잠김", 240, 555, TITLE, SHEET[:3] if unlocked else PAPER_INK, align="center")
     if unlocked:
         text("Enter", 404, 556, SMALL, SHEET[:3], align="right")
-    else:
-        text("1·2번 중 하나 완료 후 해금", 240, 607, BODY, STAMP, align="center")
-    text("1–4 선택   ·   Esc 종료", 240, 648, SMALL, PAPER_MUTED, align="center")
+    numbers = "·".join(str(contract.number) for contract in contracts)
+    text(f"{numbers} 선택   ·   Esc 종료", 240, 648, SMALL, PAPER_MUTED, align="center")
 
     panel(470, 41, 768, 362, PAPER_EDGE, background=CARD_LOCKED)
     x, y, width, height = PHOTO_RECT
@@ -110,5 +111,5 @@ def draw_contract_selection(hud, contracts, available, selected, cursor, preview
     receipt_rule(910, 607, 305)
     for offset in (0, 8, 16):
         fill(910 + offset, 631, 5, 2, (*PAPER_GREEN, 255))
-    text(ROUTE_GUIDANCE[selected], 942, 632, SMALL, PAPER_GREEN)
+    text(ROUTE_GUIDANCE[contract.number], 942, 632, SMALL, PAPER_GREEN)
     text("플레이 중 M으로 지도 열기", 910, 655, SMALL, PAPER_MUTED)

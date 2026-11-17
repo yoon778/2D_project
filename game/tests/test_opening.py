@@ -297,8 +297,10 @@ class EndingTests(unittest.TestCase):
                 "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "SDL_RENDER_DRIVER": "software",
             }))
             patches.enter_context(patch.dict(sys.modules, {"spatial_audio": SimpleNamespace(BackgroundMusic=Mock(return_value=music))}))
-            patches.enter_context(patch.object(main, "load_two_stop_unlock", return_value=True))
-            patches.enter_context(patch.object(main, "save_two_stop_unlock"))
+            patches.enter_context(patch.object(main, "PLAYABLE_CONTRACTS", {3: main.DELIVERY_CONTRACTS[2]}))
+            patches.enter_context(patch.object(main, "CONTRACT_NUMBERS", (3,)))
+            patches.enter_context(patch.object(main, "load_contract_previews", return_value=[None]))
+            patches.enter_context(patch.object(world, "select_playable_contract", lambda number: world.select_contract(2)))
             patches.enter_context(patch.object(main, "DeliveryWorld", return_value=world))
             patches.enter_context(patch.object(main, "ZombieAudio", return_value=audio))
             patches.enter_context(patch.object(main, "poll_events", poll))

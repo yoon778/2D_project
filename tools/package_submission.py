@@ -32,11 +32,12 @@ def runtime_files():
     files.update((ROOT / "PRD.md", GAME / "requirements.txt", ASSETS / "props/alley-trash-can.png"))
     files.update(ASSETS / "ui" / name for name in ("NotoSansKR-Regular.ttf", "OFL-NotoSansKR.txt", "town-map-icons.png"))
     files.update(ASSETS / "contract_previews" / name
-                 for name in ("01-shop.png", "02-homes.png", "03-town.png", "04-bridge.png"))
+                 for name in ("01-repair-yard.png", "02-warehouse.png", "04-bridge.png"))
     files.update(ASSETS / "vehicles" / name for name in ("delivery-truck.png", "courier-pickup.png"))
     files.update(ASSETS / "cutscenes" / name for name in ("waybill.png", "alley.png", "delivered.png"))
     files.update(ASSETS / "neighborhood" / name
-                 for name in ("ground.png", "west-house.png", "east-house.png", "fence.png", "iron-gate.png",
+                 for name in ("ground.png", "repair-yard-ground.png", "warehouse-ground.png",
+                              "west-house.png", "east-house.png", "fence.png", "iron-gate.png",
                               "shop.png", "bus-stop.png", "streetlamp.png", "workshop.png",
                               "west-house-side.png", "east-house-side.png", "roads.json",
                               "parked-car.png", "abandoned-car.png", "dumpster.png", "mailbox.png", "planter.png",
