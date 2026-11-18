@@ -51,7 +51,7 @@ def runtime_files():
                                                      "night-threat-layer.ogg", "night-chase-layer.ogg",
                                                      "zombie_step.wav", "zombie_step_heavy.wav", "zombie_groan.wav",
                                                      "zombie_groan_heavy.wav", "bat_swing.wav",
-                                                     "bat_break.wav", "fist_hit.wav",
+                                                     "bat_break.wav", "fist_hit.wav", "cabinet_open.wav",
                                                      "zombie_hit.wav", "zombie_hit_heavy.wav", "bottle_throw.wav",
                                                      "bottle_break.wav", "gate_open.wav", "shutter_close.wav", "bridge_motor.wav",
                                                      "bus_broadcast.wav", "vehicle_hit.wav",

@@ -29,6 +29,7 @@ _INTERACTION_HOLD_TIMES = {
     "pickup": 0.50, "deliver": 1.00, "gate": 0.70, "shutter": 0.70,
     "bridge_key": 0.50, "bridge_panel": 0.70, "board_truck": 0.70,
     "bus_broadcast": 0.70, "front_gate": 0.70,
+    "search_cabinet": 0.65,
 }
 TRUCK_ARRIVAL_SECONDS = 1.20
 TRUCK_PARKING_SECONDS = 0.30
@@ -57,6 +58,7 @@ VEHICLE_ALARM_RANGE = 520.0
 _VEHICLE_TEXTURES = ("parked-car", "abandoned-car")
 BOTTLE_THROW_RANGE = 320.0
 BOTTLE_NOISE_RANGE = 320.0
+CABINET_NOISE_RANGE = 180.0
 BOTTLE_FLIGHT_TIME = 0.30
 _BOTTLE_STARTS = ((177, 127), (610, 628), (1660, 932), (3230, 2070))
 REAR_ALLEY_LISTEN_POINT = (3230, 2170)
@@ -580,6 +582,9 @@ class DeliveryWorld(CombatWorld):
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS if layout is None else layout.bottle_pickups)
         self.weapon_pickup = None if layout is None else layout.weapon_pickup
+        self.cabinet_position = None if layout is None else layout.cabinet_position
+        self.cabinet_open = False
+        self.cabinet_weapon_pickup = None
         if layout is None and self.contract.return_point is not None:
             self.bottle_pickups.append((2276, 902))
         if has_parking:
@@ -680,20 +685,23 @@ class DeliveryWorld(CombatWorld):
 
     @property
     def nearby_weapon(self):
-        point = self.weapon_pickup
-        if (point is None or not self.unarmed or self.attack is not None or self.result != "playing"
+        if (not self.unarmed or self.attack is not None or self.result != "playing"
                 or self.player_hp <= 0 or self.route_sequence_active):
             return None
         origin = (self.player.x, self.player.y)
-        if math.dist(origin, point) <= INTERACTION_RANGE and not any(
-                wall_blocks(origin, point, wall) for wall in self.walls):
-            return point
-        return None
+        return min((point for point in (self.weapon_pickup, self.cabinet_weapon_pickup)
+                    if point is not None and math.dist(origin, point) <= INTERACTION_RANGE
+                    and not any(wall_blocks(origin, point, wall) for wall in self.walls)),
+                   key=lambda point: math.dist(origin, point), default=None)
 
     def pick_up_weapon(self):
-        if self.nearby_weapon is None:
+        point = self.nearby_weapon
+        if point is None:
             return False
-        self.weapon_pickup = None
+        if point == self.cabinet_weapon_pickup:
+            self.cabinet_weapon_pickup = None
+        else:
+            self.weapon_pickup = None
         self.bat_uses_left = self.bat_max_uses
         return True
 
@@ -951,6 +959,14 @@ class DeliveryWorld(CombatWorld):
         return (math.dist(origin, door) <= INTERACTION_RANGE and not self.return_blocked
                 and not any(wall_blocks(origin, door, wall) for wall in self.walls))
 
+    def can_search_cabinet(self):
+        target = self.cabinet_position
+        if target is None or self.cabinet_open or not self.district_gimmicks_active or self.player_hp <= 0:
+            return False
+        origin = (self.player.x, self.player.y)
+        return (self.contract.layout.interior.contains(origin) and math.dist(origin, target) <= INTERACTION_RANGE
+                and not any(wall_blocks(origin, target, wall) for wall in self.walls))
+
     def _available_interaction(self):
         target = self.interaction_target
         if target is not None:
@@ -967,6 +983,8 @@ class DeliveryWorld(CombatWorld):
             return "bridge_key", self.bridge_puzzle.key_position
         if self.can_open_bridge_panel():
             return "bridge_panel", self.bridge_puzzle.panel_position
+        if self.can_search_cabinet():
+            return "search_cabinet", self.cabinet_position
         if self.can_board_truck():
             return "board_truck", self.contract.truck_door_position
         return None
@@ -1045,6 +1063,11 @@ class DeliveryWorld(CombatWorld):
             return True
         if action == "bridge_panel":
             self.bridge_puzzle.panel_open = True
+            return True
+        if action == "search_cabinet":
+            self.cabinet_open = True
+            self.cabinet_weapon_pickup = self.contract.layout.cabinet_weapon_position
+            self._emit_noise(CABINET_NOISE_RANGE, target)
             return True
         if action == "board_truck":
             self._route_sequence = "boarding"

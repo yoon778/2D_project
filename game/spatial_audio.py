@@ -55,6 +55,7 @@ _VEHICLE_HIT_SOUND = "vehicle_hit"
 _BAT_SWING_SOUND = "bat_swing"
 _BAT_BREAK_SOUND = "bat_break"
 _FIST_HIT_SOUND = "fist_hit"
+_CABINET_SOUND = "cabinet_open"
 _ZOMBIE_HIT_SOUND = "zombie_hit"
 _HEAVY_ZOMBIE_HIT_SOUND = "zombie_hit_heavy"
 _PLAYER_HIT_SOUND = "player_hit"
@@ -81,6 +82,7 @@ _EFFECT_VOLUME = {
     _BAT_SWING_SOUND: 74,
     _BAT_BREAK_SOUND: 63,
     _FIST_HIT_SOUND: 66,
+    _CABINET_SOUND: 61,
     _ZOMBIE_HIT_SOUND: 82,
     _HEAVY_ZOMBIE_HIT_SOUND: 88,
     "player_walk": 34,
@@ -569,6 +571,9 @@ class ZombieAudio:
 
     def play_fist_hit(self):
         self._play_effect(_FIST_HIT_SOUND, 0.0)
+
+    def play_cabinet_open(self, distance, *, pan=0.0):
+        self._play_effect(_CABINET_SOUND, distance, pan=pan)
 
     def play_zombie_hit(self, *, heavy=False):
         kind = _HEAVY_ZOMBIE_HIT_SOUND if heavy and _HEAVY_ZOMBIE_HIT_SOUND in self._sounds else _ZOMBIE_HIT_SOUND

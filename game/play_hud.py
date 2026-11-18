@@ -47,6 +47,7 @@ INTERACTION_LABELS = {
     "bus_broadcast": ("안내방송 켜기 · 길게", "안내방송 켜는 중", AMBER),
     "bridge_key": ("관리실 열쇠 줍기 · 길게", "열쇠 줍는 중", TEAL),
     "bridge_panel": ("관리실 열기 · 길게", "관리실 여는 중", TEAL),
+    "search_cabinet": ("보급함 수색 · 길게", "보급함 수색 중", TEAL),
     "board_truck": ("트럭 탑승 · 길게", "트럭 탑승 중", TEAL),
 }
 PAUSE_MENU = ("계속하기", "조작법", "소리", "계약 포기", "게임 종료", "화면 배율")

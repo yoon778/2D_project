@@ -65,6 +65,8 @@ class DeliveryLayout:
     map_area: tuple[float, float, float, float] | None = None
     interior: InteriorRoom | None = None
     weapon_pickup: tuple[float, float] | None = None
+    cabinet_position: tuple[float, float] | None = None
+    cabinet_weapon_position: tuple[float, float] | None = None
 
     @property
     def gate_position(self):
@@ -184,4 +186,6 @@ INTERIOR_DELIVERY = DeliveryLayout(
     bottle_pickups=((922, 155), (652, 346)),
     interior=_SHELTER_ROOM,
     weapon_pickup=(624.0, 482.0),
+    cabinet_position=(1138.0, 764.0),
+    cabinet_weapon_position=(1108.0, 750.0),
 )

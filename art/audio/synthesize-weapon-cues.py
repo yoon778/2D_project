@@ -1,4 +1,4 @@
-"""Bake the bat crack and short bare-hand contact cue."""
+"""Bake weapon and shelter supply sounds."""
 from array import array
 from math import exp, sin, tau
 from pathlib import Path
@@ -38,6 +38,14 @@ def fist_contact(time, low, high):
     return pulse(time, 0, .019) * thud + .13 * pulse(time, .002, .007) * high
 
 
+def cabinet_open(time, low, high):
+    latch = pulse(time, .012, .016)
+    slide = pulse(time, .066, .046) * (1 + .25 * sin(tau * 31 * time))
+    stop = pulse(time, .172, .025)
+    metal = .24 * sin(tau * 605 * time) + .17 * sin(tau * 933 * time)
+    return latch * (.32 * high + metal) + slide * (.38 * low + .22 * high) + stop * (.42 * low + metal)
+
+
 def write(name, samples):
     values = list(samples)
     gain = 25000 / max(map(abs, values))
@@ -49,3 +57,4 @@ def write(name, samples):
 if __name__ == "__main__":
     write("bat_break", generate(.17, 423, bat_crack))
     write("fist_hit", generate(.13, 258, fist_contact))
+    write("cabinet_open", generate(.29, 1907, cabinet_open))

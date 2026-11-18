@@ -178,15 +178,14 @@ def current_cursor():
 
 
 def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stations=(), lamps=(), street_props=(),
-                     bottles=(), truck=None, weapon=None):
+                     bottles=(), truck=None, weapons=()):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
     objects.extend(("station", position) for position in stations)
     objects.extend(("lamp", position) for position in lamps)
     objects.extend(("street-prop", decoration) for decoration in street_props)
     objects.extend(("bottle", bottle) for bottle in bottles)
-    if weapon is not None:
-        objects.append(("weapon", weapon))
+    objects.extend(("weapon", weapon) for weapon in weapons if weapon is not None)
     if truck is not None:
         objects.append(("truck", truck))
     objects.extend(("wall", wall) for wall in walls)
@@ -1704,6 +1703,27 @@ class Renderer:
 
         self.draw_lit_upright(position, x, y, (x - 11, y, 25, 8), draw)
 
+    def draw_supply_cabinet(self, position, *, opened):
+        x, y = self.project(*position)
+        parts = ((-15, 0, 30, 2, (30, 35, 32)), (-16, 2, 32, 30, (68, 76, 69)),
+                 (11, 3, 5, 29, (43, 53, 48)), (-15, 32, 30, 3, (117, 123, 98)),
+                 (-13, 29, 23, 2, (131, 131, 106)))
+        if opened:
+            parts += ((-13, 6, 23, 22, (27, 32, 28)), (-12, 15, 21, 2, (70, 79, 62)),
+                      (-12, 6, 21, 2, (104, 112, 87)), (2, 4, 12, 2, (117, 123, 98)))
+        else:
+            parts += ((-13, 6, 23, 22, (94, 101, 83)), (-12, 16, 21, 1, (49, 59, 50)),
+                      (-5, 11, 7, 1, (168, 162, 116)), (-5, 22, 7, 1, (168, 162, 116)))
+
+        def draw(dimmed=False):
+            for dx, dy, width, height, color in parts:
+                rectangle(x + dx, y + dy, width, height, dim_color(color) if dimmed else color)
+            if not opened:
+                outline = dim_color(INTERACTION_OUTLINE) if dimmed else INTERACTION_OUTLINE
+                rectangle(x - 16, y + 2, 32, 30, outline, filled=False)
+
+        self.draw_lit_upright(position, x, y, (x - 16, y, 33, 36), draw)
+
     def draw_station(self, position, pickup, *, highlight=False):
         x, y = self.project(*position)
 
@@ -2104,6 +2124,7 @@ class Renderer:
         weapon_style = {"unarmed": True} if delivery is not None and delivery.unarmed else {}
         bottles = []
         stations = ()
+        weapons = ()
         truck_reveal = 0.0
         playable = delivery is not None and delivery.contract is PLAYABLE_CONTRACTS.get(delivery.contract.number)
         expanded_outlines = playable and delivery.contract is not SHELTER_ROUND_TRIP
@@ -2119,6 +2140,8 @@ class Renderer:
                 stations = (delivery.pickup,) if truck is None else ()
             else:
                 stations = tuple(stop.position for stop in delivery.remaining_stops)
+            if delivery.cabinet_position is not None:
+                stations = (*stations, delivery.cabinet_position)
             if delivery.returning:
                 self.draw_safe_zone(delivery.contract.return_point, origin, walls, blocked=delivery.return_blocked)
             if delivery.district_gimmicks_active:
@@ -2133,6 +2156,7 @@ class Renderer:
                 if delivery.route_gimmicks_active:
                     stations = (*stations, bridge.note_position)
             bottles.extend((x, y, 0) for x, y in delivery.bottle_pickups)
+            weapons = (delivery.weapon_pickup, delivery.cabinet_weapon_pickup)
             flight = delivery.bottle_flight
             if flight is not None:
                 progress = flight.progress
@@ -2145,8 +2169,7 @@ class Renderer:
                                             stations=stations,
                                             lamps=(lamp.origin for lamp in street_lamps),
                                             street_props=delivery.props if delivery is not None else (),
-                                            bottles=bottles, truck=truck,
-                                            weapon=delivery.weapon_pickup if delivery is not None else None):
+                                            bottles=bottles, truck=truck, weapons=weapons):
             if room_closed:
                 if kind in ("station", "bottle", "lamp", "prop", "weapon") and room.contains(actor[:2]):
                     continue
@@ -2165,7 +2188,9 @@ class Renderer:
             elif kind == "weapon":
                 self.draw_weapon_pickup(actor)
             elif kind == "station":
-                if actor == delivery.shutter_position:
+                if actor == delivery.cabinet_position:
+                    self.draw_supply_cabinet(actor, opened=delivery.cabinet_open)
+                elif actor == delivery.shutter_position:
                     self.draw_shutter_control(actor, closed=delivery.shutter_closed,
                                               outline=None if delivery.shutter_closed else active_device_outline)
                 elif actor == delivery.bus_switch_position:
@@ -2870,12 +2895,13 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             player_hit = world.player_hp < hp_before
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
-            gate_sound = shutter_sound = bus_sound = None
+            gate_sound = shutter_sound = bus_sound = cabinet_sound = None
             parcel_picked_up = parcel_dropped = False
             if delivery_run:
                 gate_was_closed = world.gate is not None
                 front_gate_was_closed = world.front_gate is not None
                 shutter_was_closed = world.shutter_closed
+                cabinet_was_open = world.cabinet_open
                 was_waiting = world.parcel == "waiting"
                 stops_before = len(world.completed_stops)
                 completed = world.update_interaction(
@@ -2902,6 +2928,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                     gate_sound = world.gate_position if gate_opened else world.front_gate_position
                 if shutter_closed:
                     shutter_sound = world.shutter_position
+                if completed and not cabinet_was_open and world.cabinet_open:
+                    cabinet_sound = world.cabinet_position
                 if gate_sound is not None or shutter_sound is not None:
                     renderer.reset_streetlights()
                     renderer.light = None
@@ -3018,6 +3046,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 if shutter_sound is not None:
                     sound_distance, sound_pan = sound_position(listener, shutter_sound)
                     zombie_audio.play_shutter_close(sound_distance, pan=sound_pan)
+                if cabinet_sound is not None:
+                    sound_distance, sound_pan = sound_position(listener, cabinet_sound)
+                    zombie_audio.play_cabinet_open(sound_distance, pan=sound_pan)
                 if bus_sound is not None:
                     sound_distance, sound_pan = sound_position(listener, bus_sound)
                     zombie_audio.play_bus_broadcast(sound_distance, pan=sound_pan)
