@@ -17,6 +17,7 @@ from combat_visual import CombatVisual
 from contract_selection import contract_card_at, contract_dispatch_at, draw_contract_selection, load_contract_previews
 from delivery import (BUS_STOP, DELIVERY_CONTRACTS, FRONT_HOME_STOP, INTERACTION_RANGE, MANAGEMENT_STOP,
                       PLAYABLE_CONTRACTS, REAR_ALLEY_LISTEN_POINT, REAR_HOME_STOP, SHOP_STOP,
+                      SHELTER_ROUND_TRIP, SHELTER_SUPPLY_STOP,
                       TOWN_BASE_WALLS, TOWN_ROADS, TOWN_SIZE, DeliveryWorld, NeighborhoodWall)
 from delivery_audio_state import DeliveryAudioState, EnemyAcoustics, ZOMBIE_HEARING_DISTANCE, select_footstep_sources
 from flashlight import Flashlight, LightField, feathered_beam_mesh, nearby_glow, nearby_glow_strength
@@ -79,6 +80,8 @@ PROP_TEXTURE_SIZES = {
     "recycling-bin": [14, 22],
     "empty-bottle": [8, 11],
 }
+BOTTLE_OUTLINE = (255, 195, 70)
+SUPPLY_BOX_OUTLINE = (112, 224, 170)
 HOUSE_FOUNDATION_HEIGHT = 8
 ROOF_LIGHT_BAND = 24
 BUILDING_ROOF_LIGHT_BAND = 36
@@ -407,6 +410,14 @@ def load_wall_alpha(path):
         p.SDL_FreeSurface(surface)
 
 
+def pixel_outline(alpha, scale):
+    opaque = {(x * scale + dx, y * scale + dy)
+              for y, row in enumerate(alpha) for x, value in enumerate(row) if value
+              for dx in range(scale) for dy in range(scale)}
+    return tuple(sorted({(x + dx, y + dy) for x, y in opaque
+                         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))} - opaque))
+
+
 def clip_wall_plane(points, bounds, mask):
     # Each wall face is a parallelogram. Clip in its UV space to keep the texture aligned.
     (ax, ay), (bx, by), _, (dx, dy) = points
@@ -548,6 +559,7 @@ class Renderer:
         self.street_prop_images = {
             key: load_atlas(NEIGHBORHOOD_PATH / f"{key}.png", size) for key, size in PROP_TEXTURE_SIZES.items()
         }
+        self.bottle_outline = pixel_outline(load_wall_alpha(NEIGHBORHOOD_PATH / "empty-bottle.png"), scale=2)
         self.streetlamp_image = load_atlas(NEIGHBORHOOD_PATH / "streetlamp.png", [14, 54])
         self.map_icons = p.load_image(str(BASE_DIR / "assets/ui/town-map-icons.png"))
         if (self.map_icons.w, self.map_icons.h) != MAP_ICON_ATLAS_SIZE:
@@ -1604,25 +1616,41 @@ class Renderer:
 
         return spans
 
-    def draw_lit_prop(self, position, image, *, lift=0):
+    def draw_lit_prop(self, position, image, *, lift=0, highlight_bottle=False):
         x, foot_y = self.project(*position)
         y = foot_y + lift
         width, height = image.w * 2, image.h * 2
         bounds = (x - image.w, y, width, height)
+        if highlight_bottle:
+            dest = p.to_sdl_rect(*bounds)
+            outline = (p.SDL_Point * len(self.bottle_outline))(
+                *(p.SDL_Point(dest.x + dx, dest.y + dy) for dx, dy in self.bottle_outline))
+            bounds = (bounds[0] - 1, y - 1, width + 2, height + 2)
 
-        def draw():
+        def sprite():
             image.draw(x, y + image.h, width, height)
+
+        def draw(dimmed=False):
+            if highlight_bottle:
+                color = dim_color(BOTTLE_OUTLINE) if dimmed else BOTTLE_OUTLINE
+                p.SDL_SetRenderDrawColor(p.renderer, *color, 255)
+                p.SDL_RenderDrawPoints(p.renderer, outline, len(outline))
+
+            if dimmed:
+                draw_dimmed_texture(image.texture, sprite)
+            else:
+                sprite()
 
         glow_spans = self.glow_at_ground_depth(position, x)
         if glow_spans is not None:
             ground_scale = self.ground_scale()
-            self.draw_lit_region(bounds, lambda: draw_dimmed_texture(image.texture, draw),
+            self.draw_lit_region(bounds, lambda: draw(dimmed=True),
                                  row_spans=lambda row: glow_spans(zombie_light_row(row, foot_y, ground_scale)))
         spans = self.actor_light_spans(position, x, foot_y)
         if spans is not None:
             self.draw_lit_region(bounds, draw, row_spans=spans)
 
-    def draw_station(self, position, pickup):
+    def draw_station(self, position, pickup, *, highlight_supply_box=False):
         x, y = self.project(*position)
 
         def draw_box(dimmed=False):
@@ -1634,6 +1662,9 @@ class Renderer:
                          (-11, 25, 22, 5, (11, 29, 34)))
             for dx, dy, width, height, color in parts:
                 rectangle(x + dx, y + dy, width, height, dim_color(color) if dimmed else color)
+            if highlight_supply_box:
+                color = dim_color(SUPPLY_BOX_OUTLINE) if dimmed else SUPPLY_BOX_OUTLINE
+                rectangle(x - 17, y, 34, 48, color, filled=False)
 
         half_width = 14 if pickup else 17
         bounds = (x - half_width, y, half_width * 2 + 1, 32 if pickup else 49)
@@ -1996,6 +2027,7 @@ class Renderer:
         bottles = []
         stations = ()
         truck_reveal = 0.0
+        shelter_delivery = delivery is not None and delivery.contract is SHELTER_ROUND_TRIP
         if delivery is not None:
             if truck is not None:
                 door = delivery.contract.truck_door_position
@@ -2047,7 +2079,8 @@ class Renderer:
                 self.draw_lit_prop((actor.x, actor.y), self.street_prop_images[actor.texture])
             elif kind == "bottle":
                 x, y, lift = actor
-                self.draw_lit_prop((x, y), self.street_prop_images["empty-bottle"], lift=lift)
+                self.draw_lit_prop((x, y), self.street_prop_images["empty-bottle"], lift=lift,
+                                   highlight_bottle=shelter_delivery and lift == 0)
             elif kind == "station":
                 if actor == delivery.shutter_position:
                     self.draw_shutter_control(actor, closed=delivery.shutter_closed)
@@ -2065,7 +2098,8 @@ class Renderer:
                 elif bridge is not None and actor == bridge.note_position:
                     self.draw_bridge_note_marker(actor)
                 else:
-                    self.draw_station(actor, delivery.parcel == "waiting")
+                    self.draw_station(actor, delivery.parcel == "waiting",
+                                      highlight_supply_box=shelter_delivery and actor == SHELTER_SUPPLY_STOP.position)
             elif kind == "lamp":
                 self.draw_lit_prop(actor, self.streetlamp_image)
             elif kind == "truck":
