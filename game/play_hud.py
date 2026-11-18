@@ -367,7 +367,7 @@ class PlayHUD:
             self._keycap(key, left + 28 * offset, y + 289, 26)
         self._text("회로 타일 회전", left + 98, y + 301, BODY, PAPER_INK)
         self._keycap("G", left, y + 329, 26)
-        self._text("예비 방망이 교체 · 3번", left + 38, y + 341, BODY, PAPER_INK)
+        self._text("예비 방망이 교체", left + 38, y + 341, BODY, PAPER_INK)
 
         mouse = ((5, 5), (12, 0), (23, 0), (30, 5), (33, 13), (33, 29), (29, 36),
                  (23, 41), (12, 41), (5, 36), (2, 29), (2, 13), (5, 5))

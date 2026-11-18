@@ -132,6 +132,8 @@ class DeliveryContract:
     number: int | None = None
     layout: DeliveryLayout | None = None
     preview_file: str | None = None
+    bat_max_uses: int | None = None
+    weapon_pickup: tuple[float, float] | None = None
 
     def __post_init__(self):
         if not self.stops:
@@ -176,6 +178,7 @@ SHOP_ROUND_TRIP = DeliveryContract(
     (SHOP_STOP, MANAGEMENT_STOP, BUS_STOP),
     player_start=(2315.0, 907.0), pickup=_SHOP_TRUCK_DOOR, return_point=_SHOP_TRUCK_DOOR,
     truck_position=_SHOP_TRUCK_POSITION, number=4, preview_file="04-bridge.png",
+    bat_max_uses=10, weapon_pickup=(2636.0, 1128.0),
 )
 DELIVERY_CONTRACTS = (
     *_STARTER_CONTRACTS,
@@ -194,6 +197,7 @@ REPAIR_ROUND_TRIP = DeliveryContract(
     (REPAIR_DESK_STOP, PARTS_DEPOT_STOP),
     player_start=_DISTRICT_PLAYER_START, pickup=_DISTRICT_TRUCK_DOOR, return_point=_DISTRICT_TRUCK_DOOR,
     truck_position=_DISTRICT_TRUCK_POSITION, number=1, layout=REPAIR_YARD, preview_file="01-repair-yard.png",
+    bat_max_uses=8, weapon_pickup=(954.0, 666.0),
 )
 WAREHOUSE_ROUND_TRIP = DeliveryContract(
     "물류창고 왕복", "방송으로 좀비를 유인하거나 조용히 우회해 두 곳 배달하고 트럭 복귀", "어려움",
@@ -202,12 +206,14 @@ WAREHOUSE_ROUND_TRIP = DeliveryContract(
     (SHIPPING_OFFICE_STOP, COLD_STORAGE_STOP),
     player_start=_DISTRICT_PLAYER_START, pickup=_DISTRICT_TRUCK_DOOR, return_point=_DISTRICT_TRUCK_DOOR,
     truck_position=_DISTRICT_TRUCK_POSITION, number=2, layout=WAREHOUSE, preview_file="02-warehouse.png",
+    bat_max_uses=7, weapon_pickup=(818.0, 527.0),
 )
 SHELTER_ROUND_TRIP = DeliveryContract(
     "대피소 실내 배달", "대피소 안 보급실에 택배를 전달하고 트럭으로 돌아오기", "보통",
     SHELTER_SUPPLY_STOP.position, ((1170, 390), (480, 570), (1450, 755), (1150, 665)),
     (SHELTER_SUPPLY_STOP,), player_start=(1005.0, 144.0), pickup=(980.0, 144.0), return_point=(980.0, 144.0),
     truck_position=(980.0, 110.0), number=3, layout=INTERIOR_DELIVERY, preview_file="03-shelter.png",
+    bat_max_uses=8, weapon_pickup=(624.0, 482.0),
 )
 PLAYABLE_CONTRACTS = {contract.number: contract
                       for contract in (REPAIR_ROUND_TRIP, WAREHOUSE_ROUND_TRIP, SHELTER_ROUND_TRIP, SHOP_ROUND_TRIP)}
@@ -358,7 +364,7 @@ class DeliveryWorld(CombatWorld):
 
     @property
     def bat_max_uses(self):
-        return 8 if self.contract is SHELTER_ROUND_TRIP else None
+        return self.contract.bat_max_uses
 
     @property
     def roads(self):
@@ -581,7 +587,7 @@ class DeliveryWorld(CombatWorld):
         self.completed_stops: set[DeliveryStop] = set()
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS if layout is None else layout.bottle_pickups)
-        self.weapon_pickup = None if layout is None else layout.weapon_pickup
+        self.weapon_pickup = self.contract.weapon_pickup
         self.reserve_bat_uses_left: int | None = None
         self.cabinet_position = None if layout is None else layout.cabinet_position
         self.cabinet_open = False

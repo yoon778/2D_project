@@ -4,6 +4,7 @@ from game.combat import CombatWorld, Zombie
 from game.core import Wall
 from game.delivery import DeliveryWorld
 from game.delivery_layouts import NeighborhoodWall
+from game.zombie_navigation import can_walk_direct
 
 
 class ShelterWeaponTests(unittest.TestCase):
@@ -14,25 +15,28 @@ class ShelterWeaponTests(unittest.TestCase):
         world.player.x, world.player.y, world.player.aim_angle = 1000, 320, 0
         return world
 
-    def test_durability_is_shelter_only_and_resets_with_a_fresh_bat_and_pickup(self):
+    def test_each_playable_contract_restarts_with_its_bat_capacity_and_pickup(self):
         self.assertIsNone(CombatWorld().bat_uses_left)
-        world = self.shelter()
-        pickup = world.weapon_pickup
-        world.bat_uses_left = 0
-        world.reserve_bat_uses_left = 3
-        world.weapon_pickup = None
-        world.reset()
-        self.assertEqual((world.bat_uses_left, world.bat_max_uses, world.weapon_pickup), (8, 8, pickup))
-        self.assertIsNone(world.reserve_bat_uses_left)
-        self.assertFalse(world.swap_weapon())
-        for number in (1, 2, 4):
+        world = DeliveryWorld()
+        self.assertIsNone(world.bat_uses_left)
+        self.assertIsNone(world.weapon_pickup)
+        cases = ((1, 8, (954, 666)), (2, 7, (818, 527)), (3, 8, (624, 482)), (4, 10, (2636, 1128)))
+        for number, capacity, pickup in cases:
             with self.subTest(number=number):
                 self.assertTrue(world.select_playable_contract(number))
-                self.assertIsNone(world.bat_uses_left)
+                self.assertEqual((world.bat_uses_left, world.bat_max_uses, world.weapon_pickup),
+                                 (capacity, capacity, pickup))
                 self.assertIsNone(world.reserve_bat_uses_left)
-                self.assertFalse(world.unarmed)
+                self.assertTrue(world.skip_route_sequence())
+                self.assertTrue(can_walk_direct(pickup, pickup, world.walls))
+                world.player.x, world.player.y = pickup
+                self.assertTrue(world.pick_up_weapon())
+                self.assertEqual(world.reserve_bat_uses_left, capacity)
                 self.assertIsNone(world.weapon_pickup)
-                self.assertFalse(world.swap_weapon())
+                world.bat_uses_left = 0
+                world.reset()
+                self.assertEqual((world.bat_uses_left, world.reserve_bat_uses_left, world.weapon_pickup),
+                                 (capacity, None, pickup))
 
     def test_bat_whiffs_are_free_and_multiple_targets_spend_one_use_at_contact(self):
         world = self.shelter()

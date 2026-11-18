@@ -64,7 +64,6 @@ class DeliveryLayout:
     world_size: tuple[int, int] = (2000, 1350)
     map_area: tuple[float, float, float, float] | None = None
     interior: InteriorRoom | None = None
-    weapon_pickup: tuple[float, float] | None = None
     cabinet_position: tuple[float, float] | None = None
     cabinet_weapon_position: tuple[float, float] | None = None
 
@@ -185,7 +184,6 @@ INTERIOR_DELIVERY = DeliveryLayout(
     streetlights=((935, 160), (1036, 508), (650, 487), (1455, 478)),
     bottle_pickups=((922, 155), (652, 346)),
     interior=_SHELTER_ROOM,
-    weapon_pickup=(624.0, 482.0),
     cabinet_position=(1138.0, 764.0),
     cabinet_weapon_position=(1108.0, 750.0),
 )
