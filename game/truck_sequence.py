@@ -73,9 +73,12 @@ class TruckVisual:
         self.image = load_atlas(asset_path / "delivery-truck.png", [TRUCK_WIDTH * len(_VEHICLE_CELLS), TRUCK_HEIGHT])
         self.pickup = load_atlas(asset_path / "courier-pickup.png", [320, 240])
 
+    @staticmethod
+    def frame_x(door):
+        return _VEHICLE_CELLS.index(door) * TRUCK_WIDTH
+
     def draw(self, bounds, door):
-        cell = _VEHICLE_CELLS.index(door)
-        self.image.clip_draw_to_origin(cell * TRUCK_WIDTH, 0, TRUCK_WIDTH, TRUCK_HEIGHT, *bounds)
+        self.image.clip_draw_to_origin(self.frame_x(door), 0, TRUCK_WIDTH, TRUCK_HEIGHT, *bounds)
 
     def draw_pickup(self, foot, facing, index, scale, *, upper_body=False):
         row = _PICKUP_FACINGS.index(facing)
