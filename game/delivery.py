@@ -355,6 +355,10 @@ class DeliveryWorld(CombatWorld):
         return self.contract.pickup
 
     @property
+    def bat_max_uses(self):
+        return 8 if self.contract is SHELTER_ROUND_TRIP else None
+
+    @property
     def roads(self):
         layout = self.contract.layout
         return layout.roads if layout is not None else TOWN_ROADS
@@ -575,6 +579,7 @@ class DeliveryWorld(CombatWorld):
         self.completed_stops: set[DeliveryStop] = set()
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS if layout is None else layout.bottle_pickups)
+        self.weapon_pickup = None if layout is None else layout.weapon_pickup
         if layout is None and self.contract.return_point is not None:
             self.bottle_pickups.append((2276, 902))
         if has_parking:
@@ -671,6 +676,25 @@ class DeliveryWorld(CombatWorld):
             return False
         self.bottle_pickups.remove(point)
         self.has_bottle = True
+        return True
+
+    @property
+    def nearby_weapon(self):
+        point = self.weapon_pickup
+        if (point is None or not self.unarmed or self.attack is not None or self.result != "playing"
+                or self.player_hp <= 0 or self.route_sequence_active):
+            return None
+        origin = (self.player.x, self.player.y)
+        if math.dist(origin, point) <= INTERACTION_RANGE and not any(
+                wall_blocks(origin, point, wall) for wall in self.walls):
+            return point
+        return None
+
+    def pick_up_weapon(self):
+        if self.nearby_weapon is None:
+            return False
+        self.weapon_pickup = None
+        self.bat_uses_left = self.bat_max_uses
         return True
 
     def throw_bottle(self, target):
@@ -788,10 +812,10 @@ class DeliveryWorld(CombatWorld):
         end = origin[0] + dx, origin[1] + dy
         closest, entry = self._first_wall_hit(origin, end)
         if not self._is_vehicle(closest):
-            return
+            return False
         self.vehicle_hit = (origin[0] + dx * entry, origin[1] + dy * entry)
         if not self._can_trigger_vehicle_alarm(closest):
-            return
+            return True
         # Keep the investigation point on the approachable side of the vehicle.
         radius = PLAYER_RADIUS
         padded = Wall(closest.x - radius, closest.y - radius,
@@ -801,6 +825,7 @@ class DeliveryWorld(CombatWorld):
         if not can_walk_direct(origin, position, self.walls):
             position = origin
         self._trigger_vehicle_alarm(closest, position)
+        return True
 
     def _advance_world_objects(self, dt):
         self.elapsed_play_time += dt

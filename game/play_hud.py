@@ -141,13 +141,21 @@ class PlayHUD:
         health_fill = round(health_width * world.player_health_ratio)
         if health_fill:
             fill(x + 12, y + 34, health_fill, 10, (*HEALTH, 255))
-        self._text("스태미나", x + 12, y + 68, SMALL)
+        weapon_uses = getattr(world, "bat_uses_left", None)
+        stamina_y = y + (62 if weapon_uses is not None else 68)
+        self._text("스태미나", x + 12, stamina_y, SMALL)
         track_x = x + 80
         track_width = VITALS_WIDTH - 92
-        fill(track_x, y + 66, track_width, 5, TRACK)
+        fill(track_x, stamina_y - 2, track_width, 5, TRACK)
         stamina = round(track_width * world.stamina / MAX_STAMINA)
         if stamina:
-            fill(track_x, y + 66, stamina, 5, (*ENERGY, 255))
+            fill(track_x, stamina_y - 2, stamina, 5, (*ENERGY, 255))
+        if weapon_uses is not None:
+            self._text("방망이" if weapon_uses else "맨손", x + 12, y + 82, SMALL, TEXT if weapon_uses else AMBER)
+            if weapon_uses:
+                color = AMBER if weapon_uses <= 2 else TEAL
+                self._text(f"{weapon_uses} / {world.bat_max_uses}", x + VITALS_WIDTH - 12, y + 82, SMALL,
+                           color, align="right")
 
         if getattr(world, "route_sequence_active", False):
             return
@@ -355,7 +363,7 @@ class PlayHUD:
         trace(right, y + 78, ((17, 1), (17, 17), (3, 17), (32, 17)), PAPER_MUTED)
         fill(right + 7, y + 85, 7, 7, (*STAMP, 210))
         self._text("마우스 조준 · 좌클릭 배트", right + 49, y + 100, BODY, PAPER_INK)
-        for offset, (key, action) in enumerate((("F", "빈 병 줍기"), ("Q", "병 던지기"))):
+        for offset, (key, action) in enumerate((("F", "빈 병·예비 방망이 줍기"), ("Q", "병 던지기"))):
             xx = right + offset * 156
             self._keycap(key, xx, y + 151, 26)
             self._text(action, xx + 38, y + 163, BODY, PAPER_INK)

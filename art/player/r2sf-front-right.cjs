@@ -118,7 +118,7 @@ function redrawRestGrip(sprite, pose) {
   weapon(sprite, pose.grip, pose.tip)
   fist(sprite, pose.grip)
 }
-function drawUpper(sprite, pose, idle, empty) {
+function drawUpper(sprite, pose, idle, empty, unarmed = false) {
   const {torso, chest, belt, pack, shoulder, grip, tip, carry} = pose
   backpack(sprite, pack)
   limb(sprite, pose.left, [4.3,3.9,3], shade, facet)
@@ -141,23 +141,23 @@ function drawUpper(sprite, pose, idle, empty) {
   local(sprite, outline, shoulder, [[-4,-2],[-2,-4],[3,-3],[5,-1],[3,2],[-3,2]])
   local(sprite, 'ef770b', shoulder, [[-3,-2],[-2,-3],[2,-2],[3,-1],[2,0],[-3,0]])
   local(sprite, 'a54816', shoulder, [[-3,0],[3,0],[2,1],[-2,1]])
-  if (!pose.weaponBehind) weapon(sprite, grip, tip)
+  if (!pose.weaponBehind && !unarmed) weapon(sprite, grip, tip)
   fist(sprite, grip)
   head(sprite, idle, pose.head)
 }
-function drawPose(pose, idle, empty) {
+function drawPose(pose, idle, empty, unarmed = false) {
   if (pose.rest) {
     const sprite = Buffer.from(idle)
-    redrawRestGrip(sprite, pose)
+    if (!unarmed) redrawRestGrip(sprite, pose)
     return sprite
   }
   const sprite = Buffer.alloc(size * size * 4)
-  if (pose.weaponBehind) weapon(sprite, pose.grip, pose.tip)
+  if (pose.weaponBehind && !unarmed) weapon(sprite, pose.grip, pose.tip)
   for (const i of [1, 0]) {
     limb(sprite, pose.legs[i], i ? [4.5,4,3.5] : [5.5,4.5,4], i ? shade : cloth, i ? cloth : facet)
     boot(sprite, idle, pose.feet[i], i === 1)
   }
-  drawUpper(sprite, pose, idle, empty)
+  drawUpper(sprite, pose, idle, empty, unarmed)
   return sprite
 }
 function grid(cells, columns) {
@@ -271,10 +271,10 @@ function holds(pose, sprite) {
   return {right, left}
 }
 
-async function buildStationaryCells(poses, columns, {empty = false} = {}) {
-  const idle = await loadIdle()
-  if (empty) removeParcel('front_right', idle, size, 8, 8)
-  const cells = poses.map(pose => pose ? drawPose(pose, idle, empty) : idle)
+async function buildStationaryCells(poses, columns, {empty = false, unarmedWalk = null} = {}) {
+  const idle = unarmedWalk ? walkingCell(unarmedWalk, 8) : await loadIdle()
+  if (empty && !unarmedWalk) removeParcel('front_right', idle, size, 8, 8)
+  const cells = poses.map(pose => pose ? drawPose(pose, idle, empty, Boolean(unarmedWalk)) : idle)
   const contacts = poses.flatMap((pose, index) => pose ? [holds(pose, cells[index])] : [])
   return {cells, contacts, ...grid(cells, columns)}
 }

@@ -139,7 +139,7 @@ ZOMBIE_MARKS = {"chase": ("!", ORANGE), "investigate": ("?", TEAL), "search": ("
 PAUSE_VOLUME_FIELDS = ("master", "music", "effects")
 PAUSE_VOLUME_STEP = 10
 TURN_SPEED = math.radians(450)
-SHAKE_DURATIONS = {3: 0.08, 4: 0.10, 5: 0.12}
+SHAKE_DURATIONS = {1: 0.05, 3: 0.08, 4: 0.10, 5: 0.12}
 SHAKE_DIRECTIONS = ((1, 0), (-1, 1), (1, -1), (-1, 0))
 
 
@@ -178,13 +178,15 @@ def current_cursor():
 
 
 def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stations=(), lamps=(), street_props=(),
-                     bottles=(), truck=None):
+                     bottles=(), truck=None, weapon=None):
     # Stable ties: fixed props precede walls and characters at the same ground y.
     objects = [("prop", prop)] if prop is not None else []
     objects.extend(("station", position) for position in stations)
     objects.extend(("lamp", position) for position in lamps)
     objects.extend(("street-prop", decoration) for decoration in street_props)
     objects.extend(("bottle", bottle) for bottle in bottles)
+    if weapon is not None:
+        objects.append(("weapon", weapon))
     if truck is not None:
         objects.append(("truck", truck))
     objects.extend(("wall", wall) for wall in walls)
@@ -192,7 +194,7 @@ def sorted_drawables(player, walls, zombie=None, *, zombies=(), prop=None, stati
         objects.append(("zombie", zombie))
     objects.extend(("zombie", enemy) for enemy in zombies)
     objects.append(("player", player))
-    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp", "bottle", "truck")
+    return sorted(objects, key=lambda item: -(item[1][1] if item[0] in ("prop", "station", "lamp", "bottle", "truck", "weapon")
                                                else item[1].y))
 
 
@@ -1687,6 +1689,21 @@ class Renderer:
 
         self.draw_lit_upright(position, x, foot_y, bounds, draw)
 
+    def draw_weapon_pickup(self, position):
+        x, y = self.project(*position)
+
+        def draw(dimmed=False):
+            colors = (PICKUP_OUTLINE, (127, 75, 42), (193, 128, 63), (221, 157, 81), (85, 57, 42))
+            outline, wood, barrel, shine, grip = map(dim_color, colors) if dimmed else colors
+            rectangle(x - 11, y + 2, 13, 3, outline)
+            rectangle(x - 2, y + 1, 15, 5, outline)
+            rectangle(x - 10, y + 3, 12, 1, wood)
+            rectangle(x - 1, y + 2, 13, 3, barrel)
+            rectangle(x + 1, y + 5, 9, 0, shine)
+            rectangle(x - 10, y + 3, 3, 1, grip)
+
+        self.draw_lit_upright(position, x, y, (x - 11, y, 25, 8), draw)
+
     def draw_station(self, position, pickup, *, highlight=False):
         x, y = self.project(*position)
 
@@ -2078,12 +2095,13 @@ class Renderer:
             self.draw_room_roof(room, roof_beam)
         foot = self.project(*(origin if truck_step is None else truck_step.position))
         pickup_pose = None
-        if pickup_index is not None:
+        if pickup_index is not None and not delivery.unarmed:
             scale = self.player_visual.metadata["display_height"] / 64 * self.player_visual.display_scale
             pickup_pose = (foot, pickup_facing(origin, delivery.contract.truck_door_position), pickup_index, scale)
         combat = getattr(self, "combat", None)
         attack = combat.attack if combat is not None else None
         courier_style = {"empty_handed": delivery.parcel != "carrying"} if delivery is not None else {}
+        weapon_style = {"unarmed": True} if delivery is not None and delivery.unarmed else {}
         bottles = []
         stations = ()
         truck_reveal = 0.0
@@ -2127,9 +2145,10 @@ class Renderer:
                                             stations=stations,
                                             lamps=(lamp.origin for lamp in street_lamps),
                                             street_props=delivery.props if delivery is not None else (),
-                                            bottles=bottles, truck=truck):
+                                            bottles=bottles, truck=truck,
+                                            weapon=delivery.weapon_pickup if delivery is not None else None):
             if room_closed:
-                if kind in ("station", "bottle", "lamp", "prop") and room.contains(actor[:2]):
+                if kind in ("station", "bottle", "lamp", "prop", "weapon") and room.contains(actor[:2]):
                     continue
                 if kind in ("street-prop", "zombie") and room.contains((actor.x, actor.y)):
                     continue
@@ -2143,6 +2162,8 @@ class Renderer:
                 x, y, lift = actor
                 self.draw_lit_prop((x, y), self.street_prop_images["empty-bottle"], lift=lift,
                                    highlight_bottle=playable and lift == 0)
+            elif kind == "weapon":
+                self.draw_weapon_pickup(actor)
             elif kind == "station":
                 if actor == delivery.shutter_position:
                     self.draw_shutter_control(actor, closed=delivery.shutter_closed,
@@ -2212,7 +2233,7 @@ class Renderer:
                     continue
                 if truck_step is not None:
                     self.player_visual.draw(*foot, empty_handed=True, pose=(truck_step.facing, truck_step.frame),
-                                            opacity=truck_step.opacity)
+                                            opacity=truck_step.opacity, **weapon_style)
                     continue
                 if pickup_pose is not None:
                     self.truck_visual.draw_pickup(*pickup_pose)
@@ -2221,10 +2242,10 @@ class Renderer:
                     fall_x = player.x - attacker[0].x if attacker else -math.cos(player.aim_angle)
                     progress = 1.0 if defeat_elapsed is None else opening.courier_fall_progress(defeat_elapsed)
                     fall_angle = math.copysign(math.radians(83) * progress, -fall_x)
-                    self.player_visual.draw(*foot, fall_angle=fall_angle, **courier_style)
+                    self.player_visual.draw(*foot, fall_angle=fall_angle, **courier_style, **weapon_style)
                 elif combat is None or not self.combat_visual.draw_attack(
                         combat.attack, *foot, walk_frame_index=self.player_visual.frame_index, **courier_style):
-                    self.player_visual.draw(*foot, **courier_style)
+                    self.player_visual.draw(*foot, **courier_style, **weapon_style)
                 if not defeated:
                     cross(*foot, TEAL, size=4)
         if delivery is not None:
@@ -2242,6 +2263,8 @@ class Renderer:
             label, _, _ = INTERACTION_LABELS[action]
         elif world.can_read_bridge_note():
             label = "쪽지 읽기"
+        elif world.nearby_weapon is not None:
+            key, label = "F", "방망이 줍기"
         elif world.nearby_bottle is not None:
             key, label = "F", "빈 병 줍기"
         else:
@@ -2491,7 +2514,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             previous = now
             pending_click = False
             pending_interact = False
-            pending_bottle_pickup = False
+            pending_pickup = False
             pending_bottle_throw = False
             contract_choice = None
             preview_choice = renderer.delivery_preview
@@ -2600,7 +2623,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                     if key == p.SDLK_e:
                         pending_interact = True
                     elif delivery_run and key == p.SDLK_f:
-                        pending_bottle_pickup = True
+                        pending_pickup = True
                     elif delivery_run and key == p.SDLK_q:
                         pending_bottle_throw = True
                     elif key == p.SDLK_m:
@@ -2701,12 +2724,15 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 reset_requested = abandon_decision is True
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
-                pending_bottle_pickup = pending_bottle_throw = False
+                pending_pickup = pending_bottle_throw = False
                 map_toggle = False
                 waypoint_actions.clear()
             if reset_requested or retry_requested or contract_choice is not None:
                 if contract_choice is not None:
                     world.select_playable_contract(CONTRACT_NUMBERS[contract_choice])
+                    if world.bat_max_uses is not None:
+                        renderer.player_visual.load_unarmed_sprites()
+                        renderer.combat_visual.load_unarmed_sprites()
                     renderer.load_neighborhood_ground()
                     if music is not None:
                         music.start()
@@ -2727,7 +2753,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 pressed.clear()
                 pending_click = False
                 pending_interact = False
-                pending_bottle_pickup = pending_bottle_throw = False
+                pending_pickup = pending_bottle_throw = False
                 if contract_choice is None:
                     mouse_held = False
                 suppress_dispatch_repeats = contract_choice is not None
@@ -2748,7 +2774,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 map_toggled = True
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
-                pending_bottle_pickup = pending_bottle_throw = False
+                pending_pickup = pending_bottle_throw = False
             if focused and not lost_focus and not reset_requested:
                 for action, map_cursor in waypoint_actions:
                     if action == "skip":
@@ -2820,7 +2846,9 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 swing_started = world.start_attack(
                     facing=facing, stationary_front_right=True, stationary_swing=delivery_run,
                 )
-            bottle_picked_up = delivery_run and active and pending_bottle_pickup and world.pick_up_bottle()
+            bottle_picked_up = False
+            if delivery_run and active and pending_pickup and not world.pick_up_weapon():
+                bottle_picked_up = world.pick_up_bottle()
             bottle_thrown = False
             if delivery_run and active and pending_bottle_throw:
                 throw_target = renderer.cursor_world(cursor) if cursor is not None else target
@@ -2830,10 +2858,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             strike = world.attack
             strike_elapsed = strike.elapsed if strike is not None else 0.0
             was_landed = strike is not None and strike.landed
+            uses_before = world.bat_uses_left if delivery_run else None
             hp_before = world.player_hp
             sprint = p.SDLK_LSHIFT in pressed or p.SDLK_RSHIFT in pressed
             sneak = p.SDLK_LCTRL in pressed or p.SDLK_RCTRL in pressed
             world.update(dt if active else 0.0, axis_x, axis_y, facing_hint=facing_hint, sprint=sprint, sneak=sneak)
+            bat_broke = uses_before == 1 and world.bat_uses_left == 0
             if delivery_run and active:
                 world.advance_waypoint()
             dx, dy = player.x - before[0], player.y - before[1]
@@ -2884,7 +2914,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             vehicle_alarm = world.vehicle_alarm if delivery_run and hearing_active else None
             vehicle_hit = world.vehicle_hit if delivery_run and hearing_active else None
             renderer.update_vehicle_alarm(dt if hearing_active else math.inf, vehicle_alarm)
-            swing_sound_due = swing_started
+            bare_strike = strike is not None and strike.unarmed
+            swing_sound_due = swing_started and not bare_strike
             if strike is not None and strike.uses_stationary_swing:
                 # Use the combat clock so pausing or resetting cannot leave a queued sound.
                 cue_time = STATIONARY_SWING_SOUND_DELAY - 1e-9
@@ -2897,7 +2928,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             if player_hit:
                 strength = 4
             elif strike_landed:
-                strength = 5 if delivery_run and heavy_hit else 3
+                strength = 1 if bare_strike else 5 if delivery_run and heavy_hit else 3
                 if delivery_run:
                     hit_angle = strike.angle
             renderer.update_shake(dt if active and not reset_requested else math.inf, strength, hit_angle=hit_angle)
@@ -2968,10 +2999,14 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                     zombie_audio.play_parcel_drop()
                 if audio_active and swing_sound_due:
                     zombie_audio.play_bat_swing()
-                if strike_landed:
+                if strike_landed and bare_strike:
+                    zombie_audio.play_fist_hit()
+                elif strike_landed:
                     heavy_impact = heavy_hit or any(zombie.appearance == HEAVY_ZOMBIE_APPEARANCE
                                                     for zombie in strike.hit_targets)
                     zombie_audio.play_zombie_hit(heavy=heavy_impact)
+                if bat_broke:
+                    zombie_audio.play_bat_break()
                 if player_hit:
                     zombie_audio.play_player_hit()
                 if bottle_impact is not None:

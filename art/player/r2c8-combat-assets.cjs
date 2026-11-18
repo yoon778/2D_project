@@ -82,7 +82,7 @@ function twelvePoses(model,rig,pivot,axisEnd,tuning) {
 }
 async function png(b,w,h,file,scale=1) {await sharp(b,{raw:{width:w,height:h,channels:4}}).resize(w*scale,h*scale,{kernel:'nearest'}).png().toFile(file)}
 function atlas(cells,cols) {const width=cols*96,height=Math.ceil(cells.length/cols)*96,b=Buffer.alloc(width*height*4);for(let f=0;f<cells.length;f++)for(let y=0;y<96;y++)cells[f].copy(b,((Math.floor(f/cols)*96+y)*width+f%cols*96)*4,y*384,(y+1)*384);return{b,width,height}}
-async function build(facing, walkAtlas, {empty = false, horizontalSwing = false} = {}) {
+async function build(facing, walkAtlas, {empty = false, horizontalSwing = false, unarmed = false} = {}) {
   const model=settings[facing],rig=rigs[facing],slug=facing.replaceAll('_','-'),[left,top,width,height]=rig.sourceCell;
   const tuning = ap8[facing]
   const src=await sharp(path.join(__dirname,'style-studies/eight-direction-consistency/turnaround-idle-64-v3.png')).extract({left,top,width,height}).ensureAlpha().raw().toBuffer(),r1=walkAtlas ?? await sharp(path.join(root,`game/assets/player/r1-consistent-${slug}-20261105.png`)).ensureAlpha().raw().toBuffer();
@@ -112,19 +112,19 @@ async function build(facing, walkAtlas, {empty = false, horizontalSwing = false}
   const oldWeapon=Buffer.alloc(96*96*4);if(rig.batRotation){const r=rig.batRotation,g=r.targetPivot||r.pivot,angle=r.degrees*Math.PI/180,dx=(axisEnd[0]-r.pivot[0])*(r.lengthScale||1),dy=(axisEnd[1]-r.pivot[1])*(r.lengthScale||1);segment(oldWeapon,bat,r.pivot,axisEnd,g,[g[0]+Math.cos(angle)*dx-Math.sin(angle)*dy,g[1]+Math.sin(angle)*dx+Math.cos(angle)*dy])}else paint(oldWeapon,originalBat,(x,y)=>[x,y]);
   const restingLegs=Buffer.alloc(96*96*4),far=rig.nearLeg==='right'?'left':'right',hipBand=rig.hipOutline?[Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1])-2,Math.max(rig.legs.right.hip[1],rig.legs.left.hip[1])+5]:null;
   for(const side of[far,rig.nearLeg])over(restingLegs,drawLeg(rig,legParts,side,{...rig.legs[side],pitch:0},hipBand),80,80,8,8);
-  const frames = !empty ? r1 : horizontalSwing
+  const frames = !empty || unarmed ? r1 : horizontalSwing
     ? await sharp(path.join(root, `game/assets/player/r1-consistent-${slug}-20261105-empty.png`)).ensureAlpha().raw().toBuffer()
     : removeWalkParcels(facing, r1, walk.bodyDrop)
   const idle = padded(frames, 8)
   // Extract the attack torso from the original idle so the carry change stays out of the swing.
-  const attackIdle = rig.carryBatDegrees === undefined ? idle : padded(await renderWalkAtlas(facing, {carryBatDegrees: undefined}), 8)
+  const attackIdle = unarmed || rig.carryBatDegrees === undefined ? idle : padded(await renderWalkAtlas(facing, {carryBatDegrees: undefined}), 8)
   if (empty && attackIdle !== idle) removeParcel(facing, attackIdle, 96, 8, 8)
-  const staticBody=Buffer.from(attackIdle);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4,q=((y+8)*96+x+8)*4,isBat=oldWeapon[q+3];if(armMask[p+3]||isBat){if(armMask[p+3]&&core(x,y))staticBody.set([50,54,72,255],q);else if(y>=Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1]))restingLegs.copy(staticBody,q,q,q+4);else staticBody.fill(0,q,q+4)}}
+  const staticBody=Buffer.from(attackIdle);for(let y=0;y<80;y++)for(let x=0;x<80;x++){const p=(y*80+x)*4,q=((y+8)*96+x+8)*4,isBat=!unarmed&&oldWeapon[q+3];if(armMask[p+3]||isBat){if(armMask[p+3]&&core(x,y))staticBody.set([50,54,72,255],q);else if(y>=Math.min(rig.legs.right.hip[1],rig.legs.left.hip[1]))restingLegs.copy(staticBody,q,q,q+4);else staticBody.fill(0,q,q+4)}}
   const shoulder = model.shoulder.map((value, i) => value + (tuning.shoulderOffset?.[i] || 0))
   if (horizontalSwing) {
     if (tuning.bodyFragment) clearRun(staticBody, tuning.bodyFragment)
     return drawHorizontalSwing({facing, rig, model: {...model, shoulder}, parts, bat, pivot, axisEnd,
-      idle, staticBody, headCell, gearCell})
+      idle, staticBody, headCell, gearCell, unarmed})
   }
   const stationary = [], moving = [], layers = []
   const poses = twelvePoses({...model, shoulder}, rig, pivot, axisEnd, tuning)
@@ -232,7 +232,7 @@ function swingBone(pixels, a, b, radius, color) {
   }
 }
 
-function drawHorizontalSwing({facing, rig, model, parts, bat, pivot, axisEnd, idle, staticBody, headCell, gearCell}) {
+function drawHorizontalSwing({facing, rig, model, parts, bat, pivot, axisEnd, idle, staticBody, headCell, gearCell, unarmed}) {
   const direction = horizontal[facing]
   const angles = [-229, -194, -156, -101, -48, 0, 20, 46, 93, 138]
   const target = (grip, relativeAngle) => {
@@ -241,6 +241,8 @@ function drawHorizontalSwing({facing, rig, model, parts, bat, pivot, axisEnd, id
     return {...solve(model, grip, dir, direction.bend), dir}
   }
   const reach = direction.grips.map((grip, index) => target(grip, direction.angleOffsets?.[index + 1] ?? angles[index]))
+  const unarmedContactGrips = {front: [33, 54], back_left: [29, 38]}
+  if (unarmed && unarmedContactGrips[facing]) reach[5] = target(unarmedContactGrips[facing], 0)
   const [release, retract] = direction.recoil.map((grip, index) => target(grip, [7, 25][index]))
   const restGrip = rig.batRotation?.targetPivot || model.grip
   const carryAngle = Math.atan2(axisEnd[1] - pivot[1], axisEnd[0] - pivot[0])
@@ -275,12 +277,15 @@ function drawHorizontalSwing({facing, rig, model, parts, bat, pivot, axisEnd, id
     rotate(arm, parts.hand, model.hand.anchor, wrist, pose.handAngle)
     ink(arm)
     const tip = grip.map((value, axis) => value + pose.dir[axis] * model.length)
-    segment(weapon, bat, pivot, axisEnd, grip, tip)
-    ink(weapon)
+    if (!unarmed) {
+      segment(weapon, bat, pivot, axisEnd, grip, tip)
+      ink(weapon)
+    }
 
     const stand = Buffer.alloc(idle.length)
     const hiddenRecovery = model.far && facing !== 'front_left' && (index === 11 || index === 12)
-    const behind = direction.behind.includes(index) || hiddenRecovery
+    const punch = unarmed && (index >= 4 && index <= 8 || index === 14)
+    const behind = !punch && (direction.behind.includes(index) || hiddenRecovery)
     const weaponBehind = behind || direction.weaponBehind.includes(index)
     const lean = part => shiftWeight(part, size, 8, [dx, dy], 53, 63)
     if (weaponBehind) over(stand, weapon)

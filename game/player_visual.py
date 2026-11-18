@@ -28,6 +28,11 @@ def load_empty_atlas(path, canvas_size):
     return load_atlas(path.with_stem(path.stem + "-empty"), canvas_size)
 
 
+def load_unarmed_atlas(path, canvas_size, *, empty=False):
+    suffix = "-unarmed-empty" if empty else "-unarmed"
+    return load_atlas(path.with_stem(path.stem + suffix), canvas_size)
+
+
 def sprite_rect(foot_x, foot_y, clip, pivot, display_height):
     """Return destination left/bottom/width/height in pico2d screen px."""
     left, top, width, height = clip
@@ -44,6 +49,7 @@ class PlayerVisual:
     def __init__(self):
         self.images = {}
         self.empty_images = {}
+        self.unarmed_images = {}
         self.locomotion = Locomotion()
         self.metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
         sources = {"atlas": self.metadata, **self.metadata.get("sources", {})}
@@ -89,12 +95,29 @@ class PlayerVisual:
                 if facing not in PARCEL_OCCLUDED_FACINGS:
                     self.empty_images[key] = load_empty_atlas(path, sprint["canvas_size"])
 
+    def load_unarmed_sprites(self):
+        if self.unarmed_images:
+            return
+        sources = self.metadata["sources"]
+        sprint = self.metadata["sprint"]
+        images = {}
+        for facing, frames in self.metadata["frames"].items():
+            walk_keys = dict.fromkeys(frame["source"] for frame in frames)
+            active = {key: sources[key] for key in walk_keys}
+            active[f"sprint_{facing}"] = {"image": sprint["images"][facing], "canvas_size": sprint["canvas_size"]}
+            for key, source in active.items():
+                path = METADATA_PATH.parent / source["image"]
+                images[key, False] = load_unarmed_atlas(path, source["canvas_size"])
+                if facing not in PARCEL_OCCLUDED_FACINGS:
+                    images[key, True] = load_unarmed_atlas(path, source["canvas_size"], empty=True)
+        self.unarmed_images.update(images)
+
     @property
     def frame_index(self):
         frames = self.metadata["frames"][self.locomotion.facing]
         return self.locomotion.walk_frame_index(len(frames) - 1)
 
-    def draw(self, foot_x, foot_y, *, empty_handed=False, fall_angle=0.0, pose=None, opacity=1.0):
+    def draw(self, foot_x, foot_y, *, empty_handed=False, fall_angle=0.0, pose=None, opacity=1.0, unarmed=False):
         if opacity <= 0:
             return
         facing, index = pose if pose is not None else (self.locomotion.facing, self.frame_index)
@@ -102,8 +125,11 @@ class PlayerVisual:
         frames = self.metadata["frames"][facing]
         frame = frames[index]
         key = f"sprint_{facing}" if sprinting else frame.get("source", "atlas")
-        images = self.empty_images if empty_handed and key in self.empty_images else self.images
-        image = images[key]
+        if unarmed:
+            image = self.unarmed_images.get((key, empty_handed), self.unarmed_images[key, False])
+        else:
+            images = self.empty_images if empty_handed and key in self.empty_images else self.images
+            image = images[key]
         # Sprint cells share the walking order, grid and ground pivots.
         clip = frame["cell_topleft"] if sprinting else frame["clip_topleft"]
         # Keep the idle-based scale for all poses of this facing.
@@ -134,3 +160,4 @@ class PlayerVisual:
         # Image.__del__ alone owns the texture; never destroy it twice.
         self.images.clear()
         self.empty_images.clear()
+        self.unarmed_images.clear()

@@ -12,6 +12,9 @@ const outlineFragments = {
   front_left: {walk: [3, 4, 5], sprint: [2, 3, 5, 6], columns: [[32, 67, 70], [31, 68, 70]]},
   back_left: {walk: [0, 1, 6, 7], sprint: [6, 7], columns: [[47, 57, 60]]},
 }
+// The front and back bat masks exclude wood colors also used by the hand.
+// On the unarmed bake, clear the complete old barrel below the fist.
+const unarmedBarrels = {front: [22, 52, 32, 73], back: [49, 52, 58, 71]}
 
 function inside(x, y, polygon) {
   let hit = false
@@ -252,7 +255,7 @@ function packPoses(poses, height) {
   return atlas
 }
 
-async function bake(facing, {renderOnly = false, overrides, gait, empty = false} = {}) {
+async function bake(facing, {renderOnly = false, overrides, gait, empty = false, unarmed = false} = {}) {
   const approved = config.facings[facing]
   if (!approved) throw new Error(`No approved rig for ${facing}`)
   const rig = overrides ? {...approved, ...overrides} : approved
@@ -260,6 +263,15 @@ async function bake(facing, {renderOnly = false, overrides, gait, empty = false}
   const source = await sharp(path.join(__dirname, config.master))
     .extract({left, top, width, height}).ensureAlpha().raw().toBuffer()
   const originalBat = cut(source, rig.batMask)
+  const barrel = unarmed && unarmedBarrels[facing]
+  if (barrel) {
+    const [left, top, right, bottom] = barrel
+    for (let y = top; y < bottom; y++) {
+      const first = (y * size + left) * 4
+      const last = (y * size + right) * 4
+      source.copy(originalBat, first, first, last)
+    }
+  }
   const parts = {bat: originalBat, body: Buffer.from(source)}
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const remove = maskContains(source, x, y, rig.lowerBodyMask) || parts.bat[(y * size + x) * 4 + 3]
@@ -303,7 +315,7 @@ async function bake(facing, {renderOnly = false, overrides, gait, empty = false}
       Math.max(rig.legs.right.hip[1], rig.legs.left.hip[1]) + 5 + drop] : null
     const legCoverage = hipBand ? Buffer.alloc(source.length) : null
     const uprightBat = Buffer.alloc(source.length)
-    drawBat(uprightBat, parts.bat, carryRotation, drop)
+    if (!unarmed) drawBat(uprightBat, parts.bat, carryRotation, drop)
     const batPixels = lean ? Buffer.alloc(source.length) : uprightBat
     if (lean) paint(batPixels, uprightBat, unlean)
     if (batBehindLegs) translate(pixels, batPixels, 0, 0)
@@ -349,8 +361,8 @@ async function bake(facing, {renderOnly = false, overrides, gait, empty = false}
   }
   if (gait) return {pixels: packPoses(poses, size * 2), joints: poseJoints, facing: rig.worldFacing}
   let idle = source
-  if (rig.batRotation) {
-    if (rig.batBehindLegs) {
+  if (rig.batRotation || unarmed) {
+    if (rig.batBehindLegs && !unarmed) {
       const foreground = Buffer.from(source)
       for (let offset = 0; offset < foreground.length; offset += 4) {
         if (originalBat[offset + 3] && !heldHand?.[offset + 3]) foreground.fill(0, offset, offset + 4)
@@ -368,16 +380,19 @@ async function bake(facing, {renderOnly = false, overrides, gait, empty = false}
       }
       idle = Buffer.from(source)
       for (let offset = 0; offset < idle.length; offset += 4) {
-        if (originalBat[offset + 3] && !heldHand?.[offset + 3]) {
+        const pixel = offset / 4
+        const keepHand = unarmed && maskContains(source, pixel % size, Math.floor(pixel / size), rig.bodyKeepMask)
+        if (originalBat[offset + 3] && !heldHand?.[offset + 3] && !keepHand) {
           uncovered.copy(idle, offset, offset, offset + 4)
         }
       }
-      drawBat(idle, parts.bat, carryRotation, 0)
+      if (!unarmed) drawBat(idle, parts.bat, carryRotation, 0)
       translate(idle, parts.body, 0, 0)
     }
     if (rig.legFacet) applyLegFacet(idle, rig.legFacet, parts[rig.legFacet.side].thigh)
   }
-  // Other views retain their exact approved idle; a rotated bat restores only its old footprint.
+  if (unarmed && empty) removeParcel(facing, idle, size)
+  // Armed views retain the approved idle outside the restored bat footprint.
   poses.push(idle)
   const atlas = packPoses(poses, size * 3)
   if (renderOnly) return atlas
@@ -431,14 +446,14 @@ async function loadRigs() {
   }
 }
 
-async function renderWalkAtlas(facing, overrides) {
+async function renderWalkAtlas(facing, overrides, options = {}) {
   await loadRigs()
-  return bake(facing, {renderOnly: true, overrides})
+  return bake(facing, {renderOnly: true, overrides, ...options})
 }
 
-async function renderSprintAtlas(facing, gait, empty) {
+async function renderSprintAtlas(facing, gait, empty, options = {}) {
   await loadRigs()
-  return bake(facing, {gait, empty})
+  return bake(facing, {gait, empty, ...options})
 }
 
 async function main() {

@@ -16,6 +16,11 @@ ATTACK_DURATION = 0.6
 ATTACK_HIT_TIME = 0.18
 ATTACK_RANGE = 70.0
 ATTACK_HALF_ANGLE = math.radians(30)
+_PUNCH_RANGE = 36.0
+_PUNCH_HALF_ANGLE = math.radians(22)
+_PUNCH_DURATION = 0.42
+_PUNCH_HIT_TIME = 0.16
+_PUNCH_STUN_DURATION = 0.24
 _STATIONARY_SWING_DURATION = 0.66
 _STATIONARY_SWING_HIT_TIME = 0.24
 STUN_DURATION = 0.70
@@ -55,6 +60,7 @@ _SNEAK_NOISE_RANGE = 40.0
 _WALK_NOISE_RANGE = 80.0
 _SPRINT_NOISE_RANGE = 260.0
 _ATTACK_NOISE_RANGE = 400.0
+_PUNCH_NOISE_RANGE = 120.0
 
 
 def _health_ratio(hp, max_hp):
@@ -119,6 +125,7 @@ class Attack:
     landed: bool = False
     stationary_front_right: bool = False
     stationary_swing: bool = field(default=False, kw_only=True)
+    unarmed: bool = field(default=False, kw_only=True)
     hit_targets: tuple[Zombie, ...] = field(default=(), init=False)
 
     @property
@@ -127,16 +134,21 @@ class Attack:
 
     @property
     def hit_time(self) -> float:
+        if self.unarmed:
+            return _PUNCH_HIT_TIME
         return _STATIONARY_SWING_HIT_TIME if self.uses_stationary_swing else ATTACK_HIT_TIME
 
     @property
     def duration(self) -> float:
+        if self.unarmed:
+            return _PUNCH_DURATION
         return _STATIONARY_SWING_DURATION if self.uses_stationary_swing else ATTACK_DURATION
 
 
 class CombatWorld:
     clear_on_zombie_death = True
     player_max_hp = PLAYER_MAX_HP
+    bat_max_uses = None
     sprint_speed = SPRINT_SPEED
     zombie_sight_half_angle = math.pi
     world_size = (WORLD_WIDTH, WORLD_HEIGHT)
@@ -158,6 +170,7 @@ class CombatWorld:
         self.sneaking = False
         self.player_invulnerable_remaining = 0.0
         self.attack = None
+        self.bat_uses_left = self.bat_max_uses
         self.fatal_zombie_strike: tuple[Zombie, ZombieAttack] | None = None
         self.result = "playing"
 
@@ -174,16 +187,22 @@ class CombatWorld:
     def player_health_percent(self):
         return round(100 * self.player_health_ratio)
 
+    @property
+    def unarmed(self):
+        return self.bat_uses_left == 0
+
     def start_attack(self, facing="front_right", *, stationary_front_right=False, stationary_swing=False):
         self._resolve_result()
         if self.attack is not None or self.result != "playing" or self.player_hp <= 0:
             return False
-        full_swing = bool(stationary_swing)
+        unarmed = self.unarmed
+        full_swing = not unarmed and bool(stationary_swing)
         self.attack = Attack(
-            self.player.aim_angle, facing, stationary_swing=full_swing,
-            stationary_front_right=facing == "front_right" and (full_swing or bool(stationary_front_right)),
+            self.player.aim_angle, facing, stationary_swing=full_swing, unarmed=unarmed,
+            stationary_front_right=(not unarmed and facing == "front_right"
+                                    and (full_swing or bool(stationary_front_right))),
         )
-        self._emit_noise(_ATTACK_NOISE_RANGE)
+        self._emit_noise(_PUNCH_NOISE_RANGE if unarmed else _ATTACK_NOISE_RANGE)
         return True
 
     def _resolve_result(self):
@@ -196,16 +215,16 @@ class CombatWorld:
             for zombie in self.zombies:
                 zombie.attack = None
 
-    def _strike_targets(self, angle):
+    def _strike_targets(self, angle, *, reach=ATTACK_RANGE, half_angle=ATTACK_HALF_ANGLE):
         for zombie in self.zombies:
             if not zombie.alive:
                 continue
             dx, dy = zombie.x - self.player.x, zombie.y - self.player.y
             distance = math.hypot(dx, dy)
-            if distance > ATTACK_RANGE + _EPSILON:
+            if distance > reach + _EPSILON:
                 continue
             if distance > _EPSILON and abs(math.remainder(
-                    math.atan2(dy, dx) - angle, math.tau)) > ATTACK_HALF_ANGLE + _EPSILON:
+                    math.atan2(dy, dx) - angle, math.tau)) > half_angle + _EPSILON:
                 continue
             if self._player_line_clear(zombie):
                 yield zombie
@@ -381,19 +400,32 @@ class CombatWorld:
         hits = ()
         if not attack._hit_done and end >= hit_time:
             attack._hit_done = True
-            self._on_attack_impact(attack.angle)
-            hits = attack.hit_targets = tuple(self._strike_targets(attack.angle))
+            if attack.unarmed:
+                targets = self._strike_targets(attack.angle, reach=_PUNCH_RANGE, half_angle=_PUNCH_HALF_ANGLE)
+                primary = self._primary_strike_target(targets, attack.angle)
+                hits = (primary,) if primary is not None else ()
+            else:
+                object_hit = self._on_attack_impact(attack.angle)
+                hits = tuple(self._strike_targets(attack.angle))
+                primary = self._primary_strike_target(hits, attack.angle)
+                if self.bat_uses_left and (object_hit or hits):
+                    self.bat_uses_left -= 1
+            attack.hit_targets = hits
             attack.landed = bool(hits)
-            primary = self._primary_strike_target(hits, attack.angle)
             for hit in hits:
                 hit.hp = max(0, hit.hp - BAT_DAMAGE)
-                hit.stun_duration = STUN_DURATION if hit is primary else SECONDARY_STUN_DURATION
+                if attack.unarmed:
+                    hit.stun_duration = _PUNCH_STUN_DURATION
+                else:
+                    hit.stun_duration = STUN_DURATION if hit is primary else SECONDARY_STUN_DURATION
                 hit.stun_remaining = hit.stun_duration
                 hit.attack = None
-                if hit.alive:
+                if hit.alive and not attack.unarmed:
                     dx = hit.x - self.player.x
                     dy = hit.y - self.player.y
                     hit.recoil_angle = math.atan2(dy, dx) if dx or dy else attack.angle
+                else:
+                    hit.recoil_angle = None
         self._resolve_result()
         attack.elapsed = min(duration, end)
         if attack.elapsed >= duration:
@@ -401,7 +433,8 @@ class CombatWorld:
         return hits
 
     def _on_attack_impact(self, angle):
-        """Handle mode-specific objects when the swing reaches its contact frame."""
+        """Return whether the bat reached a mode-specific object at the contact frame."""
+        return False
 
     def update(self, dt, axis_x=0.0, axis_y=0.0, *, facing_hint=None, sprint=False, sneak=False):
         self.player.moved = False

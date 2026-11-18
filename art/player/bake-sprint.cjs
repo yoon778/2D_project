@@ -106,4 +106,5 @@ async function main() {
   console.log('Eight poses and flat-contact distances verified for all eight sprint directions')
 }
 
-main().catch(error => {console.error(error); process.exitCode = 1})
+module.exports = {gait}
+if (require.main === module) main().catch(error => {console.error(error); process.exitCode = 1})

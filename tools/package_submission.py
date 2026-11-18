@@ -20,11 +20,15 @@ def metadata_assets(relative_path):
     return path, json.loads(path.read_text(encoding="utf-8"))
 
 
-def add_sprite(files, directory, source, *, empty=False):
+def add_sprite(files, directory, source, *, empty=False, unarmed=False):
     image = directory / source["image"]
     files.add(image)
     if empty:
         files.add(image.with_stem(image.stem + "-empty"))
+    if unarmed:
+        files.add(image.with_stem(image.stem + "-unarmed"))
+        if empty:
+            files.add(image.with_stem(image.stem + "-unarmed-empty"))
 
 
 def runtime_files():
@@ -47,6 +51,7 @@ def runtime_files():
                                                      "night-threat-layer.ogg", "night-chase-layer.ogg",
                                                      "zombie_step.wav", "zombie_step_heavy.wav", "zombie_groan.wav",
                                                      "zombie_groan_heavy.wav", "bat_swing.wav",
+                                                     "bat_break.wav", "fist_hit.wav",
                                                      "zombie_hit.wav", "zombie_hit_heavy.wav", "bottle_throw.wav",
                                                      "bottle_break.wav", "gate_open.wav", "shutter_close.wav", "bridge_motor.wav",
                                                      "bus_broadcast.wav", "vehicle_hit.wav",
@@ -61,16 +66,19 @@ def runtime_files():
     files.add(player_path)
     for facing, frames in player["frames"].items():
         for key in {frame["source"] for frame in frames}:
-            add_sprite(files, player_path.parent, player["sources"][key], empty=facing not in ("back", "back_right"))
+            add_sprite(files, player_path.parent, player["sources"][key],
+                       empty=facing not in ("back", "back_right"), unarmed=True)
 
     for facing, filename in player.get("sprint", {}).get("images", {}).items():
-        add_sprite(files, player_path.parent, {"image": filename}, empty=facing not in ("back", "back_right"))
+        add_sprite(files, player_path.parent, {"image": filename},
+                   empty=facing not in ("back", "back_right"), unarmed=True)
 
     combat_path, combat = metadata_assets("combat/r2a-combat-20261106.json")
     files.add(combat_path)
     for name, source in combat.items():
         if name.startswith("attack"):
-            add_sprite(files, combat_path.parent, source, empty=source["facing"] not in ("back", "back_right"))
+            add_sprite(files, combat_path.parent, source, empty=source["facing"] not in ("back", "back_right"),
+                       unarmed=name.startswith("attack_stationary_"))
 
     for name in ("r2z-zombie-20261106.json", "r2za-zombie-attack-20261106.json"):
         path, source = metadata_assets(f"zombie/{name}")

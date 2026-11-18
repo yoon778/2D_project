@@ -53,6 +53,8 @@ _TRUCK_SOUNDS = frozenset(_TRUCK_CUES.values())
 _VEHICLE_SOUND = "vehicle_alarm"
 _VEHICLE_HIT_SOUND = "vehicle_hit"
 _BAT_SWING_SOUND = "bat_swing"
+_BAT_BREAK_SOUND = "bat_break"
+_FIST_HIT_SOUND = "fist_hit"
 _ZOMBIE_HIT_SOUND = "zombie_hit"
 _HEAVY_ZOMBIE_HIT_SOUND = "zombie_hit_heavy"
 _PLAYER_HIT_SOUND = "player_hit"
@@ -77,6 +79,8 @@ _EFFECT_VOLUME = {
     _VEHICLE_SOUND: 76,
     _VEHICLE_HIT_SOUND: 65,
     _BAT_SWING_SOUND: 74,
+    _BAT_BREAK_SOUND: 63,
+    _FIST_HIT_SOUND: 66,
     _ZOMBIE_HIT_SOUND: 82,
     _HEAVY_ZOMBIE_HIT_SOUND: 88,
     "player_walk": 34,
@@ -559,6 +563,12 @@ class ZombieAudio:
 
     def play_bat_swing(self):
         self._play_effect(_BAT_SWING_SOUND, 0.0)
+
+    def play_bat_break(self):
+        self._play_effect(_BAT_BREAK_SOUND, 0.0)
+
+    def play_fist_hit(self):
+        self._play_effect(_FIST_HIT_SOUND, 0.0)
 
     def play_zombie_hit(self, *, heavy=False):
         kind = _HEAVY_ZOMBIE_HIT_SOUND if heavy and _HEAVY_ZOMBIE_HIT_SOUND in self._sounds else _ZOMBIE_HIT_SOUND

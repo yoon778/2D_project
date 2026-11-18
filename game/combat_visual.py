@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pico2d.pico2d as p
 
-from player_visual import PARCEL_OCCLUDED_FACINGS, load_atlas, load_empty_atlas, sprite_rect
-from combat import ATTACK_HIT_TIME, HEAVY_ZOMBIE_APPEARANCE, ZOMBIE_APPEARANCES
+from player_visual import PARCEL_OCCLUDED_FACINGS, load_atlas, load_empty_atlas, load_unarmed_atlas, sprite_rect
+from combat import (ATTACK_HIT_TIME, HEAVY_ZOMBIE_APPEARANCE, ZOMBIE_APPEARANCES,
+                    _STATIONARY_SWING_DURATION, _STATIONARY_SWING_HIT_TIME)
 from locomotion import Locomotion, STRIDE_DISTANCE, select_facing
 
 
@@ -47,6 +48,7 @@ class CombatVisual:
         self.metadata["zombie_attack"] = json.loads(ZOMBIE_ATTACK_METADATA_PATH.read_text(encoding="utf-8"))
         self.images = {}
         self.empty_images = {}
+        self.unarmed_images = {}
         self.reset_zombie_animation()
         try:
             for key, source in self.metadata.items():
@@ -94,10 +96,19 @@ class CombatVisual:
         elapsed = attack.elapsed
         if not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed):
             return None
+        unarmed = getattr(attack, "unarmed", False)
+        if unarmed:
+            if elapsed >= attack.duration:
+                return None
+            if elapsed < attack.hit_time:
+                elapsed = elapsed / attack.hit_time * _STATIONARY_SWING_HIT_TIME
+            else:
+                progress = (elapsed - attack.hit_time) / (attack.duration - attack.hit_time)
+                elapsed = _STATIONARY_SWING_HIT_TIME + progress * (_STATIONARY_SWING_DURATION - _STATIONARY_SWING_HIT_TIME)
         authored = attack.facing == "front_right" and getattr(attack, "stationary_front_right", False)
         locked = authored or getattr(attack, "stationary_swing", False)
         stationary = f"attack_stationary_{attack.facing}"
-        use_stationary = locked and not walking and stationary in self.metadata
+        use_stationary = unarmed or (locked and not walking and stationary in self.metadata)
         source_name = stationary if use_stationary else self._attack_source(attack.facing)
         if source_name not in self.metadata:
             return None
@@ -120,9 +131,24 @@ class CombatVisual:
                 self.empty_images[key] = load_empty_atlas(
                     METADATA_PATH.parent / source["image"], source["canvas_size"])
 
-    def _draw(self, source_name, frame, foot_x, foot_y, *, empty_handed=False):
-        images = self.empty_images if empty_handed and source_name in self.empty_images else self.images
-        image = images[source_name]
+    def load_unarmed_sprites(self):
+        if self.unarmed_images:
+            return
+        images = {}
+        for key, source in self.metadata.items():
+            if key.startswith("attack_stationary_"):
+                path = METADATA_PATH.parent / source["image"]
+                images[key, False] = load_unarmed_atlas(path, source["canvas_size"])
+                if source["facing"] not in PARCEL_OCCLUDED_FACINGS:
+                    images[key, True] = load_unarmed_atlas(path, source["canvas_size"], empty=True)
+        self.unarmed_images.update(images)
+
+    def _draw(self, source_name, frame, foot_x, foot_y, *, empty_handed=False, unarmed=False):
+        if unarmed:
+            image = self.unarmed_images.get((source_name, empty_handed), self.unarmed_images[source_name, False])
+        else:
+            images = self.empty_images if empty_handed and source_name in self.empty_images else self.images
+            image = images[source_name]
         scale = self.metadata[source_name]["scale"] * self.display_scale
         clip = frame["clip_topleft"]
         left, bottom, width, height = sprite_rect(
@@ -139,7 +165,8 @@ class CombatVisual:
                                               or not 0 <= walk_frame_index <= 8):
             raise ValueError("walk_frame_index must be None or an integer from 0 to 8")
         source_name, index = step
-        if walk_frame_index:
+        unarmed = getattr(attack, "unarmed", False)
+        if walk_frame_index and not unarmed:
             source_name = self._attack_source(attack.facing, walking=True)
             if source_name is None:
                 return False
@@ -147,7 +174,10 @@ class CombatVisual:
         frame = self.metadata[source_name]["frames"][index]
         if getattr(attack, "landed", False):
             frame = frame.get("on_hit", frame)
-        self._draw(source_name, frame, foot_x, foot_y, empty_handed=empty_handed)
+        if unarmed:
+            self._draw(source_name, frame, foot_x, foot_y, empty_handed=empty_handed, unarmed=True)
+        else:
+            self._draw(source_name, frame, foot_x, foot_y, empty_handed=empty_handed)
         return True
 
     def reset_zombie_animation(self):
@@ -279,3 +309,4 @@ class CombatVisual:
     def close(self):
         self.images.clear()
         self.empty_images.clear()
+        self.unarmed_images.clear()
