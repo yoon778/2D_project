@@ -582,6 +582,7 @@ class DeliveryWorld(CombatWorld):
         self.just_unlocked_two_stop = False
         self.bottle_pickups = list(_BOTTLE_STARTS if layout is None else layout.bottle_pickups)
         self.weapon_pickup = None if layout is None else layout.weapon_pickup
+        self.reserve_bat_uses_left: int | None = None
         self.cabinet_position = None if layout is None else layout.cabinet_position
         self.cabinet_open = False
         self.cabinet_weapon_pickup = None
@@ -683,10 +684,13 @@ class DeliveryWorld(CombatWorld):
         self.has_bottle = True
         return True
 
+    def _can_change_weapons(self):
+        return (self.bat_uses_left is not None and self.attack is None and self.result == "playing"
+                and self.player_hp > 0 and not self.route_sequence_active)
+
     @property
     def nearby_weapon(self):
-        if (not self.unarmed or self.attack is not None or self.result != "playing"
-                or self.player_hp <= 0 or self.route_sequence_active):
+        if not self._can_change_weapons() or (not self.unarmed and self.reserve_bat_uses_left is not None):
             return None
         origin = (self.player.x, self.player.y)
         return min((point for point in (self.weapon_pickup, self.cabinet_weapon_pickup)
@@ -702,7 +706,21 @@ class DeliveryWorld(CombatWorld):
             self.cabinet_weapon_pickup = None
         else:
             self.weapon_pickup = None
-        self.bat_uses_left = self.bat_max_uses
+        if self.unarmed:
+            self.bat_uses_left = self.bat_max_uses
+        else:
+            self.reserve_bat_uses_left = self.bat_max_uses
+        return True
+
+    def can_swap_weapon(self):
+        return self.reserve_bat_uses_left is not None and self._can_change_weapons()
+
+    def swap_weapon(self):
+        if not self.can_swap_weapon():
+            return False
+        active_uses = self.bat_uses_left
+        self.bat_uses_left = self.reserve_bat_uses_left
+        self.reserve_bat_uses_left = active_uses or None
         return True
 
     def throw_bottle(self, target):

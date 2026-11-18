@@ -81,16 +81,18 @@ class ShelterCabinetTests(unittest.TestCase):
         outside_spare = world.weapon_pickup
         self.assertTrue(self.hold(world, .65, pressed=True))
         world.player.x, world.player.y = (1095, 746)
-        self.assertFalse(world.pick_up_weapon())
-        world.bat_uses_left = 0
         self.assertTrue(world.pick_up_weapon())
         self.assertIsNone(world.cabinet_weapon_pickup)
         self.assertEqual(world.weapon_pickup, outside_spare)
-        self.assertEqual(world.bat_uses_left, 8)
+        self.assertEqual((world.bat_uses_left, world.reserve_bat_uses_left), (8, 8))
         world.player.x, world.player.y = outside_spare
+        self.assertIsNone(world.nearby_weapon)
+        self.assertFalse(world.pick_up_weapon())
+        self.assertEqual(world.weapon_pickup, outside_spare)
         world.bat_uses_left = 0
         self.assertTrue(world.pick_up_weapon())
         self.assertIsNone(world.weapon_pickup)
+        self.assertEqual((world.bat_uses_left, world.reserve_bat_uses_left), (8, 8))
         world.reset()
         self.assertEqual(world.weapon_pickup, outside_spare)
         self.assertFalse(world.cabinet_open)

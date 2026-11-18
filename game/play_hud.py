@@ -32,6 +32,7 @@ STAMP = (139, 59, 45)
 MARGIN = 24
 VITALS_WIDTH = 204
 VITALS_HEIGHT = 95
+WEAPON_ROWS_HEIGHT = 28
 OBJECTIVE_WIDTH = 284
 OBJECTIVE_HEIGHT = 79
 SMALL = 15
@@ -134,7 +135,9 @@ class PlayHUD:
 
     def _vitals(self, world):
         x = y = MARGIN
-        panel(x, y, VITALS_WIDTH, VITALS_HEIGHT)
+        weapon_uses = getattr(world, "bat_uses_left", None)
+        extra_height = WEAPON_ROWS_HEIGHT if weapon_uses is not None else 0
+        panel(x, y, VITALS_WIDTH, VITALS_HEIGHT + extra_height)
         self._text("체력", x + 12, y + 19, BODY)
         self._text(f"{world.player_health_percent}%", x + VITALS_WIDTH - 12, y + 19, BODY, align="right")
         health_width = VITALS_WIDTH - 24
@@ -142,7 +145,6 @@ class PlayHUD:
         health_fill = round(health_width * world.player_health_ratio)
         if health_fill:
             fill(x + 12, y + 34, health_fill, 10, (*HEALTH, 255))
-        weapon_uses = getattr(world, "bat_uses_left", None)
         stamina_y = y + (62 if weapon_uses is not None else 68)
         self._text("스태미나", x + 12, stamina_y, SMALL)
         track_x = x + 80
@@ -152,11 +154,18 @@ class PlayHUD:
         if stamina:
             fill(track_x, stamina_y - 2, stamina, 5, (*ENERGY, 255))
         if weapon_uses is not None:
-            self._text("방망이" if weapon_uses else "맨손", x + 12, y + 82, SMALL, TEXT if weapon_uses else AMBER)
-            if weapon_uses:
-                color = AMBER if weapon_uses <= 2 else TEAL
-                self._text(f"{weapon_uses} / {world.bat_max_uses}", x + VITALS_WIDTH - 12, y + 82, SMALL,
-                           color, align="right")
+            rows = (("장착", weapon_uses, "맨손", AMBER),
+                    ("예비", world.reserve_bat_uses_left, "비어 있음", TEXT))
+            for row, (label, uses, empty_label, empty_color) in enumerate(rows):
+                line_y = y + 82 + row * 23
+                self._text(label, x + 12, line_y, SMALL)
+                value, color = empty_label, empty_color
+                if uses:
+                    value = f"{uses} / {world.bat_max_uses}"
+                    color = AMBER if uses <= 2 else TEAL
+                self._text(value, x + VITALS_WIDTH - 12, line_y, SMALL, color, align="right")
+            if world.can_swap_weapon():
+                self._text("G 교체", x + 84, y + 105, SMALL, TEAL, align="center")
 
         if getattr(world, "route_sequence_active", False):
             return
@@ -244,8 +253,8 @@ class PlayHUD:
         trace(x + 20, y + 16, (tail, head, left, head, right), WAYPOINT)
         self._text(label, x + 38, y + 16, SMALL, WAYPOINT)
 
-    def _notice(self, text, color, *, sneak=False):
-        x, y = MARGIN, MARGIN + VITALS_HEIGHT + 8
+    def _notice(self, text, color, *, sneak=False, offset=0):
+        x, y = MARGIN, MARGIN + VITALS_HEIGHT + 8 + offset
         width = self._label(text, SMALL, TEXT)[1] + 42
         panel(x, y, width, 32)
         if sneak:
@@ -357,6 +366,8 @@ class PlayHUD:
         for offset, key in enumerate("123"):
             self._keycap(key, left + 28 * offset, y + 289, 26)
         self._text("회로 타일 회전", left + 98, y + 301, BODY, PAPER_INK)
+        self._keycap("G", left, y + 329, 26)
+        self._text("예비 방망이 교체 · 3번", left + 38, y + 341, BODY, PAPER_INK)
 
         mouse = ((5, 5), (12, 0), (23, 0), (30, 5), (33, 13), (33, 29), (29, 36),
                  (23, 41), (12, 41), (5, 36), (2, 29), (2, 13), (5, 5))
@@ -364,8 +375,8 @@ class PlayHUD:
         trace(right, y + 78, ((17, 1), (17, 17), (3, 17), (32, 17)), PAPER_MUTED)
         fill(right + 7, y + 85, 7, 7, (*STAMP, 210))
         self._text("마우스 조준 · 좌클릭 배트", right + 49, y + 100, BODY, PAPER_INK)
-        for offset, (key, action) in enumerate((("F", "빈 병·예비 방망이 줍기"), ("Q", "병 던지기"))):
-            xx = right + offset * 156
+        for offset, (key, action) in enumerate((("F", "병·방망이 줍기"), ("Q", "병 던지기"))):
+            xx = right + offset * 174
             self._keycap(key, xx, y + 151, 26)
             self._text(action, xx + 38, y + 163, BODY, PAPER_INK)
 
@@ -523,23 +534,24 @@ class PlayHUD:
     def draw(self, world, light, aim, *, focused, alarm, waypoint_direction=None):
         self._vitals(world)
         self._objective(world)
+        notice_offset = WEAPON_ROWS_HEIGHT if getattr(world, "bat_uses_left", None) is not None else 0
         if not focused:
-            self._notice("포커스 없음 · 이동 입력 초기화", AMBER)
+            self._notice("포커스 없음 · 이동 입력 초기화", AMBER, offset=notice_offset)
             return
         if waypoint_direction is not None:
             self._waypoint(waypoint_direction, world.first_waypoint_number)
         bridge = world.bridge_puzzle
         if alarm:
-            self._notice("차량 경보", AMBER)
+            self._notice("차량 경보", AMBER, offset=notice_offset)
         elif bridge is not None and world.can_reach_bridge_panel() and not (bridge.has_key or bridge.bridge_down):
-            self._notice("관리실 잠김 · 경비초소에 열쇠", AMBER)
+            self._notice("관리실 잠김 · 경비초소에 열쇠", AMBER, offset=notice_offset)
         elif (world.district_gimmicks_active and world.shutter_position is not None
               and math.dist((world.player.x, world.player.y), world.shutter_position) <= 150
               and light.contains(world.shutter_position)):
             if world.shutter_closed:
-                self._notice("주차장 셔터 닫힘", TEAL)
+                self._notice("주차장 셔터 닫힘", TEAL, offset=notice_offset)
             else:
                 text = "주차장 안쪽에 병을 던져 유인" if world.has_bottle else "좀비가 들어가면 셔터 닫기"
-                self._notice(text, AMBER)
+                self._notice(text, AMBER, offset=notice_offset)
         elif world.sneaking:
-            self._notice("잠행 · 작은 발소리", TEAL, sneak=True)
+            self._notice("잠행 · 작은 발소리", TEAL, sneak=True, offset=notice_offset)

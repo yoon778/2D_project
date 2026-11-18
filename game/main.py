@@ -2289,7 +2289,7 @@ class Renderer:
         elif world.can_read_bridge_note():
             label = "쪽지 읽기"
         elif world.nearby_weapon is not None:
-            key, label = "F", "방망이 줍기"
+            key, label = "F", "방망이 줍기" if world.unarmed else "예비 방망이 챙기기"
         elif world.nearby_bottle is not None:
             key, label = "F", "빈 병 줍기"
         else:
@@ -2540,6 +2540,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             pending_click = False
             pending_interact = False
             pending_pickup = False
+            pending_weapon_swap = False
             pending_bottle_throw = False
             contract_choice = None
             preview_choice = renderer.delivery_preview
@@ -2649,6 +2650,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                         pending_interact = True
                     elif delivery_run and key == p.SDLK_f:
                         pending_pickup = True
+                    elif delivery_run and key == p.SDLK_g:
+                        pending_weapon_swap = True
                     elif delivery_run and key == p.SDLK_q:
                         pending_bottle_throw = True
                     elif key == p.SDLK_m:
@@ -2749,7 +2752,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 reset_requested = abandon_decision is True
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
-                pending_pickup = pending_bottle_throw = False
+                pending_pickup = pending_weapon_swap = pending_bottle_throw = False
                 map_toggle = False
                 waypoint_actions.clear()
             if reset_requested or retry_requested or contract_choice is not None:
@@ -2778,7 +2781,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 pressed.clear()
                 pending_click = False
                 pending_interact = False
-                pending_pickup = pending_bottle_throw = False
+                pending_pickup = pending_weapon_swap = pending_bottle_throw = False
                 if contract_choice is None:
                     mouse_held = False
                 suppress_dispatch_repeats = contract_choice is not None
@@ -2799,7 +2802,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 map_toggled = True
                 pressed.clear()
                 pending_click = pending_interact = mouse_held = False
-                pending_pickup = pending_bottle_throw = False
+                pending_pickup = pending_weapon_swap = pending_bottle_throw = False
             if focused and not lost_focus and not reset_requested:
                 for action, map_cursor in waypoint_actions:
                     if action == "skip":
@@ -2865,6 +2868,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             axis_y = int(p.SDLK_w in pressed) - int(p.SDLK_s in pressed)
             motion = renderer.player_visual.locomotion
             facing_hint = motion.facing if motion._initialized else None
+            if active and pending_weapon_swap:
+                world.swap_weapon()
             swing_started = False
             if pending_click and active:
                 facing = select_facing(player.aim_angle, facing_hint)
