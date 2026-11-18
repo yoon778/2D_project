@@ -1,6 +1,9 @@
+import math
 import unittest
 
-from delivery import BUS_BROADCAST_COOLDOWN, PLAYABLE_CONTRACTS, SHOP_ROUND_TRIP, TOWN_ROADS, DeliveryWorld
+from combat import SNEAK_SPEED
+from delivery import (BUS_BROADCAST_COOLDOWN, PLAYABLE_CONTRACTS, SHELTER_ROUND_TRIP, SHOP_ROUND_TRIP,
+                      TOWN_ROADS, DeliveryWorld)
 from core import wall_blocks
 from zombie_navigation import can_walk_direct, find_route
 
@@ -18,10 +21,10 @@ class IndependentDeliveryLayoutsTests(unittest.TestCase):
         self.assertTrue(world.update_interaction(0.01, held=True, pressed=False, moving=False, damaged=False))
 
     def test_active_contract_numbers_and_layout_reset(self):
-        self.assertEqual(tuple(PLAYABLE_CONTRACTS), (1, 2, 4))
+        self.assertEqual(tuple(PLAYABLE_CONTRACTS), (1, 2, 3, 4))
         world = self.select(1)
         first = world.contract.layout
-        self.assertFalse(world.select_playable_contract(3))
+        self.assertFalse(world.select_playable_contract(5))
         self.assertIs(world.contract.layout, first)
         self.assertTrue(world.select_playable_contract(2))
         second = world.contract.layout
@@ -31,11 +34,60 @@ class IndependentDeliveryLayoutsTests(unittest.TestCase):
         self.assertEqual(world.world_size, (2000, 1350))
         self.assertIs(world.roads, second.roads)
         self.assertIsNone(world.gate)
+        self.assertTrue(world.select_playable_contract(3))
+        self.assertIs(world.contract, SHELTER_ROUND_TRIP)
+        self.assertIsNotNone(world.contract.layout.interior)
         self.assertTrue(world.select_playable_contract(4))
         self.assertIs(world.contract, SHOP_ROUND_TRIP)
         self.assertIs(world.roads, TOWN_ROADS)
         self.assertEqual(world.world_size, (3600, 2400))
         self.assertIsNotNone(world.bridge_puzzle)
+
+    def test_shelter_walls_preserve_collision_and_visibility_beside_the_door(self):
+        world = self.select(3)
+        solid_wall = (910, 510), (910, 620)
+        through_door = (1000, 510), (1000, 620)
+        self.assertFalse(can_walk_direct(*solid_wall, world.walls))
+        self.assertTrue(any(wall_blocks(*solid_wall, wall) for wall in world.walls))
+        self.assertTrue(can_walk_direct(*through_door, world.walls))
+        self.assertFalse(any(wall_blocks(*through_door, wall) for wall in world.walls))
+        self.assertTrue(any(world.contract.layout.interior.contains((z.x, z.y)) for z in world.zombies))
+
+    def test_shelter_delivery_can_be_completed_through_the_entrance_without_combat(self):
+        def sneak_to(world, point):
+            dx, dy = point[0] - world.player.x, point[1] - world.player.y
+            distance = math.hypot(dx, dy)
+            world.update(distance / SNEAK_SPEED, dx / distance, dy / distance, sneak=True)
+            self.assertAlmostEqual(world.player.x, point[0])
+            self.assertAlmostEqual(world.player.y, point[1])
+
+        for detour in (False, True):
+            with self.subTest(west_detour=detour):
+                world = self.select(3)
+                self.assertTrue(world.skip_route_sequence())
+                self.hold(world, "pickup", 0.50)
+                stop, = world.contract.stops
+                self.assertTrue(world.contract.layout.interior.contains(stop.position))
+                self.assertFalse(world.can_interact())
+
+                approach = (1000, 185)
+                direct = ((1000, 345), (1000, 506))
+                access = world.contract.layout.detour_routes[0] if detour else direct
+                for point in (approach, *access, stop.position):
+                    sneak_to(world, point)
+                self.hold(world, "deliver", 1.00)
+                self.assertTrue(world.returning)
+                self.assertEqual(world.result, "playing")
+
+                for point in (*reversed(access), approach, world.contract.return_point):
+                    sneak_to(world, point)
+                self.hold(world, "board_truck", 0.70)
+                self.assertTrue(world.advance_route_sequence(2.00))
+                self.assertEqual(world.result, "delivered")
+                self.assertTrue(world.combat_free)
+                self.assertFalse(world.just_unlocked_two_stop)
+                world.reset()
+                self.assertFalse(world.completed_stops)
 
     def test_new_truck_lane_and_all_delivery_orders(self):
         for number in (1, 2):

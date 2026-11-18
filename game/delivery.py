@@ -7,12 +7,12 @@ from pathlib import Path
 if __package__:
     from .combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from .core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
-    from .delivery_layouts import REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
+    from .delivery_layouts import INTERIOR_DELIVERY, REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
     from .zombie_navigation import can_walk_direct
 else:
     from combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
-    from delivery_layouts import REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
+    from delivery_layouts import INTERIOR_DELIVERY, REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
     from zombie_navigation import can_walk_direct
 
 
@@ -112,6 +112,7 @@ REPAIR_DESK_STOP = DeliveryStop("정비 접수대", (1180.0, 751.0))
 PARTS_DEPOT_STOP = DeliveryStop("부품 보관소", (1532.0, 1020.0))
 SHIPPING_OFFICE_STOP = DeliveryStop("출고 사무실", (790.0, 860.0))
 COLD_STORAGE_STOP = DeliveryStop("냉장 창고", (1220.0, 938.0))
+SHELTER_SUPPLY_STOP = DeliveryStop("대피소 보급실", (1000.0, 805.0))
 
 
 @dataclass(frozen=True)
@@ -200,8 +201,14 @@ WAREHOUSE_ROUND_TRIP = DeliveryContract(
     player_start=_DISTRICT_PLAYER_START, pickup=_DISTRICT_TRUCK_DOOR, return_point=_DISTRICT_TRUCK_DOOR,
     truck_position=_DISTRICT_TRUCK_POSITION, number=2, layout=WAREHOUSE, preview_file="02-warehouse.png",
 )
+SHELTER_ROUND_TRIP = DeliveryContract(
+    "대피소 실내 배달", "대피소 안 보급실에 택배를 전달하고 트럭으로 돌아오기", "보통",
+    SHELTER_SUPPLY_STOP.position, ((1170, 390), (480, 570), (1450, 755), (1150, 665)),
+    (SHELTER_SUPPLY_STOP,), player_start=(1005.0, 144.0), pickup=(980.0, 144.0), return_point=(980.0, 144.0),
+    truck_position=(980.0, 110.0), number=3, layout=INTERIOR_DELIVERY, preview_file="03-shelter.png",
+)
 PLAYABLE_CONTRACTS = {contract.number: contract
-                      for contract in (REPAIR_ROUND_TRIP, WAREHOUSE_ROUND_TRIP, SHOP_ROUND_TRIP)}
+                      for contract in (REPAIR_ROUND_TRIP, WAREHOUSE_ROUND_TRIP, SHELTER_ROUND_TRIP, SHOP_ROUND_TRIP)}
 
 
 _BUILDINGS = ((690, 145, 180, 130),

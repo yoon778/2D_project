@@ -61,10 +61,12 @@ WALL_TEXTURE_SIZES = {
     "parked-car": [56, 31],
     "abandoned-car": [56, 31],
     "dumpster": [30, 24],
+    "shelter-shelf": [45, 30],
 }
-WALL_TEXTURE_ALIASES = {"parking-shutter": "iron-gate"}
+WALL_TEXTURE_ALIASES = {"parking-shutter": "iron-gate", "interior-wall": "workshop",
+                        "interior-shelf": "shelter-shelf"}
 BRIDGE_TERRAIN = {"bridge-channel", "bridge-raised"}
-LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster")
+LOW_OBSTACLE_TEXTURES = ("parked-car", "abandoned-car", "dumpster", "shelter-shelf")
 BUILDING_TEXTURES = {"west-house", "east-house", "shop", "workshop"}
 BUILDING_FADE_OUT = .16
 BUILDING_FADE_IN = .20
@@ -263,11 +265,21 @@ def clip_light_columns(spans, columns):
             if left < stop and start < right]
 
 
+def interior_room(world):
+    contract = getattr(world, "contract", None)
+    layout = getattr(contract, "layout", None)
+    return getattr(layout, "interior", None)
+
+
 def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0), shake=(0, 0), *,
                  wall_alpha=None, building_opacity=None, nearby_light=None, ground_scale=GROUND_SCALE_Y):
     screen_y = WINDOW_HEIGHT - 1 - mouse_y
+    room = interior_room(world)
+    room_closed = room is not None and not room.contains((world.player.x, world.player.y))
     for zombie in sorted(world.zombies, key=lambda enemy: enemy.y):
         position = (zombie.x, zombie.y)
+        if room_closed and room.contains(position):
+            continue
         x, y = world_to_screen(*position, camera, ground_scale=ground_scale)
         if not visual.zombie_contains(zombie, x + shake[0], y + shake[1], mouse_x, screen_y):
             continue
@@ -293,7 +305,8 @@ def mouse_target(world, visual, mouse_x, mouse_y, light=None, camera=(0.0, 0.0),
             if hidden:
                 continue
             left, bottom = world_to_screen(wall.x, wall.y, camera, ground_scale=ground_scale)
-            alpha_rows = wall_alpha.get(wall.texture) if wall_alpha and isinstance(wall, NeighborhoodWall) else None
+            alpha_rows = (wall_alpha.get(WALL_TEXTURE_ALIASES.get(wall.texture, wall.texture))
+                          if wall_alpha and isinstance(wall, NeighborhoodWall) else None)
             if wall_covers(wall, left, bottom, wx, wy, alpha_rows, ground_scale=ground_scale):
                 break
         else:
@@ -464,6 +477,7 @@ class Renderer:
         self.neighborhood_walls = {}
         self.wall_alpha = {}
         self._building_fades = {}
+        self._roof_opacity = 1.0
         self.street_prop_images = {}
         self.streetlamp_image = None
         self.streetlights = ()
@@ -684,16 +698,26 @@ class Renderer:
 
     def reset_building_fades(self):
         self._building_fades.clear()
+        self._roof_opacity = 1.0
 
     def building_opacity(self, wall):
         return self._building_fades.get(id(wall), 1.0)
 
     def update_building_fades(self, player, walls, dt):
         ground_scale = self.ground_scale()
+        room = interior_room(self.delivery)
+        inside = room is not None and room.contains((player.x, player.y))
+        if room is not None:
+            if inside:
+                self._roof_opacity = max(0.0, self._roof_opacity - dt / BUILDING_FADE_OUT)
+            else:
+                self._roof_opacity = min(1.0, self._roof_opacity + dt / BUILDING_FADE_IN)
         for wall in walls:
             key = id(wall)
             opacity = self.building_opacity(wall)
-            if building_covers_player(wall, player, self.camera, ground_scale=ground_scale):
+            front_wall = (inside and isinstance(wall, NeighborhoodWall) and wall.texture == "interior-wall"
+                          and wall.y == room.y and wall.width > wall.depth)
+            if front_wall or building_covers_player(wall, player, self.camera, ground_scale=ground_scale):
                 remaining = opacity - dt / BUILDING_FADE_OUT
                 self._building_fades[key] = 0.0 if remaining <= 1e-12 else remaining
             elif opacity < 1.0:
@@ -1336,6 +1360,28 @@ class Renderer:
         finally:
             p.SDL_SetTextureBlendMode(texture, p.SDL_BLENDMODE_BLEND)
 
+    def draw_room_roof(self, room, beam_mask=()):
+        opacity = self._roof_opacity
+        if opacity <= 0.0:
+            return
+        x, y = self.project(room.x, room.y)
+        depth = room.depth * self.ground_scale()
+        if x >= WINDOW_WIDTH or x + room.width <= 0 or y >= WINDOW_HEIGHT or y + room.height + depth <= 0:
+            return
+        # Hide the projected floor beneath the roof while leaving the entrance traversable.
+        floor = quad(x, y, room.width, depth)
+        self.draw_wall_plane(None, floor, 0, 1, (0, 0, 0), opacity=opacity)
+        roof_y = y + room.height
+        roof = quad(x, roof_y, room.width, depth)
+        image = self.neighborhood_walls["workshop"]
+        seam = (image.h - round(room.height / 2)) / image.h
+        self.draw_wall_plane(image, roof, 0, seam, (92, 92, 86), opacity=opacity)
+        if beam_mask:
+            raised_beam = [(px, py + room.height) for px, py in beam_mask]
+            self.draw_wall_plane(image, roof, 0, seam, (147, 140, 118), mask=raised_beam, opacity=opacity)
+        eave = quad(x, roof_y - 7, room.width, 7)
+        self.draw_wall_plane(None, eave, 0, 1, (64, 62, 55), opacity=opacity)
+
     def wall(self, wall, outlines, beam_mask=None, *, glow_outline=(), opacity=1.0):
         x, y = self.project(wall.x, wall.y)
         height = wall_height(wall)
@@ -1348,7 +1394,7 @@ class Renderer:
         texture = WALL_TEXTURE_ALIASES.get(wall.texture, wall.texture) if textured else None
         image = self.neighborhood_walls.get(texture)
         oblique = image is not None and wall.oblique
-        low_obstacle = image is not None and wall.texture in LOW_OBSTACLE_TEXTURES
+        low_obstacle = image is not None and texture in LOW_OBSTACLE_TEXTURES
         building = texture in BUILDING_TEXTURES
         shutter = textured and wall.texture == "parking-shutter"
         long_shutter = shutter and wall.depth > wall.width
@@ -1889,6 +1935,8 @@ class Renderer:
         action_pickup = (truck is not None and phase == "unloading" and delivery.interaction_action == "pickup")
         pickup_index = pickup_frame(delivery.interaction_progress) if action_pickup else None
         origin = (player.x, player.y)
+        room = interior_room(delivery)
+        room_closed = room is not None and not room.contains(origin)
         world_size = self.combat.world_size if self.combat is not None else (WORLD_WIDTH, WORLD_HEIGHT)
         beam, *lamps = self.prepare_light(player, walls, aim).lights
         street_lamps = tuple(lamps)
@@ -1933,6 +1981,10 @@ class Renderer:
         self.draw_noise_pulse(self.bottle_pulse, self.bottle_pulse_remaining, ORANGE)
         self.draw_noise_pulse(self.vehicle_alarm, self.vehicle_alarm_remaining, ORANGE,
                               duration=VEHICLE_ALARM_DURATION)
+        if room is not None:
+            roof_beam = beam_mask if any(getattr(hit, "texture", None) == "interior-wall"
+                                         for _, hit in beam_outline) else ()
+            self.draw_room_roof(room, roof_beam)
         foot = self.project(*(origin if truck_step is None else truck_step.position))
         pickup_pose = None
         if pickup_index is not None:
@@ -1982,6 +2034,13 @@ class Renderer:
                                             lamps=(lamp.origin for lamp in street_lamps),
                                             street_props=delivery.props if delivery is not None else (),
                                             bottles=bottles, truck=truck):
+            if room_closed:
+                if kind in ("station", "bottle", "lamp", "prop") and room.contains(actor[:2]):
+                    continue
+                if kind in ("street-prop", "zombie") and room.contains((actor.x, actor.y)):
+                    continue
+                if kind == "wall" and getattr(actor, "texture", None) == "interior-shelf":
+                    continue
             if kind == "prop":
                 self.draw_lit_prop(actor, self.trash_can)
             elif kind == "street-prop":

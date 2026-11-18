@@ -11,9 +11,10 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import main
+from contract_selection import CARD_RECTS
 
 p = main.p
-CARDS = ((200, 209), (200, 316), (200, 423))
+CARDS = tuple((left + width // 2, top + height // 2) for left, top, width, height in CARD_RECTS)
 DISPATCH = (220, 557)
 
 
@@ -86,7 +87,7 @@ class ContractSelectionTests(unittest.TestCase):
             main.run()
         return snapshots
 
-    def test_only_new_districts_and_shop_are_selectable(self):
+    def test_four_contracts_are_selectable_with_keyboard_and_mouse(self):
         frames = self.replay([
             tap(p.SDLK_3), tap(p.SDLK_2), tap(p.SDLK_KP_4), tap(p.SDLK_KP_3),
             click(CARDS[0]), click(CARDS[1], button=p.SDL_BUTTON_RIGHT), click(CARDS[1]),
@@ -94,12 +95,12 @@ class ContractSelectionTests(unittest.TestCase):
             tap(p.SDLK_KP_ENTER), tap(p.SDLK_r), tap(p.SDLK_RETURN),
             click(CARDS[2]), click(DISPATCH),
         ])
-        self.assertEqual([frame[1] for frame in frames[:8]], [0, 1, 2, 2, 0, 0, 1, 1])
+        self.assertEqual([frame[1] for frame in frames[:8]], [2, 1, 3, 2, 0, 0, 1, 1])
         self.assertTrue(all(frame[0] for frame in frames[:8]))
         self.assertEqual(frames[8][:5], (False, 1, 2, "arriving", 0))
         self.assertEqual(frames[9][:5], (False, 1, 2, "unloading", 0))
         self.assertTrue(frames[11][0])
-        self.assertEqual(frames[-1][:5], (False, 2, 4, "arriving", 0))
+        self.assertEqual(frames[-1][:5], (False, 2, 3, "arriving", 0))
 
     def test_dispatch_input_stays_out_of_the_first_delivery_frame(self):
         frames = self.replay([

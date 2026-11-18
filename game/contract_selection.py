@@ -5,7 +5,7 @@ from play_hud import BODY, PAPER_EDGE, PAPER_GREEN, PAPER_INK, PAPER_MUTED, RECE
 from play_hud import fill, panel, receipt_rule
 
 
-CARD_RECTS = tuple((61, 163 + index * 107, 359, 92) for index in range(3))
+CARD_RECTS = tuple((61, 153 + index * 86, 359, 76) for index in range(4))
 DISPATCH_RECT = (61, 529, 359, 57)
 PHOTO_RECT = (480, 51, 748, 342)
 MAP_RECT = (470, 417, 398, 263)
@@ -22,6 +22,7 @@ DISPATCH_DISABLED = (171, 150, 114, 255)
 ROUTE_GUIDANCE = {
     1: "정비창 철문 또는 서쪽 우회",
     2: "스피커 유도 또는 서쪽 우회",
+    3: "남쪽 출입구로 들어가 보급실에 배달",
     4: "관리실 다리 또는 동쪽 우회",
 }
 
@@ -68,13 +69,13 @@ def draw_contract_selection(hud, contracts, available, selected, cursor, preview
         border = (*STAMP, 255) if active else FOCUS_BORDER if index == hovered else PAPER_EDGE
         paper = CARD_SELECTED if active else CARD_LOCKED if locked else CARD
         panel(*rect, border, background=paper, accent=STAMP if active else None)
-        fill(x + 14, y + 17, 29, 30, (*PAPER_MUTED, 255) if active else (*PAPER_EDGE[:3], 255))
-        text(str(contract.number), x + 28, y + 32, BODY, SHEET[:3], align="center")
-        text(contract.name, x + 54, y + 31, TITLE, PAPER_INK)
-        text(f"배송 {len(contract.stops)}곳", x + 54, y + 65, SMALL, PAPER_MUTED)
-        text(f"위험도 {contract.difficulty}", x + width - 14, y + 65, SMALL, PAPER_MUTED, align="right")
+        fill(x + 14, y + 12, 29, 30, (*PAPER_MUTED, 255) if active else (*PAPER_EDGE[:3], 255))
+        text(str(contract.number), x + 28, y + 27, BODY, SHEET[:3], align="center")
+        text(contract.name, x + 54, y + 26, TITLE, PAPER_INK)
+        text(f"배송 {len(contract.stops)}곳", x + 54, y + 57, SMALL, PAPER_MUTED)
+        text(f"위험도 {contract.difficulty}", x + width - 14, y + 57, SMALL, PAPER_MUTED, align="right")
         if active or locked:
-            text("잠김" if locked else "선택", x + width - 14, y + 31, SMALL, STAMP, align="right")
+            text("잠김" if locked else "선택", x + width - 14, y + 26, SMALL, STAMP, align="right")
 
     receipt_rule(63, 504, 355)
     dispatch_hover = cursor is not None and contract_dispatch_at(*cursor)
@@ -99,8 +100,9 @@ def draw_contract_selection(hud, contracts, available, selected, cursor, preview
     details = (887, 417, 351, 263)
     panel(*details, PAPER_EDGE, background=SHEET)
     text("배송지", 910, 445, TITLE, PAPER_INK)
-    text("순서 자유", 1215, 448, SMALL, PAPER_MUTED, align="right")
     contract = contracts[selected]
+    if len(contract.stops) > 1:
+        text("순서 자유", 1215, 448, SMALL, PAPER_MUTED, align="right")
     for index, stop in enumerate(contract.stops):
         row = 485 + index * 30
         draw_pin(918, hud.height - 1 - row, STAMP)

@@ -15,6 +15,9 @@ import main
 from contract_selection import contract_card_at
 
 
+SHELTER_CARD_POINT = (230, 363)
+
+
 class FullscreenTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(patch.dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy",
@@ -54,12 +57,12 @@ class FullscreenTests(unittest.TestCase):
                 self.assertAlmostEqual(xscale.value, yscale.value)
 
                 x, y = ctypes.c_int(), ctypes.c_int()
-                # Center of the third card, which selects the shop round trip.
-                p.SDL_RenderLogicalToWindow(p.renderer, 230, 420, ctypes.byref(x), ctypes.byref(y))
+                logical_x, logical_y = SHELTER_CARD_POINT
+                p.SDL_RenderLogicalToWindow(p.renderer, logical_x, logical_y, ctypes.byref(x), ctypes.byref(y))
                 click = self.push_pointer(p.SDL_MOUSEBUTTONDOWN, x.value, y.value)
                 self.assertEqual(contract_card_at(*display.cursor_in_canvas(*click)), 2)
-                self.assertAlmostEqual(click[0], 230, delta=2)
-                self.assertAlmostEqual(click[1], 420, delta=2)
+                self.assertAlmostEqual(click[0], logical_x, delta=2)
+                self.assertAlmostEqual(click[1], logical_y, delta=2)
 
                 has_bars = width * 720 != height * 1280
                 motion = self.push_pointer(p.SDL_MOUSEMOTION, 0, 0)
@@ -107,8 +110,8 @@ class FullscreenTests(unittest.TestCase):
                                               ((right - 1, bottom - 1), (1279, 719))):
                         self.assertEqual(self.read_cursor_at(*physical), logical)
                         self.assertEqual(self.push_pointer(p.SDL_MOUSEBUTTONDOWN, *physical), logical)
-                x = left + round(230 * scale)
-                y = top + round(420 * scale)
+                x = left + round(SHELTER_CARD_POINT[0] * scale)
+                y = top + round(SHELTER_CARD_POINT[1] * scale)
                 click = self.push_pointer(p.SDL_MOUSEBUTTONDOWN, x, y)
                 self.assertEqual(contract_card_at(*click), 2)
                 self.assertEqual(self.read_cursor_at(x, y), click)

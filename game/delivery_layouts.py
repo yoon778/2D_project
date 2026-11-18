@@ -15,6 +15,41 @@ class NeighborhoodWall(Wall):
 
 
 @dataclass(frozen=True)
+class InteriorRoom:
+    x: int
+    y: int
+    width: int
+    depth: int
+    height: int
+    door_width: int
+
+    @property
+    def door_bounds(self):
+        left = self.x + (self.width - self.door_width) // 2
+        return left, left + self.door_width
+
+    def contains(self, point):
+        x, y = point
+        return self.x <= x < self.x + self.width and self.y <= y < self.y + self.depth
+
+    def perimeter(self):
+        thickness = 18
+        east = self.x + self.width
+        north = self.y + self.depth
+        door_left, door_right = self.door_bounds
+        return (
+            NeighborhoodWall(self.x, self.y, thickness, self.depth, "interior-wall", self.height),
+            NeighborhoodWall(east - thickness, self.y, thickness, self.depth, "interior-wall", self.height),
+            NeighborhoodWall(self.x + thickness, north - thickness, self.width - 2 * thickness, thickness,
+                             "interior-wall", self.height),
+            NeighborhoodWall(self.x + thickness, self.y, door_left - self.x - thickness, thickness,
+                             "interior-wall", self.height),
+            NeighborhoodWall(door_right, self.y, east - thickness - door_right, thickness,
+                             "interior-wall", self.height),
+        )
+
+
+@dataclass(frozen=True)
 class DeliveryLayout:
     ground_file: str
     roads: dict
@@ -28,6 +63,7 @@ class DeliveryLayout:
     bus_speaker: tuple[float, float] | None = None
     world_size: tuple[int, int] = (2000, 1350)
     map_area: tuple[float, float, float, float] | None = None
+    interior: InteriorRoom | None = None
 
     @property
     def gate_position(self):
@@ -112,4 +148,38 @@ WAREHOUSE = DeliveryLayout(
     bottle_pickups=((924, 155), (497, 443)),
     bus_switch=(790, 478),
     bus_speaker=(1165, 614),
+)
+
+
+_SHELTER_ROOM = InteriorRoom(760, 550, 480, 380, 88, 100)
+_SHELTER_DETOUR = ((1000, 345), (605, 345), (605, 506), (1000, 506))
+INTERIOR_DELIVERY = DeliveryLayout(
+    ground_file="neighborhood/shelter-ground.png",
+    roads={
+        "main": (
+            _road((0, 110), (2000, 110), width=104),
+            _road((980, 110), (980, 185), (1000, 185), (1000, 550), width=100),
+        ),
+        "alleys": (_road((1000, 460), (1490, 460), (1490, 960), width=67),),
+        "main_detour": _road(*_SHELTER_DETOUR, width=64),
+    },
+    walls=(
+        NeighborhoodWall(325, 275, 215, 166, "workshop", height=88),
+        NeighborhoodWall(665, 390, 160, 75, "workshop", height=60),
+        NeighborhoodWall(1315, 260, 250, 135, "workshop", height=88),
+        NeighborhoodWall(1325, 550, 110, 166, "workshop", height=88),
+        NeighborhoodWall(520, 924, 158, 140, "workshop", height=92),
+        NeighborhoodWall(1310, 1010, 285, 164, "workshop"),
+        NeighborhoodWall(1150, 317, 105, 40, "abandoned-car", height=36),
+        NeighborhoodWall(710, 215, 100, 42, "parked-car", height=36),
+        NeighborhoodWall(1264, 855, 60, 34, "dumpster", height=28),
+        *_SHELTER_ROOM.perimeter(),
+        NeighborhoodWall(805, 690, 90, 34, "interior-shelf", height=40),
+        NeighborhoodWall(1110, 780, 90, 34, "interior-shelf", height=40),
+    ),
+    road_labels=((1000, 290, "대피소 진입로"), (605, 444, "서쪽 우회로"), (1000, 510, "대피소 입구")),
+    detour_routes=(_SHELTER_DETOUR,),
+    streetlights=((935, 160), (1036, 508), (650, 487), (1455, 478)),
+    bottle_pickups=((922, 155), (652, 346)),
+    interior=_SHELTER_ROOM,
 )

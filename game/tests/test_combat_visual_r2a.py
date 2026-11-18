@@ -15,7 +15,7 @@ import main
 import combat_visual
 from combat import CombatWorld, STUN_DURATION, Zombie
 from combat_visual import CombatVisual, METADATA_PATH
-from core import Player, Wall
+from core import Player, Wall, wall_blocks
 from delivery import DeliveryWorld, NeighborhoodWall
 from flashlight import Flashlight, LightField
 import test_visual_input_r1a as input_fixture
@@ -338,6 +338,41 @@ class CombatSpriteTests(unittest.TestCase):
         renderer.update_building_fades(behind, walls, .08)
         renderer.reset_building_fades()
         self.assertEqual(renderer.building_opacity(wall), 1)
+
+    def test_shelter_cutaway_reveals_indoor_zombie_without_removing_light_blocker(self):
+        world = DeliveryWorld()
+        self.assertTrue(world.select_playable_contract(3))
+        room = world.contract.layout.interior
+        zombie = Zombie(1080, 690)
+        world.zombies = [zombie]
+        visual = SimpleNamespace(zombie_contains=Mock(return_value=True))
+        renderer = main.Renderer.__new__(main.Renderer)
+        renderer.camera = (0, 0)
+        renderer.delivery = world
+        renderer._building_fades = {}
+        renderer.reset_building_fades()
+        front = next(wall for wall in world.walls if getattr(wall, "texture", None) == "interior-wall"
+                     and wall.y == room.y and wall.x == room.door_bounds[1])
+
+        cursor_x, foot_y = main.world_to_screen(zombie.x, zombie.y)
+        cursor_y = main.WINDOW_HEIGHT - 1 - (foot_y + 30)
+        world.player = Player(1000, 525)
+        target = main.mouse_target(world, visual, cursor_x, cursor_y, building_opacity=renderer.building_opacity)
+        self.assertEqual(target, main.sdl_to_world(cursor_x, cursor_y))
+
+        world.player.y = 590
+        renderer.update_building_fades(world.player, world.walls, main.BUILDING_FADE_OUT)
+        self.assertEqual(renderer._roof_opacity, 0)
+        self.assertEqual(renderer.building_opacity(front), 0)
+        self.assertEqual(main.mouse_target(world, visual, cursor_x, cursor_y, building_opacity=renderer.building_opacity),
+                         (zombie.x, zombie.y))
+        self.assertIn(front, renderer.light_walls(world.walls))
+        self.assertTrue(wall_blocks((1080, 520), (1080, 630), front))
+
+        world.player.y = 525
+        renderer.update_building_fades(world.player, world.walls, main.BUILDING_FADE_IN)
+        self.assertEqual(renderer._roof_opacity, 1)
+        self.assertEqual(renderer.building_opacity(front), 1)
 
     def test_building_fade_multiplies_existing_vertex_alpha(self):
         renderer = main.Renderer.__new__(main.Renderer)
