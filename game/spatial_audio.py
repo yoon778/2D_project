@@ -28,7 +28,8 @@ _STEP_SPACING = 32.0
 _STEP_IDLE_GRACE = .30
 _GROAN_DELAY = .4
 _GROAN_INTERVAL = 3.2
-_ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60}
+_HEAVY_GROAN_SOUND = "zombie_groan_heavy"
+_ZOMBIE_VOLUME = {"zombie_step": 48, "zombie_groan": 60, _HEAVY_GROAN_SOUND: 60}
 _HEAVY_STEP_SOUND = "zombie_step_heavy"
 _HEAVY_STEP_SPACING = 36.0
 _HEAVY_STEP_VOLUME = 76
@@ -393,7 +394,8 @@ class ZombieAudio:
         return ctypes.cast(current, ctypes.c_void_p).value == ctypes.cast(sound, ctypes.c_void_p).value
 
     def update(self, dt, *, distance, stride, active, occluded=False, preserve_map_cue=False, pan=0.0,
-               patrol_step=None, heavy_step=None, preserve_truck_cues=False, footstep_sources=None):
+               patrol_step=None, heavy_step=None, preserve_truck_cues=False, footstep_sources=None,
+               heavy_groan=False):
         if not self._sounds:
             return
         if not active:
@@ -416,7 +418,8 @@ class ZombieAudio:
         groan_due = self._groan_in <= 0
         if groan_due:
             self._groan_in += _GROAN_INTERVAL
-        self._update_zombie_sound("zombie_groan", groan_due, _ZOMBIE_VOLUME["zombie_groan"] *
+        groan = _HEAVY_GROAN_SOUND if heavy_groan else "zombie_groan"
+        self._update_zombie_sound(groan, groan_due, _ZOMBIE_VOLUME[groan] *
                                   _zombie_gain(distance, occluded), pan)
 
     def _update_regular_step(self, distance, occluded, stride, pan, patrol_step):

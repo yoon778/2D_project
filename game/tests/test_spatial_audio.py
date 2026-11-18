@@ -251,7 +251,8 @@ class ZombieAudioTests(unittest.TestCase):
     def setUp(self):
         self.backend = self.enterContext(patch.object(spatial_audio, "p", Mock()))
         self.backend.Mix_QuerySpec.return_value = 1
-        names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "bat_swing", "zombie_hit", "zombie_hit_heavy",
+        names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "zombie_groan_heavy",
+                 "bat_swing", "zombie_hit", "zombie_hit_heavy",
                  "player_walk", "player_run", "player_sneak", "player_hit",
                  "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle",
                  "bottle_break", "gate_open", "shutter_close", "bridge_motor", "vehicle_alarm", "truck_arrive")
@@ -288,6 +289,14 @@ class ZombieAudioTests(unittest.TestCase):
             call(self.sounds["vehicle_alarm"], 76), call(self.sounds["bat_swing"], 74),
             call(self.sounds["shutter_close"], 36),
         ])
+
+    def test_heavy_groan_uses_its_own_sample_with_distance_and_occlusion(self):
+        groan = self.sounds["zombie_groan_heavy"]
+        self.audio.update(.4, distance=260, stride=0, active=True, occluded=True, pan=-1.0,
+                          footstep_sources=(), heavy_groan=True)
+        self.assertIn(call(groan, 20), self.backend.Mix_VolumeChunk.call_args_list)
+        self.backend.Mix_PlayChannelTimed.assert_called_once_with(-1, groan, 0, -1)
+        self.backend.Mix_SetPanning.assert_called_once_with(0, 255, 80)
 
     def test_bridge_motor_plays_once_with_distance_and_panning(self):
         motor = self.sounds["bridge_motor"]

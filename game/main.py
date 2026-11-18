@@ -2764,8 +2764,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                     kind = "patrol"
                 enemy_audio.append(EnemyAcoustics(id(zombie), zombie.state, enemy_distance, enemy_stride,
                                                  enemy_pan, occluded, kind))
-            nearest = min((enemy for enemy in enemy_audio if enemy.kind != "heavy"),
-                          key=lambda enemy: enemy.distance, default=None)
+            nearest = min(enemy_audio, key=lambda enemy: enemy.distance, default=None)
             distance = nearest.distance if nearest is not None else None
             if music is not None:
                 if delivery_run:
@@ -2790,7 +2789,8 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                                     occluded=nearest is not None and nearest.occluded, preserve_map_cue=preserve_map_cue,
                                     preserve_truck_cues=truck_audio_active,
                                     pan=nearest.pan if hearing_active and nearest is not None else 0.0,
-                                    footstep_sources=footsteps)
+                                    footstep_sources=footsteps,
+                                    heavy_groan=nearest is not None and nearest.kind == "heavy")
                 if truck_cue is not None:
                     x, y, width, depth = world.truck_footprint
                     sound_distance, sound_pan = sound_position(listener, (x + width / 2, y + depth / 2))
