@@ -37,6 +37,7 @@ _PATROL_STEP_VOLUME = 88
 _BOTTLE_SOUND = "bottle_break"
 _BOTTLE_THROW_SOUND = "bottle_throw"
 _GATE_SOUND = "gate_open"
+_SHUTTER_SOUND = "shutter_close"
 _BRIDGE_MOTOR_SOUND = "bridge_motor"
 _BUS_BROADCAST_SOUND = "bus_broadcast"
 _TRUCK_CUES = {
@@ -64,6 +65,7 @@ _EFFECT_VOLUME = {
     _BOTTLE_SOUND: 82,
     _BOTTLE_THROW_SOUND: 48,
     _GATE_SOUND: 72,
+    _SHUTTER_SOUND: 72,
     _BRIDGE_MOTOR_SOUND: 86,
     _BUS_BROADCAST_SOUND: 92,
     "truck_arrive": 78,
@@ -531,6 +533,9 @@ class ZombieAudio:
 
     def play_gate_open(self, distance, *, pan=0.0):
         self._play_effect(_GATE_SOUND, distance, pan=pan)
+
+    def play_shutter_close(self, distance, *, pan=0.0):
+        self._play_effect(_SHUTTER_SOUND, distance, pan=pan)
 
     def play_bridge_motor(self, distance, *, pan=0.0):
         self._play_effect(_BRIDGE_MOTOR_SOUND, distance, pan=pan)

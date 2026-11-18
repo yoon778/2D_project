@@ -2680,7 +2680,7 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
             player_hit = world.player_hp < hp_before
             bottle_impact = world.bottle_impact if delivery_run and active else None
             renderer.update_bottle_pulse(dt if active else math.inf, bottle_impact)
-            door_sound = bus_sound = None
+            gate_sound = shutter_sound = bus_sound = None
             parcel_picked_up = parcel_dropped = False
             if delivery_run:
                 gate_was_closed = world.gate is not None
@@ -2708,9 +2708,11 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 parcel_picked_up = completed and was_waiting and world.parcel == "carrying"
                 parcel_dropped = (completed and len(world.completed_stops) > stops_before
                                   and world.result == "playing")
-                if gate_opened or front_gate_opened or shutter_closed:
-                    door_sound = (world.gate_position if gate_opened else world.front_gate_position
-                                  if front_gate_opened else world.shutter_position)
+                if gate_opened or front_gate_opened:
+                    gate_sound = world.gate_position if gate_opened else world.front_gate_position
+                if shutter_closed:
+                    shutter_sound = world.shutter_position
+                if gate_sound is not None or shutter_sound is not None:
                     renderer.reset_streetlights()
                     renderer.light = None
             ending = delivery_run and was_playing and world.result in ("delivered", "defeated")
@@ -2815,9 +2817,12 @@ def run(smoke_test=False, *, show_opening=False, practice=False, windowed=False,
                 if bottle_impact is not None:
                     sound_distance, sound_pan = sound_position(listener, bottle_impact)
                     zombie_audio.play_bottle_break(sound_distance, pan=sound_pan)
-                if door_sound is not None:
-                    sound_distance, sound_pan = sound_position(listener, door_sound)
+                if gate_sound is not None:
+                    sound_distance, sound_pan = sound_position(listener, gate_sound)
                     zombie_audio.play_gate_open(sound_distance, pan=sound_pan)
+                if shutter_sound is not None:
+                    sound_distance, sound_pan = sound_position(listener, shutter_sound)
+                    zombie_audio.play_shutter_close(sound_distance, pan=sound_pan)
                 if bus_sound is not None:
                     sound_distance, sound_pan = sound_position(listener, bus_sound)
                     zombie_audio.play_bus_broadcast(sound_distance, pan=sound_pan)

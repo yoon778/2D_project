@@ -254,7 +254,7 @@ class ZombieAudioTests(unittest.TestCase):
         names = ("zombie_step", "zombie_step_heavy", "zombie_groan", "bat_swing", "zombie_hit", "zombie_hit_heavy",
                  "player_walk", "player_run", "player_sneak", "player_hit",
                  "parcel_pickup", "parcel_drop", "bottle_pickup", "map_rustle",
-                 "bottle_break", "gate_open", "bridge_motor", "vehicle_alarm", "truck_arrive")
+                 "bottle_break", "gate_open", "shutter_close", "bridge_motor", "vehicle_alarm", "truck_arrive")
         self.sounds = {name: ctypes.c_void_p(index) for index, name in enumerate(names, 1)}
         self.backend.Mix_LoadWAV.side_effect = lambda path: self.sounds.get(Path(path.decode()).stem)
         self.backend.Mix_PlayChannelTimed.side_effect = [0, 1]
@@ -275,16 +275,18 @@ class ZombieAudioTests(unittest.TestCase):
         self.assertEqual(self.backend.Mix_SetPanning.call_args_list, [call(0, 255, 80), call(1, 255, 80)])
 
     def test_new_sounds_pan_by_position_and_center_reused_channels(self):
-        self.backend.Mix_PlayChannelTimed.side_effect = (0, 1, 2, 0)
+        self.backend.Mix_PlayChannelTimed.side_effect = (0, 1, 2, 0, 1)
         self.audio.play_bottle_break(260, pan=-4.0)
         self.audio.play_gate_open(0, pan=.5)
         self.audio.play_vehicle_alarm(0, pan=math.nan)
         self.audio.play_bat_swing()
+        self.audio.play_shutter_close(260, pan=-1.0)
         self.assertEqual(self.backend.Mix_SetPanning.call_args_list,
-                         [call(0, 255, 80), call(1, 168, 255), call(2, 255, 255), call(0, 255, 255)])
+                         [call(0, 255, 80), call(1, 168, 255), call(2, 255, 255), call(0, 255, 255), call(1, 255, 80)])
         self.assertEqual(self.backend.Mix_VolumeChunk.call_args_list, [
             call(self.sounds["bottle_break"], 41), call(self.sounds["gate_open"], 72),
             call(self.sounds["vehicle_alarm"], 76), call(self.sounds["bat_swing"], 74),
+            call(self.sounds["shutter_close"], 36),
         ])
 
     def test_bridge_motor_plays_once_with_distance_and_panning(self):
