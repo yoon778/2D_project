@@ -29,7 +29,6 @@ PAPER_INK = (49, 37, 27)
 PAPER_MUTED = (104, 75, 51)
 PAPER_GREEN = (57, 88, 51)
 STAMP = (139, 59, 45)
-MAX_HEALTH = 3
 MARGIN = 24
 VITALS_WIDTH = 204
 VITALS_HEIGHT = 95
@@ -136,10 +135,12 @@ class PlayHUD:
         x = y = MARGIN
         panel(x, y, VITALS_WIDTH, VITALS_HEIGHT)
         self._text("체력", x + 12, y + 19, BODY)
-        self._text(f"{world.player_hp} / {MAX_HEALTH}", x + VITALS_WIDTH - 12, y + 19, BODY, align="right")
-        for index in range(MAX_HEALTH):
-            color = (*HEALTH, 255) if index < world.player_hp else TRACK
-            fill(x + 12 + 61 * index, y + 34, 57, 10, color)
+        self._text(f"{world.player_health_percent}%", x + VITALS_WIDTH - 12, y + 19, BODY, align="right")
+        health_width = VITALS_WIDTH - 24
+        fill(x + 12, y + 34, health_width, 10, TRACK)
+        health_fill = round(health_width * world.player_health_ratio)
+        if health_fill:
+            fill(x + 12, y + 34, health_fill, 10, (*HEALTH, 255))
         self._text("스태미나", x + 12, y + 68, SMALL)
         track_x = x + 80
         track_width = VITALS_WIDTH - 92
@@ -495,7 +496,7 @@ class PlayHUD:
 
         self._attack_label = f"{world.attack_count}회"
         rows = (("계약" if len(world.contract.stops) > 1 else "배송지", world.contract.name),
-                ("남은 체력", f"{world.player_hp} / {MAX_HEALTH}"),
+                ("남은 체력", f"{world.player_health_percent}%"),
                 ("공격 횟수", self._attack_label),
                 ("교전 없이 배달", "성공" if success and world.combat_free else "미달성"))
         for index, (label, value) in enumerate(rows):

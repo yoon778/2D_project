@@ -32,6 +32,10 @@ _HIT_RECOIL_DURATION = 0.10
 _HIT_RECOIL_DISTANCE = 8.0
 ZOMBIE_ATTACK_DURATION = 0.8
 ZOMBIE_ATTACK_HIT_TIME = 0.3
+PLAYER_MAX_HP = 3
+ZOMBIE_MAX_HP = 5
+BAT_DAMAGE = 1
+ZOMBIE_ATTACK_DAMAGE = 1
 ZOMBIE_APPEARANCES = ("classic", "maintenance", "resident")
 HEAVY_ZOMBIE_APPEARANCE = "heavy"
 HEAVY_ZOMBIE_HP = 18
@@ -53,6 +57,10 @@ _SPRINT_NOISE_RANGE = 260.0
 _ATTACK_NOISE_RANGE = 400.0
 
 
+def _health_ratio(hp, max_hp):
+    return max(0.0, min(1.0, hp / max_hp))
+
+
 @dataclass
 class ZombieAttack:
     angle: float
@@ -65,7 +73,7 @@ class ZombieAttack:
 
 @dataclass
 class Zombie(Player):
-    hp: int = 5
+    hp: int | None = None
     stun_remaining: float = 0.0
     stun_duration: float = field(default=STUN_DURATION, init=False)
     attack: ZombieAttack | None = None
@@ -80,6 +88,18 @@ class Zombie(Player):
     patrol_points: tuple[tuple[float, float], tuple[float, float]] | None = None
     patrol_index: int = field(default=1, init=False)
     patrol_route: list[tuple[float, float]] | None = field(default=None, init=False)
+
+    def __post_init__(self):
+        if self.hp is None:
+            self.hp = self.max_hp
+
+    @property
+    def max_hp(self):
+        return HEAVY_ZOMBIE_HP if self.appearance == HEAVY_ZOMBIE_APPEARANCE else ZOMBIE_MAX_HP
+
+    @property
+    def health_percent(self):
+        return round(100 * _health_ratio(self.hp, self.max_hp))
 
     @property
     def alive(self):
@@ -116,6 +136,7 @@ class Attack:
 
 class CombatWorld:
     clear_on_zombie_death = True
+    player_max_hp = PLAYER_MAX_HP
     sprint_speed = SPRINT_SPEED
     zombie_sight_half_angle = math.pi
     world_size = (WORLD_WIDTH, WORLD_HEIGHT)
@@ -127,7 +148,7 @@ class CombatWorld:
         self.player = Player()
         self.walls = [Wall(400, 330, 220, 60)]
         self.zombies = [Zombie(600.0, 100.0)]
-        self.player_hp = 3
+        self.player_hp = self.player_max_hp
         self.stamina = MAX_STAMINA
         self._sprint_exhausted = False
         self._footstep_distance = 0.0
@@ -144,6 +165,14 @@ class CombatWorld:
     def zombie(self):
         """Primary enemy for the single-zombie combat practice."""
         return self.zombies[0]
+
+    @property
+    def player_health_ratio(self):
+        return _health_ratio(self.player_hp, self.player_max_hp)
+
+    @property
+    def player_health_percent(self):
+        return round(100 * self.player_health_ratio)
 
     def start_attack(self, facing="front_right", *, stationary_front_right=False, stationary_swing=False):
         self._resolve_result()
@@ -332,7 +361,7 @@ class CombatWorld:
         if not attack._hit_done and end >= hit_time:
             attack._hit_done = True
             if self.player_invulnerable_remaining == 0 and self._zombie_target_in_strike(zombie, attack.angle):
-                self.player_hp = max(0, self.player_hp - 1)
+                self.player_hp = max(0, self.player_hp - ZOMBIE_ATTACK_DAMAGE)
                 self.player_invulnerable_remaining = 1.0
                 if self.player_hp == 0:
                     self.fatal_zombie_strike = zombie, attack
@@ -357,7 +386,7 @@ class CombatWorld:
             attack.landed = bool(hits)
             primary = self._primary_strike_target(hits, attack.angle)
             for hit in hits:
-                hit.hp -= 1
+                hit.hp = max(0, hit.hp - BAT_DAMAGE)
                 hit.stun_duration = STUN_DURATION if hit is primary else SECONDARY_STUN_DURATION
                 hit.stun_remaining = hit.stun_duration
                 hit.attack = None

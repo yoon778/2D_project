@@ -413,6 +413,7 @@ class CombatTests(unittest.TestCase):
             self.assertFalse(world.attack.landed)
             world.update(0.18)
             self.assertEqual(world.zombie.hp, 5 - hit)
+            self.assertEqual(world.zombie.health_percent, 100 - 20 * hit)
             self.assertTrue(world.attack.landed)
             self.assertFalse(world.start_attack())
             world.update(0.42)

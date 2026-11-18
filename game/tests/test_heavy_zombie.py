@@ -22,9 +22,12 @@ class HeavyZombieTests(unittest.TestCase):
         for _ in range(2):
             heavy, = [zombie for zombie in world.zombies if zombie.appearance == HEAVY_ZOMBIE_APPEARANCE]
             self.assertEqual(heavy.hp, 18)
+            self.assertEqual(heavy.health_percent, 100)
             self.assertGreater(heavy.hp, 3 * Zombie(0, 0).hp)
             self.assertLess(heavy.hp, 4 * Zombie(0, 0).hp)
             self.assertGreater(math.dist((heavy.x, heavy.y), (1794, 979)), VEHICLE_ALARM_RANGE)
+            heavy.hp = 17
+            self.assertEqual(heavy.health_percent, 94)
             heavy.hp = 0
             world.reset()
 

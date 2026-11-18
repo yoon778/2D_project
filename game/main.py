@@ -2134,7 +2134,7 @@ class Renderer:
         self.font.draw(24, 683, "Dead Route  |  전투 검수", WHITE)
         self.font.draw(24, 651, "WASD 이동 · Shift 달리기 · Ctrl 잠행 · 마우스 조준 · 좌클릭 공격 · R 재시작 · Esc 종료", WHITE)
         if combat is not None:
-            self.font.draw(24, 620, f"HP {combat.player_hp}/3", WHITE)
+            self.font.draw(24, 620, f"HP {combat.player_health_percent}% · 좀비 {combat.zombie.health_percent}%", WHITE)
             self.font.draw(24, 592, "스태미나", WHITE)
             rectangle(116, 585, 100, 10, (48, 63, 71))
             stamina_width = round(100 * combat.stamina / MAX_STAMINA)

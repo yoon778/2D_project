@@ -34,6 +34,17 @@ class PlayHUDTests(unittest.TestCase):
         prompt.assert_not_called()
         text.assert_not_called()
 
+    def test_health_bar_and_label_follow_actual_health_fraction(self):
+        for hp, label, width in ((3, "100%", 180), (2, "67%", 120), (1, "33%", 60), (0, "0%", 0)):
+            self.world.player_hp = hp
+            with (self.subTest(hp=hp), patch.object(self.hud, "_text") as text,
+                  patch.object(self.hud, "_keycap"), patch.object(play_hud, "panel"),
+                  patch.object(play_hud, "fill") as fill):
+                play_hud.PlayHUD._vitals(self.hud, self.world)
+            self.assertIn(label, [call.args[0] for call in text.call_args_list])
+            health_fills = [call.args[2] for call in fill.call_args_list if call.args[4] == (*play_hud.HEALTH, 255)]
+            self.assertEqual(health_fills, [width] if width else [])
+
     def test_head_prompt_uses_y_up_and_shows_progress_in_one_badge(self):
         with (patch.object(self.hud, "_label", return_value=(None, 48, 24)),
               patch.object(self.hud, "_keycap") as cap, patch.object(self.hud, "_text") as text,
@@ -95,7 +106,7 @@ class PlayHUDTests(unittest.TestCase):
         with patch.object(self.hud, "_text") as text, patch.object(play_hud, "panel"), patch.object(play_hud, "fill"):
             self.hud.draw_result(self.world)
         labels = {args[0] for args, _ in text.call_args_list}
-        self.assertTrue({"배달 성공", "계약", self.world.contract.name, "남은 체력", "3 / 3", "공격 횟수", "123회",
+        self.assertTrue({"배달 성공", "계약", self.world.contract.name, "남은 체력", "100%", "공격 횟수", "123회",
                          "교전 없이 배달", "미달성", "Enter 같은 배송 재도전  ·  R 배달 선택  ·  Esc 종료"} <= labels)
         texture = object()
         key = ("123회", play_hud.BODY, play_hud.TEXT)
@@ -127,7 +138,7 @@ class PlayHUDTests(unittest.TestCase):
             self.world.result = "defeated"
             self.hud.draw_result(self.world)
         labels = {args[0] for args, _ in text.call_args_list}
-        self.assertTrue({"배달 실패", f"{shop.name} · 완료", f"{rear_door.name} · 완료", f"{bus.name} · 미완료"}
+        self.assertTrue({"배달 실패", "0%", f"{shop.name} · 완료", f"{rear_door.name} · 완료", f"{bus.name} · 미완료"}
                         <= labels)
 
     def test_first_success_result_announces_new_contract(self):

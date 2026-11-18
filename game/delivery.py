@@ -5,12 +5,12 @@ import math
 from pathlib import Path
 
 if __package__:
-    from .combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, HEAVY_ZOMBIE_HP, ZOMBIE_APPEARANCES, CombatWorld, Zombie
+    from .combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from .core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from .delivery_layouts import REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
     from .zombie_navigation import can_walk_direct
 else:
-    from combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, HEAVY_ZOMBIE_HP, ZOMBIE_APPEARANCES, CombatWorld, Zombie
+    from combat import ATTACK_RANGE, HEAVY_ZOMBIE_APPEARANCE, ZOMBIE_APPEARANCES, CombatWorld, Zombie
     from core import PLAYER_RADIUS, Player, Wall, wall_blocks, wall_entry
     from delivery_layouts import REPAIR_YARD, WAREHOUSE, DeliveryLayout, NeighborhoodWall
     from zombie_navigation import can_walk_direct
@@ -517,7 +517,7 @@ class DeliveryWorld(CombatWorld):
             ))
         if has_bridge:
             self.zombies.append(Zombie(*_PARKING_HEAVY_ZOMBIE_START, aim_angle=math.pi / 2,
-                                       hp=HEAVY_ZOMBIE_HP, appearance=HEAVY_ZOMBIE_APPEARANCE))
+                                       appearance=HEAVY_ZOMBIE_APPEARANCE))
         if layout is not None:
             self.gate_position = layout.gate_position
             self.gate = replace(layout.gate) if layout.gate is not None else None
